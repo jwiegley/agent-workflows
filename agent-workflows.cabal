@@ -1,0 +1,109 @@
+cabal-version:   3.0
+name:            agent-workflows
+version:         0.1.0.0
+synopsis:        John's commands, agents and skills as priced agent-cat programs
+description:
+  This package is a __user of agent-cat__, not part of it. agent-cat is the
+  language — @Agentic.Workflow@'s authoring surface, its Lean kernel, its frozen
+  corpus and its conformance gates — and it is public. This is the toolbox: the
+  commands, agents and skills under @~\/src\/nix\/config\/ai@ rewritten as
+  programs that can be /priced before they are run/.
+  .
+  The library is @Workflows.*@ and it is layered. @Workflows.Prose@ and
+  @Workflows.Prelude@ are the mechanics an author imports.
+  @Workflows.Parties@ says who answers and @Workflows.Evidence@ says with what —
+  every argv in the tree is in that one module, and it is reviewable as a unit.
+  @Workflows.Rubrics.*@ is the corpus's prose, one binding each, every binding
+  naming the file and section it was transcribed from. @Workflows.Panels@,
+  @Workflows.Deciders@, @Workflows.Gates@, @Workflows.Escalation@ and
+  @Workflows.Report@ are the shapes the programs are built out of. The programs
+  themselves are thin over that library, by design: if a flagship is long, the
+  library is wrong.
+  .
+  @Workflows.Registry@ is the index and @wf@ is @Agentic.Cli.cliMain registry@ —
+  two lines, which is the point of the @Agentic.Cli@ extraction. It is a
+  __second__ registry beside agent-cat's examples, because the two are held to
+  two different gates: @ci\/examples.sh@ pins seven numbers by equality, because
+  those numbers are evidence about the language; @ci\/workflows.sh@ pins @level@
+  and @paths@ by equality and holds @costMax@ as a ceiling that only ratchets
+  down, because a lens added to a roster moves every other number and that is a
+  Tuesday, not a regression.
+  .
+  What this tree must never do: never import from agent-cat's @test\/corpus@ or
+  @tier1@ (it cannot — the package cannot see them); never write outside the
+  directory a run was given; and never point a @running@ party at
+  @~\/src\/nix\/config\/ai@, which was read as data and is read-only, absolutely.
+
+build-type:      Simple
+license:         MIT
+author:          John Wiegley
+maintainer:      jwiegley@positron.ai
+
+common settings
+  ghc-options:      -Wall
+  default-language: Haskell2010
+
+  -- Narrowed to what the tree actually uses. The toolbox writes prompts and
+  -- argv lists; it does not parse JSON, walk a filesystem or start a process —
+  -- `agentic` does all of that behind `Agentic.Cli`, and a dependency this
+  -- package does not name is a dependency it cannot quietly grow a use of.
+  build-depends:
+    , agentic
+    , base
+    , text
+
+library
+  import:          settings
+  hs-source-dirs:  src
+  exposed-modules:
+    -- the mechanics, and the one import an author writes
+    Workflows.Prose
+    Workflows.Prelude
+
+    -- who answers, and with what
+    Workflows.Parties
+    Workflows.Evidence
+
+    -- what the prompts say, transplanted from ~/src/nix/config/ai
+    Workflows.Rubrics.Discipline
+    Workflows.Rubrics.Fess
+    Workflows.Rubrics.Finding
+    Workflows.Rubrics.Ladder
+    Workflows.Rubrics.Reviewers
+
+    -- the shapes
+    Workflows.Deciders
+    Workflows.Escalation
+    Workflows.Gates
+    Workflows.Panels
+    Workflows.Report
+
+    -- the programs, and the index
+    Workflows.Audit.Fess
+    Workflows.Fix.Green
+    Workflows.Git.Commit
+    Workflows.Git.Stack
+    Workflows.Hello
+    Workflows.Registry
+    Workflows.Review.Ladder
+
+-- The owner's entry point. Two lines over `Agentic.Cli`, which agent-cat's
+-- `agentic-run` is also two lines over: one CLI, two registries.
+--
+-- `-threaded` for the reason `agentic-run` takes it: a `wf run … --engine acp`
+-- turn's budget is `System.Timeout.timeout` around a request blocked reading the
+-- adapter's pipe, and a read is interruptible by an asynchronous exception only
+-- under the threaded runtime.
+--
+-- Install it rather than aliasing `cabal run`: every `running` party's argv
+-- executes in the process's working directory, so a wrapper that `cd`s into this
+-- package to build would answer `git diff` about the wrong repository.
+--
+--     cabal install exe:wf --installdir=$HOME/.local/bin --overwrite-policy=always
+executable wf
+  import:          settings
+  hs-source-dirs:  bin
+  main-is:         Main.hs
+  build-depends:   agent-workflows
+
+  ghc-options:     -threaded

@@ -44,10 +44,10 @@ module Workflows.Rubrics.Finding
   )
 where
 
-import Agentic.Workflow (wf)
+import Agentic.Workflow (wft)
 import Data.Text (Text)
 import qualified Data.Text as T
-import Workflows.Prose (tshow, wfText)
+import Workflows.Prose (tshow)
 
 -- | @Severity levels: CRITICAL, HIGH, MEDIUM, LOW.@
 --
@@ -95,21 +95,20 @@ findingSchema = findingSchemaWith []
 -- one file there.
 findingSchemaWith :: [Text] -> Text
 findingSchemaWith extras =
-  wfText
-    [wf|
-    If the invoking prompt specifies a findings format, use that. Otherwise,
-    produce each finding in this default structure:
+  [wft|
+  If the invoking prompt specifies a findings format, use that. Otherwise,
+  produce each finding in this default structure:
 
-    ### [SEVERITY] Short title
-    - **File**: path/to/file.ext#L<start>-L<end>
-    - **Category**: {categoryLine}
-    - **Confidence**: <0-100>
-    - **Problem**: <1-2 sentence description>
-    - **Impact**: <why this matters>
-    - **Fix**: <concrete suggestion, ideally with code>
-    {extraLines}
-    Severity levels: {severityLine}. Every finding must include a file path,
-    line range, severity, confidence score, and a concrete fix suggestion.|]
+  ### [SEVERITY] Short title
+  - **File**: path/to/file.ext#L<start>-L<end>
+  - **Category**: {categoryLine}
+  - **Confidence**: <0-100>
+  - **Problem**: <1-2 sentence description>
+  - **Impact**: <why this matters>
+  - **Fix**: <concrete suggestion, ideally with code>
+  {extraLines}
+  Severity levels: {severityLine}. Every finding must include a file path,
+  line range, severity, confidence score, and a concrete fix suggestion.|]
   where
     categoryLine = T.intercalate " | " categories
     severityLine = T.intercalate ", " severities

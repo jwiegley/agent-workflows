@@ -134,3 +134,15 @@ lightly compressed — each is a decision, not just a chore:
   still answers "what would this cost" — but future waves should weight
   toward rows that get typed, and `translate-es` (a unit test wearing a row's
   clothes) is the marker for where to stop.
+
+## From the wft sweep (2026-08-20)
+
+- **The 500 string-gap literals, classified and left.** 457 are prose-runs
+  (at least one gap join encodes a space, not a newline — `Wiggum.hs`'s
+  `notIndependentNote` decodes to one 679-character line, and several run
+  longer); 43 are fence-shaped but are canned stdout in scripted tables
+  (fake `git`/`psql`/diff output), six of which end in a trailing newline no
+  fence can produce. Converting any of them to `[wft|…|]` moves bytes.
+  Bytes win over beauty: convert one only with its bytes compared, never
+  assumed. The convertible idioms (412 `wfText [wf|…|]` compositions, two
+  prefix-concatenations) are all gone.

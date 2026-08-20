@@ -219,12 +219,11 @@ generalAssessor =
 -- than a string a model interprets.
 ledgerBrief :: Text
 ledgerBrief =
-  wfText
-    [wf|
-    This is the pull request's own record, as JSON, straight from the GitHub
-    API. It is the whole universe of comments for this run: a comment that is
-    not in these bytes is not this run's business, and one that arrives while
-    the run is working belongs to the next run.|]
+  [wft|
+  This is the pull request's own record, as JSON, straight from the GitHub
+  API. It is the whole universe of comments for this run: a comment that is
+  not in these bytes is not this run's business, and one that arrives while
+  the run is working belongs to the next run.|]
 
 -- | What the inventory question asks for.
 --
@@ -236,29 +235,28 @@ ledgerBrief =
 -- 'Workflows.Deciders.noOpenComments' is what reads it, for nothing.
 inventoryBrief :: Text
 inventoryBrief =
-  wfText
-    [wf|
-    Build the complete inventory of open review comments on this pull request,
-    as a numbered checklist, from the record below and nothing else.
+  [wft|
+  Build the complete inventory of open review comments on this pull request,
+  as a numbered checklist, from the record below and nothing else.
 
-    For each item: number, author, the file and line where the comment applies,
-    whether it is an inline review thread or a top-level comment, and a one-line
-    statement of what it asks or claims.
+  For each item: number, author, the file and line where the comment applies,
+  whether it is an inline review thread or a top-level comment, and a one-line
+  statement of what it asks or claims.
 
-    Include only comments from HUMAN authors, and exclude every bot or automated
-    reviewer without exception -- an author whose type is Bot, or whose login
-    contains "bot", "[bot]" or "app/". Those are handled by a different run, the
-    `green-ci` workflow, which sweeps them and replies to them; answering one
-    here would be this run posting on a bot's behalf.
+  Include only comments from HUMAN authors, and exclude every bot or automated
+  reviewer without exception -- an author whose type is Bot, or whose login
+  contains "bot", "[bot]" or "app/". Those are handled by a different run, the
+  `green-ci` workflow, which sweeps them and replies to them; answering one
+  here would be this run posting on a bot's behalf.
 
-    Include only comments that are still open: skip anything already resolved,
-    and skip a thread whose last reply already answers it.
+  Include only comments that are still open: skip anything already resolved,
+  and skip a thread whose last reply already answers it.
 
-    If there are no such comments, reply with exactly
+  If there are no such comments, reply with exactly
 
-      NO OPEN COMMENTS
+    NO OPEN COMMENTS
 
-    and nothing else.|]
+  and nothing else.|]
 
 -- | What the diff receipt is introduced as.
 --
@@ -268,11 +266,10 @@ inventoryBrief =
 -- opinion.
 diffBrief :: Text
 diffBrief =
-  wfText
-    [wf|
-    This is the pull request's diff, as `gh pr diff` wrote it. It is what the
-    comments below are about, and it is the evidence for every claim an answer
-    makes about what the code does or now does.|]
+  [wft|
+  This is the pull request's diff, as `gh pr diff` wrote it. It is what the
+  comments below are about, and it is the evidence for every claim an answer
+  makes about what the code does or now does.|]
 
 -- | @commands\/respond.md@, whole.
 --
@@ -283,37 +280,36 @@ diffBrief =
 -- 'Workflows.Deciders.incompleteFanOut'.
 respondBrief :: Text
 respondBrief =
-  wfText
-    [wf|
-    For every item in the inventory below, write the answer you would give that
-    comment's author -- explaining the fix, or the clarification, or the reason
-    the comment does not apply. You are not posting anything: this is a report
-    the author of the pull request reads before deciding what to say.
+  [wft|
+  For every item in the inventory below, write the answer you would give that
+  comment's author -- explaining the fix, or the clarification, or the reason
+  the comment does not apply. You are not posting anything: this is a report
+  the author of the pull request reads before deciding what to say.
 
-    One section per inventory item, in the inventory's own order and numbering.
-    Each section:
+  One section per inventory item, in the inventory's own order and numbering.
+  Each section:
 
-    - names the author, the file and the line;
-    - quotes the comment in one line;
-    - gives the answer, in the second person, as it would be said to that
-      person: what was changed and where, or what was already true and where to
-      look, or what is not going to change and why;
-    - names the evidence in the diff -- a file and a hunk -- for every claim
-      about the code. An answer that cannot point at the diff says so in the
-      same breath.
+  - names the author, the file and the line;
+  - quotes the comment in one line;
+  - gives the answer, in the second person, as it would be said to that
+    person: what was changed and where, or what was already true and where to
+    look, or what is not going to change and why;
+  - names the evidence in the diff -- a file and a hunk -- for every claim
+    about the code. An answer that cannot point at the diff says so in the
+    same breath.
 
-    Answer every item. If you cannot -- an item's thread is unreadable, or the
-    diff does not carry what it is about -- reply with exactly
+  Answer every item. If you cannot -- an item's thread is unreadable, or the
+  diff does not carry what it is about -- reply with exactly
 
-      INCOMPLETE: <the item numbers you could not answer>
+    INCOMPLETE: <the item numbers you could not answer>
 
-    on its own line, followed by the sections you could write. Do not
-    silently drop an item: a report that answers four of five comments and says
-    so is useful, and one that answers four and does not is worse than none.
+  on its own line, followed by the sections you could write. Do not
+  silently drop an item: a report that answers four of five comments and says
+  so is useful, and one that answers four and does not is worse than none.
 
-    Assume competence on both sides. A comment is a colleague's reading of the
-    code, and where it is mistaken the answer says what the code does, not what
-    the reader missed.|]
+  Assume competence on both sides. A comment is a colleague's reading of the
+  code, and where it is mistaken the answer says what the code does, not what
+  the reader missed.|]
 
 -- | What each specialist seat is asked, by language.
 --
@@ -324,24 +320,23 @@ respondBrief =
 -- tell them apart.
 assessBrief :: Text -> Text
 assessBrief lang =
-  wfText
-    [wf|
-    You are the {lang} specialist on this pull request, and the comments below
-    are your subject.
+  [wft|
+  You are the {lang} specialist on this pull request, and the comments below
+  are your subject.
 
-    For each comment that touches your language, research what it is really
-    saying and what follows from it: whether the claim holds against this code,
-    what it implies for the rest of the change, and what a correct response
-    would have to do. Read the implications past the comment -- a reviewer who
-    objects to one call site is often objecting to the invariant behind it, and
-    that is the finding worth having.
+  For each comment that touches your language, research what it is really
+  saying and what follows from it: whether the claim holds against this code,
+  what it implies for the rest of the change, and what a correct response
+  would have to do. Read the implications past the comment -- a reviewer who
+  objects to one call site is often objecting to the invariant behind it, and
+  that is the finding worth having.
 
-    Say plainly which comments are outside your language and leave them to the
-    seat that owns them.
+  Say plainly which comments are outside your language and leave them to the
+  seat that owns them.
 
-    Report what you found and nothing else: no answer to the reviewer, no code,
-    no plan. This block is one specialist's reading, and the approach is
-    somebody else's job.|]
+  Report what you found and nothing else: no answer to the reviewer, no code,
+  no plan. This block is one specialist's reading, and the approach is
+  somebody else's job.|]
 
 -- | The fold @assess.md@ asks for.
 --
@@ -350,28 +345,26 @@ assessBrief lang =
 -- fold accounts for every seat before it is allowed to recommend anything.
 approachBrief :: Roster -> Text
 approachBrief r =
-  wfText
-    [wf|
-    {refusing}
+  [wft|
+  {refusing}
 
-    Then, and only then, say how a response would be formulated: for each
-    comment, what the answer would have to establish, what would have to be
-    checked or changed first, and which comments can be answered together
-    because they are one objection said twice.
+  Then, and only then, say how a response would be formulated: for each
+  comment, what the answer would have to establish, what would have to be
+  checked or changed first, and which comments can be answered together
+  because they are one objection said twice.
 
-    Separate what the specialists verified from what they inferred. End with the
-    order in which the comments should be taken, cheapest decision first.|]
+  Separate what the specialists verified from what they inferred. End with the
+  order in which the comments should be taken, cheapest decision first.|]
   where
     refusing = refusingSynthesis r
 
 -- | What each specialist block is told about the shape of its answer.
 assessClosing :: Text
 assessClosing =
-  wfText
-    [wf|
-    Report your reading and nothing else. Your answer is one block of a document
-    whose other blocks are the other specialists', each fenced under its own
-    name: do not write theirs, and do not summarise the whole.|]
+  [wft|
+  Report your reading and nothing else. Your answer is one block of a document
+  whose other blocks are the other specialists', each fenced under its own
+  name: do not write theirs, and do not summarise the whole.|]
 
 -- | The brief the report act is given.
 --
@@ -380,18 +373,17 @@ assessClosing =
 -- against two pull requests do not overwrite one artefact.
 threadsWriteBrief :: Text
 threadsWriteBrief =
-  wfText
-    [wf|
-    Write the report to `pr-<number>-responses.md` in the current directory,
-    with the pull request number you were given in place of <number>.
+  [wft|
+  Write the report to `pr-<number>-responses.md` in the current directory,
+  with the pull request number you were given in place of <number>.
 
-    In this order, and change nothing on the way: the provenance line you were
-    given, verbatim, first; then the document below, block for block, under its
-    own headings.
+  In this order, and change nothing on the way: the provenance line you were
+  given, verbatim, first; then the document below, block for block, under its
+  own headings.
 
-    You are transcribing, not editing. Do not answer a comment the document does
-    not answer, do not soften an answer, and do not add a closing paragraph of
-    your own. Then reply DONE.|]
+  You are transcribing, not editing. Do not answer a comment the document does
+  not answer, do not soften an answer, and do not add a closing paragraph of
+  your own. Then reply DONE.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines

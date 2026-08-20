@@ -139,28 +139,27 @@ import Prelude
 -- the addressee is 'Workflows.Panels.lensParty'.
 factOnly :: Text
 factOnly =
-  wfText
-    [wf|
-    FACT-ONLY. Base every statement on explicit content from the notes you were
-    given. Do not infer, assume or extrapolate what is missing; do not fill a
-    gap with a reasonable guess or with what the field usually does; do not
-    reach for context outside the notes. If something is not stated in the
-    notes, it does not exist for this analysis.
+  [wft|
+  FACT-ONLY. Base every statement on explicit content from the notes you were
+  given. Do not infer, assume or extrapolate what is missing; do not fill a
+  gap with a reasonable guess or with what the field usually does; do not
+  reach for context outside the notes. If something is not stated in the
+  notes, it does not exist for this analysis.
 
-    Where the notes are unclear, say so in the form "the notes indicate X, but
-    details about Y were not recorded". You may offer a reading -- "in context
-    this likely refers to X, confirmation needed" -- but never present it as a
-    fact.
+  Where the notes are unclear, say so in the form "the notes indicate X, but
+  details about Y were not recorded". You may offer a reading -- "in context
+  this likely refers to X, confirmation needed" -- but never present it as a
+  fact.
 
-    Specifically do not: infer a participant's expertise, seniority or
-    relationships; assume project background, industry context or
-    organisational structure; create a deadline or a priority that was not
-    stated; expand an abbreviation the notes do not define; add a best-practice
-    recommendation nobody asked for; or treat a brainstormed idea as a committed
-    plan.
+  Specifically do not: infer a participant's expertise, seniority or
+  relationships; assume project background, industry context or
+  organisational structure; create a deadline or a priority that was not
+  stated; expand an abbreviation the notes do not define; add a best-practice
+  recommendation nobody asked for; or treat a brainstormed idea as a committed
+  plan.
 
-    If a field or a section has nothing in the notes, write "Not specified." and
-    move on. An empty section is an answer; an invented one is a defect.|]
+  If a field or a section has nothing in the notes, write "Not specified." and
+  move on. An empty section is an answer; an invented one is a defect.|]
 
 -- ---------------------------------------------------------------------------
 -- The ten sections
@@ -363,25 +362,23 @@ checkpointRoster =
 -- what every question below reads is bytes and is the same bytes.
 rawBrief :: Text
 rawBrief =
-  wfText
-    [wf|
-    The raw meeting notes this run was given, exactly as they stand in the file
-    the operator named. They are the whole universe of information for this
-    analysis: nothing that is not here is a fact about this meeting.|]
+  [wft|
+  The raw meeting notes this run was given, exactly as they stand in the file
+  the operator named. They are the whole universe of information for this
+  analysis: nothing that is not here is a fact about this meeting.|]
 
 -- | What each section is told about the shape of its answer.
 sectionClosing :: Text
 sectionClosing =
-  wfText
-    [wf|
-    Write your section and nothing else. Your answer is one block of a report
-    whose other blocks are the other sections', each fenced under its own name:
-    do not write theirs, do not summarise the report, and do not add a heading
-    of your own above your content -- the fold supplies your name.
+  [wft|
+  Write your section and nothing else. Your answer is one block of a report
+  whose other blocks are the other sections', each fenced under its own name:
+  do not write theirs, do not summarise the report, and do not add a heading
+  of your own above your content -- the fold supplies your name.
 
-    Use `##` for any sub-heading you need, bullets or `[ ]` checkboxes for
-    lists, bold for names, dates and decisions, and keep paragraphs to four
-    sentences. Dense with information, light on filler.|]
+  Use `##` for any sub-heading you need, bullets or `[ ]` checkboxes for
+  lists, bold for names, dates and decisions, and keep paragraphs to four
+  sentences. Dense with information, light on filler.|]
 
 -- ---------------------------------------------------------------------------
 -- The three provenance lines
@@ -429,19 +426,18 @@ auditSilentNote =
 -- written to a Markdown file\" plus its @**Response Formatting Standards**@.
 notesWriteBrief :: Text
 notesWriteBrief =
-  wfText
-    [wf|
-    Write the meeting report to `meeting-notes-<date>.md` in the current
-    directory.
+  [wft|
+  Write the meeting report to `meeting-notes-<date>.md` in the current
+  directory.
 
-    In this order: the provenance line you were given, verbatim, first; then
-    each section's block, verbatim, under its own name as a `##` heading, in the
-    order they are given to you.
+  In this order: the provenance line you were given, verbatim, first; then
+  each section's block, verbatim, under its own name as a `##` heading, in the
+  order they are given to you.
 
-    You are transcribing, not analysing. Do not merge two sections, do not
-    reorder them, do not drop one because it says "Not specified.", and do not
-    add a section of your own. If the provenance line tells you to open with
-    something, that is the one thing you add. Then reply DONE.|]
+  You are transcribing, not analysing. Do not merge two sections, do not
+  reorder them, do not drop one because it says "Not specified.", and do not
+  add a section of your own. If the provenance line tells you to open with
+  something, that is the one thing you add. Then reply DONE.|]
 
 -- ---------------------------------------------------------------------------
 -- The artefact every ending writes through

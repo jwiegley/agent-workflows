@@ -403,26 +403,25 @@ rungPublish Cleanup = gtRestack
 -- that is a /judgment/ — what a good resolution preserves.
 resolveRule :: Text
 resolveRule =
-  wfText
-    [wf|
-    Resolve the merge conflicts described below in a way that preserves the
-    semantics of the incoming changes, while maintaining the intent of the work
-    they are being applied onto.
+  [wft|
+  Resolve the merge conflicts described below in a way that preserves the
+  semantics of the incoming changes, while maintaining the intent of the work
+  they are being applied onto.
 
-    For each conflict: identify which commit is being applied onto which branch,
-    and read the three-way diff3 -- HEAD, the parent of the commit being applied,
-    and the incoming commit -- rather than the two-way conflict block alone. The
-    two-way block cannot distinguish "they changed it" from "we changed it back".
+  For each conflict: identify which commit is being applied onto which branch,
+  and read the three-way diff3 -- HEAD, the parent of the commit being applied,
+  and the incoming commit -- rather than the two-way conflict block alone. The
+  two-way block cannot distinguish "they changed it" from "we changed it back".
 
-    When each side added something orthogonal -- a parameter, a field, a clause,
-    an import, a case arm -- combine both sides rather than picking one. Picking
-    one is the failure mode that survives every test and loses a feature.
+  When each side added something orthogonal -- a parameter, a field, a clause,
+  an import, a case arm -- combine both sides rather than picking one. Picking
+  one is the failure mode that survives every test and loses a feature.
 
-    Answer with the resolution doctrine for this run and nothing else: for each
-    conflict you are shown, the file, what each side was doing, and the resolved
-    text. Where you are shown no conflict yet, answer with how you will resolve
-    the ones this stack is likely to produce, given the branches and the work in
-    them.|]
+  Answer with the resolution doctrine for this run and nothing else: for each
+  conflict you are shown, the file, what each side was doing, and the resolved
+  text. Where you are shown no conflict yet, answer with how you will resolve
+  the ones this stack is likely to produce, given the branches and the work in
+  them.|]
 
 -- | The standing constraint on how the resolution reaches the tree.
 --
@@ -432,12 +431,11 @@ resolveRule =
 -- it is not the thing advancing the rebase writes a different answer.
 stagingRule :: Text
 stagingRule =
-  wfText
-    [wf|
-    The resolved files are marked resolved with `git add` and nothing more. Do
-    not commit. Do not run `git rebase --continue`, `gt continue` or any other
-    command that advances the operation: something else in this run does that,
-    and its exit code is what decides whether your resolution worked.|]
+  [wft|
+  The resolved files are marked resolved with `git add` and nothing more. Do
+  not commit. Do not run `git rebase --continue`, `gt continue` or any other
+  command that advances the operation: something else in this run does that,
+  and its exit code is what decides whether your resolution worked.|]
 
 -- | What the fixpoint's fixer is told, beside the failing line.
 --
@@ -447,36 +445,33 @@ stagingRule =
 -- and the candidate below it.
 rungRepair :: StackRung -> Text
 rungRepair Cleanup =
-  wfText
-    [wf|
-    The repository's pre-commit hook suite was run over every file and objected.
-    Its own first failing line is below.
+  [wft|
+  The repository's pre-commit hook suite was run over every file and objected.
+  Its own first failing line is below.
 
-    Fix the cause it names, for every branch in the stack. Where the fix is a
-    formatting run, amend the result into that branch's own commit rather than
-    adding a commit on top -- a stack whose formatting lives in a follow-up
-    commit is a stack whose every commit fails the hook on its own. Remove any
-    empty commit you find while you are there.
+  Fix the cause it names, for every branch in the stack. Where the fix is a
+  formatting run, amend the result into that branch's own commit rather than
+  adding a commit on top -- a stack whose formatting lives in a follow-up
+  commit is a stack whose every commit fails the hook on its own. Remove any
+  empty commit you find while you are there.
 
-    Do not disable a hook, do not add a file to an ignore list, and do not pass
-    a skip flag. Answer with the corrected state of the stack and nothing else.|]
+  Do not disable a hook, do not add a file to an ignore list, and do not pass
+  a skip flag. Answer with the corrected state of the stack and nothing else.|]
 rungRepair Restack =
-  wfText
-    [wf|
-    {advancing}
+  [wft|
+  {advancing}
 
-    {rerere}|]
+  {rerere}|]
   where
     advancing = advancingObjected
     rerere = rerereNote
 rungRepair _ =
-  wfText
-    [wf|
-    {advancing}
+  [wft|
+  {advancing}
 
-    {descendants}
+  {descendants}
 
-    {rerere}|]
+  {rerere}|]
   where
     advancing = advancingObjected
     descendants = descendantRule
@@ -490,20 +485,19 @@ rungRepair _ =
 -- candidate below it.
 advancingObjected :: Text
 advancingObjected =
-  wfText
-    [wf|
-    The command that advances this rewrite objected, and its own first failing
-    line is below. Almost always that is a conflict.
+  [wft|
+  The command that advances this rewrite objected, and its own first failing
+  line is below. Almost always that is a conflict.
 
-    Resolve it the way the doctrine below directs, mark the resolved files with
-    `git add`, and answer with the doctrine updated to record what you just did:
-    the branch, the commit being applied, the files, how each conflict was
-    resolved, and what you checked afterwards. That running record is what the
-    final report is written from, so a conflict resolved and not written down is
-    a conflict the report cannot account for.
+  Resolve it the way the doctrine below directs, mark the resolved files with
+  `git add`, and answer with the doctrine updated to record what you just did:
+  the branch, the commit being applied, the files, how each conflict was
+  resolved, and what you checked afterwards. That running record is what the
+  final report is written from, so a conflict resolved and not written down is
+  a conflict the report cannot account for.
 
-    Do not weaken the change to make it apply. A conflict resolved by deleting
-    the incoming side is the loss this run exists to prevent.|]
+  Do not weaken the change to make it apply. A conflict resolved by deleting
+  the incoming side is the loss this run exists to prevent.|]
 
 -- | /Source:/ @commands\/restack.md@ step 7's parenthesis.
 rerereNote :: Text
@@ -516,13 +510,12 @@ rerereNote =
 -- three shared bullets.
 descendantRule :: Text
 descendantRule =
-  wfText
-    [wf|
-    If there are branches between this one and the trunk, rewrite all of them
-    back to the trunk, and make the rewritten commits the new head of their
-    respective branches, so that the branch-to-commit relationship survives the
-    rewrite. A descendant left pointing at a pre-rewrite commit is a pull request
-    that silently stops describing its branch.|]
+  [wft|
+  If there are branches between this one and the trunk, rewrite all of them
+  back to the trunk, and make the rewritten commits the new head of their
+  respective branches, so that the branch-to-commit relationship survives the
+  rewrite. A descendant left pointing at a pre-rewrite commit is a pull request
+  that silently stops describing its branch.|]
 
 -- | What the @gt ls@ receipt is introduced as.
 --
@@ -560,24 +553,22 @@ syncBrief =
 -- /Source:/ @commands\/restack.md@ step 9, which names this command.
 proofBrief :: Text
 proofBrief =
-  wfText
-    [wf|
-    `git range-diff` between this branch's recorded pre-run tip and its new tip:
-    commit by commit, what the rewrite did. A row marked `=` is unchanged, `!` is
-    changed, and a row with a `-:` on either side is a commit that exists on only
-    one side.
+  [wft|
+  `git range-diff` between this branch's recorded pre-run tip and its new tip:
+  commit by commit, what the rewrite did. A row marked `=` is unchanged, `!` is
+  changed, and a row with a `-:` on either side is a commit that exists on only
+  one side.
 
-    The baseline this is measured against, captured before anything was touched:|]
+  The baseline this is measured against, captured before anything was touched:|]
 
 -- | What the @git cherry@ receipt is introduced as.
 cherryBrief :: Text
 cherryBrief =
-  wfText
-    [wf|
-    `git cherry` over the pre-run tip against the new head: one line per commit
-    that was in this branch before the rewrite. A line beginning `-` is a commit
-    whose patch survives in the new head; a line beginning `+` is a commit with
-    no equivalent in the new head, which is a commit that was lost.|]
+  [wft|
+  `git cherry` over the pre-run tip against the new head: one line per commit
+  that was in this branch before the rewrite. A line beginning `-` is a commit
+  whose patch survives in the new head; a line beginning `+` is a commit with
+  no equivalent in the new head, which is a commit that was lost.|]
 
 -- | What the closing publish act is told, by rung.
 publishBrief :: StackRung -> Text
@@ -602,18 +593,17 @@ publishBrief _ =
 -- sweep has no way in.
 inventoryBrief :: Text
 inventoryBrief =
-  wfText
-    [wf|
-    This is the pull request's own record, as JSON, straight from the GitHub API,
-    read after the rewritten branch was pushed. Build the complete inventory of
-    unresolved automated-review items in it, as a numbered checklist: number,
-    author, category, file and line where applicable, and a one-line summary.
+  [wft|
+  This is the pull request's own record, as JSON, straight from the GitHub API,
+  read after the rewritten branch was pushed. Build the complete inventory of
+  unresolved automated-review items in it, as a numbered checklist: number,
+  author, category, file and line where applicable, and a one-line summary.
 
-    If there are zero such items, reply with exactly
+  If there are zero such items, reply with exactly
 
-      No unresolved bot comments found
+    No unresolved bot comments found
 
-    and nothing else.|]
+  and nothing else.|]
 
 -- | The exclusion policy, as an argument rather than a quoted paragraph.
 --
@@ -634,21 +624,20 @@ botExclusions =
 -- report specification and is carried close to verbatim.
 stackReportBrief :: Text
 stackReportBrief =
-  wfText
-    [wf|
-    Write the complete summary of this run.
+  [wft|
+  Write the complete summary of this run.
 
-    1. Provenance -- the line you were given, verbatim, first and unedited.
-    2. Every conflict encountered: branch, commit, files.
-    3. How each was resolved, and how the resolution was verified.
-    4. The evidence that no meaningful change was lost or broken: quote the rows
-       of the range-diff that are not `=`, and say for each why the adjustment
-       was expected. Do not summarise the range-diff as "as expected".
-    5. What is left: anything a person still has to do.
+  1. Provenance -- the line you were given, verbatim, first and unedited.
+  2. Every conflict encountered: branch, commit, files.
+  3. How each was resolved, and how the resolution was verified.
+  4. The evidence that no meaningful change was lost or broken: quote the rows
+     of the range-diff that are not `=`, and say for each why the adjustment
+     was expected. Do not summarise the range-diff as "as expected".
+  5. What is left: anything a person still has to do.
 
-    Keep raw command output out of the report except where a short excerpt is the
-    evidence. If nothing went wrong, keep the report short rather than inflating
-    it.|]
+  Keep raw command output out of the report except where a short excerpt is the
+  evidence. If nothing went wrong, keep the report short rather than inflating
+  it.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines the two arms differ in
@@ -808,12 +797,11 @@ stackReportFn =
 -- receipt.
 noProof :: Text
 noProof =
-  wfText
-    [wf|
-    None. This run did not reach the point where the rewrite could be measured,
-    so no `git range-diff` and no `git cherry` were produced. Section 4 of the
-    report says exactly that. Do not infer from the record above that nothing was
-    lost: nothing checked.|]
+  [wft|
+  None. This run did not reach the point where the rewrite could be measured,
+  so no `git range-diff` and no `git cherry` were produced. Section 4 of the
+  report says exactly that. Do not infer from the record above that nothing was
+  lost: nothing checked.|]
 
 -- | The table 'stackProgram' hands @'Agentic.Workflow.defining'@.
 --

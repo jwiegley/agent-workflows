@@ -211,27 +211,26 @@ rungCheck Flaky _ = makeTest
 -- they are the argv of this question rather than instructions inside it.
 inventoryBrief :: Text
 inventoryBrief =
-  wfText
-    [wf|
-    This is the pull request's own record, as JSON, straight from the GitHub
-    API. Build the complete inventory of unresolved automated-review items in
-    it, as a numbered checklist, before any code changes.
+  [wft|
+  This is the pull request's own record, as JSON, straight from the GitHub
+  API. Build the complete inventory of unresolved automated-review items in
+  it, as a numbered checklist, before any code changes.
 
-    For each item: number, author, category (an inline review thread with a
-    resolvable thread id, or a top-level PR comment), file and line where
-    applicable, and a one-line summary of the issue raised.
+  For each item: number, author, category (an inline review thread with a
+  resolvable thread id, or a top-level PR comment), file and line where
+  applicable, and a one-line summary of the issue raised.
 
-    Filter to unresolved items from bot or automated authors only. An author is
-    a bot if its __typename is "Bot" -- which catches cursor, graphite-app,
-    github-actions and the rest regardless of how the login is spelled. As a
-    fallback for a response missing __typename, also match a login containing
-    "bot", "[bot]" or "app/". Exclude every human author.
+  Filter to unresolved items from bot or automated authors only. An author is
+  a bot if its __typename is "Bot" -- which catches cursor, graphite-app,
+  github-actions and the rest regardless of how the login is spelled. As a
+  fallback for a response missing __typename, also match a login containing
+  "bot", "[bot]" or "app/". Exclude every human author.
 
-    If there are zero such items, reply with exactly
+  If there are zero such items, reply with exactly
 
-      No unresolved bot comments found
+    No unresolved bot comments found
 
-    and nothing else.|]
+  and nothing else.|]
 
 -- | The five-phase protocol, as one text.
 --
@@ -244,50 +243,49 @@ inventoryBrief =
 -- text asks a model to remember doing.
 botProtocol :: Text
 botProtocol =
-  wfText
-    [wf|
-    Work the inventory below through the remaining phases, in order. Do not skip
-    or reorder them.
+  [wft|
+  Work the inventory below through the remaining phases, in order. Do not skip
+  or reorder them.
 
-    FIX. For each item: read the comment carefully and understand the exact
-    issue it raises; read the relevant source; make the change that addresses
-    it. If the comment is purely informational or a false positive requiring no
-    code change, note that explicitly -- you still must reply to it and resolve
-    it. Commit fixes with clear messages referencing what was addressed.
+  FIX. For each item: read the comment carefully and understand the exact
+  issue it raises; read the relevant source; make the change that addresses
+  it. If the comment is purely informational or a false positive requiring no
+  code change, note that explicitly -- you still must reply to it and resolve
+  it. Commit fixes with clear messages referencing what was addressed.
 
-    PUSH. Push all commits to the remote branch. If the push fails due to remote
-    changes, pull with rebase first, then push again.
+  PUSH. Push all commits to the remote branch. If the push fails due to remote
+  changes, pull with rebase first, then push again.
 
-    REPLY AND RESOLVE. After pushing, process every item from the inventory.
-    For a review thread, reply explaining what you fixed -- one or two sentences
-    -- or why no change was needed, then resolve the thread:
+  REPLY AND RESOLVE. After pushing, process every item from the inventory.
+  For a review thread, reply explaining what you fixed -- one or two sentences
+  -- or why no change was needed, then resolve the thread:
 
-      gh api graphql -f query='
-        mutation($threadId: ID!, $body: String!) {{
-          addPullRequestReviewThreadReply(input: {{pullRequestReviewThreadId: $threadId, body: $body}) {{
-            comment {{ id }
-          }
-        }' -f threadId='THREAD_NODE_ID' -f body='Fixed: <brief explanation>'
+    gh api graphql -f query='
+      mutation($threadId: ID!, $body: String!) {{
+        addPullRequestReviewThreadReply(input: {{pullRequestReviewThreadId: $threadId, body: $body}) {{
+          comment {{ id }
+        }
+      }' -f threadId='THREAD_NODE_ID' -f body='Fixed: <brief explanation>'
 
-      gh api graphql -f query='
-        mutation($threadId: ID!) {{
-          resolveReviewThread(input: {{threadId: $threadId}) {{
-            thread {{ isResolved }
-          }
-        }' -f threadId='THREAD_NODE_ID'
+    gh api graphql -f query='
+      mutation($threadId: ID!) {{
+        resolveReviewThread(input: {{threadId: $threadId}) {{
+          thread {{ isResolved }
+        }
+      }' -f threadId='THREAD_NODE_ID'
 
-    Confirm the response shows isResolved true; if not, retry once. For a
-    top-level comment, reply on the issue and then minimize the original with
-    classifier RESOLVED.
+  Confirm the response shows isResolved true; if not, retry once. For a
+  top-level comment, reply on the issue and then minimize the original with
+  classifier RESOLVED.
 
-    VERIFY. Re-fetch every review thread and confirm that each inventory item is
-    now resolved or minimized. Retry the reply-and-resolve step for any that are
-    not. Report completion only when every item from the original inventory has
-    been verified, with the final tally in the form "N/N bot comments resolved."
+  VERIFY. Re-fetch every review thread and confirm that each inventory item is
+  now resolved or minimized. Retry the reply-and-resolve step for any that are
+  not. Report completion only when every item from the original inventory has
+  been verified, with the final tally in the form "N/N bot comments resolved."
 
-    The verification checks only items from the original inventory. If new bot
-    comments appeared while you were working, ignore them: they belong to the
-    next run.|]
+  The verification checks only items from the original inventory. If new bot
+  comments appeared while you were working, ignore them: they belong to the
+  next run.|]
 
 -- | The one line the corpus repeats and never enforces.
 --
@@ -307,11 +305,10 @@ humansExcluded =
 -- which is a receipt and not a description of one.
 treeBrief :: Text
 treeBrief =
-  wfText
-    [wf|
-    This is the working tree, as `git status --porcelain` wrote it. It is the
-    starting point of a repair loop whose gate is a real command: state what is
-    here, and do not characterise anything you cannot see in these bytes.|]
+  [wft|
+  This is the working tree, as `git status --porcelain` wrote it. It is the
+  starting point of a repair loop whose gate is a real command: state what is
+  here, and do not characterise anything you cannot see in these bytes.|]
 
 -- | What each drawn run of the check is asked.
 --
@@ -320,10 +317,9 @@ treeBrief =
 -- become robust and true signals of correctness.
 drawBrief :: Text
 drawBrief =
-  wfText
-    [wf|
-    One independent run of the test suite. This is a draw: the same command, run
-    again, with no memory of the previous run.|]
+  [wft|
+  One independent run of the test suite. This is a draw: the same command, run
+  again, with no memory of the previous run.|]
 
 -- | The triage brief for the flaky rung.
 --
@@ -332,24 +328,23 @@ drawBrief =
 -- reads the runs' own failing lines rather than a summary of them.
 flakyTriageBrief :: Text
 flakyTriageBrief =
-  wfText
-    [wf|
-    Three independent runs of the same test suite were made. Their verdicts
-    follow: an approval is an exit 0, and an objection carries that run's own
-    first failing line.
+  [wft|
+  Three independent runs of the same test suite were made. Their verdicts
+  follow: an approval is an exit 0, and an objection carries that run's own
+  first failing line.
 
-    Diagnose these tests so that they become robust and true signals of
-    correctness and project health. Separate, explicitly:
+  Diagnose these tests so that they become robust and true signals of
+  correctness and project health. Separate, explicitly:
 
-    - tests that failed in every run -- these are broken, and the code or the
-      test is wrong;
-    - tests that failed in some runs and not others -- these are flaky, and the
-      defect is in the test's dependence on time, ordering, shared state, the
-      filesystem, the network or an unseeded random source;
-    - tests that never failed.
+  - tests that failed in every run -- these are broken, and the code or the
+    test is wrong;
+  - tests that failed in some runs and not others -- these are flaky, and the
+    defect is in the test's dependence on time, ordering, shared state, the
+    filesystem, the network or an unseeded random source;
+  - tests that never failed.
 
-    Never make a test pass by weakening it. A flaky test made quiet is a signal
-    deleted.|]
+  Never make a test pass by weakening it. A flaky test made quiet is a signal
+  deleted.|]
 
 -- | What the fourth draw is asked, as a flag.
 --
@@ -358,10 +353,9 @@ flakyTriageBrief =
 -- not about the run that went green.
 steadyBrief :: Text
 steadyBrief =
-  wfText
-    [wf|
-    One more independent run of the same test suite, after the repairs. This one
-    is asked as a yes-or-no: did it exit clean?|]
+  [wft|
+  One more independent run of the same test suite, after the repairs. This one
+  is asked as a yes-or-no: did it exit clean?|]
 
 -- | What a repairing model is told, beside the failing line.
 --
@@ -375,13 +369,12 @@ steadyBrief =
 -- paragraph.
 greenRepair :: Text
 greenRepair =
-  wfText
-    [wf|
-    {trip}
+  [wft|
+  {trip}
 
-    {noDeferral}
+  {noDeferral}
 
-    {upstream}|]
+  {upstream}|]
   where
     trip = repairBrief
     noDeferral = fixAllRule

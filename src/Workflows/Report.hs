@@ -60,12 +60,12 @@ import Agentic.Workflow
     noParams,
     takes,
     wf,
+    wft,
   )
 import qualified Agentic.Workflow.Do as W
 import Data.String (fromString)
 import qualified Data.Text as DT
 import Workflows.Parties (reporter)
-import Workflows.Prose (wfText)
 import Workflows.Rubrics.Finding (categories, severities)
 import Prelude
 
@@ -86,51 +86,50 @@ import Prelude
 -- orchestration, and are the part worth keeping.
 reportBrief :: DT.Text
 reportBrief =
-  wfText
-    [wf|
-    Write the consolidated review report. You are given one document whose
-    blocks are the reviewers' answers, each fenced under its own name, and a
-    provenance line that says how the review was run.
+  [wft|
+  Write the consolidated review report. You are given one document whose
+  blocks are the reviewers' answers, each fenced under its own name, and a
+  provenance line that says how the review was run.
 
-    Fold it in this order, and do not reorder these:
+  Fold it in this order, and do not reorder these:
 
-    1. Deduplicate -- remove findings that several reviewers flagged
-       identically. A finding two reviewers reached independently is one
-       finding; say that two reached it.
-    2. Filter -- drop findings below the confidence floor you were given, and
-       say at the end how many were dropped and what the closest one was.
-    3. Sort -- by severity ({severityLine}), then by file path.
-    4. Group -- present the findings under one heading per severity.
+  1. Deduplicate -- remove findings that several reviewers flagged
+     identically. A finding two reviewers reached independently is one
+     finding; say that two reached it.
+  2. Filter -- drop findings below the confidence floor you were given, and
+     say at the end how many were dropped and what the closest one was.
+  3. Sort -- by severity ({severityLine}), then by file path.
+  4. Group -- present the findings under one heading per severity.
 
-    The report:
+  The report:
 
-    # Code Review Report
+  # Code Review Report
 
-    **Scope**: <what was reviewed>
-    **Provenance**: <the provenance line you were given, verbatim>
-    **Reviewers**: <every block name in the document, and for each, findings or "clean">
+  **Scope**: <what was reviewed>
+  **Provenance**: <the provenance line you were given, verbatim>
+  **Reviewers**: <every block name in the document, and for each, findings or "clean">
 
-    ## Summary
-    <one line per severity, with a count>
+  ## Summary
+  <one line per severity, with a count>
 
-    <one section per severity, in order, with the findings>
+  <one section per severity, in order, with the findings>
 
-    ## Review Notes
-    <meta-observations about quality, architecture or patterns>
+  ## Review Notes
+  <meta-observations about quality, architecture or patterns>
 
-    Categories are exactly: {categoryLine}.
+  Categories are exactly: {categoryLine}.
 
-    Guidelines, which are about judgment and not about format:
+  Guidelines, which are about judgment and not about format:
 
-    - Never invent findings. If the code looks correct, say so. False positives
-      erode trust faster than missed bugs.
-    - Be specific. Every finding references a concrete file and line range.
-    - Provide fixes. A finding without a suggested fix is only half useful.
-    - Frame findings as observations, not accusations. Assume competence.
-    - Note uncertainty explicitly, and say what would settle it.
+  - Never invent findings. If the code looks correct, say so. False positives
+    erode trust faster than missed bugs.
+  - Be specific. Every finding references a concrete file and line range.
+  - Provide fixes. A finding without a suggested fix is only half useful.
+  - Frame findings as observations, not accusations. Assume competence.
+  - Note uncertainty explicitly, and say what would settle it.
 
-    A reviewer whose block is missing or empty is named in the Reviewers line as
-    missing. Do not silently produce a report from a partial fan-out.|]
+  A reviewer whose block is missing or empty is named in the Reviewers line as
+  missing. Do not silently produce a report from a partial fan-out.|]
   where
     severityLine = DT.intercalate " -> " severities
     categoryLine = DT.intercalate " | " categories
@@ -142,23 +141,22 @@ reportBrief =
 -- becomes a function rather than a command: any rung can end in it.
 suggestionsBrief :: DT.Text
 suggestionsBrief =
-  wfText
-    [wf|
-    Write the findings below to a GitHub-flavored Markdown document, using
-    GitHub's suggestion blocks, so that each one can be pasted directly into a
-    review comment.
+  [wft|
+  Write the findings below to a GitHub-flavored Markdown document, using
+  GitHub's suggestion blocks, so that each one can be pasted directly into a
+  review comment.
 
-    One section per finding, in the order given. Each section is:
+  One section per finding, in the order given. Each section is:
 
-    - a heading line naming the file and the line range;
-    - one sentence of what is wrong;
-    - a fenced block opened with ```suggestion containing the replacement lines
-      and nothing else.
+  - a heading line naming the file and the line range;
+  - one sentence of what is wrong;
+  - a fenced block opened with ```suggestion containing the replacement lines
+    and nothing else.
 
-    A finding whose fix is not a literal replacement of specific lines gets no
-    suggestion block: write the sentence and say plainly that the fix is not
-    mechanical. A suggestion block that does not apply cleanly is worse than no
-    block, because it is pasted before it is read.|]
+  A finding whose fix is not a literal replacement of specific lines gets no
+  suggestion block: write the sentence and say plainly that the fix is not
+  mechanical. A suggestion block that does not apply cleanly is worse than no
+  block, because it is pasted before it is read.|]
 
 -- ---------------------------------------------------------------------------
 -- The functions

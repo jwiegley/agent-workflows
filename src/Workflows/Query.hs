@@ -243,11 +243,10 @@ dialectOf d
 -- @'Workflows.Git.Commit.seriesBrief'@'s reason.
 schemaBrief :: Text
 schemaBrief =
-  wfText
-    [wf|
-    The database schema, as the operator exported it. This is the only thing
-    this run knows about the database: no party in this program can connect to
-    it, and nothing below reads a row.|]
+  [wft|
+  The database schema, as the operator exported it. This is the only thing
+  this run knows about the database: no party in this program can connect to
+  it, and nothing below reads a row.|]
 
 -- | What the drafting question asks.
 --
@@ -260,38 +259,37 @@ schemaBrief =
 -- /answer/, which is the one surface the two structural mechanisms do not cover.
 draftBrief :: Text
 draftBrief =
-  wfText
-    [wf|
-    Write one SQL query that answers the question below, against the schema
-    below and nothing else.
+  [wft|
+  Write one SQL query that answers the question below, against the schema
+  below and nothing else.
 
-    Answer with the query and nothing else: no sample rows, no invented values,
-    no example result set, no "the output would look like this". You have not
-    seen this database's data and neither has anything else in this run, so any
-    row-shaped text in your answer would be fabricated -- and a fabricated row
-    in a query's documentation is read as a real one.
+  Answer with the query and nothing else: no sample rows, no invented values,
+  no example result set, no "the output would look like this". You have not
+  seen this database's data and neither has anything else in this run, so any
+  row-shaped text in your answer would be fabricated -- and a fabricated row
+  in a query's documentation is read as a real one.
 
-    Read the query first. Every table, column and join key you use must appear
-    in the schema below. Where the question needs something the schema does not
-    have, say so in one line above the query and write the closest query the
-    schema does support -- do not invent a column to make the question
-    answerable.
+  Read the query first. Every table, column and join key you use must appear
+  in the schema below. Where the question needs something the schema does not
+  have, say so in one line above the query and write the closest query the
+  schema does support -- do not invent a column to make the question
+  answerable.
 
-    Then, below the query, and in this order:
+  Then, below the query, and in this order:
 
-    - one line saying what the query returns: one row per what, with which
-      columns;
-    - the assumptions you made about the data that the schema does not state
-      (which columns are nullable in practice, whether a status code set is
-      closed, what a soft delete looks like here), because those are what make a
-      correct-looking query wrong;
-    - the indexes or keys the query relies on, and what it would cost without
-      them.
+  - one line saying what the query returns: one row per what, with which
+    columns;
+  - the assumptions you made about the data that the schema does not state
+    (which columns are nullable in practice, whether a status code set is
+    closed, what a soft delete looks like here), because those are what make a
+    correct-looking query wrong;
+  - the indexes or keys the query relies on, and what it would cost without
+    them.
 
-    It is a SELECT. Do not write a statement that changes anything: no INSERT,
-    UPDATE, DELETE, MERGE, DROP, TRUNCATE, ALTER, CREATE, GRANT or stored
-    procedure call. The operator runs what you write, by hand, on his own
-    database.|]
+  It is a SELECT. Do not write a statement that changes anything: no INSERT,
+  UPDATE, DELETE, MERGE, DROP, TRUNCATE, ALTER, CREATE, GRANT or stored
+  procedure call. The operator runs what you write, by hand, on his own
+  database.|]
 
 -- | What the audit is told, above 'Workflows.Escalation.endingSpec'.
 --
@@ -304,50 +302,48 @@ draftBrief =
 -- has an audit at all.
 auditBrief :: Text
 auditBrief =
-  wfText
-    [wf|
-    Audit a candidate SQL query. You did not write it and you are not rewriting
-    it: you judge it, and the author gets one line back.
+  [wft|
+  Audit a candidate SQL query. You did not write it and you are not rewriting
+  it: you judge it, and the author gets one line back.
 
-    Three things, in this order, and the first is the one that ends a run:
+  Three things, in this order, and the first is the one that ends a run:
 
-    1. Disclosure. Does the answer contain data, or anything that reads as data?
-       A sample row, a plausible identifier, an example output table, a count, a
-       named customer, a date that looks like a real transaction. Nothing in this
-       run has read a single row, so any of those is fabricated and must not be
-       presented as though it came from the database. This is an objection, every
-       time.
+  1. Disclosure. Does the answer contain data, or anything that reads as data?
+     A sample row, a plausible identifier, an example output table, a count, a
+     named customer, a date that looks like a real transaction. Nothing in this
+     run has read a single row, so any of those is fabricated and must not be
+     presented as though it came from the database. This is an objection, every
+     time.
 
-    2. Correctness against the schema. Take every table, column and join key the
-       query names and find it in the schema you were given. A name that is not
-       there is an objection and the line says which. Then check the joins for
-       fan-out (does a one-to-many join multiply the measure being aggregated?),
-       the filters for the null case, and the aggregation for whether it groups
-       by what the question asked about.
+  2. Correctness against the schema. Take every table, column and join key the
+     query names and find it in the schema you were given. A name that is not
+     there is an objection and the line says which. Then check the joins for
+     fan-out (does a one-to-many join multiply the measure being aggregated?),
+     the filters for the null case, and the aggregation for whether it groups
+     by what the question asked about.
 
-    3. Does it answer the question that was asked? Not a near neighbour of it.
-       If the query answers something subtly different -- the wrong grain, the
-       wrong period boundary, distinct-counting rows rather than entities -- say
-       which, in one line.
+  3. Does it answer the question that was asked? Not a near neighbour of it.
+     If the query answers something subtly different -- the wrong grain, the
+     wrong period boundary, distinct-counting rows rather than entities -- say
+     which, in one line.
 
-    A query that is correct, answers the question, and carries no data is an
-    approval, and an approval is the single word APPROVE and nothing else --
-    anything you add beside it is read as an objection by the program that
-    consumes your verdict. So what you checked belongs in an objection line or
-    nowhere. Style, formatting and micro-optimisation are not objections.|]
+  A query that is correct, answers the question, and carries no data is an
+  approval, and an approval is the single word APPROVE and nothing else --
+  anything you add beside it is read as an objection by the program that
+  consumes your verdict. So what you checked belongs in an objection line or
+  nowhere. Style, formatting and micro-optimisation are not objections.|]
 
 -- | What the author is told on a repair trip.
 reviseBrief :: Text
 reviseBrief =
-  wfText
-    [wf|
-    An auditor read your query and objected. Produce the next version of the
-    query and nothing else -- the same output contract as before, and no
-    commentary about the change.
+  [wft|
+  An auditor read your query and objected. Produce the next version of the
+  query and nothing else -- the same output contract as before, and no
+  commentary about the change.
 
-    Fix what the objection names. If the objection is wrong, say so in one line
-    at the top and leave the query as it stands: a query quietly bent to satisfy
-    a mistaken objection is worse than the objection.|]
+  Fix what the objection names. If the objection is wrong, say so in one line
+  at the top and leave the query as it stands: a query quietly bent to satisfy
+  a mistaken objection is worse than the objection.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines
@@ -403,31 +399,30 @@ mutatingNote =
 -- | What the report is written through.
 queryReportBrief :: Text
 queryReportBrief =
-  wfText
-    [wf|
-    Write the report for a query-building run. It is read by the operator, who
-    will run the query himself against a database this run never touched.
+  [wft|
+  Write the report for a query-building run. It is read by the operator, who
+  will run the query himself against a database this run never touched.
 
-    Open with the provenance line you were given, verbatim, on its own line. It
-    is the run's own account of how it ended and it is not yours to soften.
+  Open with the provenance line you were given, verbatim, on its own line. It
+  is the run's own account of how it ended and it is not yours to soften.
 
-    Then, from the work below and nothing else:
+  Then, from the work below and nothing else:
 
-    - the query, in one fenced block, exactly as it stands;
-    - what it returns: one row per what, with which columns;
-    - the assumptions it rests on, as a list;
-    - the schema file this run read, by name, and this sentence: the query was
-      written against that file, and this run has no way to know whether the
-      file is current;
-    - what was NOT established -- the query has not been executed, its plan has
-      not been seen, and no row of this database has been read by anything in
-      this run.
+  - the query, in one fenced block, exactly as it stands;
+  - what it returns: one row per what, with which columns;
+  - the assumptions it rests on, as a list;
+  - the schema file this run read, by name, and this sentence: the query was
+    written against that file, and this run has no way to know whether the
+    file is current;
+  - what was NOT established -- the query has not been executed, its plan has
+    not been seen, and no row of this database has been read by anything in
+    this run.
 
-    Two things you must not write. Do not add an example result set, a sample
-    row, or an illustrative value of any kind: nothing here has seen the data,
-    so every such value would be invented. And do not describe the query as
-    verified: an audit read it, which is not the same as a database having run
-    it.|]
+  Two things you must not write. Do not add an example result set, a sample
+  row, or an illustrative value of any kind: nothing here has seen the data,
+  so every such value would be invented. And do not describe the query as
+  verified: an audit read it, which is not the same as a database having run
+  it.|]
 
 -- | One act, four provenance lines.
 --

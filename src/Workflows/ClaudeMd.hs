@@ -202,17 +202,16 @@ mandatoryPrefix =
 -- /Source:/ their identical @What to add@ sections.
 claudeMdContent :: Text
 claudeMdContent =
-  wfText
-    [wf|
-    Two things go in, and they are the two the repository cannot tell a reader
-    for itself:
+  [wft|
+  Two things go in, and they are the two the repository cannot tell a reader
+  for itself:
 
-    1. The commands that are commonly used -- how to build, how to lint, how to
-       run the tests, and how to run a SINGLE test. Whatever is needed to develop
-       in this codebase, in the form somebody would actually type.
-    2. The high-level architecture and structure: the big picture that takes
-       reading several files to see, and that nobody can reconstruct from any
-       one of them.|]
+  1. The commands that are commonly used -- how to build, how to lint, how to
+     run the tests, and how to run a SINGLE test. Whatever is needed to develop
+     in this codebase, in the form somebody would actually type.
+  2. The high-level architecture and structure: the big picture that takes
+     reading several files to see, and that nobody can reconstruct from any
+     one of them.|]
 
 -- ---------------------------------------------------------------------------
 -- The roster prepare-with.md's $ARGUMENTS becomes
@@ -272,20 +271,18 @@ generalAdviser =
 -- 'Workflows.Deciders.claudeMdPresent' reads.
 listingBrief :: Text
 listingBrief =
-  wfText
-    [wf|
-    The top level of the repository this run is in, one name per line, as `ls`
-    wrote it. It is the starting point and not the survey: what a briefing file
-    has to say about this repository is inside these entries, not in their names.|]
+  [wft|
+  The top level of the repository this run is in, one name per line, as `ls`
+  wrote it. It is the starting point and not the survey: what a briefing file
+  has to say about this repository is inside these entries, not in their names.|]
 
 -- | What the existing file is introduced as.
 existingBrief :: Text
 existingBrief =
-  wfText
-    [wf|
-    The `CLAUDE.md` this repository already carries, exactly as it stands on
-    disk. It is the subject of what follows: it is not being replaced, and
-    nothing below may overwrite it.|]
+  [wft|
+  The `CLAUDE.md` this repository already carries, exactly as it stands on
+  disk. It is the subject of what follows: it is not being replaced, and
+  nothing below may overwrite it.|]
 
 -- | What each adviser seat is asked.
 --
@@ -295,24 +292,23 @@ existingBrief =
 -- that the seats do not share a leading chunk.
 adviceBrief :: Text -> Text
 adviceBrief who =
-  wfText
-    [wf|
-    You are the {who} specialist advising on this repository's `CLAUDE.md`.
+  [wft|
+  You are the {who} specialist advising on this repository's `CLAUDE.md`.
 
-    You are not writing the file. Say what a briefing file would have to tell a
-    capable newcomer about the parts of this repository you own, so that they
-    could be productive without rediscovering it: the commands they would need,
-    the architecture they could not infer from any single file, and the one or
-    two conventions here that would surprise somebody who knows the language but
-    not this codebase.
+  You are not writing the file. Say what a briefing file would have to tell a
+  capable newcomer about the parts of this repository you own, so that they
+  could be productive without rediscovering it: the commands they would need,
+  the architecture they could not infer from any single file, and the one or
+  two conventions here that would surprise somebody who knows the language but
+  not this codebase.
 
-    Name the file you learned each thing from. Where you are inferring rather
-    than reading, say so: guidance stated as fact and drawn from a guess is the
-    failure mode of the document you are advising on.
+  Name the file you learned each thing from. Where you are inferring rather
+  than reading, say so: guidance stated as fact and drawn from a guess is the
+  failure mode of the document you are advising on.
 
-    If this repository has nothing in your area, say exactly that in one line and
-    stop. A specialist who invents a section is worse than a specialist who was
-    not needed.|]
+  If this repository has nothing in your area, say exactly that in one line and
+  stop. A specialist who invents a section is worse than a specialist who was
+  not needed.|]
 
 -- | What the adviser panel's blocks are told about their shape.
 adviceClosing :: Text
@@ -324,26 +320,25 @@ adviceClosing =
 -- | What the drafting act is told, at @claude-md@.
 draftBrief :: Text
 draftBrief =
-  wfText
-    [wf|
-    Analyse this codebase and write the `CLAUDE.md` it does not yet have. It
-    will be given to future sessions working in this repository, and it is the
-    only thing they will have read before they start.
+  [wft|
+  Analyse this codebase and write the `CLAUDE.md` it does not yet have. It
+  will be given to future sessions working in this repository, and it is the
+  only thing they will have read before they start.
 
-    {content}
+  {content}
 
-    The file MUST begin with exactly this block, copied character for character,
-    before anything else:
+  The file MUST begin with exactly this block, copied character for character,
+  before anything else:
 
-    {prefix}
+  {prefix}
 
-    The rules this document is held to:
+  The rules this document is held to:
 
-    {rules}
+  {rules}
 
-    Read what you need to read -- the README, the build files, the test
-    configuration, whatever rules files are present, and enough of the source to
-    see the shape. Then write the file, and reply DONE.|]
+  Read what you need to read -- the README, the build files, the test
+  configuration, whatever rules files are present, and enough of the source to
+  see the shape. Then write the file, and reply DONE.|]
   where
     content = claudeMdContent
     prefix = mandatoryPrefix
@@ -356,32 +351,31 @@ draftBrief =
 -- output kind it always implied and never named.
 critiqueBrief :: Text
 critiqueBrief =
-  wfText
-    [wf|
-    This repository already carries a `CLAUDE.md`. You are NOT rewriting it and
-    you are NOT to modify it: write a critique of it, as its own document, and
-    leave the file exactly as it stands.
+  [wft|
+  This repository already carries a `CLAUDE.md`. You are NOT rewriting it and
+  you are NOT to modify it: write a critique of it, as its own document, and
+  leave the file exactly as it stands.
 
-    Write `CLAUDE-review-<date>.md` in the current directory. In it, three
-    sections and nothing else:
+  Write `CLAUDE-review-<date>.md` in the current directory. In it, three
+  sections and nothing else:
 
-    - What is missing. Each item names the command, the architectural fact or
-      the convention that is absent, and the file you learned it from.
-    - What is wrong. Each item quotes the line and says what the repository
-      actually does now.
-    - What should come out. Each item quotes the line and names which of the
-      rules below it violates.
+  - What is missing. Each item names the command, the architectural fact or
+    the convention that is absent, and the file you learned it from.
+  - What is wrong. Each item quotes the line and says what the repository
+    actually does now.
+  - What should come out. Each item quotes the line and names which of the
+    rules below it violates.
 
-    {content}
+  {content}
 
-    The rules the existing file is being judged against:
+  The rules the existing file is being judged against:
 
-    {rules}
+  {rules}
 
-    Every item is a suggested edit somebody could apply without asking you a
-    question: quote what stands, and give what should stand in its place. A
-    critique that says a section "could be improved" has said nothing. Then reply
-    DONE.|]
+  Every item is a suggested edit somebody could apply without asking you a
+  question: quote what stands, and give what should stand in its place. A
+  critique that says a section "could be improved" has said nothing. Then reply
+  DONE.|]
   where
     content = claudeMdContent
     rules = numbered claudeMdRules
@@ -395,26 +389,25 @@ critiqueBrief =
 -- is checked, and then writes.
 adviseDraftBrief :: Text
 adviseDraftBrief =
-  wfText
-    [wf|
-    Draft the `CLAUDE.md` for this repository, from the specialists' advice
-    below and the directory listing beside it. Answer with the file's contents
-    and nothing else: no preamble, no commentary, no fences around it.
+  [wft|
+  Draft the `CLAUDE.md` for this repository, from the specialists' advice
+  below and the directory listing beside it. Answer with the file's contents
+  and nothing else: no preamble, no commentary, no fences around it.
 
-    {content}
+  {content}
 
-    The file MUST begin with exactly this block, copied character for character,
-    before anything else:
+  The file MUST begin with exactly this block, copied character for character,
+  before anything else:
 
-    {prefix}
+  {prefix}
 
-    The rules this document is held to:
+  The rules this document is held to:
 
-    {rules}
+  {rules}
 
-    Where two specialists disagree, say what each observed rather than choosing
-    between them silently. Where an adviser said their area is not present here,
-    write nothing about it.|]
+  Where two specialists disagree, say what each observed rather than choosing
+  between them silently. Where an adviser said their area is not present here,
+  write nothing about it.|]
   where
     content = claudeMdContent
     prefix = mandatoryPrefix
@@ -428,30 +421,29 @@ adviseDraftBrief =
 -- over an artefact, answering a verdict, on a party that produced none of it.
 auditBrief :: Text
 auditBrief =
-  wfText
-    [wf|
-    You are auditing a `CLAUDE.md` draft you did not write, against the rules it
-    was written under. You are not improving it: you are saying whether it holds.
+  [wft|
+  You are auditing a `CLAUDE.md` draft you did not write, against the rules it
+  was written under. You are not improving it: you are saying whether it holds.
 
-    The rules:
+  The rules:
 
-    {rules}
+  {rules}
 
-    Four of those are prohibitions on ADDING, and they are the ones to be strict
-    about, because a draft that breaks them looks thorough: a repeated
-    instruction, an obvious instruction true of every repository, an exhaustive
-    file listing where architecture was asked for, and an invented section that
-    no file the drafter read carries. Quote the offending text in each objection.
+  Four of those are prohibitions on ADDING, and they are the ones to be strict
+  about, because a draft that breaks them looks thorough: a repeated
+  instruction, an obvious instruction true of every repository, an exhaustive
+  file listing where architecture was asked for, and an invented section that
+  no file the drafter read carries. Quote the offending text in each objection.
 
-    Check three more things and object with each failure:
+  Check three more things and object with each failure:
 
-    - the mandatory prefix block stands first, character for character;
-    - every command it gives is one somebody could type, including the way to run
-      a single test;
-    - the architecture section says something that could not be read off any one
-      file.
+  - the mandatory prefix block stands first, character for character;
+  - every command it gives is one somebody could type, including the way to run
+    a single test;
+  - the architecture section says something that could not be read off any one
+    file.
 
-    {spec}|]
+  {spec}|]
   where
     rules = numbered claudeMdRules
     spec = verdictSpec
@@ -459,19 +451,18 @@ auditBrief =
 -- | What the @claude-md-advise@ artefact act is told.
 adviseWriteBrief :: Text
 adviseWriteBrief =
-  wfText
-    [wf|
-    Write the audited draft to `CLAUDE.md` in the current directory.
+  [wft|
+  Write the audited draft to `CLAUDE.md` in the current directory.
 
-    You are transcribing: write the draft below exactly as it stands, beginning
-    with its mandatory prefix block. Do not edit it, do not reformat it, and do
-    not act on the audit yourself.
+  You are transcribing: write the draft below exactly as it stands, beginning
+  with its mandatory prefix block. Do not edit it, do not reformat it, and do
+  not act on the audit yourself.
 
-    If the provenance line you were given says the audit objected or did not
-    answer, do NOT write `CLAUDE.md` at all: write the draft to
-    `CLAUDE-draft-<date>.md` instead, with the audit's own lines at the top under
-    the heading `Audit`, so that a person decides whether it becomes the
-    repository's briefing file. Then reply DONE.|]
+  If the provenance line you were given says the audit objected or did not
+  answer, do NOT write `CLAUDE.md` at all: write the draft to
+  `CLAUDE-draft-<date>.md` instead, with the audit's own lines at the top under
+  the heading `Audit`, so that a person decides whether it becomes the
+  repository's briefing file. Then reply DONE.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines

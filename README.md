@@ -27,7 +27,7 @@ flake.nix               the pinned build
 ci/workflows.sh         this repository's gate
 src/
   Workflows/
-    Prose.hs            the four mechanics: wfText, bullets, numbered, fenceOf, tshow
+    Prose.hs            the four mechanics: bullets, numbered, fenceOf, tshow
     Prelude.hs          the one import an authoring module writes
 
     Parties.hs          who answers: the pins, and the three fail-over ladders

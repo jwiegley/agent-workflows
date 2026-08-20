@@ -186,15 +186,14 @@ auditBase b
 -- is for.
 fessClosing :: Text
 fessClosing =
-  wfText
-    [wf|
-    Report the hits in your category and nothing else. Your answer is one block
-    of a document whose other blocks are the other categories' -- do not
-    summarise the whole audit, do not repeat another category's findings, and do
-    not address the reader of any block but your own.
+  [wft|
+  Report the hits in your category and nothing else. Your answer is one block
+  of a document whose other blocks are the other categories' -- do not
+  summarise the whole audit, do not repeat another category's findings, and do
+  not address the reader of any block but your own.
 
-    Cite file:line for every finding grounded in the tree. Say `none` only for
-    what you actually checked.|]
+  Cite file:line for every finding grounded in the tree. Say `none` only for
+  what you actually checked.|]
 
 -- | The roster with the original request folded into every stance's brief.
 --
@@ -248,21 +247,20 @@ requesting request r
 -- definition of done rather than a quality of the report.
 verifiedIndependence :: Text -> Text
 verifiedIndependence engine =
-  wfText
-    [wf|
-    Provenance, and it is two facts rather than one. First: a parent-history
-    sentinel probe was put to the answering runner before any stance was asked,
-    and it answered that no line this run planted was already in its context. So
-    no context this runner itself introduced was inherited. Second, from the
-    runner and not from any party asked below, this run's engine and its session
-    policy: {engine}.
+  [wft|
+  Provenance, and it is two facts rather than one. First: a parent-history
+  sentinel probe was put to the answering runner before any stance was asked,
+  and it answered that no line this run planted was already in its context. So
+  no context this runner itself introduced was inherited. Second, from the
+  runner and not from any party asked below, this run's engine and its session
+  policy: {engine}.
 
-    Read them together and say so in the summary. The probe tests one line and
-    cannot see any other prior context, so under an engine that puts every
-    question of the run into one shared conversation a finding below may still
-    have been reached by a party that had read the work -- and under an engine
-    that opens a new session per question it cannot have been. Do not describe
-    any finding as independently reached unless both facts support it.|]
+  Read them together and say so in the summary. The probe tests one line and
+  cannot see any other prior context, so under an engine that puts every
+  question of the run into one shared conversation a finding below may still
+  have been reached by a party that had read the work -- and under an engine
+  that opens a new session per question it cannot have been. Do not describe
+  any finding as independently reached unless both facts support it.|]
 
 -- | The five fixed report sections, and the provenance the arms differ in.
 --

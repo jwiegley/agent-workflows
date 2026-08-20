@@ -64,10 +64,10 @@ module Workflows.Rubrics.Stances
   )
 where
 
-import Agentic.Workflow (wf)
+import Agentic.Workflow (wft)
 import Data.Text (Text)
 import Workflows.Panels (Roster, rosterTable)
-import Workflows.Prose (tshow, wfText)
+import Workflows.Prose (tshow)
 
 -- ---------------------------------------------------------------------------
 -- The rule every party stands under
@@ -97,17 +97,16 @@ import Workflows.Prose (tshow, wfText)
 -- @secondOpinionOver@ in "Workflows.Confer", which is every row.
 challengeRubric :: Text
 challengeRubric =
-  wfText
-    [wf|
-    Evaluate what is put to you on its merits. Do not agree because the
-    question was asked confidently, because agreeing is shorter, or because the
-    person asking appears to want a particular answer. Attack the weakest point
-    in the reasoning, challenge the assumptions, and name what is missing.
+  [wft|
+  Evaluate what is put to you on its merits. Do not agree because the
+  question was asked confidently, because agreeing is shorter, or because the
+  person asking appears to want a particular answer. Attack the weakest point
+  in the reasoning, challenge the assumptions, and name what is missing.
 
-    Where you find the case sound, say which part carries the weight; where you
-    do not, say where it fails and what the failure costs. Be tough, be
-    specific, and do not sugarcoat. Deference is not analysis, and a reader who
-    wanted agreement did not need to ask three parties.|]
+  Where you find the case sound, say which part carries the weight; where you
+  do not, say where it fails and what the failure costs. Be tough, be
+  specific, and do not sugarcoat. Deference is not analysis, and a reader who
+  wanted agreement did not need to ask three parties.|]
 
 -- | Every party stands under 'challengeRubric', and stands under it
 -- __second__.
@@ -117,11 +116,10 @@ challengeRubric =
 -- with its siblings'.
 underChallenge :: Text -> Text
 underChallenge stance =
-  wfText
-    [wf|
-    {stance}
+  [wft|
+  {stance}
 
-    {challengeRubric}|]
+  {challengeRubric}|]
 
 -- ---------------------------------------------------------------------------
 -- The three positions
@@ -132,17 +130,16 @@ underChallenge stance =
 -- /Source:/ @confer-design.md@ §1.1, verbatim.
 forStance :: Text
 forStance =
-  wfText
-    [wf|
-    You are arguing FOR the decision below. Your job is the strongest honest
-    case that it is right: what it buys, what it unblocks, and what not doing it
-    costs. Two other parties argue the other side and the middle, so do not
-    hedge and do not write their blocks for them.
+  [wft|
+  You are arguing FOR the decision below. Your job is the strongest honest
+  case that it is right: what it buys, what it unblocks, and what not doing it
+  costs. Two other parties argue the other side and the middle, so do not
+  hedge and do not write their blocks for them.
 
-    Argue from what the decision and its context actually say. An advantage you
-    cannot point at is an advantage you are inventing, and a case built on one
-    is worse than no case: it spends the reader's trust on the parts that were
-    true.|]
+  Argue from what the decision and its context actually say. An advantage you
+  cannot point at is an advantage you are inventing, and a case built on one
+  is worse than no case: it spends the reader's trust on the parts that were
+  true.|]
 
 -- | The @against@ seat.
 --
@@ -155,16 +152,15 @@ forStance =
 -- 'challengeRubric'.
 skepticStance :: Text
 skepticStance =
-  wfText
-    [wf|
-    You are arguing AGAINST the decision below. Your job is what goes wrong:
-    what it breaks, what it commits the tree to that a later change would have
-    to undo, and what it costs that the proposal does not price.
+  [wft|
+  You are arguing AGAINST the decision below. Your job is what goes wrong:
+  what it breaks, what it commits the tree to that a later change would have
+  to undo, and what it costs that the proposal does not price.
 
-    Trace every objection to a concrete mechanism -- the caller, the format, the
-    file, the version. An objection you cannot trace is not an objection, it is
-    unease, and the synthesis will rightly set it aside. Three real objections
-    beat ten plausible ones.|]
+  Trace every objection to a concrete mechanism -- the caller, the format, the
+  file, the version. An objection you cannot trace is not an objection, it is
+  unease, and the synthesis will rightly set it aside. Three real objections
+  beat ten plausible ones.|]
 
 -- | The @neutral@ seat.
 --
@@ -172,16 +168,15 @@ skepticStance =
 -- argument does not have, and @debate@ is the row that deliberately drops it.
 neutralStance :: Text
 neutralStance =
-  wfText
-    [wf|
-    You are the neutral party. The other two argue the sides; nobody has asked
-    them what is actually true. Sort the claims: which are settled by the
-    context below, which are judgement calls where reasonable people differ, and
-    which are simply unknowable from what is here.
+  [wft|
+  You are the neutral party. The other two argue the sides; nobody has asked
+  them what is actually true. Sort the claims: which are settled by the
+  context below, which are judgement calls where reasonable people differ, and
+  which are simply unknowable from what is here.
 
-    Name the one fact that would decide this if somebody went and got it. If the
-    decision is underspecified, say what it is missing rather than choosing on
-    the asker's behalf.|]
+  Name the one fact that would decide this if somebody went and got it. If the
+  decision is underspecified, say what it is missing rather than choosing on
+  the asker's behalf.|]
 
 -- ---------------------------------------------------------------------------
 -- What a party is told about the shape of its answer
@@ -204,14 +199,13 @@ neutralStance =
 -- findings.
 stanceClosing :: Text
 stanceClosing =
-  wfText
-    [wf|
-    Write your case as prose, at most twelve lines, and do not summarise the
-    decision back: the reader has it above your block. Your answer is one block
-    of a document whose other blocks are the other parties'. Do not write
-    theirs, do not address the reader of the whole, and do not pre-empt the
-    synthesis -- it is a later question, put to somebody who has read all of
-    you.|]
+  [wft|
+  Write your case as prose, at most twelve lines, and do not summarise the
+  decision back: the reader has it above your block. Your answer is one block
+  of a document whose other blocks are the other parties'. Do not write
+  theirs, do not address the reader of the whole, and do not pre-empt the
+  synthesis -- it is a later question, put to somebody who has read all of
+  you.|]
 
 -- | The closing line the single party of a @second-opinion@ is given.
 --
@@ -237,16 +231,15 @@ opinionClosing =
 -- that receives nothing does not have to guess whether something was lost.
 conferSubject :: Text -> Text -> Text
 conferSubject decision context =
-  wfText
-    [wf|
-    The decision:
+  [wft|
+  The decision:
 
-    {decision}
+  {decision}
 
-    The context. This may be empty, and empty means the decision stands on its
-    own words -- it does not mean a document failed to arrive:
+  The context. This may be empty, and empty means the decision stands on its
+  own words -- it does not mean a document failed to arrive:
 
-    {context}|]
+  {context}|]
 
 -- ---------------------------------------------------------------------------
 -- The derived briefs
@@ -272,36 +265,35 @@ conferSubject decision context =
 -- requirement, which is not taken here).
 conferSynthesis :: Roster -> Text
 conferSynthesis r =
-  wfText
-    [wf|
-    Below is the decision, its context, and a document of {count} blocks, one
-    per party, each fenced under its own name. The parties and what each was
-    asked to own:
+  [wft|
+  Below is the decision, its context, and a document of {count} blocks, one
+  per party, each fenced under its own name. The parties and what each was
+  asked to own:
 
-    {table}
+  {table}
 
-    First, account for the blocks. If any named party's block is missing or
-    empty, reply with exactly
+  First, account for the blocks. If any named party's block is missing or
+  empty, reply with exactly
 
-      INCOMPLETE: <the names of the missing blocks>
+    INCOMPLETE: <the names of the missing blocks>
 
-    and nothing else. Do not synthesise what did arrive: a partial roster folded
-    into a recommendation is indistinguishable from a unanimous one, and that is
-    the one mistake this step exists to prevent.
+  and nothing else. Do not synthesise what did arrive: a partial roster folded
+  into a recommendation is indistinguishable from a unanimous one, and that is
+  the one mistake this step exists to prevent.
 
-    Otherwise:
+  Otherwise:
 
-    - Say where the parties actually disagree -- not where they used different
-      words for one thing. Quote the sentence from each block that carries the
-      disagreement.
-    - For each disagreement, say what turns on it: what would follow if each
-      side were right.
-    - Then the recommendation, in one paragraph, and the condition that would
-      change it.
+  - Say where the parties actually disagree -- not where they used different
+    words for one thing. Quote the sentence from each block that carries the
+    disagreement.
+  - For each disagreement, say what turns on it: what would follow if each
+    side were right.
+  - Then the recommendation, in one paragraph, and the condition that would
+    change it.
 
-    Attribute every load-bearing claim to the block it came from. You are the
-    only party that has read all of them, and a claim you cannot attribute is a
-    claim you introduced.|]
+  Attribute every load-bearing claim to the block it came from. You are the
+  only party that has read all of them, and a claim you cannot attribute is a
+  claim you introduced.|]
   where
     count = tshow (length r)
     table = rosterTable r
@@ -385,39 +377,38 @@ conferSynthesis r =
 -- two facts and named the runner as the only place they could come from.
 conferProvenance :: Roster -> Text -> Text -> Text
 conferProvenance r backends engine =
-  wfText
-    [wf|
-    Provenance: a confer of {count} parties.
+  [wft|
+  Provenance: a confer of {count} parties.
 
-    {table}
+  {table}
 
-    Those are the seats the program asked, each pinned to its own serving model
-    through a fail-over ladder. Two things about how they were answered are
-    properties of the run and not of the program, and this run supplied both.
+  Those are the seats the program asked, each pinned to its own serving model
+  through a fail-over ladder. Two things about how they were answered are
+  properties of the run and not of the program, and this run supplied both.
 
-    Backends: {backends}. That line counts TRANSPORTS, not answerers, and it is
-    the whole of what this run reached: no block below was produced by anything
-    it does not name.
+  Backends: {backends}. That line counts TRANSPORTS, not answerers, and it is
+  the whole of what this run reached: no block below was produced by anything
+  it does not name.
 
-    Engine: {engine}. Read that line this way: a new session per question is
-    independence of context and not independence of judgement; one session for
-    the whole run is one conversation, in which the seats answer in program
-    order and each has read the blocks above it.
+  Engine: {engine}. Read that line this way: a new session per question is
+  independence of context and not independence of judgement; one session for
+  the whole run is one conversation, in which the seats answer in program
+  order and each has read the blocks above it.
 
-    Do not describe agreement between two blocks as independent confirmation
-    unless two different parties produced them -- and the Backends line above
-    does not settle that on its own, in either direction. One backend can serve
-    several answerers, because each seat is pinned to its own serving model and
-    reaches it through a fail-over ladder down that one transport; several
-    backends can end up serving one, because a ladder that spends its primaries
-    falls through to a spare the next seat is also using. What names the intended
-    answerers is the run header's `served by` lines, and what records the actual
-    one for each question is that question's scope in the trace. Neither is in
-    front of you here. So: if the Backends line names one transport and the
-    Engine line says one session, say plainly that agreement below is one
-    conversation agreeing with itself. Otherwise say which facts you have and
-    stop there, rather than upgrading a count of transports into a count of
-    minds.|]
+  Do not describe agreement between two blocks as independent confirmation
+  unless two different parties produced them -- and the Backends line above
+  does not settle that on its own, in either direction. One backend can serve
+  several answerers, because each seat is pinned to its own serving model and
+  reaches it through a fail-over ladder down that one transport; several
+  backends can end up serving one, because a ladder that spends its primaries
+  falls through to a spare the next seat is also using. What names the intended
+  answerers is the run header's `served by` lines, and what records the actual
+  one for each question is that question's scope in the trace. Neither is in
+  front of you here. So: if the Backends line names one transport and the
+  Engine line says one session, say plainly that agreement below is one
+  conversation agreeing with itself. Otherwise say which facts you have and
+  stop there, rather than upgrading a count of transports into a count of
+  minds.|]
   where
     count = tshow (length r)
     table = rosterTable r
@@ -444,29 +435,28 @@ conferProvenance r backends engine =
 -- old \"I cannot see the header\" caveat, which is now false.
 conferWriteBrief :: Text
 conferWriteBrief =
-  wfText
-    [wf|
-    Write the confer below to `confer-<date>.md` in the current directory: the
-    provenance line first, then the decision this confer was about, then every
-    party's block verbatim under its own name, then the recommendation, marked
-    as one reading of the blocks and not as their sum.
+  [wft|
+  Write the confer below to `confer-<date>.md` in the current directory: the
+  provenance line first, then the decision this confer was about, then every
+  party's block verbatim under its own name, then the recommendation, marked
+  as one reading of the blocks and not as their sum.
 
-    The provenance paragraph is constant text: reproduce it word for word,
-    including both of its statements about the run -- the sentence beginning
-    "Backends:", naming every answerer this run reached, and the sentence
-    beginning "Engine:", naming the engine and its session policy. Both were
-    supplied by the runner and are already resolved: do not restate them in your
-    own words, do not soften them, and do not add a caveat about not being able
-    to see the run's header. What the header would have told you is in the
-    paragraph.
+  The provenance paragraph is constant text: reproduce it word for word,
+  including both of its statements about the run -- the sentence beginning
+  "Backends:", naming every answerer this run reached, and the sentence
+  beginning "Engine:", naming the engine and its session policy. Both were
+  supplied by the runner and are already resolved: do not restate them in your
+  own words, do not soften them, and do not add a caveat about not being able
+  to see the run's header. What the header would have told you is in the
+  paragraph.
 
-    Apply the paragraph's closing rule to those two lines rather than to a guess:
-    two blocks are independent confirmation only if more than one answerer is
-    named and the run was not one session.
+  Apply the paragraph's closing rule to those two lines rather than to a guess:
+  two blocks are independent confirmation only if more than one answerer is
+  named and the run was not one session.
 
-    Change no party's words. The blocks are the evidence; the recommendation is
-    an argument about them, and a reader who disagrees with the argument must be
-    able to check it against what was actually said. Then reply DONE.|]
+  Change no party's words. The blocks are the evidence; the recommendation is
+  an argument about them, and a reader who disagrees with the argument must be
+  able to check it against what was actually said. Then reply DONE.|]
 
 -- | What the closing act is told to write, when there is no synthesis.
 --
@@ -481,36 +471,34 @@ conferWriteBrief =
 -- restate, for 'conferWriteBrief'\'s reason.
 conferBareWriteBrief :: Text
 conferBareWriteBrief =
-  wfText
-    [wf|
-    Write the confer below to `confer-<date>.md` in the current directory: the
-    provenance line first, then the decision this confer was about, then every
-    party's block verbatim under its own name, in the order they arrive.
+  [wft|
+  Write the confer below to `confer-<date>.md` in the current directory: the
+  provenance line first, then the decision this confer was about, then every
+  party's block verbatim under its own name, in the order they arrive.
 
-    The provenance paragraph is constant text: reproduce it word for word,
-    including both of its statements about the run -- the sentence beginning
-    "Backends:", naming every answerer this run reached, and the sentence
-    beginning "Engine:", naming the engine and its session policy. Both were
-    supplied by the runner and are already resolved: do not restate them in your
-    own words, do not soften them, and do not add a caveat about not being able
-    to see the run's header. What the header would have told you is in the
-    paragraph.
+  The provenance paragraph is constant text: reproduce it word for word,
+  including both of its statements about the run -- the sentence beginning
+  "Backends:", naming every answerer this run reached, and the sentence
+  beginning "Engine:", naming the engine and its session policy. Both were
+  supplied by the runner and are already resolved: do not restate them in your
+  own words, do not soften them, and do not add a caveat about not being able
+  to see the run's header. What the header would have told you is in the
+  paragraph.
 
-    Apply the paragraph's closing rule to those two lines rather than to a guess:
-    two blocks are independent confirmation only if more than one answerer is
-    named and the run was not one session.
+  Apply the paragraph's closing rule to those two lines rather than to a guess:
+  two blocks are independent confirmation only if more than one answerer is
+  named and the run was not one session.
 
-    Reconcile nothing, rank nothing, and add no summary: the independent
-    arguments are the artefact, and a reader who wanted them averaged did not
-    need to ask several parties. Change no party's words. Then reply DONE.|]
+  Reconcile nothing, rank nothing, and add no summary: the independent
+  arguments are the artefact, and a reader who wanted them averaged did not
+  need to ask several parties. Change no party's words. Then reply DONE.|]
 
 -- | What @second-opinion@'s closing act is told to write.
 --
 -- /Source:/ @confer-design.md@ §5.3, verbatim.
 secondOpinionWriteBrief :: Text
 secondOpinionWriteBrief =
-  wfText
-    [wf|
-    Write the opinion below to `second-opinion-<date>.md` in the current
-    directory, verbatim, under a heading naming the question. Change no words of
-    it. Then reply DONE.|]
+  [wft|
+  Write the opinion below to `second-opinion-<date>.md` in the current
+  directory, verbatim, under a heading naming the question. Change no words of
+  it. Then reply DONE.|]

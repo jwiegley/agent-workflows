@@ -430,24 +430,23 @@ roundFanOut = maximum (1 : map length roundWaves)
 -- 'Workflows.Panels.memberNote''s rule at a different table.
 orchestration :: Text
 orchestration =
-  wfText
-    [wf|
-    The obligations of one round, in dependency order. This ordering is not
-    advice and was not computed by anybody you can argue with: it is a
-    topological sort of the round's own dependency table, done before this
-    question existed.
+  [wft|
+  The obligations of one round, in dependency order. This ordering is not
+  advice and was not computed by anybody you can argue with: it is a
+  topological sort of the round's own dependency table, done before this
+  question existed.
 
-    {waves}
+  {waves}
 
-    What each obligation is:
+  What each obligation is:
 
-    {table}
+  {table}
 
-    Stages listed together on one line are independent of each other and may be
-    advanced together. The widest line has {width} stages in it, so that is this
-    round's fan-out -- not a number somebody guessed, and not a licence to widen
-    it. Do not reorder the lines, and do not start a stage whose line has not
-    been reached.|]
+  Stages listed together on one line are independent of each other and may be
+  advanced together. The widest line has {width} stages in it, so that is this
+  round's fan-out -- not a number somebody guessed, and not a licence to widen
+  it. Do not reorder the lines, and do not start a stage whose line has not
+  been reached.|]
   where
     waves =
       numbered
@@ -471,11 +470,10 @@ orchestration =
 -- "Workflows.Gates"' own reason for writing one.
 baselineBrief :: Text
 baselineBrief =
-  wfText
-    [wf|
-    The baseline verification, before any new work: does this tree already build
-    and pass? A nonzero exit here ends the run, because starting new work on an
-    already-broken base only makes it worse.|]
+  [wft|
+  The baseline verification, before any new work: does this tree already build
+  and pass? A nonzero exit here ends the run, because starting new work on an
+  already-broken base only makes it worse.|]
 
 -- | What the round's working act is told.
 --
@@ -487,24 +485,23 @@ baselineBrief =
 -- abstraction to reach the goal.
 workBrief :: Text
 workBrief =
-  wfText
-    [wf|
-    Advance the work by ONE logical unit: a coherent change that builds and
-    passes on its own. If that unit is very small, take a larger step instead --
-    a commit cycle is slow, and committing too often slows the work down without
-    making it safer. Do not batch many units into one giant change either, and do
-    not stop mid-unit.
+  [wft|
+  Advance the work by ONE logical unit: a coherent change that builds and
+  passes on its own. If that unit is very small, take a larger step instead --
+  a commit cycle is slow, and committing too often slows the work down without
+  making it safer. Do not batch many units into one giant change either, and do
+  not stop mid-unit.
 
-    Avoid scope creep and stay on the goal you were given. Do not circumvent an
-    existing abstraction merely to reach the goal expediently: the goal is not
-    only the outcome, it is also the principled manner of getting there. If the
-    shared path cannot express what this unit needs, correct the shared path and
-    say that you did.
+  Avoid scope creep and stay on the goal you were given. Do not circumvent an
+  existing abstraction merely to reach the goal expediently: the goal is not
+  only the outcome, it is also the principled manner of getting there. If the
+  shared path cannot express what this unit needs, correct the shared path and
+  say that you did.
 
-    {discipline}
+  {discipline}
 
-    When the unit is finished and the tree builds and passes, reply DONE. The
-    round below says what this unit is.|]
+  When the unit is finished and the tree builds and passes, reply DONE. The
+  round below says what this unit is.|]
   where
     discipline = fixAllRule
 
@@ -517,17 +514,16 @@ workBrief =
 -- exactly a statement about /this/ round's series.
 roundCommitStyle :: Text
 roundCommitStyle =
-  wfText
-    [wf|
-    This is one round of an autonomous work loop, and what is being committed is
-    ONE completed logical unit of work. Commit at the unit, not inside it: a
-    series that splits this unit into commits that do not each build is two
-    commits written as one, and a series that folds several units together is a
-    commit nobody can revert.
+  [wft|
+  This is one round of an autonomous work loop, and what is being committed is
+  ONE completed logical unit of work. Commit at the unit, not inside it: a
+  series that splits this unit into commits that do not each build is two
+  commits written as one, and a series that folds several units together is a
+  commit nobody can revert.
 
-    Nothing is being published. The branch is not pushed and no pull request is
-    opened by this run, so no message here is a message a reviewer reads first --
-    write each one for whoever bisects this history later.|]
+  Nothing is being published. The branch is not pushed and no pull request is
+  opened by this run, so no message here is a message a reviewer reads first --
+  write each one for whoever bisects this history later.|]
 
 -- | What the cleanup cycle asks of the commit decomposition.
 --
@@ -536,18 +532,17 @@ roundCommitStyle =
 -- is where that workflow is invoked and where its commit belongs.
 drainCommitStyle :: Text
 drainCommitStyle =
-  wfText
-    [wf|
-    This is the cleanup of a batch of partner review observations, and it is ONE
-    commit for the whole batch -- not one per observation, and not folded into
-    the work commits that came before it. Commit only the cleanup changes and the
-    removal of any tracked observation files.
+  [wft|
+  This is the cleanup of a batch of partner review observations, and it is ONE
+  commit for the whole batch -- not one per observation, and not folded into
+  the work commits that came before it. Commit only the cleanup changes and the
+  removal of any tracked observation files.
 
-    The message is of this shape:
+  The message is of this shape:
 
-      Address partner review observations
+    Address partner review observations
 
-      Resolve observations from <first timestamp> through <last timestamp>.|]
+    Resolve observations from <first timestamp> through <last timestamp>.|]
 
 -- | What the round's series receipt is introduced as.
 --
@@ -574,31 +569,30 @@ roundSeriesBrief =
 -- brief demanded rather than a word a reader hoped for.
 roundAccountBrief :: Text
 roundAccountBrief =
-  wfText
-    [wf|
-    Account for the round that has just finished. This is the handoff: it is the
-    only thing the next round is given about this one, so write it for somebody
-    who was not watching.
+  [wft|
+  Account for the round that has just finished. This is the handoff: it is the
+  only thing the next round is given about this one, so write it for somebody
+  who was not watching.
 
-    Four things, in this order:
+  Four things, in this order:
 
-    1. What is now done, and what in the receipts below shows it.
-    2. What remains, as concretely as the plan allows.
-    3. How a fresh run would resume -- the first command, the first file.
-    4. Any gate or failing signature that has now objected more than once, and
-       how many times. A count nobody wrote down is a count that resets itself.
+  1. What is now done, and what in the receipts below shows it.
+  2. What remains, as concretely as the plan allows.
+  3. How a fresh run would resume -- the first command, the first file.
+  4. Any gate or failing signature that has now objected more than once, and
+     how many times. A count nobody wrote down is a count that resets itself.
 
-    Then end your answer with exactly one of these two lines, on its own last
-    line and with nothing after it:
+  Then end your answer with exactly one of these two lines, on its own last
+  line and with nothing after it:
 
-      WORK COMPLETE -- the frozen plan's objectives are all advanced as far as
-      this loop can take them, and there is no next unit to start.
+    WORK COMPLETE -- the frozen plan's objectives are all advanced as far as
+    this loop can take them, and there is no next unit to start.
 
-      WORK REMAINS -- the work is sound so far and there is more of it; item 2
-      above says what the next unit is.
+    WORK REMAINS -- the work is sound so far and there is more of it; item 2
+    above says what the next unit is.
 
-    That line is read mechanically. It decides whether another round is spent, so
-    do not write it as a hope.|]
+  That line is read mechanically. It decides whether another round is spent, so
+  do not write it as a hope.|]
 
 -- | What the currency act is told.
 --
@@ -607,23 +601,22 @@ roundAccountBrief =
 -- here and as an /absence/ in the program; see the module header, item 4.
 currencyBrief :: Text
 currencyBrief =
-  wfText
-    [wf|
-    Bring the branch current, LOCALLY. On a Graphite stack, follow the restack
-    procedure: rebase from the base of the stack up to this branch, and not above
-    it. Off Graphite, rebase onto the base and resolve.
+  [wft|
+  Bring the branch current, LOCALLY. On a Graphite stack, follow the restack
+  procedure: rebase from the base of the stack up to this branch, and not above
+  it. Off Graphite, rebase onto the base and resolve.
 
-    This is a currency operation and nothing else. Do NOT submit the stack, do
-    NOT push, and do NOT open or update a pull request: publishing rewritten or
-    shared history is a terminal action that a person takes, and it is not part
-    of this loop. Nothing in this run can do it for you.
+  This is a currency operation and nothing else. Do NOT submit the stack, do
+  NOT push, and do NOT open or update a pull request: publishing rewritten or
+  shared history is a terminal action that a person takes, and it is not part
+  of this loop. Nothing in this run can do it for you.
 
-    Leave every conflict you cannot resolve without guessing intent exactly as it
-    is, marked and unresolved, and say so. A guess committed is worse than a
-    conflict reported.
+  Leave every conflict you cannot resolve without guessing intent exactly as it
+  is, marked and unresolved, and say so. A guess committed is worse than a
+  conflict reported.
 
-    When the branch is current, or when it is not and you have said why, reply
-    DONE. What the last round left is below.|]
+  When the branch is current, or when it is not and you have said why, reply
+  DONE. What the last round left is below.|]
 
 -- | What the conflict-marker flag's words say.
 --
@@ -639,11 +632,10 @@ currencyBrief =
 -- terminal.
 markersBrief :: Text
 markersBrief =
-  wfText
-    [wf|
-    Did the currency step leave the tree clean? A nonzero exit means a conflict
-    marker or a whitespace error survived, which is the stop-and-escalate
-    condition for a conflict that cannot be resolved without guessing intent.|]
+  [wft|
+  Did the currency step leave the tree clean? A nonzero exit means a conflict
+  marker or a whitespace error survived, which is the stop-and-escalate
+  condition for a conflict that cannot be resolved without guessing intent.|]
 
 -- | What the observations receipt is introduced as.
 --
@@ -672,11 +664,10 @@ observationsBrief =
 -- have abandoned the run on the one tree this clause exists to describe.
 suiteBrief :: Text
 suiteBrief =
-  wfText
-    [wf|
-    The repository's own green gate, run over the tree as the rounds left it.
-    Whatever it says is the passing output the definition of done asks for; if it
-    failed, its own first failing line is the answer.|]
+  [wft|
+  The repository's own green gate, run over the tree as the rounds left it.
+  Whatever it says is the passing output the definition of done asks for; if it
+  failed, its own first failing line is the answer.|]
 
 -- | What the checkpoint's diff receipt is introduced as.
 --
@@ -715,27 +706,26 @@ checkpointHistoryBrief =
 -- an autonomous loop is judged on is its own account of where the work stands.
 handoffBrief :: Text
 handoffBrief =
-  wfText
-    [wf|
-    Assemble the handoff for this run. It is the artefact the definition of done
-    is applied to, and it is read by somebody who was not watching -- including,
-    possibly, a fresh process on another day.
+  [wft|
+  Assemble the handoff for this run. It is the artefact the definition of done
+  is applied to, and it is read by somebody who was not watching -- including,
+  possibly, a fresh process on another day.
 
-    Write it from the receipts and the rounds below and from nothing else. Six
-    parts, in this order:
+  Write it from the receipts and the rounds below and from nothing else. Six
+  parts, in this order:
 
-    1. What was done, one line per unit, each naming the commit that carries it.
-    2. What remains.
-    3. How to resume: the first command a fresh run would type.
-    4. What the green gate said, quoted, including its failing line if it has
-       one.
-    5. What the audit found, by category, with `none` kept as `none`.
-    6. Every gate or failing signature that has objected more than once, with its
-       count.
+  1. What was done, one line per unit, each naming the commit that carries it.
+  2. What remains.
+  3. How to resume: the first command a fresh run would type.
+  4. What the green gate said, quoted, including its failing line if it has
+     one.
+  5. What the audit found, by category, with `none` kept as `none`.
+  6. Every gate or failing signature that has objected more than once, with its
+     count.
 
-    Do not describe work the receipts do not show, and do not soften what the
-    gate said. A handoff that reads better than the tree is the failure this
-    whole loop exists to prevent.|]
+  Do not describe work the receipts do not show, and do not soften what the
+  gate said. A handoff that reads better than the tree is the failure this
+  whole loop exists to prevent.|]
 
 -- | The Definition of Done, as the judge's brief.
 --
@@ -754,35 +744,34 @@ handoffBrief =
 -- program can reach.
 doneCriteriaBrief :: Text -> Text -> Text
 doneCriteriaBrief plan parity =
-  wfText
-    [wf|
-    You are the separate evaluator. You did none of the work below and you are
-    not being asked to improve it: you are being asked whether it is done,
-    against a plan that was frozen before it started.
+  [wft|
+  You are the separate evaluator. You did none of the work below and you are
+  not being asked to improve it: you are being asked whether it is done,
+  against a plan that was frozen before it started.
 
-    Exit successfully ONLY when ALL of these hold, with evidence in the handoff
-    rather than self-assertion:
+  Exit successfully ONLY when ALL of these hold, with evidence in the handoff
+  rather than self-assertion:
 
-    - every planned task or done-criterion is complete;
-    - the build and the full test suite pass, and the passing output is shown;
-    - the last work commit has passed a final audit -- the audit's findings are
-      in the handoff, and `none` in a category means somebody checked it;
-    - no actionable partner observation is outstanding as of the last cleanup
-      cycle (partner review does not necessarily drain to empty; a note that
-      further, non-blocking observations are deferred is an acceptable ending);
-    - the branch is rebased or restacked cleanly onto its base, locally.
+  - every planned task or done-criterion is complete;
+  - the build and the full test suite pass, and the passing output is shown;
+  - the last work commit has passed a final audit -- the audit's findings are
+    in the handoff, and `none` in a category means somebody checked it;
+  - no actionable partner observation is outstanding as of the last cleanup
+    cycle (partner review does not necessarily drain to empty; a note that
+    further, non-blocking observations are deferred is an acceptable ending);
+  - the branch is rebased or restacked cleanly onto its base, locally.
 
-    {parityConjunct}
+  {parityConjunct}
 
-    Never lower the bar. Do not restate a criterion more weakly, do not treat a
-    weakened assertion, a skipped test or a hardcoded output as a criterion met,
-    and do not accept "out of scope", "pre-existing" or "follow-up ticket" as an
-    account of an incomplete item. If following the plan would require shipping
-    something broken, say so plainly instead of approving it.
+  Never lower the bar. Do not restate a criterion more weakly, do not treat a
+  weakened assertion, a skipped test or a hardcoded output as a criterion met,
+  and do not accept "out of scope", "pre-existing" or "follow-up ticket" as an
+  account of an incomplete item. If following the plan would require shipping
+  something broken, say so plainly instead of approving it.
 
-    The frozen plan, verbatim. It is the whole of what "done" means here:
+  The frozen plan, verbatim. It is the whole of what "done" means here:
 
-    {frozen}|]
+  {frozen}|]
   where
     parityConjunct = parity
     frozen = frozenOr plan
@@ -813,18 +802,17 @@ frozenOr p
 -- implying that a trip here advances the tree.
 continuationBrief :: Text
 continuationBrief =
-  wfText
-    [wf|
-    The evaluator has objected to the handoff below: by its reading, the
-    definition of done does not yet hold, and its one line says what is missing.
+  [wft|
+  The evaluator has objected to the handoff below: by its reading, the
+  definition of done does not yet hold, and its one line says what is missing.
 
-    Produce the next version of the handoff and nothing else. You may not do the
-    work from here and you may not change the tree: what you can do is account
-    for the objection honestly -- fold in what the receipts already show and the
-    last version missed, and where the objection names work that genuinely has
-    not been done, say so in part 2 rather than dressing it up. A handoff amended
-    into an approval it has not earned is the one outcome worse than an
-    unfinished run.|]
+  Produce the next version of the handoff and nothing else. You may not do the
+  work from here and you may not change the tree: what you can do is account
+  for the objection honestly -- fold in what the receipts already show and the
+  last version missed, and where the objection names work that genuinely has
+  not been done, say so in part 2 rather than dressing it up. A handoff amended
+  into an approval it has not earned is the one outcome worse than an
+  unfinished run.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines the endings differ in
@@ -883,14 +871,13 @@ sharedSessionNote =
 -- was put, so there is no receipt to pass.
 sharedSessionState :: Text -> Text
 sharedSessionState engine =
-  wfText
-    [wf|
-    Nothing ran, so there is no receipt, no commit, no gate output and no audit
-    to account for -- and any of those in a report would be invented. The whole
-    of this run's material is the one fact the gate read, which is this run's
-    engine and its session policy:
+  [wft|
+  Nothing ran, so there is no receipt, no commit, no gate output and no audit
+  to account for -- and any of those in a report would be invented. The whole
+  of this run's material is the one fact the gate read, which is this run's
+  engine and its session policy:
 
-    {engine}|]
+  {engine}|]
 
 -- | The arm where the sentinel probe did not pass.
 --
@@ -945,17 +932,14 @@ notIndependentNote =
 -- to accommodate a fact would be a note that says something new about the work.
 runProvenance :: Text -> Text -> Text -> Text
 runProvenance backends engine note =
-  note
-    <> " "
-    <> wfText
-      [wf|
-      This run's answerers: {backends}. Its engine: {engine}. Both facts came
-      from the runner and from no party asked below, and the second one is what
-      this loop gates on before it spends anything: an evaluator that shared one
-      conversation with the work it was judging is not the separate evaluator the
-      definition of done requires, so a run whose engine says it would have is
-      refused rather than reported on. Quote both facts and let the reader check
-      the ending above against them.|]
+  [wft|
+  {note} This run's answerers: {backends}. Its engine: {engine}. Both facts came
+  from the runner and from no party asked below, and the second one is what
+  this loop gates on before it spends anything: an evaluator that shared one
+  conversation with the work it was judging is not the separate evaluator the
+  definition of done requires, so a run whose engine says it would have is
+  refused rather than reported on. Quote both facts and let the reader check
+  the ending above against them.|]
 
 -- | The arm where the baseline was already red.
 --
@@ -1038,27 +1022,26 @@ cannotJudgeNote =
 -- parameter the arms differ in, and the run's own artefact.
 wiggumReportBrief :: Text
 wiggumReportBrief =
-  wfText
-    [wf|
-    Write the report for an autonomous work loop. It is read by the person who
-    started it and walked away, and it is the only account they get.
+  [wft|
+  Write the report for an autonomous work loop. It is read by the person who
+  started it and walked away, and it is the only account they get.
 
-    Open with the provenance line you were given, verbatim, on its own line. It
-    is the run's own statement of how it ended and it is not yours to soften, to
-    restate or to reorder. In particular: if it says the run is blocked, do not
-    describe the work as finished, and if it says nothing was started, do not
-    describe any work at all.
+  Open with the provenance line you were given, verbatim, on its own line. It
+  is the run's own statement of how it ended and it is not yours to soften, to
+  restate or to reorder. In particular: if it says the run is blocked, do not
+  describe the work as finished, and if it says nothing was started, do not
+  describe any work at all.
 
-    Then, from the material below and nothing else:
+  Then, from the material below and nothing else:
 
-    - what is done, and which commit carries each item;
-    - what remains, and what the next run starts with;
-    - what every gate said, quoted, including its failing lines;
-    - what the audit found, category by category, with `none` left as `none`;
-    - what was deliberately not done because it is a person's to do.
+  - what is done, and which commit carries each item;
+  - what remains, and what the next run starts with;
+  - what every gate said, quoted, including its failing lines;
+  - what the audit found, category by category, with `none` left as `none`;
+  - what was deliberately not done because it is a person's to do.
 
-    Do not add work the material does not show. Do not report a count you were
-    not given. Then reply DONE.|]
+  Do not add work the material does not show. Do not report a count you were
+  not given. Then reply DONE.|]
 
 -- ---------------------------------------------------------------------------
 -- The functions

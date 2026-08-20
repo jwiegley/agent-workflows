@@ -282,23 +282,22 @@ slug s
 -- within those services\" — verbatim in substance.
 housePreferences :: Text
 housePreferences =
-  wfText
-    [wf|
-    Everything you do must be coherent with the other services already on this
-    machine. Read how an existing service of the same shape is declared and
-    follow it: the same module layout, the same naming, the same monitoring
-    pattern, the same directory conventions. A service that works and looks
-    nothing like its neighbours is a service the next person maintains twice.
+  [wft|
+  Everything you do must be coherent with the other services already on this
+  machine. Read how an existing service of the same shape is declared and
+  follow it: the same module layout, the same naming, the same monitoring
+  pattern, the same directory conventions. A service that works and looks
+  nothing like its neighbours is a service the next person maintains twice.
 
-    Where there is a choice of backing store, use the PostgreSQL and Redis
-    services already running on this server rather than standing up new ones --
-    you will need to create a new user and a new database inside them, and that
-    is the intended cost.
+  Where there is a choice of backing store, use the PostgreSQL and Redis
+  services already running on this server rather than standing up new ones --
+  you will need to create a new user and a new database inside them, and that
+  is the intended cost.
 
-    Where you must choose between a native NixOS service and a rootless quadlet
-    container under a home-manager-managed user account, choose the one that fits
-    this machine's existing practice for this kind of service, and say which and
-    why. Do not introduce a second pattern for the sake of one service.|]
+  Where you must choose between a native NixOS service and a rootless quadlet
+  container under a home-manager-managed user account, choose the one that fits
+  this machine's existing practice for this kind of service, and say which and
+  why. Do not introduce a second pattern for the sake of one service.|]
 
 -- | @commands\/install-service.md@'s secrets rule, and what makes it hold.
 --
@@ -318,18 +317,17 @@ housePreferences =
 -- refrain from.
 secretsDiscipline :: Text
 secretsDiscipline =
-  wfText
-    [wf|
-    Secrets are declared here and created by the operator. Where this service
-    needs one, add its SOPS declaration and wire the service to read it from the
-    path that declaration produces -- and then say, in one line, exactly which
-    secret the operator must create and what it must contain.
+  [wft|
+  Secrets are declared here and created by the operator. Where this service
+  needs one, add its SOPS declaration and wire the service to read it from the
+  path that declaration produces -- and then say, in one line, exactly which
+  secret the operator must create and what it must contain.
 
-    Do not put a secret's value anywhere: not in a file, not in a commit, not in
-    your answer. A declaration names a secret; it does not carry one.
+  Do not put a secret's value anywhere: not in a file, not in a commit, not in
+  your answer. A declaration names a secret; it does not carry one.
 
-    The same applies to the TLS certificate: declare the virtual host and the
-    certificate it uses, and ask for the certificate rather than issuing one.|]
+  The same applies to the TLS certificate: declare the virtual host and the
+  certificate it uses, and ask for the certificate rather than issuing one.|]
 
 -- ---------------------------------------------------------------------------
 -- The nine obligations
@@ -525,12 +523,11 @@ removalRoster =
 -- what an exit code is: @test -f@ answers yes or no and nothing else.
 consentBrief :: Text
 consentBrief =
-  wfText
-    [wf|
-    The operator's consent file. Its presence means he has issued the TLS
-    certificate for the new domain and installed the SOPS secrets this service
-    needs. Its absence means he has not, and this run does not proceed: nothing
-    in this program can create this file.|]
+  [wft|
+  The operator's consent file. Its presence means he has issued the TLS
+  certificate for the new domain and installed the SOPS secrets this service
+  needs. Its absence means he has not, and this run does not proceed: nothing
+  in this program can create this file.|]
 
 -- | What the run says to the operator when the consent file is absent.
 --
@@ -540,23 +537,22 @@ consentBrief =
 -- rather than a shout.
 prerequisitesBrief :: Text
 prerequisitesBrief =
-  wfText
-    [wf|
-    This installation needs two things from you before it can start, and neither
-    is something this run may do for itself.
+  [wft|
+  This installation needs two things from you before it can start, and neither
+  is something this run may do for itself.
 
-    First, the TLS certificate for the new domain. Issue it the way you issue the
-    others on this machine. This run will declare the virtual host that uses it
-    and will not generate it.
+  First, the TLS certificate for the new domain. Issue it the way you issue the
+  others on this machine. This run will declare the virtual host that uses it
+  and will not generate it.
 
-    Second, the SOPS secrets this service needs. The run cannot know which until
-    it has read the service's configuration, so this is the ordering: create the
-    consent file now if you are content for the run to proceed and to TELL you
-    which secrets to create as it goes, and it will declare each one and name it
-    for you rather than inventing a value.
+  Second, the SOPS secrets this service needs. The run cannot know which until
+  it has read the service's configuration, so this is the ordering: create the
+  consent file now if you are content for the run to proceed and to TELL you
+  which secrets to create as it goes, and it will declare each one and name it
+  for you rather than inventing a value.
 
-    Create the consent file named in this run's own plan, and start the run
-    again. Nothing has been changed on this machine.|]
+  Create the consent file named in this run's own plan, and start the run
+  again. Nothing has been changed on this machine.|]
 
 -- | What the shape question asks.
 --
@@ -565,56 +561,53 @@ prerequisitesBrief =
 -- home-manager, whichever is best for my configuration.\"
 shapeBrief :: Text
 shapeBrief =
-  wfText
-    [wf|
-    Decide how this service should be installed on this machine, and answer with
-    that decision and nothing else: it is spliced into every obligation below, so
-    the nine of them cannot disagree about what is being installed.
+  [wft|
+  Decide how this service should be installed on this machine, and answer with
+  that decision and nothing else: it is spliced into every obligation below, so
+  the nine of them cannot disagree about what is being installed.
 
-    Choose between a native NixOS service and a rootless quadlet container under
-    a home-manager-managed user account. Say which, and say why in terms of THIS
-    machine's existing practice for services of this shape -- not in terms of
-    which is better in general.
+  Choose between a native NixOS service and a rootless quadlet container under
+  a home-manager-managed user account. Say which, and say why in terms of THIS
+  machine's existing practice for services of this shape -- not in terms of
+  which is better in general.
 
-    Then state the concrete consequences of the choice that the obligations will
-    need: the unit name, the user it runs as, the port it listens on, its state
-    directory, and where its configuration will live. Where you are not sure of
-    one, say so rather than picking: an obligation that acts on a guessed port
-    produces a service that starts and answers nothing.|]
+  Then state the concrete consequences of the choice that the obligations will
+  need: the unit name, the user it runs as, the port it listens on, its state
+  directory, and where its configuration will live. Where you are not sure of
+  one, say so rather than picking: an obligation that acts on a guessed port
+  produces a service that starts and answers nothing.|]
 
 -- | What each obligation's planning question asks, above the obligation itself.
 obligationBrief :: Text
 obligationBrief =
-  wfText
-    [wf|
-    Carry out one obligation of a service installation, and only that one. The
-    obligation is stated below; everything else about this installation is
-    somebody else's turn.
+  [wft|
+  Carry out one obligation of a service installation, and only that one. The
+  obligation is stated below; everything else about this installation is
+  somebody else's turn.
 
-    Answer with the plan: which file, which attribute, what it becomes, and what
-    existing declaration on this machine you are following. Then it is applied.
+  Answer with the plan: which file, which attribute, what it becomes, and what
+  existing declaration on this machine you are following. Then it is applied.
 
-    Say explicitly if this obligation does not apply to this service, and why.
-    "Not applicable, because this service exposes no metrics" is a complete
-    answer to an obligation and is worth more than a plausible one invented to
-    fill the slot.|]
+  Say explicitly if this obligation does not apply to this service, and why.
+  "Not applicable, because this service exposes no metrics" is a complete
+  answer to an obligation and is worth more than a plausible one invented to
+  fill the slot.|]
 
 -- | What the applying act is told.
 obligationApplyBrief :: Text
 obligationApplyBrief =
-  wfText
-    [wf|
-    Apply the plan below, and only it. Do not do the next obligation, do not
-    reformat the files you are in, and do not fix an unrelated thing you notice --
-    each obligation is applied by its own turn precisely so that a failure can be
-    attributed to one.
+  [wft|
+  Apply the plan below, and only it. Do not do the next obligation, do not
+  reformat the files you are in, and do not fix an unrelated thing you notice --
+  each obligation is applied by its own turn precisely so that a failure can be
+  attributed to one.
 
-    Do not activate the configuration and do not build it: a later step runs the
-    host's own driver, and its verdict is the one that counts.
+  Do not activate the configuration and do not build it: a later step runs the
+  host's own driver, and its verdict is the one that counts.
 
-    Where the plan says this obligation does not apply, change nothing and say so.
+  Where the plan says this obligation does not apply, change nothing and say so.
 
-    When you are done, reply DONE with one line per file changed.|]
+  When you are done, reply DONE with one line per file changed.|]
 
 -- | What the removal script act is told.
 --
@@ -625,36 +618,35 @@ obligationApplyBrief =
 -- cleanup of the SOPS secrets to me.\"
 scriptBrief :: Text
 scriptBrief =
-  wfText
-    [wf|
-    Two things, and they have different authority.
+  [wft|
+  Two things, and they have different authority.
 
-    First, remove this service's declarations from the Nix configuration. That is
-    an edit you may make: the nix surface below says which files and which
-    attribute paths, and you make exactly those removals. Leave the rest of each
-    file alone.
+  First, remove this service's declarations from the Nix configuration. That is
+  an edit you may make: the nix surface below says which files and which
+  attribute paths, and you make exactly those removals. Leave the rest of each
+  file alone.
 
-    Second, write a shell script -- do not run it -- that carries out everything
-    else the surfaces below describe: stopping and disabling units, removing
-    containers and images, dropping the database and its user, removing users,
-    groups, state directories and data, and removing the Samba mount and backup
-    entries. This script is read by the operator before he runs it, so write it to
-    be read:
+  Second, write a shell script -- do not run it -- that carries out everything
+  else the surfaces below describe: stopping and disabling units, removing
+  containers and images, dropping the database and its user, removing users,
+  groups, state directories and data, and removing the Samba mount and backup
+  entries. This script is read by the operator before he runs it, so write it to
+  be read:
 
-    - `set -euo pipefail`, and no `rm -rf` without the path written out in full;
-    - one commented section per surface, in the order the surfaces are given;
-    - every destructive line preceded by a comment saying what data it destroys
-      and whether it is recoverable;
-    - a first section that is purely a dry run -- what exists, what would be
-      removed -- so the operator can read the script's own findings before
-      anything is deleted;
-    - no secret values, and NOTHING that touches SOPS. The operator cleans up
-      secrets himself. List the secrets in a comment at the end, by name and
-      location, and stop there.
+  - `set -euo pipefail`, and no `rm -rf` without the path written out in full;
+  - one commented section per surface, in the order the surfaces are given;
+  - every destructive line preceded by a comment saying what data it destroys
+    and whether it is recoverable;
+  - a first section that is purely a dry run -- what exists, what would be
+    removed -- so the operator can read the script's own findings before
+    anything is deleted;
+  - no secret values, and NOTHING that touches SOPS. The operator cleans up
+    secrets himself. List the secrets in a comment at the end, by name and
+    location, and stop there.
 
-    Name the script for the service and put it where a human will find it. When
-    you are done, reply DONE with the script's path and the files whose
-    declarations you edited.|]
+  Name the script for the service and put it where a human will find it. When
+  you are done, reply DONE with the script's path and the files whose
+  declarations you edited.|]
 
 -- | What the unit receipt is asked.
 --
@@ -663,10 +655,9 @@ scriptBrief =
 -- reading.
 unitBrief :: Text
 unitBrief =
-  wfText
-    [wf|
-    The service's own systemd unit, as systemctl reports it. A pass here means
-    the unit is loaded, enabled and running on this machine right now.|]
+  [wft|
+  The service's own systemd unit, as systemctl reports it. A pass here means
+  the unit is loaded, enabled and running on this machine right now.|]
 
 -- | What the endpoint receipt is asked.
 --
@@ -677,11 +668,10 @@ unitBrief =
 -- certificate, or the port is wrong.
 endpointBrief :: Text
 endpointBrief =
-  wfText
-    [wf|
-    The service over HTTPS, at the domain this run was given. A pass here means
-    nginx is routing, the certificate is valid and trusted, and the service
-    answered.|]
+  [wft|
+  The service over HTTPS, at the domain this run was given. A pass here means
+  nginx is routing, the certificate is valid and trusted, and the service
+  answered.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines
@@ -810,30 +800,29 @@ obligationFn =
 -- | The brief the report is written through.
 serviceReportBrief :: Text
 serviceReportBrief =
-  wfText
-    [wf|
-    Write the report for a service run on this NixOS host. It is read by the
-    operator of the machine, who will decide from it what to do next.
+  [wft|
+  Write the report for a service run on this NixOS host. It is read by the
+  operator of the machine, who will decide from it what to do next.
 
-    Open with the provenance line you were given, verbatim, on its own line. It is
-    the run's own account of how it ended, and it is not yours to soften or to
-    restate.
+  Open with the provenance line you were given, verbatim, on its own line. It is
+  the run's own account of how it ended, and it is not yours to soften or to
+  restate.
 
-    Then, from the work below and nothing else:
+  Then, from the work below and nothing else:
 
-    - one line per obligation or surface, saying what was done, or that it did not
-      apply and why;
-    - every SOPS secret the operator must create or clean up, by name and
-      location, and no secret values;
-    - what the closing receipts said -- the unit, the endpoint, or the build
-      driver -- verbatim;
-    - what this run did NOT establish;
-    - what to do next, in order.
+  - one line per obligation or surface, saying what was done, or that it did not
+    apply and why;
+  - every SOPS secret the operator must create or clean up, by name and
+    location, and no secret values;
+  - what the closing receipts said -- the unit, the endpoint, or the build
+    driver -- verbatim;
+  - what this run did NOT establish;
+  - what to do next, in order.
 
-    Two things you must not write. Do not describe monitoring as working because
-    it was declared: a scrape job is not a metric. And do not describe anything as
-    verified that a receipt did not verify -- say which claims rest on a command's
-    exit code and which rest on a reading.|]
+  Two things you must not write. Do not describe monitoring as working because
+  it was declared: a scrape job is not a metric. And do not describe anything as
+  verified that a receipt did not verify -- say which claims rest on a command's
+  exit code and which rest on a reading.|]
 
 -- | One act, seven provenance lines.
 --
@@ -1027,19 +1016,18 @@ obligationText n = case [b | (k, b) <- obligations, k == n] of
 -- | What each removal surface is told about the shape of its answer.
 removalClosing :: Text
 removalClosing =
-  wfText
-    [wf|
-    Sweep your own surface and nothing else. Your answer is one block of a
-    document whose other blocks are the other surfaces', each fenced under its own
-    name: do not sweep theirs and do not summarise the whole.
+  [wft|
+  Sweep your own surface and nothing else. Your answer is one block of a
+  document whose other blocks are the other surfaces', each fenced under its own
+  name: do not sweep theirs and do not summarise the whole.
 
-    You are reading, not writing. Report what exists, where it is declared, what
-    removes it, and what data -- if any -- removing it destroys. Do not remove
-    anything and do not propose a command you have not established is needed.
+  You are reading, not writing. Report what exists, where it is declared, what
+  removes it, and what data -- if any -- removing it destroys. Do not remove
+  anything and do not propose a command you have not established is needed.
 
-    Where your surface is empty for this service, say so. An empty surface stated
-    is a surface accounted for, and it is what stops the script from carrying a
-    line that removes something that was never there.|]
+  Where your surface is empty for this service, say so. An empty surface stated
+  is a surface accounted for, and it is what stops the script from carrying a
+  line that removes something that was never there.|]
 
 -- ---------------------------------------------------------------------------
 -- The registry's other column

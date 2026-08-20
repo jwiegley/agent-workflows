@@ -533,67 +533,63 @@ deliverableRoster t files =
 -- | What the commit-years receipt is introduced as.
 yearsBrief :: Text
 yearsBrief =
-  wfText
-    [wf|
-    One four-digit year per commit in this repository, oldest first. The first
-    line is the earliest year anything was committed here and the last line is
-    the most recent: those two numbers are the copyright range, and they are
-    counted rather than recalled.|]
+  [wft|
+  One four-digit year per commit in this repository, oldest first. The first
+  line is the earliest year anything was committed here and the last line is
+  the most recent: those two numbers are the copyright range, and they are
+  counted rather than recalled.|]
 
 -- | What a per-language search seat is asked.
 searchBriefFor :: Text -> Text
 searchBriefFor lang =
-  wfText
-    [wf|
-    The operator's tool preferences do not name a linter or a formatter for
-    {lang}, and say to find the best option by live search. Answer that question
-    and nothing else.
+  [wft|
+  The operator's tool preferences do not name a linter or a formatter for
+  {lang}, and say to find the best option by live search. Answer that question
+  and nothing else.
 
-    Name the tool you would use, what it is packaged as, and how it is invoked to
-    CHECK rather than to rewrite -- a pre-commit hook needs the checking form.
-    Then cite where the recommendation comes from: the tool's own documentation,
-    its repository, or a comparison you can name. A recommendation with no source
-    is an inference, and it is labelled one.
+  Name the tool you would use, what it is packaged as, and how it is invoked to
+  CHECK rather than to rewrite -- a pre-commit hook needs the checking form.
+  Then cite where the recommendation comes from: the tool's own documentation,
+  its repository, or a comparison you can name. A recommendation with no source
+  is an inference, and it is labelled one.
 
-    If the honest answer is that the ecosystem has no established option, say
-    that. An absent tool named as absent is worth more here than a plausible one
-    named without evidence, because the second becomes a build target that fails
-    on somebody else's machine.|]
+  If the honest answer is that the ecosystem has no established option, say
+  that. An absent tool named as absent is worth more here than a plausible one
+  named without evidence, because the second becomes a build target that fails
+  on somebody else's machine.|]
 
 -- | What the general toolchain seat is asked, when the file list was not given.
 generalSearchBrief :: Text
 generalSearchBrief =
-  wfText
-    [wf|
-    No file list was given to this run, so the languages this repository is in
-    were not decided in advance. Answer two things and nothing else.
+  [wft|
+  No file list was given to this run, so the languages this repository is in
+  were not decided in advance. Answer two things and nothing else.
 
-    First: which languages this tree is actually written in, and what shows it --
-    a manifest, a build file, an extension count.
+  First: which languages this tree is actually written in, and what shows it --
+  a manifest, a build file, an extension count.
 
-    Second: for each of those languages that the operator's preference table does
-    not name a linter or a formatter for, name the tool you would use, how it is
-    invoked to CHECK rather than to rewrite, and where the recommendation comes
-    from. A recommendation with no source is an inference and is labelled one.|]
+  Second: for each of those languages that the operator's preference table does
+  not name a linter or a formatter for, name the tool you would use, how it is
+  invoked to CHECK rather than to rewrite, and where the recommendation comes
+  from. A recommendation with no source is an inference and is labelled one.|]
 
 -- | What each deliverable member is told about the shape of its answer.
 deliverableClosing :: Text
 deliverableClosing =
-  wfText
-    [wf|
-    Specify your own deliverable and nothing else. Your answer is one block of a
-    specification whose other blocks are the other deliverables', each fenced
-    under its own name: do not specify theirs, do not summarise the document, and
-    do not add a heading of your own -- the fold supplies your name.
+  [wft|
+  Specify your own deliverable and nothing else. Your answer is one block of a
+  specification whose other blocks are the other deliverables', each fenced
+  under its own name: do not specify theirs, do not summarise the document, and
+  do not add a heading of your own -- the fold supplies your name.
 
-    Your block is written for the turn that will apply it, so it must be
-    concrete: the file to write or the target to add, its contents or its
-    definition, and the one command that would prove it works. A deliverable
-    whose block names no verification is a deliverable nobody can tell was
-    delivered.
+  Your block is written for the turn that will apply it, so it must be
+  concrete: the file to write or the target to add, its contents or its
+  definition, and the one command that would prove it works. A deliverable
+  whose block names no verification is a deliverable nobody can tell was
+  delivered.
 
-    Where this repository already satisfies your deliverable, say so and say what
-    shows it. That is a complete answer, and it costs the applying turn nothing.|]
+  Where this repository already satisfies your deliverable, say so and say what
+  shows it. That is a complete answer, and it costs the applying turn nothing.|]
 
 -- | What the applying act is told, for the whole workflow.
 --
@@ -602,25 +598,24 @@ deliverableClosing =
 -- them has to exist before @nix flake check@ can run them.
 applyBrief :: Text
 applyBrief =
-  wfText
-    [wf|
-    Apply the specification below. Write each file it names and add each build
-    target it defines, in the order the blocks are given, so that a deliverable
-    another one depends on exists first.
+  [wft|
+  Apply the specification below. Write each file it names and add each build
+  target it defines, in the order the blocks are given, so that a deliverable
+  another one depends on exists first.
 
-    Apply what the blocks say and nothing more. Do not add a target nobody
-    specified, do not reformat the tree while you are in it, and do not
-    "improve" an existing file beyond what its block asks for -- this turn is
-    the specification's, and anything else it does is a change nobody reviewed.
+  Apply what the blocks say and nothing more. Do not add a target nobody
+  specified, do not reformat the tree while you are in it, and do not
+  "improve" an existing file beyond what its block asks for -- this turn is
+  the specification's, and anything else it does is a change nobody reviewed.
 
-    Where a block says this repository already satisfies its deliverable, leave
-    that alone.
+  Where a block says this repository already satisfies its deliverable, leave
+  that alone.
 
-    Do not run the checks you are adding. The next step runs `nix flake check`,
-    which is deliverable 5's own answer to how any of this is verified, and its
-    verdict is the one that counts.
+  Do not run the checks you are adding. The next step runs `nix flake check`,
+  which is deliverable 5's own answer to how any of this is verified, and its
+  verdict is the one that counts.
 
-    When you are done, reply DONE with one line per file written or target added.|]
+  When you are done, reply DONE with one line per file written or target added.|]
 
 -- | What the hook act is told.
 --
@@ -628,25 +623,24 @@ applyBrief =
 -- @commands\/lefthook.md@, which is the same instruction addressed at one file.
 hookBrief :: Text
 hookBrief =
-  wfText
-    [wf|
-    Write the lefthook.yml this specification describes, and the GitHub Actions
-    workflow that mirrors it.
+  [wft|
+  Write the lefthook.yml this specification describes, and the GitHub Actions
+  workflow that mirrors it.
 
-    One command entry per check, each with the glob it applies to and the command
-    it runs against the staged files. `parallel: true` where the checks are
-    independent, and an explicit ordering where they are not -- a hook whose
-    parallelism is wrong fails intermittently, which teaches somebody to pass
-    --no-verify, which is worse than having no hook.
+  One command entry per check, each with the glob it applies to and the command
+  it runs against the staged files. `parallel: true` where the checks are
+  independent, and an explicit ordering where they are not -- a hook whose
+  parallelism is wrong fails intermittently, which teaches somebody to pass
+  --no-verify, which is worse than having no hook.
 
-    The Actions workflow runs the same checks under the same names. Two lists
-    that drift are two lists, and the point of this pair is that a contributor
-    without the hook installed is held to the same bar.
+  The Actions workflow runs the same checks under the same names. Two lists
+  that drift are two lists, and the point of this pair is that a contributor
+  without the hook installed is held to the same bar.
 
-    Write nothing else: this turn owns the hook file and the workflow file, and
-    the other deliverables are somebody else's.
+  Write nothing else: this turn owns the hook file and the workflow file, and
+  the other deliverables are somebody else's.
 
-    When you are done, reply DONE.|]
+  When you are done, reply DONE.|]
 
 -- ---------------------------------------------------------------------------
 -- The two provenance lines
@@ -735,26 +729,25 @@ productizeFn =
 -- | The brief the report is written through.
 productizeReportBrief :: Text
 productizeReportBrief =
-  wfText
-    [wf|
-    Write the productization report.
+  [wft|
+  Write the productization report.
 
-    Open with the provenance line you were given, verbatim, on its own line. It
-    is this run's own account of how it ended, and it is not yours to soften or
-    to restate.
+  Open with the provenance line you were given, verbatim, on its own line. It
+  is this run's own account of how it ended, and it is not yours to soften or
+  to restate.
 
-    Then, from the specification and the gate's verdict and nothing else:
+  Then, from the specification and the gate's verdict and nothing else:
 
-    - one line per deliverable, saying delivered, already present, or not
-      applicable -- and for "not applicable", the reason its own block gave;
-    - the command that verifies each delivered item;
-    - what `nix flake check` said, verbatim where it objected;
-    - every recommendation that was labelled an inference rather than sourced,
-      because those are the build targets most likely to fail on another
-      machine.
+  - one line per deliverable, saying delivered, already present, or not
+    applicable -- and for "not applicable", the reason its own block gave;
+  - the command that verifies each delivered item;
+  - what `nix flake check` said, verbatim where it objected;
+  - every recommendation that was labelled an inference rather than sourced,
+    because those are the build targets most likely to fail on another
+    machine.
 
-    Do not report a deliverable as delivered because its block was written. A
-    block is a specification; the gate is the evidence.|]
+  Do not report a deliverable as delivered because its block was written. A
+  block is a specification; the gate is the evidence.|]
 
 -- | The report both endings call.
 productizeReportFn :: Fn '[ 'CodeText, 'CodeText] 'CodeAck
@@ -915,13 +908,12 @@ noYears =
 -- | What each tool seat is told about the shape of its answer.
 searchClosing :: Text
 searchClosing =
-  wfText
-    [wf|
-    Answer only your own question. Your answer is one block of a document whose
-    other blocks are the other languages', each fenced under its own name: do not
-    answer theirs, and do not summarise. The blocks are read by the turn that
-    specifies the lint and format targets, so a tool named without its checking
-    invocation is a tool that target cannot use.|]
+  [wft|
+  Answer only your own question. Your answer is one block of a document whose
+  other blocks are the other languages', each fenced under its own name: do not
+  answer theirs, and do not summarise. The blocks are read by the turn that
+  specifies the lint and format targets, so a tool named without its checking
+  invocation is a tool that target cannot use.|]
 
 -- ---------------------------------------------------------------------------
 -- The registry's other column

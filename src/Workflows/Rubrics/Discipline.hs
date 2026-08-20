@@ -34,9 +34,8 @@ module Workflows.Rubrics.Discipline
   )
 where
 
-import Agentic.Workflow (wf)
+import Agentic.Workflow (wft)
 import Data.Text (Text)
-import Workflows.Prose (wfText)
 
 -- ---------------------------------------------------------------------------
 -- fix-all
@@ -48,39 +47,37 @@ import Workflows.Prose (wfText)
 -- conflict@, verbatim.
 fixAllRule :: Text
 fixAllRule =
-  wfText
-    [wf|
-    Fix every issue uncovered during this work. No exceptions, no excuses, no
-    deferrals. "Out of scope," "pre-existing," and "follow-up ticket" are not
-    acceptable framings -- if it surfaced, it gets fixed here.
+  [wft|
+  Fix every issue uncovered during this work. No exceptions, no excuses, no
+  deferrals. "Out of scope," "pre-existing," and "follow-up ticket" are not
+  acceptable framings -- if it surfaced, it gets fixed here.
 
-    When rules conflict, do the harder, more correct thing. If following these
-    rules would require shipping something broken, surface the conflict
-    explicitly. Do not silently lower the bar.|]
+  When rules conflict, do the harder, more correct thing. If following these
+  rules would require shipping something broken, surface the conflict
+  explicitly. Do not silently lower the bar.|]
 
 -- | The testing standard, including the four named reward hacks.
 --
 -- /Source:/ @skills\/fix-all\/SKILL.md@, @# Testing standards@, verbatim.
 testingStandard :: Text
 testingStandard =
-  wfText
-    [wf|
-    Everything you change or add has tests. Period.
+  [wft|
+  Everything you change or add has tests. Period.
 
-    Tests exist to catch bugs. That is their only purpose. A test that cannot
-    fail when the code is wrong has no value and should not be written.
+  Tests exist to catch bugs. That is their only purpose. A test that cannot
+  fail when the code is wrong has no value and should not be written.
 
-    No reward hacking. Specifically forbidden: weakening assertions to get
-    green; deleting, skipping or xfail-ing tests to get green; mocking the
-    system under test; tautological tests, blind snapshot tests, or tests that
-    only verify the code matches itself.
+  No reward hacking. Specifically forbidden: weakening assertions to get
+  green; deleting, skipping or xfail-ing tests to get green; mocking the
+  system under test; tautological tests, blind snapshot tests, or tests that
+  only verify the code matches itself.
 
-    When a bug is found, the response is to fix the bug -- never relax the test,
-    never adjust assertions to match buggy output. The standard does not move
-    when it becomes inconvenient.
+  When a bug is found, the response is to fix the bug -- never relax the test,
+  never adjust assertions to match buggy output. The standard does not move
+  when it becomes inconvenient.
 
-    For each bug fixed, add the test that would have caught it. If you genuinely
-    cannot, say so explicitly and explain why.|]
+  For each bug fixed, add the test that would have caught it. If you genuinely
+  cannot, say so explicitly and explain why.|]
 
 -- | The upstream rule.
 --
@@ -88,21 +85,20 @@ testingStandard =
 -- verbatim.
 upstreamRule :: Text
 upstreamRule =
-  wfText
-    [wf|
-    If a problem is caused upstream, fix it upstream. Always. There is no
-    version of this rule that ends with a workaround downstream. This applies to
-    vendored and third-party dependencies, to tooling and build systems and
-    frameworks, and to shared libraries owned by other teams.
+  [wft|
+  If a problem is caused upstream, fix it upstream. Always. There is no
+  version of this rule that ends with a workaround downstream. This applies to
+  vendored and third-party dependencies, to tooling and build systems and
+  frameworks, and to shared libraries owned by other teams.
 
-    Forbidden downstream workarounds: shims that paper over upstream bugs;
-    conditional branches that exist only because upstream is wrong; "temporary"
-    patches in our tree; a comment saying "workaround for X" instead of a fix in
-    X.
+  Forbidden downstream workarounds: shims that paper over upstream bugs;
+  conditional branches that exist only because upstream is wrong; "temporary"
+  patches in our tree; a comment saying "workaround for X" instead of a fix in
+  X.
 
-    If upstream is genuinely blocked -- frozen repo, dead project, hostile
-    maintainer -- say so explicitly, fork it, treat the fork as the new
-    upstream, and fix it there.|]
+  If upstream is genuinely blocked -- frozen repo, dead project, hostile
+  maintainer -- say so explicitly, fork it, treat the fork as the new
+  upstream, and fix it there.|]
 
 -- | The definition of done.
 --
@@ -113,17 +109,16 @@ upstreamRule =
 -- rather than reworded, and this sentence is why.
 definitionOfDone :: Text
 definitionOfDone =
-  wfText
-    [wf|
-    The task is done only when all of the following hold:
+  [wft|
+  The task is done only when all of the following hold:
 
-    - Every issue uncovered has been fixed -- not deferred, not ticketed.
-    - Every upstream-caused problem has been fixed upstream, with our tree
-      consuming the upstream fix. No local workarounds remain.
-    - All new and modified code has high-value tests of the kind that catch the
-      relevant bug class.
-    - The full test suite passes locally.
-    - All commits are atomically scoped.|]
+  - Every issue uncovered has been fixed -- not deferred, not ticketed.
+  - Every upstream-caused problem has been fixed upstream, with our tree
+    consuming the upstream fix. No local workarounds remain.
+  - All new and modified code has high-value tests of the kind that catch the
+    relevant bug class.
+  - The full test suite passes locally.
+  - All commits are atomically scoped.|]
 
 -- ---------------------------------------------------------------------------
 -- parallelize
@@ -188,30 +183,29 @@ definitionOfDone =
 -- so the two cannot drift.
 independenceAttestation :: Text -> Text
 independenceAttestation sentinel =
-  wfText
-    [wf|
-    Sentinel check. This asks about one line and nothing else, and the answer is
-    not a judgement about whether your context is otherwise clean.
+  [wft|
+  Sentinel check. This asks about one line and nothing else, and the answer is
+  not a judgement about whether your context is otherwise clean.
 
-    The runner generated one PARENT_HISTORY_SENTINEL line for this run and put it
-    in no place other than this request. If such a line was already in your
-    context before this request -- a different value, or this same one from an
-    earlier turn -- reply with that inherited line and nothing else. If this
-    request is the only place you have seen one, reply with exactly
+  The runner generated one PARENT_HISTORY_SENTINEL line for this run and put it
+  in no place other than this request. If such a line was already in your
+  context before this request -- a different value, or this same one from an
+  earlier turn -- reply with that inherited line and nothing else. If this
+  request is the only place you have seen one, reply with exactly
 
-      PARENT_HISTORY_ABSENT
+    PARENT_HISTORY_ABSENT
 
-    and nothing else.
+  and nothing else.
 
-    Answer literally. A session carrying other prior context but no
-    PARENT_HISTORY_SENTINEL line answers PARENT_HISTORY_ABSENT, and that is the
-    correct answer: whether this run's questions share a conversation is a fact
-    the runner already holds and does not need you to guess at. Do not qualify,
-    explain or hedge the reply.
+  Answer literally. A session carrying other prior context but no
+  PARENT_HISTORY_SENTINEL line answers PARENT_HISTORY_ABSENT, and that is the
+  correct answer: whether this run's questions share a conversation is a fact
+  the runner already holds and does not need you to guess at. Do not qualify,
+  explain or hedge the reply.
 
-    This run's line is:
+  This run's line is:
 
-    {sentinel}|]
+  {sentinel}|]
 
 -- | The probe's prompt up to the run's own line: the prefix a scripted table
 -- keys the probe on.
@@ -241,14 +235,13 @@ independenceAttestationKey = independenceAttestation ""
 -- 'Workflows.Audit.Fess.verifiedIndependence'.
 unverifiedIndependence :: Text
 unverifiedIndependence =
-  wfText
-    [wf|
-    Provenance: this audit ran, and its independence was NOT verified. This
-    run's own parent-history sentinel was put to the answering runner and the
-    reply was not PARENT_HISTORY_ABSENT, so a transcript this audit did not
-    choose was in front of it. Do not describe any finding below as an
-    independent confirmation. State this in the summary, in one sentence, before
-    anything else.|]
+  [wft|
+  Provenance: this audit ran, and its independence was NOT verified. This
+  run's own parent-history sentinel was put to the answering runner and the
+  reply was not PARENT_HISTORY_ABSENT, so a transcript this audit did not
+  choose was in front of it. Do not describe any finding below as an
+  independent confirmation. State this in the summary, in one sentence, before
+  anything else.|]
 
 -- ---------------------------------------------------------------------------
 -- The standing artefact rule
@@ -268,8 +261,7 @@ unverifiedIndependence =
 -- apply.
 codeIsTheArtefact :: Text
 codeIsTheArtefact =
-  wfText
-    [wf|
-    You are reading, not writing. Identify and report findings only: do not edit
-    files, add markers, create manifests, remove code, or apply fixes. If a fix
-    is obvious, describe it; the describing is your whole output.|]
+  [wft|
+  You are reading, not writing. Identify and report findings only: do not edit
+  files, add markers, create manifests, remove code, or apply fixes. If a fix
+  is obvious, describe it; the describing is your whole output.|]

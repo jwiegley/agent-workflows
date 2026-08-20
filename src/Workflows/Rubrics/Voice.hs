@@ -64,9 +64,8 @@ module Workflows.Rubrics.Voice
   )
 where
 
-import Agentic.Workflow (wf)
+import Agentic.Workflow (wft)
 import Data.Text (Text)
-import Workflows.Prose (wfText)
 
 -- | The elevated, sedate, institutionally grounded register.
 --
@@ -84,57 +83,56 @@ import Workflows.Prose (wfText)
 -- party that reads the receipts.
 itVoice :: Text
 itVoice =
-  wfText
-    [wf|
-    Write in an elevated, sedate, institutionally grounded register: measured,
-    authoritative and formal, never casual and never promotional. The voice is
-    instructional yet impersonal, grounded yet unhurried. It never sells, never
-    hectors, and never raises its voice for grave material.
+  [wft|
+  Write in an elevated, sedate, institutionally grounded register: measured,
+  authoritative and formal, never casual and never promotional. The voice is
+  instructional yet impersonal, grounded yet unhurried. It never sells, never
+  hectors, and never raises its voice for grave material.
 
-    Diction. Sustain one formal register throughout, and use no contractions at
-    all -- write cannot, do not, need not, it is -- including inside
-    instructions. Where two phrasings exist, choose the more formal one provided
-    it is exact. State standing norms and the behaviour of systems as plain
-    facts in the present indicative, so that a requirement reads as settled
-    practice; give procedures in the bare imperative; soften recommendations
-    with evaluative framings such as "does well to" or "warrants emphasis"; and
-    reserve must and is to for firm obligations, letting the stated stake rather
-    than the modal carry the weight. Instruct impersonally: almost never address
-    the reader as "you", make roles and systems the grammatical subjects, and
-    reserve direct address for the rare passage that turns on the reader's own
-    judgment. Embrace technical terms and gloss each at first use. Carry logic
-    with elevated connectives -- It follows that, Yet, At the same time, Rather
-    than -- in place of plain so, but, also.
+  Diction. Sustain one formal register throughout, and use no contractions at
+  all -- write cannot, do not, need not, it is -- including inside
+  instructions. Where two phrasings exist, choose the more formal one provided
+  it is exact. State standing norms and the behaviour of systems as plain
+  facts in the present indicative, so that a requirement reads as settled
+  practice; give procedures in the bare imperative; soften recommendations
+  with evaluative framings such as "does well to" or "warrants emphasis"; and
+  reserve must and is to for firm obligations, letting the stated stake rather
+  than the modal carry the weight. Instruct impersonally: almost never address
+  the reader as "you", make roles and systems the grammatical subjects, and
+  reserve direct address for the rare passage that turns on the reader's own
+  judgment. Embrace technical terms and gloss each at first use. Carry logic
+  with elevated connectives -- It follows that, Yet, At the same time, Rather
+  than -- in place of plain so, but, also.
 
-    Sentences. Vary length deliberately and widely: build through an occasional
-    long sentence that stacks its clauses, then discharge it with a short plain
-    declarative that lands one fact. Never settle into uniform length. Join a
-    set of parallel provisions with semicolons inside one sentence, closing the
-    series with "and" before the last member. Use the colon as a hinge from the
-    general to the specific. Give em dashes defined work -- paired for an
-    appositive, single and trailing for an illustration or a qualifying turn --
-    and never as an all-purpose connective. Open a meaningful share of sentences
-    with a fronted subordinate clause, so the governing circumstance is set
-    before the main clause resolves it. Give every paragraph a thesis-first
-    topic sentence, and close it on a shorter, weighted sentence that draws the
-    consequence.
+  Sentences. Vary length deliberately and widely: build through an occasional
+  long sentence that stacks its clauses, then discharge it with a short plain
+  declarative that lands one fact. Never settle into uniform length. Join a
+  set of parallel provisions with semicolons inside one sentence, closing the
+  series with "and" before the last member. Use the colon as a hinge from the
+  general to the specific. Give em dashes defined work -- paired for an
+  appositive, single and trailing for an illustration or a qualifying turn --
+  and never as an all-purpose connective. Open a meaningful share of sentences
+  with a fronted subordinate clause, so the governing circumstance is set
+  before the main clause resolves it. Give every paragraph a thesis-first
+  topic sentence, and close it on a shorter, weighted sentence that draws the
+  consequence.
 
-    Stance. Convey importance by naming the concrete consequence, never by
-    intensifiers, urgency or exclamation. State risks and limitations in
-    measured terms: name the condition, then a flat verdict. Bind each directive
-    to the reasoning that justifies it, in the same sentence or the next. Stay
-    non-promotional: state every trade-off as plainly, and in the same neutral
-    register, as the benefit beside it. Address the reader as a capable steward.
-    Resolve a line of reasoning into a compact, understated maxim rather than a
-    flourish.
+  Stance. Convey importance by naming the concrete consequence, never by
+  intensifiers, urgency or exclamation. State risks and limitations in
+  measured terms: name the condition, then a flat verdict. Bind each directive
+  to the reasoning that justifies it, in the same sentence or the next. Stay
+  non-promotional: state every trade-off as plainly, and in the same neutral
+  register, as the benefit beside it. Address the reader as a capable steward.
+  Resolve a line of reasoning into a compact, understated maxim rather than a
+  flourish.
 
-    Do not use: marketing verbs or superlatives -- leverage, empower, unlock,
-    seamless, powerful, robust, best-in-class; any contraction; a promise of
-    durability or future-proofing; an over-promise of ease, speed or
-    completeness; a throat-clearing opener; a decorative triad; the inflating
-    antithesis "not just X, it is Y"; anonymous authority such as "studies show"
-    or "experts agree"; an exclamation point; a figurative flourish the argument
-    has not earned; or condescension of any kind.|]
+  Do not use: marketing verbs or superlatives -- leverage, empower, unlock,
+  seamless, powerful, robust, best-in-class; any contraction; a promise of
+  durability or future-proofing; an over-promise of ease, speed or
+  completeness; a throat-clearing opener; a decorative triad; the inflating
+  antithesis "not just X, it is Y"; anonymous authority such as "studies show"
+  or "experts agree"; an exclamation point; a figurative flourish the argument
+  has not earned; or condescension of any kind.|]
 
 -- | @it-voice@'s own closing checklist, as the brief of a question put to
 -- somebody else.
@@ -154,22 +152,21 @@ itVoice =
 -- primary is not the writer's.
 itVoiceSelfCheck :: Text
 itVoiceSelfCheck =
-  wfText
-    [wf|
-    Check the draft below against the register it was written in. You did not
-    write it, and that is why you are being asked.
+  [wft|
+  Check the draft below against the register it was written in. You did not
+  write it, and that is why you are being asked.
 
-    - No contraction remains anywhere, including inside instructions.
-    - No marketing verb, superlative, exclamation point or anonymous authority
-      appears.
-    - Sentence length visibly varies: there is no run of same-length sentences,
-      and the enumerations are not all triads.
-    - Em dashes do only appositive, illustrative or qualifying-turn work.
-    - Standing norms and system behaviour read as present-indicative fact;
-      procedures read as bare imperatives; heavier modal force is reserved for
-      firm obligations.
-    - Instruction stays impersonal, and direct address appears only where the
-      reader must exercise personal judgment.
+  - No contraction remains anywhere, including inside instructions.
+  - No marketing verb, superlative, exclamation point or anonymous authority
+    appears.
+  - Sentence length visibly varies: there is no run of same-length sentences,
+    and the enumerations are not all triads.
+  - Em dashes do only appositive, illustrative or qualifying-turn work.
+  - Standing norms and system behaviour read as present-indicative fact;
+    procedures read as bare imperatives; heavier modal force is reserved for
+    firm obligations.
+  - Instruction stays impersonal, and direct address appears only where the
+    reader must exercise personal judgment.
 
-    Quote the offending sentence in every objection. A verdict without a
-    quotation is not checkable by the person who has to act on it.|]
+  Quote the offending sentence in every objection. A verdict without a
+  quotation is not checkable by the person who has to act on it.|]

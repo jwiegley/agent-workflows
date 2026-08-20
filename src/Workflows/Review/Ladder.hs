@@ -307,11 +307,10 @@ tierDossier t revs files = ("files", gitDiffNames revs) : linters
 -- uncommitted changes) exactly as Step 1 says and not a string a model parsed.
 snapshotBrief :: Text
 snapshotBrief =
-  wfText
-    [wf|
-    This is the frozen scope snapshot for a code review. Every reviewer below
-    reads this and only this, so that no two of them are looking at different
-    trees.|]
+  [wft|
+  This is the frozen scope snapshot for a code review. Every reviewer below
+  reads this and only this, so that no two of them are looking at different
+  trees.|]
 
 -- | What each dossier row's question asks for.
 --
@@ -320,10 +319,9 @@ snapshotBrief =
 -- the corpus reads \"if available, run …\" and is addressed to a model.
 dossierBrief :: Text
 dossierBrief =
-  wfText
-    [wf|
-    Run and report. This is a receipt: whatever the command writes is the
-    answer, and nothing is added to it.|]
+  [wft|
+  Run and report. This is a receipt: whatever the command writes is the
+  answer, and nothing is added to it.|]
 
 -- | The closing line every member of a document fold is given.
 --
@@ -332,12 +330,11 @@ dossierBrief =
 -- subagent … returns findings as structured data\".
 blockClosing :: Text
 blockClosing =
-  wfText
-    [wf|
-    Report your findings and nothing else. Your answer is one block of a
-    document whose other blocks are your siblings', each fenced under its own
-    name: do not summarise the whole, and do not address the reader of any block
-    but your own.|]
+  [wft|
+  Report your findings and nothing else. Your answer is one block of a
+  document whose other blocks are your siblings', each fenced under its own
+  name: do not summarise the whole, and do not address the reader of any block
+  but your own.|]
 
 -- | The synthesis brief for a rung: the foundation's refusing synthesis, over
 -- @deep-review@'s own four operations.
@@ -347,19 +344,18 @@ blockClosing =
 -- consolidation list, which are the same four operations written twice.
 synthesisBrief :: Roster -> Text
 synthesisBrief r =
-  wfText
-    [wf|
-    {refusing}
+  [wft|
+  {refusing}
 
-    Two more rules, which come from the commands this fold replaces:
+  Two more rules, which come from the commands this fold replaces:
 
-    - Separate verified defects from questions and non-actionable observations,
-      and include a clean-pass statement for every reviewer that found nothing.
-    - End with the smallest safe fix order, and the verification command for
-      each fix.
+  - Separate verified defects from questions and non-actionable observations,
+    and include a clean-pass statement for every reviewer that found nothing.
+  - End with the smallest safe fix order, and the verification command for
+    each fix.
 
-    Do not report a style preference that has no concrete maintenance,
-    correctness, performance or security consequence.|]
+  Do not report a style preference that has no concrete maintenance,
+  correctness, performance or security consequence.|]
   where
     refusing = refusingSynthesis r
 
@@ -451,28 +447,27 @@ quickLens =
       lensOwns = "the fast single pass: obvious bugs, security red flags, error handling, style",
       lensParty = broad (model "quick-review"),
       lensBrief =
-        wfText
-          [wf|
-          Perform a fast, single-pass code review. This is for rapid feedback
-          during development, not for pre-merge thoroughness.
+        [wft|
+        Perform a fast, single-pass code review. This is for rapid feedback
+        during development, not for pre-merge thoroughness.
 
-          Read each changed file and its diff. For each file, check for:
+        Read each changed file and its diff. For each file, check for:
 
-          1. Obvious bugs: null/nil dereference, off-by-one, logic inversions,
-             typos.
-          2. Security red flags: hardcoded secrets, unsanitized input,
-             eval/exec.
-          3. Error handling gaps: unchecked returns, swallowed exceptions,
-             missing cleanup.
-          4. Clear style violations: inconsistent naming, dead code,
-             TODO/FIXME/HACK markers.
+        1. Obvious bugs: null/nil dereference, off-by-one, logic inversions,
+           typos.
+        2. Security red flags: hardcoded secrets, unsanitized input,
+           eval/exec.
+        3. Error handling gaps: unchecked returns, swallowed exceptions,
+           missing cleanup.
+        4. Clear style violations: inconsistent naming, dead code,
+           TODO/FIXME/HACK markers.
 
-          Keep it concise. If the code looks fine, say "No issues found" with a
-          brief summary of what you reviewed.
+        Keep it concise. If the code looks fine, say "No issues found" with a
+        brief summary of what you reviewed.
 
-          {schema}
+        {schema}
 
-          {reading}|]
+        {reading}|]
     }
   where
     schema = findingSchema
@@ -496,63 +491,62 @@ alexeyLens =
       lensOwns = "evidence-first maintainer judgment: benchmarks, counterexamples, prose truth, test meaning, scope",
       lensParty = reasoning (model "alexey"),
       lensBrief =
-        wfText
-          [wf|
-          Review this as a seasoned, high-bar maintainer applying Alexey's
-          review discipline. You apply the discipline; you are NOT him.
-          Findings are your own. Never sign as him, never write "Alexey would
-          say", never attribute an opinion to him. Never simulate frustration,
-          impatience or scorn: treat the code aggressively, remain a
-          dispassionate agent. Do not invent benchmark numbers, repository
-          history, or expertise you have not verified here. Own every judgment:
-          never grade by proxy -- the severity call is yours and is stated as
-          yours.
+        [wft|
+        Review this as a seasoned, high-bar maintainer applying Alexey's
+        review discipline. You apply the discipline; you are NOT him.
+        Findings are your own. Never sign as him, never write "Alexey would
+        say", never attribute an opinion to him. Never simulate frustration,
+        impatience or scorn: treat the code aggressively, remain a
+        dispassionate agent. Do not invent benchmark numbers, repository
+        history, or expertise you have not verified here. Own every judgment:
+        never grade by proxy -- the severity call is yours and is stated as
+        yours.
 
-          The procedure, in order:
+        The procedure, in order:
 
-          1. Benchmarks first -- read the performance numbers before the diff.
-             An unexplained delta in either direction costs the change
-             unconditional approval.
-          2. Simulate the code -- construct the counterexample, the thread
-             interleaving, the unit arithmetic. Never argue "unlikely" about a
-             race.
-          3. Audit prose truth -- check every comment, note and doc claim
-             against the code. False or overclaiming prose is a defect as severe
-             as false code. Sweep every added comment for change-narration and
-             AI planning residue.
-          4. Perf from first principles -- allocation counts, critical path,
-             worker stalls, missed streaming, read off the code.
-          5. Hunt debris -- dead code, fields derivable from ground truth, two
-             ways to do one thing, fossils of abandoned designs.
-          6. Interrogate tests -- they must assert something meaningful and
-             never lose coverage silently.
-          7. Push types -- newtypes for indices, optional over sentinel, invalid
-             states unrepresentable; a cast is a smell, fix the declaration.
-          8. Police scope -- one stated objective, no unrelated changes.
-          9. Prefer loud failure -- a defensive fallback that converts a bug into
-             silence is guilty until explained.
-          10. Generalize the hack -- propose the representation that would make
-              the special case unnecessary.
-          11. Micro-probe sweep -- walk every changed hunk and emit the one-line
-              probes: "Still needed?", "Dead code?", "Is this comment still
-              true?". The long tail is the review.
-          12. Scope your verdict honestly -- say exactly what you reviewed at
-              what depth and name who should cover the rest.
+        1. Benchmarks first -- read the performance numbers before the diff.
+           An unexplained delta in either direction costs the change
+           unconditional approval.
+        2. Simulate the code -- construct the counterexample, the thread
+           interleaving, the unit arithmetic. Never argue "unlikely" about a
+           race.
+        3. Audit prose truth -- check every comment, note and doc claim
+           against the code. False or overclaiming prose is a defect as severe
+           as false code. Sweep every added comment for change-narration and
+           AI planning residue.
+        4. Perf from first principles -- allocation counts, critical path,
+           worker stalls, missed streaming, read off the code.
+        5. Hunt debris -- dead code, fields derivable from ground truth, two
+           ways to do one thing, fossils of abandoned designs.
+        6. Interrogate tests -- they must assert something meaningful and
+           never lose coverage silently.
+        7. Push types -- newtypes for indices, optional over sentinel, invalid
+           states unrepresentable; a cast is a smell, fix the declaration.
+        8. Police scope -- one stated objective, no unrelated changes.
+        9. Prefer loud failure -- a defensive fallback that converts a bug into
+           silence is guilty until explained.
+        10. Generalize the hack -- propose the representation that would make
+            the special case unnecessary.
+        11. Micro-probe sweep -- walk every changed hunk and emit the one-line
+            probes: "Still needed?", "Dead code?", "Is this comment still
+            true?". The long tail is the review.
+        12. Scope your verdict honestly -- say exactly what you reviewed at
+            what depth and name who should cover the rest.
 
-          Block only on: demonstrable correctness bugs; races without a
-          synchronization story; unexplained material perf changes; false or
-          overclaiming prose; tests that assert nothing or lose coverage
-          silently; entangled scope; ignored prior feedback. Question rather
-          than block a design alternative or a missing rationale. Every block
-          carries a path forward.
+        Block only on: demonstrable correctness bugs; races without a
+        synchronization story; unexplained material perf changes; false or
+        overclaiming prose; tests that assert nothing or lose coverage
+        silently; entangled scope; ignored prior feedback. Question rather
+        than block a design alternative or a missing rationale. Every block
+        carries a path forward.
 
-          Criticism arrives as a genuine question with your candidate answer
-          embedded. Under forty words for everything routine. Praise is loud,
-          short, specific and earned.
+        Criticism arrives as a genuine question with your candidate answer
+        embedded. Under forty words for everything routine. Praise is loud,
+        short, specific and earned.
 
-          {schema}
+        {schema}
 
-          {reading}|]
+        {reading}|]
     }
   where
     schema = findingSchemaWith [soundnessLine]
@@ -573,26 +567,25 @@ ponytailLens =
       lensOwns = "work that need not exist, duplicate machinery, avoidable dependencies, code to delete",
       lensParty = lateral (model "ponytail"),
       lensBrief =
-        wfText
-          [wf|
-          Challenge unnecessary code and abstractions. Prefer deletion, reuse,
-          standard-library or native facilities, and the smallest solution that
-          actually satisfies the requirement.
+        [wft|
+        Challenge unnecessary code and abstractions. Prefer deletion, reuse,
+        standard-library or native facilities, and the smallest solution that
+        actually satisfies the requirement.
 
-          Look specifically for:
+        Look specifically for:
 
-          - work that need not exist at all -- a requirement nobody stated;
-          - an existing facility in this codebase that should have been reused;
-          - a dependency or an abstraction that could be avoided;
-          - duplicate machinery: two mechanisms doing one job;
-          - a simpler correct design for what is here.
+        - work that need not exist at all -- a requirement nobody stated;
+        - an existing facility in this codebase that should have been reused;
+        - a dependency or an abstraction that could be avoided;
+        - duplicate machinery: two mechanisms doing one job;
+        - a simpler correct design for what is here.
 
-          Report what to delete and what replaces it. A finding that names no
-          replacement is a preference, not a finding.
+        Report what to delete and what replaces it. A finding that names no
+        replacement is a preference, not a finding.
 
-          {schema}
+        {schema}
 
-          {reading}|]
+        {reading}|]
     }
   where
     schema = findingSchema
@@ -612,38 +605,37 @@ deadCodeLens =
       lensOwns = "unreachable, unreferenced, redundant or stale code and documentation, with evidence",
       lensParty = broad (model "dead-code"),
       lensBrief =
-        wfText
-          [wf|
-          Find code and documentation that are no longer reachable, referenced,
-          or relevant. Report candidates only: do not mark, do not remove, do
-          not commit, and do not create a manifest.
+        [wft|
+        Find code and documentation that are no longer reachable, referenced,
+        or relevant. Report candidates only: do not mark, do not remove, do
+        not commit, and do not create a manifest.
 
-          You cannot guarantee zero behaviour change from static analysis alone
-          -- reflection, dynamic dispatch, framework conventions and runtime
-          wiring make that impossible. So gather evidence, and say what evidence
-          you have.
+        You cannot guarantee zero behaviour change from static analysis alone
+        -- reflection, dynamic dispatch, framework conventions and runtime
+        wiring make that impossible. So gather evidence, and say what evidence
+        you have.
 
-          Operating principles:
+        Operating principles:
 
-          1. Conservative by default. When uncertain the verdict is keep, never
-             remove. Uncertainty never resolves to removal -- not by majority
-             vote, not by "the evidence mostly points that way."
-          2. Two-evidence rule for dynamic languages. In Python, Ruby,
-             JavaScript, TypeScript and any language supporting reflection or
-             string-based dispatch, a passing test suite is not sufficient
-             evidence. Require two independent modalities -- a static
-             "no references" result AND an entry-point or registration check --
-             not two variants of one grep.
-          3. Native tooling first. Prefer the compiler flags and lints this repo
-             already configures. Never propose installing a static-analysis
-             tool.
+        1. Conservative by default. When uncertain the verdict is keep, never
+           remove. Uncertainty never resolves to removal -- not by majority
+           vote, not by "the evidence mostly points that way."
+        2. Two-evidence rule for dynamic languages. In Python, Ruby,
+           JavaScript, TypeScript and any language supporting reflection or
+           string-based dispatch, a passing test suite is not sufficient
+           evidence. Require two independent modalities -- a static
+           "no references" result AND an entry-point or registration check --
+           not two variants of one grep.
+        3. Native tooling first. Prefer the compiler flags and lints this repo
+           already configures. Never propose installing a static-analysis
+           tool.
 
-          When in doubt, leave it: flagging a candidate for human review is
-          always better than a silently broken deploy. Say so in the finding.
+        When in doubt, leave it: flagging a candidate for human review is
+        always better than a silently broken deploy. Say so in the finding.
 
-          {schema}
+        {schema}
 
-          {reading}|]
+        {reading}|]
     }
   where
     schema = findingSchemaWith [soundnessLine]
@@ -663,30 +655,29 @@ commentAuditLens =
       lensOwns = "every comment and docstring claim, checked against the live code",
       lensParty = broad (model "comment-audit"),
       lensBrief =
-        wfText
-          [wf|
-          Audit the comments and docstrings in this change with a fine-toothed
-          comb: confirm that every claim a comment makes is true, that any code
-          shown in a comment actually works, and that everything a comment
-          references still exists -- including references outside the diff that
-          may have become stale.
+        [wft|
+        Audit the comments and docstrings in this change with a fine-toothed
+        comb: confirm that every claim a comment makes is true, that any code
+        shown in a comment actually works, and that everything a comment
+        references still exists -- including references outside the diff that
+        may have become stale.
 
-          Evidence before verdict. Never call a comment wrong without concrete
-          proof from the current code. When proof is missing, or the judgment
-          depends on domain knowledge not present in the repository, the verdict
-          is NEEDS_REVIEW and not INCORRECT. A confident-but-wrong verdict that
-          triggers a "fix" to a correct comment is the worst possible outcome:
-          bias toward caution.
+        Evidence before verdict. Never call a comment wrong without concrete
+        proof from the current code. When proof is missing, or the judgment
+        depends on domain knowledge not present in the repository, the verdict
+        is NEEDS_REVIEW and not INCORRECT. A confident-but-wrong verdict that
+        triggers a "fix" to a correct comment is the worst possible outcome:
+        bias toward caution.
 
-          Exhaustive means accounted-for. Say which comment surfaces you did not
-          reach, and why. A silent omission is indistinguishable from a clean
-          audit.
+        Exhaustive means accounted-for. Say which comment surfaces you did not
+        reach, and why. A silent omission is indistinguishable from a clean
+        audit.
 
-          Do not create audit artifacts and do not apply fixes.
+        Do not create audit artifacts and do not apply fixes.
 
-          {schema}
+        {schema}
 
-          {reading}|]
+        {reading}|]
     }
   where
     schema = findingSchemaWith [soundnessLine]
@@ -704,41 +695,40 @@ abstractionLens =
       lensOwns = "whether the change extended the shared abstraction or routed around it",
       lensParty = reasoning (model "abstraction"),
       lensBrief =
-        wfText
-          [wf|
-          A change can work perfectly and still be wrong. Answer one question:
-          when the task did not fit the existing abstractions, did the change
-          correct the abstraction, or evade it? Correctness, performance, style
-          and general over-engineering belong to other reviewers here -- report
-          findings only about architectural fit.
+        [wft|
+        A change can work perfectly and still be wrong. Answer one question:
+        when the task did not fit the existing abstractions, did the change
+        correct the abstraction, or evade it? Correctness, performance, style
+        and general over-engineering belong to other reviewers here -- report
+        findings only about architectural fit.
 
-          The failure mode: a requirement arrives that the shared path cannot
-          express, the abstraction says no, and the implementer takes that "no"
-          as a law of physics and routes around it -- a private mechanism, a
-          special case, a name-sniffing hack. The code works, and working is the
-          trap. Working code proves an implementation chain exists; it says
-          nothing about whether it is a good path.
+        The failure mode: a requirement arrives that the shared path cannot
+        express, the abstraction says no, and the implementer takes that "no"
+        as a law of physics and routes around it -- a private mechanism, a
+        special case, a name-sniffing hack. The code works, and working is the
+        trap. Working code proves an implementation chain exists; it says
+        nothing about whether it is a good path.
 
-          Every route-around embodies a premise -- "the keys may not match, so
-          search at runtime". Volume, polish and green tests measure that
-          premise's blast radius, not its truth. So for every divergence from
-          the shared path ask: real invariant, or accidental limitation? Most
-          guards encode nothing deeper than "no input has needed this yet."
+        Every route-around embodies a premise -- "the keys may not match, so
+        search at runtime". Volume, polish and green tests measure that
+        premise's blast radius, not its truth. So for every divergence from
+        the shared path ask: real invariant, or accidental limitation? Most
+        guards encode nothing deeper than "no input has needed this yet."
 
-          The discriminator is not whether the change adds a mechanism but where
-          the mechanism lands. Extension teaches the shared path a new word: it
-          enters through the sanctioned extension point, is expressed as data,
-          types or parameters flowing through the existing pipeline, is
-          available to every consumer, and replaces the need for a special case.
-          Evasion adds a private dialect: reachable only from the new case, with
-          the shared path left ignorant of it.
+        The discriminator is not whether the change adds a mechanism but where
+        the mechanism lands. Extension teaches the shared path a new word: it
+        enters through the sanctioned extension point, is expressed as data,
+        types or parameters flowing through the existing pipeline, is
+        available to every consumer, and replaces the need for a special case.
+        Evasion adds a private dialect: reachable only from the new case, with
+        the shared path left ignorant of it.
 
-          Name each finding as extension or evasion, and for an evasion sketch
-          the representation that would have made it unnecessary.
+        Name each finding as extension or evasion, and for an evasion sketch
+        the representation that would have made it unnecessary.
 
-          {schema}
+        {schema}
 
-          {reading}|]
+        {reading}|]
     }
   where
     schema = findingSchemaWith [soundnessLine]
@@ -764,30 +754,29 @@ validatedLens =
       lensOwns = "merge blockers, graded P0-P2, each claim stated so a different model could verify it",
       lensParty = lateral (model "validated"),
       lensBrief =
-        wfText
-          [wf|
-          This is strictly a code review: never build, never run tests. Work
-          read-only against the diff you were given.
+        [wft|
+        This is strictly a code review: never build, never run tests. Work
+        read-only against the diff you were given.
 
-          Produce merge-blocker-focused findings. Grade each surviving claim:
+        Produce merge-blocker-focused findings. Grade each surviving claim:
 
-          - P0 -- a merge blocker: it will break correctness, security or data
-            integrity.
-          - P1 -- should be fixed before merge, but does not block on its own.
-          - P2 -- worth doing, and can follow.
+        - P0 -- a merge blocker: it will break correctness, security or data
+          integrity.
+        - P1 -- should be fixed before merge, but does not block on its own.
+        - P2 -- worth doing, and can follow.
 
-          Write every claim so that a reviewer who is not you, reading only your
-          sentence and the code, could confirm or refute it without asking you
-          anything. A claim that needs your reasoning to be checkable has not
-          been stated yet: rewrite it until it names the file, the line, the
-          input and the observable consequence.
+        Write every claim so that a reviewer who is not you, reading only your
+        sentence and the code, could confirm or refute it without asking you
+        anything. A claim that needs your reasoning to be checkable has not
+        been stated yet: rewrite it until it names the file, the line, the
+        input and the observable consequence.
 
-          State your own confidence, and separate what you verified from what
-          you inferred.
+        State your own confidence, and separate what you verified from what
+        you inferred.
 
-          {schema}
+        {schema}
 
-          {reading}|]
+        {reading}|]
     }
   where
     schema = findingSchemaWith [soundnessLine]
@@ -806,16 +795,15 @@ heavyDeepLens =
       lensOwns = "correctness, security, performance, structure, tests and documentation, together",
       lensParty = broad (model "deep"),
       lensBrief =
-        wfText
-          [wf|
-          Perform the deep pass: correctness, security, performance, structure,
-          tests, and documentation. Walk them in that order and say something
-          about each -- a heading with "nothing found" is an answer, and a
-          heading you skipped is not.
+        [wft|
+        Perform the deep pass: correctness, security, performance, structure,
+        tests, and documentation. Walk them in that order and say something
+        about each -- a heading with "nothing found" is an answer, and a
+        heading you skipped is not.
 
-          {schema}
+        {schema}
 
-          {reading}|]
+        {reading}|]
     }
   where
     schema = findingSchema

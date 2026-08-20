@@ -179,34 +179,33 @@ agendaOf = numbered
 -- he needs to answer it.
 briefingBrief :: Text
 briefingBrief =
-  wfText
-    [wf|
-    Prepare a decision walkthrough. You are not deciding anything and you are not
-    recommending a decision as though it were made: you are laying out what
-    somebody needs in order to decide.
+  [wft|
+  Prepare a decision walkthrough. You are not deciding anything and you are not
+  recommending a decision as though it were made: you are laying out what
+  somebody needs in order to decide.
 
-    Write it as a document, in the agenda's own order, one section per decision:
+  Write it as a document, in the agenda's own order, one section per decision:
 
-    - the decision, restated in one sentence as a choice between named options;
-    - the background: what in this project makes this a question at all, and what
-      is already true that constrains it;
-    - the options, and for each one what it buys and what it costs -- concretely,
-      in terms of this project, not in general;
-    - the implications that outlive the decision: what becomes hard to change
-      afterwards, and what stays cheap;
-    - what would have to be true for each option to be the right one. This is the
-      part that makes a walkthrough useful, because it turns a preference into a
-      question of fact;
-    - what you do not know, and what would settle it.
+  - the decision, restated in one sentence as a choice between named options;
+  - the background: what in this project makes this a question at all, and what
+    is already true that constrains it;
+  - the options, and for each one what it buys and what it costs -- concretely,
+    in terms of this project, not in general;
+  - the implications that outlive the decision: what becomes hard to change
+    afterwards, and what stays cheap;
+  - what would have to be true for each option to be the right one. This is the
+    part that makes a walkthrough useful, because it turns a preference into a
+    question of fact;
+  - what you do not know, and what would settle it.
 
-    Then, at the end, one line naming which decision should be settled FIRST and
-    why -- usually the one the others depend on.
+  Then, at the end, one line naming which decision should be settled FIRST and
+  why -- usually the one the others depend on.
 
-    Two things you must not do. Do not collapse a real choice into a
-    recommendation and present the rest as detail: if one option is obviously
-    right, say so in one line and still write the others down. And do not invent
-    constraints -- a background claim you cannot support from the context you were
-    given is a question, and it belongs in what you do not know.|]
+  Two things you must not do. Do not collapse a real choice into a
+  recommendation and present the rest as detail: if one option is obviously
+  right, say so in one line and still write the others down. And do not invent
+  constraints -- a background claim you cannot support from the context you were
+  given is a question, and it belongs in what you do not know.|]
 
 -- | What the owner is asked, once per round, in binding position.
 --
@@ -221,29 +220,28 @@ briefingBrief =
 -- is an objection and buys a round that cannot help.
 walkBrief :: Text
 walkBrief =
-  wfText
-    [wf|
-    Here is the walkthrough as it stands. Decisions you have already made are
-    recorded in it, in your own words; the next open decision is presented with
-    its background, its options and its trade-offs.
+  [wft|
+  Here is the walkthrough as it stands. Decisions you have already made are
+  recorded in it, in your own words; the next open decision is presented with
+  its background, its options and its trade-offs.
 
-    Read it and answer with exactly one of these, on its own last line:
+  Read it and answer with exactly one of these, on its own last line:
 
-    - APPROVE -- every decision on the agenda is settled and the walkthrough
-      records them correctly. Nothing further is asked and the record is written.
-      Write that word alone: anything else on the line is read as a correction.
-    - OBJECTION: <one line> -- your decisions, and your questions. Put everything
-      in that one line: which option you are taking and why, what you want
-      reconsidered, what you need clarified before you can decide the rest. That
-      line is the ONLY thing the next round is told, so a decision left out of it
-      is a decision the next round does not know you made.
+  - APPROVE -- every decision on the agenda is settled and the walkthrough
+    records them correctly. Nothing further is asked and the record is written.
+    Write that word alone: anything else on the line is read as a correction.
+  - OBJECTION: <one line> -- your decisions, and your questions. Put everything
+    in that one line: which option you are taking and why, what you want
+    reconsidered, what you need clarified before you can decide the rest. That
+    line is the ONLY thing the next round is told, so a decision left out of it
+    is a decision the next round does not know you made.
 
-    If, and only if, you do not want to continue this walkthrough at all -- these
-    are not your decisions to make, the framing is wrong, something outside this
-    run has to change first -- reply with NOTHING AT ALL: an empty answer. An
-    empty answer ends the walkthrough with the decisions recorded as UNSETTLED and
-    nothing presented as agreed. An explanation of why you are stopping is an
-    objection, and buys a round that cannot help.|]
+  If, and only if, you do not want to continue this walkthrough at all -- these
+  are not your decisions to make, the framing is wrong, something outside this
+  run has to change first -- reply with NOTHING AT ALL: an empty answer. An
+  empty answer ends the walkthrough with the decisions recorded as UNSETTLED and
+  nothing presented as agreed. An explanation of why you are stopping is an
+  objection, and buys a round that cannot help.|]
 
 -- | What the folding turn is told after each of the owner's answers.
 --
@@ -253,33 +251,32 @@ walkBrief =
 -- the round that settled decision /n/, and is therefore written in the light of it.
 foldBrief :: Text
 foldBrief =
-  wfText
-    [wf|
-    The owner read the walkthrough and answered. Produce the next version of the
-    walkthrough document and nothing else -- no commentary about what changed.
+  [wft|
+  The owner read the walkthrough and answered. Produce the next version of the
+  walkthrough document and nothing else -- no commentary about what changed.
 
-    Three parts, in this order:
+  Three parts, in this order:
 
-    1. DECIDED. One entry per decision he has now settled, each recording: the
-       decision, the option he took, and his own reason in his own words. Do not
-       improve his reasoning and do not add a justification he did not give. If he
-       decided something you think is wrong, record it as decided and put your
-       concern in part 3.
+  1. DECIDED. One entry per decision he has now settled, each recording: the
+     decision, the option he took, and his own reason in his own words. Do not
+     improve his reasoning and do not add a justification he did not give. If he
+     decided something you think is wrong, record it as decided and put your
+     concern in part 3.
 
-    2. NEXT. The next open decision from the agenda, presented in full: the choice
-       as a choice between named options, the options with what each buys and
-       costs, and the implications -- rewritten in the light of what he has now
-       decided, because an earlier decision usually removes options from a later
-       one. If his answer changed what a later decision even is, say so here.
+  2. NEXT. The next open decision from the agenda, presented in full: the choice
+     as a choice between named options, the options with what each buys and
+     costs, and the implications -- rewritten in the light of what he has now
+     decided, because an earlier decision usually removes options from a later
+     one. If his answer changed what a later decision even is, say so here.
 
-    3. STILL OPEN, AND WHAT I OWE YOU. The remaining agenda items by name; any
-       question of his you could not answer, and what would answer it; and any
-       consequence of a decision he has taken that he may not have intended --
-       stated once, plainly, without relitigating it.
+  3. STILL OPEN, AND WHAT I OWE YOU. The remaining agenda items by name; any
+     question of his you could not answer, and what would answer it; and any
+     consequence of a decision he has taken that he may not have intended --
+     stated once, plainly, without relitigating it.
 
-    Two rules. Every agenda item appears somewhere in parts 1, 2 or 3: an item in
-    none of them has been lost. And nothing is recorded as DECIDED that he did not
-    say -- an inference from what he said is not a decision, it is part 3.|]
+  Two rules. Every agenda item appears somewhere in parts 1, 2 or 3: an item in
+  none of them has been lost. And nothing is recorded as DECIDED that he did not
+  say -- an inference from what he said is not a decision, it is part 3.|]
 
 -- | What the support audit asks, on a serving model that was not in the room.
 --
@@ -289,31 +286,30 @@ foldBrief =
 -- come from the same place. This asks somebody else.
 supportBrief :: Text
 supportBrief =
-  wfText
-    [wf|
-    You are auditing a decision record, not the decisions. You were not in this
-    conversation and you have no view on what the right choices are.
+  [wft|
+  You are auditing a decision record, not the decisions. You were not in this
+  conversation and you have no view on what the right choices are.
 
-    One question: does every line the record presents as DECIDED correspond to
-    something the owner actually said?
+  One question: does every line the record presents as DECIDED correspond to
+  something the owner actually said?
 
-    Go line by line through the DECIDED section. For each entry, find the owner's
-    own words in the walkthrough that settle it. Then:
+  Go line by line through the DECIDED section. For each entry, find the owner's
+  own words in the walkthrough that settle it. Then:
 
-    - for each entry you cannot support, write a line beginning exactly
+  - for each entry you cannot support, write a line beginning exactly
 
-        UNSUPPORTED: <the entry, and what is missing>
+      UNSUPPORTED: <the entry, and what is missing>
 
-      -- an option recorded as chosen where he only asked a question about it, a
-      reason attributed to him that reads like the author's, a decision that
-      appears in DECIDED without ever having been presented to him;
-    - for each entry that is his, say nothing. Silence is the pass.
+    -- an option recorded as chosen where he only asked a question about it, a
+    reason attributed to him that reads like the author's, a decision that
+    appears in DECIDED without ever having been presented to him;
+  - for each entry that is his, say nothing. Silence is the pass.
 
-    Then one closing line: how many DECIDED entries there are, and how many you
-    could support. If all of them, say so plainly.
+  Then one closing line: how many DECIDED entries there are, and how many you
+  could support. If all of them, say so plainly.
 
-    Do not audit the reasoning, the options, or whether a decision is wise. A
-    decision you think is a mistake but which he clearly made is supported.|]
+  Do not audit the reasoning, the options, or whether a decision is wise. A
+  decision you think is a mistake but which he clearly made is supported.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines
@@ -356,31 +352,30 @@ withdrawnNote =
 -- | What the record is written through.
 qandaReportBrief :: Text
 qandaReportBrief =
-  wfText
-    [wf|
-    Write the decision record for a walkthrough run. It is read by the owner
-    later, and by whoever implements what was decided.
+  [wft|
+  Write the decision record for a walkthrough run. It is read by the owner
+  later, and by whoever implements what was decided.
 
-    Open with the provenance line you were given, verbatim, on its own line. It is
-    the run's own account of how the walkthrough ended and it is not yours to
-    soften: if it says nothing is agreed, do not write a decision log.
+  Open with the provenance line you were given, verbatim, on its own line. It is
+  the run's own account of how the walkthrough ended and it is not yours to
+  soften: if it says nothing is agreed, do not write a decision log.
 
-    Then, from the walkthrough and the audit below and nothing else:
+  Then, from the walkthrough and the audit below and nothing else:
 
-    - the decisions, one entry each: the decision, the option taken, and the
-      owner's own reason in his own words;
-    - every agenda item that is still open, by name, and what it is waiting on;
-    - the consequences the walkthrough named that nobody has acted on -- these are
-      work, and they are the reason a decision record is worth writing down;
-    - the audit's findings, verbatim. Any line the audit marked UNSUPPORTED names
-      an entry that is NOT a decision: move it out of the decisions and into a
-      section headed "presented as decided, and not supported by anything the
-      owner said". Do not quietly drop it and do not quietly keep it.
+  - the decisions, one entry each: the decision, the option taken, and the
+    owner's own reason in his own words;
+  - every agenda item that is still open, by name, and what it is waiting on;
+  - the consequences the walkthrough named that nobody has acted on -- these are
+    work, and they are the reason a decision record is worth writing down;
+  - the audit's findings, verbatim. Any line the audit marked UNSUPPORTED names
+    an entry that is NOT a decision: move it out of the decisions and into a
+    section headed "presented as decided, and not supported by anything the
+    owner said". Do not quietly drop it and do not quietly keep it.
 
-    One thing you must not write. Do not add a decision, a reason or a
-    qualification of your own. This document's whole value is that a reader can
-    trust that every line in it came from the owner; one improved sentence costs
-    that for the whole file.|]
+  One thing you must not write. Do not add a decision, a reason or a
+  qualification of your own. This document's whole value is that a reader can
+  trust that every line in it came from the owner; one improved sentence costs
+  that for the whole file.|]
 
 -- | One audit, one act, three provenance lines.
 --

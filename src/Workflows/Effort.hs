@@ -321,20 +321,18 @@ inPositron w = any (`T.isInfixOf` bracketed) ["/positron/", "/pos/"]
 -- the turn @heavy.md@ spends and this rung does not.
 positronNote :: Bool -> Text
 positronNote True =
-  wfText
-    [wf|
-    This worktree is under one of the owner's Positron directories, which was
-    decided from its path before this question was asked. So: query Positron's
-    Notion repository for supporting documents and context on this task. Some of
-    it may be out of date, and out-of-date context is still context -- say which
-    of your conclusions rests on it and how old the source was.|]
+  [wft|
+  This worktree is under one of the owner's Positron directories, which was
+  decided from its path before this question was asked. So: query Positron's
+  Notion repository for supporting documents and context on this task. Some of
+  it may be out of date, and out-of-date context is still context -- say which
+  of your conclusions rests on it and how old the source was.|]
 positronNote False =
-  wfText
-    [wf|
-    This worktree is NOT under a Positron directory, which was decided from its
-    path before this question was asked. There is no Notion repository to consult
-    for it and you should not go looking for one. Work from the task, the
-    codebase and public sources.|]
+  [wft|
+  This worktree is NOT under a Positron directory, which was decided from its
+  path before this question was asked. There is no Notion repository to consult
+  for it and you should not go looking for one. Work from the task, the
+  codebase and public sources.|]
 
 -- ---------------------------------------------------------------------------
 -- The rubrics, transplanted
@@ -355,22 +353,21 @@ positronNote False =
 -- does.
 toolkitStandard :: Text
 toolkitStandard =
-  wfText
-    [wf|
-    The standard tooling and working discipline for this task.
+  [wft|
+  The standard tooling and working discipline for this task.
 
-    - For anything touching GitHub, use
-      `GH_TOKEN="$(gh auth token --hostname github.com --user jwiegley)" gh ...`.
-    - Search the codebase for the relevant files before reasoning about them.
-    - Reach for the language specialist where the task is in its language:
-      `cpp-pro`, `python-pro`, `emacs-lisp-pro`, `rust-pro`, `haskell-pro`.
-    - Use live web search for research and for discovering resources.
-    - Break the task down further where it is not yet one step.
+  - For anything touching GitHub, use
+    `GH_TOKEN="$(gh auth token --hostname github.com --user jwiegley)" gh ...`.
+  - Search the codebase for the relevant files before reasoning about them.
+  - Reach for the language specialist where the task is in its language:
+    `cpp-pro`, `python-pro`, `emacs-lisp-pro`, `rust-pro`, `haskell-pro`.
+  - Use live web search for research and for discovering resources.
+  - Break the task down further where it is not yet one step.
 
-    The discipline: ensure the code passes linting and type checking after any
-    change. Think deeply to analyse the task, construct a well-thought-out plan
-    of action from the context and research at hand, and then carefully execute
-    that plan step by step.|]
+  The discipline: ensure the code passes linting and type checking after any
+  change. Think deeply to analyse the task, construct a well-thought-out plan
+  of action from the context and research at hand, and then carefully execute
+  that plan step by step.|]
 
 -- | What the planning question asks for.
 --
@@ -379,20 +376,19 @@ toolkitStandard =
 -- step by step\", made into a question with a stated output.
 planBrief :: Text
 planBrief =
-  wfText
-    [wf|
-    Construct the plan for the task below. Answer with the plan and nothing
-    else: it is handed, verbatim, to whoever does the work.
+  [wft|
+  Construct the plan for the task below. Answer with the plan and nothing
+  else: it is handed, verbatim, to whoever does the work.
 
-    Cover, in this order:
+  Cover, in this order:
 
-    - what is being changed, file by file, and what each change is;
-    - the order of operations, and which changes depend on which;
-    - what will be run to check it, and what passing looks like;
-    - what to do if a step fails: the thing to try, or the thing to report.
+  - what is being changed, file by file, and what each change is;
+  - the order of operations, and which changes depend on which;
+  - what will be run to check it, and what passing looks like;
+  - what to do if a step fails: the thing to try, or the thing to report.
 
-    Be concrete enough that somebody could execute it without asking you a
-    question, and short enough that they will read all of it.|]
+  Be concrete enough that somebody could execute it without asking you a
+  question, and short enough that they will read all of it.|]
 
 -- | What the executing act is told.
 --
@@ -401,22 +397,21 @@ planBrief =
 -- "Workflows.Rubrics.Discipline" — which is where those sentences live once.
 executeBrief :: Text
 executeBrief =
-  wfText
-    [wf|
-    Carry out the plan below, step by step and in its order.
+  [wft|
+  Carry out the plan below, step by step and in its order.
 
-    Where a step's check fails, fix the cause rather than the check. Where the
-    plan turns out to be wrong, do the correct thing and say in your reply which
-    step you departed from and why -- a deviation reported is a fact; a deviation
-    absorbed is a defect nobody can find later.
+  Where a step's check fails, fix the cause rather than the check. Where the
+  plan turns out to be wrong, do the correct thing and say in your reply which
+  step you departed from and why -- a deviation reported is a fact; a deviation
+  absorbed is a defect nobody can find later.
 
-    {discipline}
+  {discipline}
 
-    {testing}
+  {testing}
 
-    When you are done, reply DONE.
+  When you are done, reply DONE.
 
-    The plan:|]
+  The plan:|]
   where
     discipline = fixAllRule
     testing = testingStandard
@@ -441,29 +436,27 @@ regateBrief =
 -- | What the repair round's first question asks for.
 repairDiagnoseBrief :: Text
 repairDiagnoseBrief =
-  wfText
-    [wf|
-    The repository's lint and type-check gate objected after the work below was
-    done. Say what to change and nothing else.
+  [wft|
+  The repository's lint and type-check gate objected after the work below was
+  done. Say what to change and nothing else.
 
-    Name the cause, not the symptom, and name the file and the line. If the
-    right fix is upstream of this tree, say so and say where. Do not propose
-    silencing the check, weakening it, or annotating around it: a check quietly
-    disabled is the failure this round exists to prevent.|]
+  Name the cause, not the symptom, and name the file and the line. If the
+  right fix is upstream of this tree, say so and say where. Do not propose
+  silencing the check, weakening it, or annotating around it: a check quietly
+  disabled is the failure this round exists to prevent.|]
 
 -- | What the repair round's act is told.
 repairWorkBrief :: Text
 repairWorkBrief =
-  wfText
-    [wf|
-    Make the change below, and nothing beyond it. Then run the repository's own
-    lint and type-check gate yourself and say what it said.
+  [wft|
+  Make the change below, and nothing beyond it. Then run the repository's own
+  lint and type-check gate yourself and say what it said.
 
-    {upstream}
+  {upstream}
 
-    When you are done, reply DONE.
+  When you are done, reply DONE.
 
-    The change:|]
+  The change:|]
   where
     upstream = upstreamRule
 
@@ -497,49 +490,46 @@ consensusRoster =
 -- | /Source:/ @forge@ steps 1.3 and 2.2, first and third bullets.
 gapsStance :: Text
 gapsStance =
-  wfText
-    [wf|
-    Read what you are given as somebody who will have to live with it, and
-    answer on gaps.
+  [wft|
+  Read what you are given as somebody who will have to live with it, and
+  answer on gaps.
 
-    Name what was missed: the aspect not examined, the step the plan does not
-    have, the dependency between two steps that nobody stated. Name any
-    alternative root cause or approach that has not been considered, and say
-    what would distinguish it from the one on the table. Where you would do it
-    differently, say what your version buys.
+  Name what was missed: the aspect not examined, the step the plan does not
+  have, the dependency between two steps that nobody stated. Name any
+  alternative root cause or approach that has not been considered, and say
+  what would distinguish it from the one on the table. Where you would do it
+  differently, say what your version buys.
 
-    You are one of two parties asked independently; the other owns risk and
-    confidence. Do not write its answer.|]
+  You are one of two parties asked independently; the other owns risk and
+  confidence. Do not write its answer.|]
 
 -- | /Source:/ @forge@ steps 1.3 and 2.2, second and fourth bullets.
 risksStance :: Text
 risksStance =
-  wfText
-    [wf|
-    Read what you are given as somebody who will be paged when it breaks, and
-    answer on risk.
+  [wft|
+  Read what you are given as somebody who will be paged when it breaks, and
+  answer on risk.
 
-    Name the failure modes, the edge cases, and the constraint that is being
-    assumed rather than checked. For each, say how it would present and how
-    expensive it would be to find later -- a silent failure is worth more of
-    your attention than a loud one.
+  Name the failure modes, the edge cases, and the constraint that is being
+  assumed rather than checked. For each, say how it would present and how
+  expensive it would be to find later -- a silent failure is worth more of
+  your attention than a loud one.
 
-    Close with a confidence rating from 1 to 10 in the completeness of what you
-    were given, on its own last line, and one sentence saying what would move
-    it.
+  Close with a confidence rating from 1 to 10 in the completeness of what you
+  were given, on its own last line, and one sentence saying what would move
+  it.
 
-    You are one of two parties asked independently; the other owns gaps and
-    alternatives. Do not write its answer.|]
+  You are one of two parties asked independently; the other owns gaps and
+  alternatives. Do not write its answer.|]
 
 -- | What each partner is told about the shape of its answer.
 consensusClosing :: Text
 consensusClosing =
-  wfText
-    [wf|
-    Answer your part and nothing else. Your answer is one block of a document
-    whose other block is the other party's: do not write theirs, do not
-    summarise the whole, and do not reconcile the two -- reconciling them is a
-    later question, put to somebody who has read both.|]
+  [wft|
+  Answer your part and nothing else. Your answer is one block of a document
+  whose other block is the other party's: do not write theirs, do not
+  summarise the whole, and do not reconcile the two -- reconciling them is a
+  later question, put to somebody who has read both.|]
 
 -- ---------------------------------------------------------------------------
 -- The critique roster
@@ -570,37 +560,35 @@ critiqueRoster =
 -- | /Source:/ @forge@ step 5.2's first stance, plus step 5.1's checklist.
 hostileStance :: Text
 hostileStance =
-  wfText
-    [wf|
-    You are a hostile code reviewer. Find every possible flaw, vulnerability,
-    edge case, race condition and design mistake in these changes. Be ruthlessly
-    critical. If you cannot find real problems, identify theoretical risks and
-    worst-case scenarios -- and say which of your findings are which.
+  [wft|
+  You are a hostile code reviewer. Find every possible flaw, vulnerability,
+  edge case, race condition and design mistake in these changes. Be ruthlessly
+  critical. If you cannot find real problems, identify theoretical risks and
+  worst-case scenarios -- and say which of your findings are which.
 
-    Walk it deliberately: every conditional branch, what if the other path is
-    taken? Every external call, what if it fails, times out, or returns
-    unexpected data? Every assumption, what if it is wrong? Concurrency: races,
-    deadlocks. Error propagation: swallowed or mishandled.
+  Walk it deliberately: every conditional branch, what if the other path is
+  taken? Every external call, what if it fails, times out, or returns
+  unexpected data? Every assumption, what if it is wrong? Concurrency: races,
+  deadlocks. Error propagation: swallowed or mishandled.
 
-    Then critique the review report itself. What did the reviewers miss, and
-    what did they dismiss too easily? Assume the review was too lenient, because
-    a review that agreed readily is the one worth reading twice.|]
+  Then critique the review report itself. What did the reviewers miss, and
+  what did they dismiss too easily? Assume the review was too lenient, because
+  a review that agreed readily is the one worth reading twice.|]
 
 -- | /Source:/ @forge@ step 5.2's second stance.
 auditorStance :: Text
 auditorStance =
-  wfText
-    [wf|
-    You are a security auditor and a reliability engineer. Assume this code will
-    be attacked by adversaries and subjected to extreme load.
+  [wft|
+  You are a security auditor and a reliability engineer. Assume this code will
+  be attacked by adversaries and subjected to extreme load.
 
-    Find every weakness, every assumption that could fail, every error path that
-    is not handled. Question the architectural decisions. Challenge the test
-    coverage: name a test that would pass whatever the code did.
+  Find every weakness, every assumption that could fail, every error path that
+  is not handled. Question the architectural decisions. Challenge the test
+  coverage: name a test that would pass whatever the code did.
 
-    Then examine the review report for blind spots and groupthink -- two
-    reviewers who reached the same conclusion from the same brief have not
-    confirmed anything.|]
+  Then examine the review report for blind spots and groupthink -- two
+  reviewers who reached the same conclusion from the same brief have not
+  confirmed anything.|]
 
 -- | What each critic is told about the shape of its answer.
 --
@@ -609,18 +597,17 @@ auditorStance =
 -- skill's own words.
 critiqueClosing :: Text
 critiqueClosing =
-  wfText
-    [wf|
-    Grade every finding, and put the grade first on its line:
+  [wft|
+  Grade every finding, and put the grade first on its line:
 
-    - Critical -- must fix before merging: a functional bug, a security hole, a
-      data-corruption risk.
-    - High -- should fix soon: a significant quality or reliability concern.
-    - Medium -- worth addressing: maintainability, robustness.
-    - Low -- a nitpick or a theoretical concern, for awareness.
+  - Critical -- must fix before merging: a functional bug, a security hole, a
+    data-corruption risk.
+  - High -- should fix soon: a significant quality or reliability concern.
+  - Medium -- worth addressing: maintainability, robustness.
+  - Low -- a nitpick or a theoretical concern, for awareness.
 
-    Your answer is one block of a document whose other block is the other
-    critic's. Do not write theirs and do not summarise the whole.|]
+  Your answer is one block of a document whose other block is the other
+  critic's. Do not write theirs and do not summarise the whole.|]
 
 -- ---------------------------------------------------------------------------
 -- The forge phase briefs
@@ -629,20 +616,19 @@ critiqueClosing =
 -- | /Source:/ @forge@ Phase 1, steps 1.1 and 1.2.
 forgeResearchBrief :: Text
 forgeResearchBrief =
-  wfText
-    [wf|
-    Phase 1 of six: deep analysis and research. Investigate before anything is
-    planned or written.
+  [wft|
+  Phase 1 of six: deep analysis and research. Investigate before anything is
+  planned or written.
 
-    Explore the problem space: read the relevant files, understand the current
-    state, the architecture and the constraints, and identify the root cause if
-    this is a debugging task or the core requirements if it is a building one.
-    Collect the file paths and the code that a reader who has not looked would
-    need.
+  Explore the problem space: read the relevant files, understand the current
+  state, the architecture and the constraints, and identify the root cause if
+  this is a debugging task or the core requirements if it is a building one.
+  Collect the file paths and the code that a reader who has not looked would
+  need.
 
-    Then analyse systematically, step by step, and say which of your conclusions
-    are read off the code and which are inferred. Answer with the investigation
-    and nothing else; it is put to two independent partners next.|]
+  Then analyse systematically, step by step, and say which of your conclusions
+  are read off the code and which are inferred. Answer with the investigation
+  and nothing else; it is put to two independent partners next.|]
 
 -- | /Source:/ @forge@ step 1.4, with 'Workflows.Panels.refusingSynthesis''s
 -- accounting paragraph, whose contract
@@ -652,22 +638,21 @@ forgeResearchBrief =
 -- remediation loop's third ending.
 forgeBriefSynthesis :: Roster -> Text
 forgeBriefSynthesis r =
-  wfText
-    [wf|
-    Synthesise the research brief. You are given the investigation and a document
-    of {count} blocks, one per partner, each fenced under its own name. The
-    partners and what each owns:
+  [wft|
+  Synthesise the research brief. You are given the investigation and a document
+  of {count} blocks, one per partner, each fenced under its own name. The
+  partners and what each owns:
 
-    {table}
+  {table}
 
-    The brief, in this order: the problem statement and its context; the root
-    cause or the requirements; the key constraints and risks; where the partners
-    agree and where they do not, named as disagreements rather than averaged;
-    and what the planning phase should therefore do.
+  The brief, in this order: the problem statement and its context; the root
+  cause or the requirements; the key constraints and risks; where the partners
+  agree and where they do not, named as disagreements rather than averaged;
+  and what the planning phase should therefore do.
 
-    If a named partner's block is missing or empty, say so in the first line and
-    do not present the brief as validated -- a plan built on one partner is the
-    single-model operation this workflow exists to refuse.|]
+  If a named partner's block is missing or empty, say so in the first line and
+  do not present the brief as validated -- a plan built on one partner is the
+  single-model operation this workflow exists to refuse.|]
   where
     count = tshow (length r)
     table = rosterTable r
@@ -675,49 +660,46 @@ forgeBriefSynthesis r =
 -- | /Source:/ @forge@ step 2.1.
 forgePlanBrief :: Text
 forgePlanBrief =
-  wfText
-    [wf|
-    Phase 2 of six: the plan. From the research brief below, and answering with
-    the plan and nothing else:
+  [wft|
+  Phase 2 of six: the plan. From the research brief below, and answering with
+  the plan and nothing else:
 
-    - the specific files to create, modify or delete, with what each change is;
-    - the order of operations, and the dependencies between changes;
-    - the test strategy: which tests to run, what to verify, what the expected
-      outcome of each is;
-    - the rollback approach if the changes break existing functionality.
+  - the specific files to create, modify or delete, with what each change is;
+  - the order of operations, and the dependencies between changes;
+  - the test strategy: which tests to run, what to verify, what the expected
+    outcome of each is;
+  - the rollback approach if the changes break existing functionality.
 
-    It goes to two independent partners for validation, and then to the owner for
-    approval, before a line of it is executed.|]
+  It goes to two independent partners for validation, and then to the owner for
+  approval, before a line of it is executed.|]
 
 -- | /Source:/ @forge@ step 2.3.
 forgeRefineBrief :: Text
 forgeRefineBrief =
-  wfText
-    [wf|
-    Refine the plan below against what the partners said.
+  [wft|
+  Refine the plan below against what the partners said.
 
-    Address every concern raised, or state explicitly why a suggestion was not
-    incorporated -- those are the only two options, and \"noted\" is neither. A
-    concern you accept changes the plan; a concern you reject gets one sentence
-    saying what it would cost to accommodate and why that is the wrong trade.
+  Address every concern raised, or state explicitly why a suggestion was not
+  incorporated -- those are the only two options, and \"noted\" is neither. A
+  concern you accept changes the plan; a concern you reject gets one sentence
+  saying what it would cost to accommodate and why that is the wrong trade.
 
-    Answer with the refined plan, followed by a short section headed
-    `Concerns addressed` listing each partner concern and its disposition.|]
+  Answer with the refined plan, followed by a short section headed
+  `Concerns addressed` listing each partner concern and its disposition.|]
 
 -- | /Source:/ @forge@ step 2.4, whose \"do NOT proceed to Phase 3 without
 -- approval\" is the arm this question's @no@ takes.
 forgeApprovalBrief :: Text
 forgeApprovalBrief =
-  wfText
-    [wf|
-    The plan below has been validated by both partners and refined against what
-    they said. Nothing has been executed and nothing in the tree has changed.
+  [wft|
+  The plan below has been validated by both partners and refined against what
+  they said. Nothing has been executed and nothing in the tree has changed.
 
-    Approve it? Answering no ends the run here and writes the plan down as it
-    stands -- no file is touched. Answering yes executes it, reviews the result,
-    critiques the review, and gives you a remediation loop with a stated bound.
+  Approve it? Answering no ends the run here and writes the plan down as it
+  stands -- no file is touched. Answering yes executes it, reviews the result,
+  critiques the review, and gives you a remediation loop with a stated bound.
 
-    Reply with exactly yes or no.|]
+  Reply with exactly yes or no.|]
 
 -- | /Source:/ @forge@ step 3.1.
 baselineBrief :: Text
@@ -729,23 +711,22 @@ baselineBrief =
 -- | /Source:/ @forge@ step 3.2's Task prompt, items 1 to 4.
 forgeExecuteBrief :: Text
 forgeExecuteBrief =
-  wfText
-    [wf|
-    Phase 3 of six: execution. Execute the approved plan below, each step in the
-    order it specifies, and run the tests it specifies after making the changes.
+  [wft|
+  Phase 3 of six: execution. Execute the approved plan below, each step in the
+  order it specifies, and run the tests it specifies after making the changes.
 
-    Report back with: every file changed and what was done to it; the full test
-    output, pass or fail for each; any deviation from the plan and why it was
-    necessary; and any issue, warning or concern you hit on the way. A deviation
-    you do not report is the one the review will not know to look at.
+  Report back with: every file changed and what was done to it; the full test
+  output, pass or fail for each; any deviation from the plan and why it was
+  necessary; and any issue, warning or concern you hit on the way. A deviation
+  you do not report is the one the review will not know to look at.
 
-    {discipline}
+  {discipline}
 
-    {testing}
+  {testing}
 
-    When you are done, reply DONE.
+  When you are done, reply DONE.
 
-    The approved plan:|]
+  The approved plan:|]
   where
     discipline = fixAllRule
     testing = testingStandard
@@ -768,35 +749,33 @@ testsBrief =
 -- | /Source:/ @forge@ steps 4.2 and 4.4.
 forgeReviewBrief :: Text
 forgeReviewBrief =
-  wfText
-    [wf|
-    Phase 4 of six: the review. You are given the diff, the suite's own verdict,
-    and two partners' independent readings.
+  [wft|
+  Phase 4 of six: the review. You are given the diff, the suite's own verdict,
+  and two partners' independent readings.
 
-    Compile the review report organised by category -- correctness, security,
-    performance, architecture, test coverage -- with a severity on every finding.
-    Cover, within those: whether the implementation is correct; security
-    vulnerabilities; performance implications; whether the changes match the
-    plan and the original intent; regressions and unintended side effects; and
-    whether the test coverage is adequate.
+  Compile the review report organised by category -- correctness, security,
+  performance, architecture, test coverage -- with a severity on every finding.
+  Cover, within those: whether the implementation is correct; security
+  vulnerabilities; performance implications; whether the changes match the
+  plan and the original intent; regressions and unintended side effects; and
+  whether the test coverage is adequate.
 
-    Where the suite's verdict and a partner's reading disagree, the verdict is
-    what happened. Answer with the report and nothing else; it is handed to two
-    adversarial critics next.|]
+  Where the suite's verdict and a partner's reading disagree, the verdict is
+  what happened. Answer with the report and nothing else; it is handed to two
+  adversarial critics next.|]
 
 -- | What the partners are told when they are reviewing rather than planning.
 reviewClosing :: Text
 reviewClosing =
-  wfText
-    [wf|
-    Evaluate the change on: correctness of the implementation; security
-    vulnerabilities; performance implications; whether it matches the plan and
-    the original intent; regressions and unintended side effects; and the
-    adequacy of the test coverage. Say something about each, and say which of
-    your claims you verified against the diff.
+  [wft|
+  Evaluate the change on: correctness of the implementation; security
+  vulnerabilities; performance implications; whether it matches the plan and
+  the original intent; regressions and unintended side effects; and the
+  adequacy of the test coverage. Say something about each, and say which of
+  your claims you verified against the diff.
 
-    Your answer is one block of a document whose other block is the other
-    party's. Do not write theirs and do not summarise the whole.|]
+  Your answer is one block of a document whose other block is the other
+  party's. Do not write theirs and do not summarise the whole.|]
 
 -- | The assessment that judges the remediation loop.
 --
@@ -807,19 +786,18 @@ reviewClosing =
 -- endings.
 forgeAssessmentBrief :: Text
 forgeAssessmentBrief =
-  wfText
-    [wf|
-    Phase 6 of six: the assessment. Below is the adversarial critique of a
-    change that has already been executed and reviewed.
+  [wft|
+  Phase 6 of six: the assessment. Below is the adversarial critique of a
+  change that has already been executed and reviewed.
 
-    Decide one thing: does any CRITICAL finding remain -- a functional bug, a
-    security hole, a data-corruption risk? Critical is the only grade that
-    blocks; High, Medium and Low are reported and do not.
+  Decide one thing: does any CRITICAL finding remain -- a functional bug, a
+  security hole, a data-corruption risk? Critical is the only grade that
+  blocks; High, Medium and Low are reported and do not.
 
-    Approve if none remains. Object if one does, and let the objection line name
-    the finding, not the category. Do not re-grade the critique to reach the
-    answer you prefer, and do not approve because the remaining work looks
-    small.|]
+  Approve if none remains. Object if one does, and let the objection line name
+  the finding, not the category. Do not re-grade the critique to reach the
+  answer you prefer, and do not approve because the remaining work looks
+  small.|]
 
 -- | What the remediation author is told each round.
 --
@@ -828,21 +806,20 @@ forgeAssessmentBrief =
 -- changes only\".
 forgeRemediationBrief :: Text
 forgeRemediationBrief =
-  wfText
-    [wf|
-    Remediate the critical finding the assessment named, and only it.
+  [wft|
+  Remediate the critical finding the assessment named, and only it.
 
-    Produce the targeted remediation: the specific change, file by file; the
-    test that would have caught the finding; and the re-reading of the critique
-    with that finding's entry replaced by what was done about it. Leave every
-    other entry as it stands -- a remediation round that rewrites the critique
-    it is answering has destroyed the evidence.
+  Produce the targeted remediation: the specific change, file by file; the
+  test that would have caught the finding; and the re-reading of the critique
+  with that finding's entry replaced by what was done about it. Leave every
+  other entry as it stands -- a remediation round that rewrites the critique
+  it is answering has destroyed the evidence.
 
-    {upstream}
+  {upstream}
 
-    {testing}
+  {testing}
 
-    Answer with the amended critique document and nothing else.|]
+  Answer with the amended critique document and nothing else.|]
   where
     upstream = upstreamRule
     testing = testingStandard
@@ -933,28 +910,27 @@ reworkNote =
 -- is how two rungs come to disagree about what a run said.
 effortReportBrief :: Text
 effortReportBrief =
-  wfText
-    [wf|
-    Write the report for an effort run, to `effort-<date>.md` in the current
-    directory.
+  [wft|
+  Write the report for an effort run, to `effort-<date>.md` in the current
+  directory.
 
-    Open with the provenance line you were given, verbatim, on its own line. It
-    is the run's own account of how it ended and it is not yours to soften.
+  Open with the provenance line you were given, verbatim, on its own line. It
+  is the run's own account of how it ended and it is not yours to soften.
 
-    Then, from the document below and nothing else:
+  Then, from the document below and nothing else:
 
-    1. the problem, in one or two sentences;
-    2. the approach, and the decisions it turned on;
-    3. what changed -- the file list and what was done to each;
-    4. what the review found, by category;
-    5. what the critique found, by severity;
-    6. the overall assessment, which is the provenance line's and not yours.
+  1. the problem, in one or two sentences;
+  2. the approach, and the decisions it turned on;
+  3. what changed -- the file list and what was done to each;
+  4. what the review found, by category;
+  5. what the critique found, by severity;
+  6. the overall assessment, which is the provenance line's and not yours.
 
-    Where the document does not carry one of these -- a lighter rung has no
-    critique — write the heading and "not part of this rung" beneath it. Do not
-    supply the missing section from your own reading of the change, and do not
-    present a concern as resolved unless the document says it was. Then reply
-    DONE.|]
+  Where the document does not carry one of these -- a lighter rung has no
+  critique — write the heading and "not part of this rung" beneath it. Do not
+  supply the missing section from your own reading of the change, and do not
+  present a concern as resolved unless the document says it was. Then reply
+  DONE.|]
 
 -- ---------------------------------------------------------------------------
 -- The two functions the rungs share

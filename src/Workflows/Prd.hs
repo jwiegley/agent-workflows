@@ -223,165 +223,157 @@ sectionRoster =
         lensOwns = "the languages, frameworks, databases, infrastructure and build tools, each with its justification",
         lensParty = reasoning (model "prd-stack"),
         lensBrief =
-          wfText
-            [wf|
-            Write the Technology Stack section.
+          [wft|
+          Write the Technology Stack section.
 
-            - the primary programming language or languages, WITH VERSIONS;
-            - the frameworks -- web, mobile, backend -- with versions;
-            - the database systems, SQL or NoSQL, with a justification for the
-              choice;
-            - the infrastructure and deployment platforms;
-            - the development tools and build systems;
-            - a justification for every major technology choice.
+          - the primary programming language or languages, WITH VERSIONS;
+          - the frameworks -- web, mobile, backend -- with versions;
+          - the database systems, SQL or NoSQL, with a justification for the
+            choice;
+          - the infrastructure and deployment platforms;
+          - the development tools and build systems;
+          - a justification for every major technology choice.
 
-            A version constraint you were not told is a `[TODO:` line, not a
-            guess: a version invented here becomes a dependency somebody
-            installs.|]
+          A version constraint you were not told is a `[TODO:` line, not a
+          guess: a version invented here becomes a dependency somebody
+          installs.|]
       },
     Lens
       { lensName = "testing-strategy",
         lensOwns = "unit, integration and end-to-end testing, performance, security, CI and test data",
         lensParty = reasoning (model "prd-testing"),
         lensBrief =
-          wfText
-            [wf|
-            Write the Testing Strategy section.
+          [wft|
+          Write the Testing Strategy section.
 
-            - the unit testing framework, and the coverage target;
-            - the integration testing approach;
-            - the end-to-end methodology;
-            - performance and load testing requirements;
-            - security testing considerations;
-            - how testing integrates with the CI/CD pipeline;
-            - the test data management strategy.
+          - the unit testing framework, and the coverage target;
+          - the integration testing approach;
+          - the end-to-end methodology;
+          - performance and load testing requirements;
+          - security testing considerations;
+          - how testing integrates with the CI/CD pipeline;
+          - the test data management strategy.
 
-            Every item here must be something a person could later check was
-            done. "Comprehensive testing" is not one.|]
+          Every item here must be something a person could later check was
+          done. "Comprehensive testing" is not one.|]
       },
     Lens
       { lensName = "requirements",
         lensOwns = "the four requirement families, each item with an ID, acceptance criteria, a priority and its dependencies",
         lensParty = reasoning (model "prd-requirements"),
         lensBrief =
-          wfText
-            [wf|
-            Write the Requirements section, in the four families and in this
-            order, using these ID prefixes exactly:
+          [wft|
+          Write the Requirements section, in the four families and in this
+          order, using these ID prefixes exactly:
 
-            - FUNCTIONAL REQUIREMENTS -- user-facing features and capabilities.
-              `FR-001: <feature name>` and up.
-            - NON-FUNCTIONAL REQUIREMENTS -- performance, security, scalability.
-              `NFR-001: <requirement>` and up.
-            - TECHNICAL REQUIREMENTS -- architecture, APIs, data models.
-              `TR-001: <component>` and up.
-            - INTEGRATION REQUIREMENTS -- external systems and APIs.
-              `IR-001: <integration>` and up.
+          - FUNCTIONAL REQUIREMENTS -- user-facing features and capabilities.
+            `FR-001: <feature name>` and up.
+          - NON-FUNCTIONAL REQUIREMENTS -- performance, security, scalability.
+            `NFR-001: <requirement>` and up.
+          - TECHNICAL REQUIREMENTS -- architecture, APIs, data models.
+            `TR-001: <component>` and up.
+          - INTEGRATION REQUIREMENTS -- external systems and APIs.
+            `IR-001: <integration>` and up.
 
-            Every requirement carries all five of: its unique identifier; a
-            clear, TESTABLE description; its acceptance criteria; its priority
-            (Critical, High, Medium or Low); and its dependencies on other
-            requirements by ID.
+          Every requirement carries all five of: its unique identifier; a
+          clear, TESTABLE description; its acceptance criteria; its priority
+          (Critical, High, Medium or Low); and its dependencies on other
+          requirements by ID.
 
-            Be specific. "Fast" and "secure" are not requirements -- a measurable
-            criterion is. A requirement nobody could write a test for is a
-            paragraph in the wrong section.|]
+          Be specific. "Fast" and "secure" are not requirements -- a measurable
+          criterion is. A requirement nobody could write a test for is a
+          paragraph in the wrong section.|]
       },
     Lens
       { lensName = "documentation",
         lensOwns = "API docs, code documentation standards, decision records, user guides, ops docs and versioning",
         lensParty = broad (model "prd-documentation"),
         lensBrief =
-          wfText
-            [wf|
-            Write the Documentation Strategy section.
+          [wft|
+          Write the Documentation Strategy section.
 
-            - the API documentation approach -- OpenAPI, or whatever this project
-              uses;
-            - the code documentation standard, by language;
-            - architecture decision records: where they live and when one is
-              required;
-            - user documentation and guides;
-            - deployment and operations documentation;
-            - the changelog and versioning strategy.|]
+          - the API documentation approach -- OpenAPI, or whatever this project
+            uses;
+          - the code documentation standard, by language;
+          - architecture decision records: where they live and when one is
+            required;
+          - user documentation and guides;
+          - deployment and operations documentation;
+          - the changelog and versioning strategy.|]
       },
     Lens
       { lensName = "layout",
         lensOwns = "the directory structure, module organisation, configuration locations and asset management",
         lensParty = broad (model "prd-layout"),
         lensBrief =
-          wfText
-            [wf|
-            Write the File Organization section.
+          [wft|
+          Write the File Organization section.
 
-            Give the project structure as a tree, then state:
+          Give the project structure as a tree, then state:
 
-            - the directory structure and the naming conventions;
-            - the module organisation principles -- what decides which directory
-              a new file goes in;
-            - where configuration files live;
-            - how assets and resources are managed.
+          - the directory structure and the naming conventions;
+          - the module organisation principles -- what decides which directory
+            a new file goes in;
+          - where configuration files live;
+          - how assets and resources are managed.
 
-            The tree is the part people will actually follow, so make it the
-            project's own rather than a generic one: it must reflect the stack
-            and the requirements sections beside it.|]
+          The tree is the part people will actually follow, so make it the
+          project's own rather than a generic one: it must reflect the stack
+          and the requirements sections beside it.|]
       },
     Lens
       { lensName = "testing-guidelines",
         lensOwns = "coverage requirements, the testing pyramid, mocking policy, naming and benchmarking",
         lensParty = broad (model "prd-guidelines"),
         lensBrief =
-          wfText
-            [wf|
-            Write the Testing Guidelines section -- the standards, as distinct
-            from the strategy above.
+          [wft|
+          Write the Testing Guidelines section -- the standards, as distinct
+          from the strategy above.
 
-            - the code coverage requirement, as a number;
-            - the testing pyramid ratios: unit to integration to end-to-end;
-            - the mocking and stubbing policy, including what must never be
-              mocked;
-            - test naming conventions;
-            - how tests run during development, not only in CI;
-            - the performance benchmarking approach.|]
+          - the code coverage requirement, as a number;
+          - the testing pyramid ratios: unit to integration to end-to-end;
+          - the mocking and stubbing policy, including what must never be
+            mocked;
+          - test naming conventions;
+          - how tests run during development, not only in CI;
+          - the performance benchmarking approach.|]
       },
     Lens
       { lensName = "flow",
         lensOwns = "branching, review, commits, pull requests, the definition of done, releases and hotfixes",
         lensParty = reasoning (model "prd-flow"),
         lensBrief =
-          wfText
-            [wf|
-            Write the Development Flow section.
+          [wft|
+          Write the Development Flow section.
 
-            - the git branching strategy;
-            - the code review process, and what a review must cover;
-            - commit message conventions;
-            - the pull request template and its checklist;
-            - the DEFINITION OF DONE for a task -- state it as a conjunction of
-              checkable clauses, because this is the one item in the whole
-              document that decides when work stops;
-            - the release and deployment process;
-            - the hotfix procedure.|]
+          - the git branching strategy;
+          - the code review process, and what a review must cover;
+          - commit message conventions;
+          - the pull request template and its checklist;
+          - the DEFINITION OF DONE for a task -- state it as a conjunction of
+            checkable clauses, because this is the one item in the whole
+            document that decides when work stops;
+          - the release and deployment process;
+          - the hotfix procedure.|]
       },
     Lens
       { lensName = "dependencies",
         lensOwns = "every major dependency with its version, purpose, licence, security posture and alternatives",
         lensParty = broad (model "prd-dependencies"),
         lensBrief =
-          wfText
-            [wf|
-            Write the Dependencies section. For each major dependency:
+          [wft|
+          Write the Dependencies section. For each major dependency:
 
-            - the package name and its version constraint;
-            - its purpose, and the justification for taking it;
-            - licence compatibility, verified rather than assumed;
-            - security considerations;
-            - the update and maintenance strategy;
-            - the alternatives that were considered, and why this one.
+          - the package name and its version constraint;
+          - its purpose, and the justification for taking it;
+          - licence compatibility, verified rather than assumed;
+          - security considerations;
+          - the update and maintenance strategy;
+          - the alternatives that were considered, and why this one.
 
-            A dependency whose licence you cannot verify from what you were given
-            is a `[TODO:` line. A licence guessed here is a legal claim nobody
-            made.|]
+          A dependency whose licence you cannot verify from what you were given
+          is a `[TODO:` line. A licence guessed here is a legal claim nobody
+          made.|]
       }
   ]
 
@@ -404,132 +396,125 @@ critiqueRoster =
         lensOwns = "whether every required section is present and detailed enough to act on",
         lensParty = reasoning (model "prd-completeness"),
         lensBrief =
-          wfText
-            [wf|
-            Judge COMPLETENESS. The eight sections a PRD must carry are:
+          [wft|
+          Judge COMPLETENESS. The eight sections a PRD must carry are:
 
-            {sections}
+          {sections}
 
-            For each one: present and detailed, present and thin, or absent. A
-            section that exists as a heading with a sentence under it is thin,
-            and thin is a finding.
+          For each one: present and detailed, present and thin, or absent. A
+          section that exists as a heading with a sentence under it is thin,
+          and thin is a finding.
 
-            Then: which requirements have no acceptance criteria, which have no
-            priority, which have no ID, and which reference a dependency by an ID
-            that appears nowhere.|]
+          Then: which requirements have no acceptance criteria, which have no
+          priority, which have no ID, and which reference a dependency by an ID
+          that appears nowhere.|]
       },
     Lens
       { lensName = "clarity",
         lensOwns = "whether every requirement is unambiguous and testable",
         lensParty = reasoning (model "prd-clarity"),
         lensBrief =
-          wfText
-            [wf|
-            Judge CLARITY. A requirement is clear when two people who read it
-            build the same thing, and testable when one of them could write the
-            test before either builds anything.
+          [wft|
+          Judge CLARITY. A requirement is clear when two people who read it
+          build the same thing, and testable when one of them could write the
+          test before either builds anything.
 
-            Find and quote every requirement that is neither. The usual failures:
-            an unquantified adjective ("fast", "secure", "scalable"), a passive
-            construction with no actor, a compound requirement that is really
-            three, and an acceptance criterion that restates the description.
+          Find and quote every requirement that is neither. The usual failures:
+          an unquantified adjective ("fast", "secure", "scalable"), a passive
+          construction with no actor, a compound requirement that is really
+          three, and an acceptance criterion that restates the description.
 
-            For each one, propose the measurable version.|]
+          For each one, propose the measurable version.|]
       },
     Lens
       { lensName = "consistency",
         lensOwns = "whether the technology choices, the requirements and the structure agree with each other",
         lensParty = reasoning (model "prd-consistency"),
         lensBrief =
-          wfText
-            [wf|
-            Judge CONSISTENCY. This is the axis nobody checks, because it needs
-            two sections held open at once.
+          [wft|
+          Judge CONSISTENCY. This is the axis nobody checks, because it needs
+          two sections held open at once.
 
-            - do the technology choices support every requirement, and is any
-              choice unjustified by any requirement?
-            - does the file organisation reflect the architecture the technical
-              requirements describe?
-            - do the testing strategy and the testing guidelines agree about
-              coverage, framework and pyramid?
-            - does any requirement contradict another? Name both IDs.
-            - is the terminology the same throughout, or does one section's
-              "service" mean another's "component"?|]
+          - do the technology choices support every requirement, and is any
+            choice unjustified by any requirement?
+          - does the file organisation reflect the architecture the technical
+            requirements describe?
+          - do the testing strategy and the testing guidelines agree about
+            coverage, framework and pyramid?
+          - does any requirement contradict another? Name both IDs.
+          - is the terminology the same throughout, or does one section's
+            "service" mean another's "component"?|]
       },
     Lens
       { lensName = "feasibility",
         lensOwns = "whether the timelines, the complexity estimates and the team size can hold together",
         lensParty = lateral (model "prd-feasibility"),
         lensBrief =
-          wfText
-            [wf|
-            Judge FEASIBILITY. Are the timelines and complexity estimates
-            realistic for the team and the stack described?
+          [wft|
+          Judge FEASIBILITY. Are the timelines and complexity estimates
+          realistic for the team and the stack described?
 
-            Say what you are reasoning from, and say plainly where the document
-            gives you nothing to reason from -- a PRD with no team size and no
-            timeline is not infeasible, it is unestimated, and those are
-            different findings.
+          Say what you are reasoning from, and say plainly where the document
+          gives you nothing to reason from -- a PRD with no team size and no
+          timeline is not infeasible, it is unestimated, and those are
+          different findings.
 
-            Name the two or three requirements that will take longest and say
-            why. A feasibility review that names no specific requirement is an
-            opinion about the whole document, which nobody can act on.|]
+          Name the two or three requirements that will take longest and say
+          why. A feasibility review that names no specific requirement is an
+          opinion about the whole document, which nobody can act on.|]
       },
     Lens
       { lensName = "maintainability",
         lensOwns = "whether the architecture as described stays workable after the first year",
         lensParty = reasoning (model "prd-maintainability"),
         lensBrief =
-          wfText
-            [wf|
-            Judge MAINTAINABILITY. Read the architecture, the file organisation
-            and the dependencies as they will look after a year of change.
+          [wft|
+          Judge MAINTAINABILITY. Read the architecture, the file organisation
+          and the dependencies as they will look after a year of change.
 
-            - which boundary will be the first one somebody routes around?
-            - which dependency is the one that will pin a language version?
-            - what in the development flow will be skipped first when the
-              schedule is tight, and does the definition of done prevent that?
-            - what is described here that will need to be rewritten rather than
-              extended when a stated non-functional requirement doubles?|]
+          - which boundary will be the first one somebody routes around?
+          - which dependency is the one that will pin a language version?
+          - what in the development flow will be skipped first when the
+            schedule is tight, and does the definition of done prevent that?
+          - what is described here that will need to be rewritten rather than
+            extended when a stated non-functional requirement doubles?|]
       },
     Lens
       { lensName = "security",
         lensOwns = "whether security is addressed as requirements rather than as a heading",
         lensParty = reasoning (model "prd-security"),
         lensBrief =
-          wfText
-            [wf|
-            Judge SECURITY. Is it addressed adequately, and is it addressed as
-            REQUIREMENTS with acceptance criteria rather than as a section
-            heading?
+          [wft|
+          Judge SECURITY. Is it addressed adequately, and is it addressed as
+          REQUIREMENTS with acceptance criteria rather than as a section
+          heading?
 
-            - authentication and authorisation: stated, with the model named?
-            - secrets: where they live, and who can read them?
-            - the data the system holds, and what its exposure would cost?
-            - input handling at every boundary the integration requirements
-              name?
-            - the security testing in the strategy: does it test any of the
-              above, or does it name a tool?
+          - authentication and authorisation: stated, with the model named?
+          - secrets: where they live, and who can read them?
+          - the data the system holds, and what its exposure would cost?
+          - input handling at every boundary the integration requirements
+            name?
+          - the security testing in the strategy: does it test any of the
+            above, or does it name a tool?
 
-            A PRD that says "security is a priority" and carries no NFR about it
-            has not addressed security. Say so in those terms.|]
+          A PRD that says "security is a priority" and carries no NFR about it
+          has not addressed security. Say so in those terms.|]
       },
     Lens
       { lensName = "scalability",
         lensOwns = "whether the design supports the growth the document claims to plan for",
         lensParty = broad (model "prd-scalability"),
         lensBrief =
-          wfText
-            [wf|
-            Judge SCALABILITY. Does the design support the growth the document
-            describes?
+          [wft|
+          Judge SCALABILITY. Does the design support the growth the document
+          describes?
 
-            Find the stated numbers -- users, requests, data volume, latency --
-            and for each one say which part of the described architecture is the
-            first to become the constraint. Where there are no numbers, that is
-            the finding: a scalability requirement without a number is a wish,
-            and the document should carry the number or say it does not know it
-            yet.|]
+          Find the stated numbers -- users, requests, data volume, latency --
+          and for each one say which part of the described architecture is the
+          first to become the constraint. Where there are no numbers, that is
+          the finding: a scalability requirement without a number is a wish,
+          and the document should carry the number or say it does not know it
+          yet.|]
       }
   ]
   where
@@ -546,29 +531,28 @@ critiqueRoster =
 -- before assuming: when details are unclear, ask rather than guess\".
 discoveryBrief :: Text
 discoveryBrief =
-  wfText
-    [wf|
-    Before a line of this PRD is written, seven questions. Answer the ones you
-    can and say "don't know" to the rest -- a "don't know" here becomes a marked
-    open question in the document, which is the right place for it, and a guess
-    here becomes a requirement somebody builds.
+  [wft|
+  Before a line of this PRD is written, seven questions. Answer the ones you
+  can and say "don't know" to the rest -- a "don't know" here becomes a marked
+  open question in the document, which is the right place for it, and a guess
+  here becomes a requirement somebody builds.
 
-    1. What is the core problem this software solves?
-    2. Who are the primary users, and what are their key workflows?
-    3. What are the critical success metrics?
-    4. Are there performance, scalability or security requirements, and what are
-       the numbers?
-    5. What is the deployment environment and the infrastructure?
-    6. Are there existing systems to integrate with?
-    7. What is the expected timeline and team size?
+  1. What is the core problem this software solves?
+  2. Who are the primary users, and what are their key workflows?
+  3. What are the critical success metrics?
+  4. Are there performance, scalability or security requirements, and what are
+     the numbers?
+  5. What is the deployment environment and the infrastructure?
+  6. Are there existing systems to integrate with?
+  7. What is the expected timeline and team size?
 
-    And three gaps that are usually left unstated, so they are asked here rather
-    than filled in later by whoever writes that section: the testing strategy,
-    the documentation approach, and any technology choice that is already made
-    and not up for discussion.
+  And three gaps that are usually left unstated, so they are asked here rather
+  than filled in later by whoever writes that section: the testing strategy,
+  the documentation approach, and any technology choice that is already made
+  and not up for discussion.
 
-    Everything in the document that follows is built from this answer. Nothing
-    else in this run will ask you anything.|]
+  Everything in the document that follows is built from this answer. Nothing
+  else in this run will ask you anything.|]
 
 -- | The paraphrase, written by a party and confirmed by the owner.
 --
@@ -578,40 +562,38 @@ discoveryBrief =
 -- corpus gives it one line.
 paraphraseBrief :: Text
 paraphraseBrief =
-  wfText
-    [wf|
-    Repeat back, in your own words, what you now understand this project to be.
-    This is read by the person who answered the questions, and he will accept it
-    or not; the whole document is built from whatever he accepts.
+  [wft|
+  Repeat back, in your own words, what you now understand this project to be.
+  This is read by the person who answered the questions, and he will accept it
+  or not; the whole document is built from whatever he accepts.
 
-    Cover, in one short paragraph each:
+  Cover, in one short paragraph each:
 
-    - the problem, and who has it;
-    - the primary users and their main workflows;
-    - what success is measured by;
-    - the constraints that are already fixed -- environment, integrations,
-      technology decisions already made;
-    - the numbers you were given, quoted exactly as given.
+  - the problem, and who has it;
+  - the primary users and their main workflows;
+  - what success is measured by;
+  - the constraints that are already fixed -- environment, integrations,
+    technology decisions already made;
+  - the numbers you were given, quoted exactly as given.
 
-    Then, separately, list what you are ASSUMING because you were not told. One
-    line each, and be exhaustive about it: an assumption you do not list here
-    becomes a requirement nobody agreed to. If you were told "don't know" about
-    something, that is not an assumption, it is an open question -- list those
-    separately again.
+  Then, separately, list what you are ASSUMING because you were not told. One
+  line each, and be exhaustive about it: an assumption you do not list here
+  becomes a requirement nobody agreed to. If you were told "don't know" about
+  something, that is not an assumption, it is an open question -- list those
+  separately again.
 
-    Do not write any of the PRD here. Do not propose a technology. This turn is
-    only for making sure the next eight are about the right project.|]
+  Do not write any of the PRD here. Do not propose a technology. This turn is
+  only for making sure the next eight are about the right project.|]
 
 -- | What the owner is asked to confirm.
 validateBrief :: Text
 validateBrief =
-  wfText
-    [wf|
-    Is this understanding right? A yes starts the drafting; a no ends the run
-    with what was misunderstood, and nothing is written.
+  [wft|
+  Is this understanding right? A yes starts the drafting; a no ends the run
+  with what was misunderstood, and nothing is written.
 
-    Read the assumptions list especially. An assumption you let through here is
-    one you will find as a requirement later.|]
+  Read the assumptions list especially. An assumption you let through here is
+  one you will find as a requirement later.|]
 
 -- | The closing line every section lens is given.
 --
@@ -621,44 +603,43 @@ validateBrief =
 -- project and not a thing this module knows.
 sectionClosing :: Text -> Text -> Text
 sectionClosing template goals =
-  wfText
-    [wf|
-    The design goals this PRD is being written for:
+  [wft|
+  The design goals this PRD is being written for:
 
-    {goals}
+  {goals}
 
-    The Task Master template this document must fit, which is authoritative on
-    format wherever it and this brief disagree:
+  The Task Master template this document must fit, which is authoritative on
+  format wherever it and this brief disagree:
 
-    {template}
+  {template}
 
-    Standing rules for your section, all four from the quality standards this
-    document is held to:
+  Standing rules for your section, all four from the quality standards this
+  document is held to:
 
-    - BE SPECIFIC. Avoid "fast", "secure", "scalable" and every other
-      unquantified adjective; use a measurable criterion.
-    - BE PRACTICAL. Everything you specify must be implementable with the
-      resources described.
-    - BE CONSISTENT. Use the same terms the other sections use for the same
-      things; the siblings above tell you what they own.
-    - BE FORWARD-THINKING. Consider maintenance, scaling and evolution, not only
-      the first release.
+  - BE SPECIFIC. Avoid "fast", "secure", "scalable" and every other
+    unquantified adjective; use a measurable criterion.
+  - BE PRACTICAL. Everything you specify must be implementable with the
+    resources described.
+  - BE CONSISTENT. Use the same terms the other sections use for the same
+    things; the siblings above tell you what they own.
+  - BE FORWARD-THINKING. Consider maintenance, scaling and evolution, not only
+    the first release.
 
-    And one rule about what you do not know, which is the one that matters most
-    for what happens to this draft. Where the answers you were given do not
-    settle something, DO NOT GUESS. Write a line of its own, beginning exactly
+  And one rule about what you do not know, which is the one that matters most
+  for what happens to this draft. Where the answers you were given do not
+  settle something, DO NOT GUESS. Write a line of its own, beginning exactly
 
-      [TODO: <the question, addressed to the owner>
+    [TODO: <the question, addressed to the owner>
 
-    and carry on. Those lines are read mechanically by the program that consumes
-    this document: a draft containing any of them goes back to the owner for
-    answers instead of to a reviewer, which is what you want -- a reviewer's
-    opinion about a section built on a guess is worth nothing.
+  and carry on. Those lines are read mechanically by the program that consumes
+  this document: a draft containing any of them goes back to the owner for
+  answers instead of to a reviewer, which is what you want -- a reviewer's
+  opinion about a section built on a guess is worth nothing.
 
-    Report your section and nothing else. Your answer is one block of a document
-    whose other blocks are your siblings', each fenced under its own name: do not
-    write theirs, do not summarise the whole, and do not address any reader but
-    your own section's.|]
+  Report your section and nothing else. Your answer is one block of a document
+  whose other blocks are your siblings', each fenced under its own name: do not
+  write theirs, do not summarise the whole, and do not address any reader but
+  your own section's.|]
 
 -- | What the assembling turn is told.
 --
@@ -667,42 +648,41 @@ sectionClosing template goals =
 -- user input\").
 assembleBrief :: Text
 assembleBrief =
-  wfText
-    [wf|
-    Assemble the PRD from the section blocks below, in the Task Master format.
-    The blocks are the sections; your job is the document.
+  [wft|
+  Assemble the PRD from the section blocks below, in the Task Master format.
+  The blocks are the sections; your job is the document.
 
-    The order:
+  The order:
 
-      # <Project Name>
+    # <Project Name>
 
-      ## Overview
-      ## Technology Stack
-      ## Requirements
-      ### Functional Requirements
-      ### Non-Functional Requirements
-      ### Technical Requirements
-      ### Integration Requirements
-      ## Testing Strategy
-      ## Documentation Strategy
-      ## File Organization
-      ## Testing Guidelines
-      ## Development Flow
-      ## Dependencies
+    ## Overview
+    ## Technology Stack
+    ## Requirements
+    ### Functional Requirements
+    ### Non-Functional Requirements
+    ### Technical Requirements
+    ### Integration Requirements
+    ## Testing Strategy
+    ## Documentation Strategy
+    ## File Organization
+    ## Testing Guidelines
+    ## Development Flow
+    ## Dependencies
 
-    Three rules about the assembly, and they are all about not doing more than
-    assembling.
+  Three rules about the assembly, and they are all about not doing more than
+  assembling.
 
-    DO NOT REWRITE A SECTION. If a section is thin, it stays thin: it has been
-    written by the party that owns it and a rewrite here has been reviewed by
-    nobody. If two sections contradict each other, say so in the Overview under a
-    line beginning "INCONSISTENT:" and leave both alone.
+  DO NOT REWRITE A SECTION. If a section is thin, it stays thin: it has been
+  written by the party that owns it and a rewrite here has been reviewed by
+  nobody. If two sections contradict each other, say so in the Overview under a
+  line beginning "INCONSISTENT:" and leave both alone.
 
-    CARRY EVERY `[TODO:` LINE THROUGH, unchanged and on its own line. They are
-    read mechanically, and an answered-looking TODO is worse than an open one.
+  CARRY EVERY `[TODO:` LINE THROUGH, unchanged and on its own line. They are
+  read mechanically, and an answered-looking TODO is worse than an open one.
 
-    WRITE THE OVERVIEW YOURSELF, from the sections -- it is the one part of this
-    document that is yours. Two paragraphs: what this is, and what it is for.|]
+  WRITE THE OVERVIEW YOURSELF, from the sections -- it is the one part of this
+  document that is yours. Two paragraphs: what this is, and what it is for.|]
 
 -- | The self-verification checklist, applied by a party that did not write the
 -- draft.
@@ -712,59 +692,57 @@ assembleBrief =
 -- exercise stated twice.
 checklistBrief :: Text
 checklistBrief =
-  wfText
-    [wf|
-    You are verifying a PRD you did not write, against the checklist its author
-    is supposed to apply to itself. Apply it as a checklist: item by item, each
-    with a verdict, and the verdict is about the document in front of you and not
-    about how it reads.
+  [wft|
+  You are verifying a PRD you did not write, against the checklist its author
+  is supposed to apply to itself. Apply it as a checklist: item by item, each
+  with a verdict, and the verdict is about the document in front of you and not
+  about how it reads.
 
-    1. Are all required sections present and detailed? The required sections are
-       Technology Stack, Testing Strategy, Requirements, Documentation Strategy,
-       File Organization, Testing Guidelines, Development Flow and Dependencies.
-    2. Does every requirement have a unique identifier, in the FR/NFR/TR/IR
-       families?
-    3. Are the technology choices justified, and are they compatible with each
-       other?
-    4. Does the testing strategy cover all four requirement types?
-    5. Does the file organisation support the architecture the technical
-       requirements describe?
-    6. Are dependencies specified with versions?
-    7. Is the development flow clearly defined, including the definition of done?
-    8. Is the documentation strategy comprehensive?
-    9. Do any `[TODO:` items remain? Say how many and which.
+  1. Are all required sections present and detailed? The required sections are
+     Technology Stack, Testing Strategy, Requirements, Documentation Strategy,
+     File Organization, Testing Guidelines, Development Flow and Dependencies.
+  2. Does every requirement have a unique identifier, in the FR/NFR/TR/IR
+     families?
+  3. Are the technology choices justified, and are they compatible with each
+     other?
+  4. Does the testing strategy cover all four requirement types?
+  5. Does the file organisation support the architecture the technical
+     requirements describe?
+  6. Are dependencies specified with versions?
+  7. Is the development flow clearly defined, including the definition of done?
+  8. Is the documentation strategy comprehensive?
+  9. Do any `[TODO:` items remain? Say how many and which.
 
-    Then the four validation checks:
+  Then the four validation checks:
 
-    - internal consistency: does any section contradict another?
-    - is every requirement testable and measurable?
-    - do the technology choices align with the project goals?
-    - are the dependencies compatible?
+  - internal consistency: does any section contradict another?
+  - is every requirement testable and measurable?
+  - do the technology choices align with the project goals?
+  - are the dependencies compatible?
 
-    An objection is one line naming the item number and the specific defect. Be
-    concrete: "item 2: NFR-003 and NFR-004 both carry the id NFR-003" is
-    actionable and "item 2: identifiers need work" is not.
+  An objection is one line naming the item number and the specific defect. Be
+  concrete: "item 2: NFR-003 and NFR-004 both carry the id NFR-003" is
+  actionable and "item 2: identifiers need work" is not.
 
-    Approve only when every item passes. This document is going to be turned into
-    tasks by a machine, and an ambiguous requirement becomes an ambiguous task.|]
+  Approve only when every item passes. This document is going to be turned into
+  tasks by a machine, and an ambiguous requirement becomes an ambiguous task.|]
 
 -- | What the author is told on a repair trip.
 reviseBrief :: Text
 reviseBrief =
-  wfText
-    [wf|
-    A verifier applied the self-verification checklist to your PRD and objected.
-    Produce the next version of the whole document and nothing else -- the same
-    sections in the same order, no commentary about what you changed.
+  [wft|
+  A verifier applied the self-verification checklist to your PRD and objected.
+  Produce the next version of the whole document and nothing else -- the same
+  sections in the same order, no commentary about what you changed.
 
-    Fix the item the objection names. Where fixing it needs a fact you were not
-    given, do not invent the fact: write a line beginning `[TODO:` with the
-    question on it and leave the requirement marked. A requirement invented to
-    satisfy a checklist is worse than a marked gap, because it will be built.
+  Fix the item the objection names. Where fixing it needs a fact you were not
+  given, do not invent the fact: write a line beginning `[TODO:` with the
+  question on it and leave the requirement marked. A requirement invented to
+  satisfy a checklist is worse than a marked gap, because it will be built.
 
-    Do not delete a section to make an objection go away, and do not soften a
-    requirement's acceptance criteria to make it look testable. Both are the
-    failure this verification exists to catch.|]
+  Do not delete a section to make an objection go away, and do not soften a
+  requirement's acceptance criteria to make it look testable. Both are the
+  failure this verification exists to catch.|]
 
 -- | The closing line every critique lens is given.
 --
@@ -772,30 +750,29 @@ reviseBrief =
 -- and its five-part output structure, which the fold below produces.
 critiqueClosing :: Text
 critiqueClosing =
-  wfText
-    [wf|
-    You are reviewing an existing PRD on one axis. You are not editing it and you
-    cannot: this question's answer is text, and nothing in this run has authority
-    to write to that document. Report; do not revise.
+  [wft|
+  You are reviewing an existing PRD on one axis. You are not editing it and you
+  cannot: this question's answer is text, and nothing in this run has authority
+  to write to that document. Report; do not revise.
 
-    Put every finding in one of these three forms, which is the house form for
-    this review:
+  Put every finding in one of these three forms, which is the house form for
+  this review:
 
-    - "I notice <observation>. Have you considered <alternative or addition>?"
-    - "The <section> could be strengthened by <specific suggestion>."
-    - "This requirement <ID> might conflict with <other requirement ID>. Should
-      we clarify the priority?"
+  - "I notice <observation>. Have you considered <alternative or addition>?"
+  - "The <section> could be strengthened by <specific suggestion>."
+  - "This requirement <ID> might conflict with <other requirement ID>. Should
+    we clarify the priority?"
 
-    They are questions rather than verdicts on purpose: this document belongs to
-    somebody who knows things about the project you do not, and a finding phrased
-    as a question can be answered by that knowledge instead of argued with.
+  They are questions rather than verdicts on purpose: this document belongs to
+  somebody who knows things about the project you do not, and a finding phrased
+  as a question can be answered by that knowledge instead of argued with.
 
-    Quote what you are talking about. A finding that names no section and no
-    requirement ID cannot be acted on and should not be written.
+  Quote what you are talking about. A finding that names no section and no
+  requirement ID cannot be acted on and should not be written.
 
-    Report your axis and nothing else. Your answer is one block of a document
-    whose other blocks are your siblings' -- do not judge their axes, and do not
-    summarise the whole.|]
+  Report your axis and nothing else. Your answer is one block of a document
+  whose other blocks are your siblings' -- do not judge their axes, and do not
+  summarise the whole.|]
 
 -- | The structured feedback the critique folds to.
 --
@@ -804,48 +781,45 @@ critiqueClosing =
 -- axis says so instead of ranking the axes it got.
 feedbackBrief :: Roster -> Text
 feedbackBrief r =
-  wfText
-    [wf|
-    {refusing}
+  [wft|
+  {refusing}
 
-    Then produce the structured feedback, in these five parts and this order:
+  Then produce the structured feedback, in these five parts and this order:
 
-    1. STRENGTHS -- what is well defined and comprehensive. Specifically, with
-       section names. This part is not politeness: a reader who cannot tell which
-       parts of the document are sound will re-litigate all of it.
-    2. CRITICAL GAPS -- missing sections and underspecified requirements. Each
-       one names the section or the requirement ID.
-    3. IMPROVEMENT OPPORTUNITIES -- areas that could be stronger and are not
-       gaps.
-    4. RISK FACTORS -- what could go wrong if this document is built as written.
-    5. SPECIFIC RECOMMENDATIONS -- actionable, with an example of the fixed form
-       for each.
+  1. STRENGTHS -- what is well defined and comprehensive. Specifically, with
+     section names. This part is not politeness: a reader who cannot tell which
+     parts of the document are sound will re-litigate all of it.
+  2. CRITICAL GAPS -- missing sections and underspecified requirements. Each
+     one names the section or the requirement ID.
+  3. IMPROVEMENT OPPORTUNITIES -- areas that could be stronger and are not
+     gaps.
+  4. RISK FACTORS -- what could go wrong if this document is built as written.
+  5. SPECIFIC RECOMMENDATIONS -- actionable, with an example of the fixed form
+     for each.
 
-    Deduplicate across the axes: two reviewers reaching the same gap is one gap,
-    and say that two reached it. Order parts 2 and 5 so that a reader who fixes
-    them top to bottom never has to redo an earlier fix because of a later one.
+  Deduplicate across the axes: two reviewers reaching the same gap is one gap,
+  and say that two reached it. Order parts 2 and 5 so that a reader who fixes
+  them top to bottom never has to redo an earlier fix because of a later one.
 
-    Do not rewrite the PRD, and do not attach a corrected version. That is a
-    different job and it belongs to whoever owns the document.|]
+  Do not rewrite the PRD, and do not attach a corrected version. That is a
+  different job and it belongs to whoever owns the document.|]
   where
     refusing = refusingSynthesis r
 
 -- | What the receipt over the existing document is introduced as.
 readingBrief :: Text
 readingBrief =
-  wfText
-    [wf|
-    The PRD under review, as bytes `cat` wrote. This is a receipt: whatever the
-    file holds is the document, and nothing is added to it.|]
+  [wft|
+  The PRD under review, as bytes `cat` wrote. This is a receipt: whatever the
+  file holds is the document, and nothing is added to it.|]
 
 -- | What the presence probe is asked.
 presenceBrief :: Text
 presenceBrief =
-  wfText
-    [wf|
-    Does a PRD already stand at this path? The answer decides which of two jobs
-    this run is: writing one, or reviewing one. It is asked as an exit code, so
-    nothing is being judged here.|]
+  [wft|
+  Does a PRD already stand at this path? The answer decides which of two jobs
+  this run is: writing one, or reviewing one. It is asked as an exit code, so
+  nothing is being judged here.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines
@@ -959,26 +933,25 @@ shortFanOutNote =
 -- | What the report is written through.
 prdReportBrief :: Text
 prdReportBrief =
-  wfText
-    [wf|
-    Write the deliverable for a requirements run. What the deliverable IS depends
-    on the provenance line you were given, and the provenance line is not yours
-    to soften: a draft that was not verified is reported as a draft that was not
-    verified, and a run that wrote nothing reports that it wrote nothing.
+  [wft|
+  Write the deliverable for a requirements run. What the deliverable IS depends
+  on the provenance line you were given, and the provenance line is not yours
+  to soften: a draft that was not verified is reported as a draft that was not
+  verified, and a run that wrote nothing reports that it wrote nothing.
 
-    Open with the provenance line, verbatim, on its own line.
+  Open with the provenance line, verbatim, on its own line.
 
-    Then the work below, in full and unedited. Do not improve a requirement here,
-    do not answer an open question here, and do not attach a corrected version of
-    a document you were asked to critique. Everything below has been through
-    whatever review it was going to get, and a change made at this point has been
-    checked by nobody.
+  Then the work below, in full and unedited. Do not improve a requirement here,
+  do not answer an open question here, and do not attach a corrected version of
+  a document you were asked to critique. Everything below has been through
+  whatever review it was going to get, and a change made at this point has been
+  checked by nobody.
 
-    Close with the open questions or the recommendations -- whichever the work
-    below carries -- each on its own line, addressed to the person who has to act
-    on it.
+  Close with the open questions or the recommendations -- whichever the work
+  below carries -- each on its own line, addressed to the person who has to act
+  on it.
 
-    Then reply DONE with the path you wrote.|]
+  Then reply DONE with the path you wrote.|]
 
 -- | One act, eight provenance lines across the two rows.
 --

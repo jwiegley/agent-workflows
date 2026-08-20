@@ -249,14 +249,13 @@ modeNote base
 -- enough.\"
 remoteSweep :: Text
 remoteSweep =
-  wfText
-    [wf|
-    Diff-adjacency is not enough. When the diff changes a function, a type, a
-    constant or a config key, comments ELSEWHERE in the repository that describe
-    it may now be stale. For each symbol whose signature or behaviour changed in
-    the diff, search the whole project for its name and audit any comment that
-    references it, even where that comment is nowhere near the diff. A comment
-    made false by this change is this change's defect wherever it lives.|]
+  [wft|
+  Diff-adjacency is not enough. When the diff changes a function, a type, a
+  constant or a config key, comments ELSEWHERE in the repository that describe
+  it may now be stale. For each symbol whose signature or behaviour changed in
+  the diff, search the whole project for its name and audit any comment that
+  references it, even where that comment is nowhere near the diff. A comment
+  made false by this change is this change's defect wherever it lives.|]
 
 -- | The batch the @pending@ receipt is bounded to.
 --
@@ -293,58 +292,57 @@ manifestPath = ".comment-audit/manifest.json"
 -- high-stakes.
 claimTaxonomy :: Text
 claimTaxonomy =
-  wfText
-    [wf|
-    Classify every comment along two axes, then verify each claim it carries. A
-    comment may carry several claim types: label all that apply.
+  [wft|
+  Classify every comment along two axes, then verify each claim it carries. A
+  comment may carry several claim types: label all that apply.
 
-    Form: a line comment (often about the line or block below it); a delimited
-    block (often a file or section header, or a longer rationale); a docstring
-    (frequently carrying examples and signature claims); or a trailing comment,
-    which annotates the statement it follows and nothing more.
+  Form: a line comment (often about the line or block below it); a delimited
+  block (often a file or section header, or a longer rationale); a docstring
+  (frequently carrying examples and signature claims); or a trailing comment,
+  which annotates the statement it follows and nothing more.
 
-    Claim type, and how each is verified:
+  Claim type, and how each is verified:
 
-    1. Behavioural -- "returns the count", "handles the empty list", "retries 3
-       times", "is idempotent". Read the implementation it describes and trace
-       the relevant branch. Confirm the asserted behaviour is what the CURRENT
-       code produces.
-    2. Signature or type -- argument names, types, shapes, return type,
-       nullability. Compare against the actual signature. A renamed or removed
-       parameter makes the claim stale or incorrect.
-    3. Code in a comment -- an example, a usage snippet, a doctest meant to
-       work. Verify it by the tiers below. "Not runnable as-is" is NOT
-       automatically incorrect: many examples are deliberately schematic.
-    4. Cross-reference -- another file, function, class, module, symbol, @see or
-       @link. Confirm the target exists now. Missing target is ORPHANED;
-       existing but renamed is STALE.
-    5. External reference -- a URL, an RFC, a spec section, a ticket. Confirm it
-       is well-formed and, where a tool is available, that it resolves. Do not
-       fetch anything that looks unsafe.
-    6. Rationale or constraint -- "because the API requires X", "must stay
-       sorted for the binary search below", "workaround for bug Y". Check
-       whether the stated constraint still holds. If the binary search became a
-       hash lookup, "must stay sorted" is stale. If the rationale rests on
-       context outside the repository, it is UNVERIFIABLE or NEEDS_REVIEW --
-       never incorrect on a guess.
-    7. Temporal or version -- "as of v2.3", "deprecated in 3.8", "remove after
-       Q3". Check the version actually in use, from lockfiles and manifests. A
-       deprecation that already happened, or a date that has passed, is stale.
-    8. Environment or compatibility -- "Linux-only", "requires env var X",
-       "needs GPU". Check config, CI matrices and code paths. Often
-       NEEDS_REVIEW, because the environment cannot be inspected from here.
-    9. Machine-meaningful -- suppressions and directives: type: ignore, noqa,
-       eslint-disable, pragma, nolint. Is the suppression still needed? A
-       suppression for a warning that no longer fires is a dead suppression and
-       is stale. Removing one changes behaviour: report it, and be careful.
-    10. Security, performance or concurrency -- "constant-time compare",
-        "O(n log n)", "thread-safe", "input is already sanitized". High-stakes
-        and usually only partly provable from code. Require strong evidence and
-        default to NEEDS_REVIEW. Never mark a security-relevant claim VALID
-        without solid proof.
-    11. TODO, FIXME or HACK -- a marker pointing at deferred work. Has the work
-        been done? Is the problem still there? A TODO whose task is complete is
-        stale.|]
+  1. Behavioural -- "returns the count", "handles the empty list", "retries 3
+     times", "is idempotent". Read the implementation it describes and trace
+     the relevant branch. Confirm the asserted behaviour is what the CURRENT
+     code produces.
+  2. Signature or type -- argument names, types, shapes, return type,
+     nullability. Compare against the actual signature. A renamed or removed
+     parameter makes the claim stale or incorrect.
+  3. Code in a comment -- an example, a usage snippet, a doctest meant to
+     work. Verify it by the tiers below. "Not runnable as-is" is NOT
+     automatically incorrect: many examples are deliberately schematic.
+  4. Cross-reference -- another file, function, class, module, symbol, @see or
+     @link. Confirm the target exists now. Missing target is ORPHANED;
+     existing but renamed is STALE.
+  5. External reference -- a URL, an RFC, a spec section, a ticket. Confirm it
+     is well-formed and, where a tool is available, that it resolves. Do not
+     fetch anything that looks unsafe.
+  6. Rationale or constraint -- "because the API requires X", "must stay
+     sorted for the binary search below", "workaround for bug Y". Check
+     whether the stated constraint still holds. If the binary search became a
+     hash lookup, "must stay sorted" is stale. If the rationale rests on
+     context outside the repository, it is UNVERIFIABLE or NEEDS_REVIEW --
+     never incorrect on a guess.
+  7. Temporal or version -- "as of v2.3", "deprecated in 3.8", "remove after
+     Q3". Check the version actually in use, from lockfiles and manifests. A
+     deprecation that already happened, or a date that has passed, is stale.
+  8. Environment or compatibility -- "Linux-only", "requires env var X",
+     "needs GPU". Check config, CI matrices and code paths. Often
+     NEEDS_REVIEW, because the environment cannot be inspected from here.
+  9. Machine-meaningful -- suppressions and directives: type: ignore, noqa,
+     eslint-disable, pragma, nolint. Is the suppression still needed? A
+     suppression for a warning that no longer fires is a dead suppression and
+     is stale. Removing one changes behaviour: report it, and be careful.
+  10. Security, performance or concurrency -- "constant-time compare",
+      "O(n log n)", "thread-safe", "input is already sanitized". High-stakes
+      and usually only partly provable from code. Require strong evidence and
+      default to NEEDS_REVIEW. Never mark a security-relevant claim VALID
+      without solid proof.
+  11. TODO, FIXME or HACK -- a marker pointing at deferred work. Has the work
+      been done? Is the problem still there? A TODO whose task is complete is
+      stale.|]
 
 -- | @references\/claim-taxonomy.md@'s @## Verdict vocabulary@ — the seven, with
 -- the file's own deliberately conservative definitions.
@@ -356,26 +354,25 @@ claimTaxonomy =
 -- over them can have.
 verdictVocabulary :: Text
 verdictVocabulary =
-  wfText
-    [wf|
-    Assign exactly one verdict per comment, from exactly these seven:
+  [wft|
+  Assign exactly one verdict per comment, from exactly these seven:
 
-    - VALID -- every claim checked is true against the current code, with
-      concrete supporting evidence.
-    - STALE -- was accurate once; the code, version or reference has moved, and
-      the comment now describes a past state.
-    - INCORRECT -- contradicted by the current code, with explicit
-      counter-evidence. Requires proof, not the absence of confirmation.
-    - MISLEADING -- technically true but likely to deceive: omits a critical
-      caveat, describes only the happy path, or is ambiguously worded.
-    - ORPHANED -- references a file, symbol, ticket or URL that no longer exists
-      or resolves.
-    - UNVERIFIABLE -- pure intent, opinion, or context that cannot be checked
-      from this repository.
-    - NEEDS_REVIEW -- the comment could be wrong, but proving it needs domain
-      knowledge, external context or judgment not available here. This is the
-      safe default whenever counter-evidence is incomplete, and it is always
-      preferred to a speculative INCORRECT.|]
+  - VALID -- every claim checked is true against the current code, with
+    concrete supporting evidence.
+  - STALE -- was accurate once; the code, version or reference has moved, and
+    the comment now describes a past state.
+  - INCORRECT -- contradicted by the current code, with explicit
+    counter-evidence. Requires proof, not the absence of confirmation.
+  - MISLEADING -- technically true but likely to deceive: omits a critical
+    caveat, describes only the happy path, or is ambiguously worded.
+  - ORPHANED -- references a file, symbol, ticket or URL that no longer exists
+    or resolves.
+  - UNVERIFIABLE -- pure intent, opinion, or context that cannot be checked
+    from this repository.
+  - NEEDS_REVIEW -- the comment could be wrong, but proving it needs domain
+    knowledge, external context or judgment not available here. This is the
+    safe default whenever counter-evidence is incomplete, and it is always
+    preferred to a speculative INCORRECT.|]
 
 -- | @references\/claim-taxonomy.md@'s @## Confidence@ block.
 --
@@ -384,12 +381,11 @@ verdictVocabulary =
 -- inside one.
 confidenceRule :: Text
 confidenceRule =
-  wfText
-    [wf|
-    Record confidence as high only where the verdict rests on direct,
-    unambiguous evidence read from the current code. Use medium where the
-    evidence is indirect and low where it is inferred. Only a high-confidence
-    finding is eligible for an automatic fix.|]
+  [wft|
+  Record confidence as high only where the verdict rests on direct,
+  unambiguous evidence read from the current code. Use medium where the
+  evidence is indirect and low where it is inferred. Only a high-confidence
+  finding is eligible for an automatic fix.|]
 
 -- | @references\/verification-guide.md@'s @## Verifying code found in comments
 -- (tiered)@, including the two sandbox rules.
@@ -401,32 +397,31 @@ confidenceRule =
 -- normal and fine; it does not by itself make a comment incorrect.\"
 verificationTiers :: Text
 verificationTiers =
-  wfText
-    [wf|
-    For code found in a comment, run the cheapest sufficient level and record
-    which level you reached as part of the evidence:
+  [wft|
+  For code found in a comment, run the cheapest sufficient level and record
+  which level you reached as part of the evidence:
 
-    1. PARSED -- the snippet is syntactically valid for its language.
-    2. TYPECHECKED -- it passes the type checker against this project's symbols.
-    3. COMPILED -- it compiles in the project context.
-    4. EXECUTED -- it runs and produces the stated result.
+  1. PARSED -- the snippet is syntactically valid for its language.
+  2. TYPECHECKED -- it passes the type checker against this project's symbols.
+  3. COMPILED -- it compiles in the project context.
+  4. EXECUTED -- it runs and produces the stated result.
 
-    Reaching a lower level than EXECUTED is normal and fine, and does not by
-    itself make a comment incorrect.
+  Reaching a lower level than EXECUTED is normal and fine, and does not by
+  itself make a comment incorrect.
 
-    Prefer the project's own doctest harness where it has one -- `python -m
-    doctest`, `cargo test --doc`, whatever the ecosystem documents -- because it
-    handles imports and setup the way the authors intended.
+  Prefer the project's own doctest harness where it has one -- `python -m
+  doctest`, `cargo test --doc`, whatever the ecosystem documents -- because it
+  handles imports and setup the way the authors intended.
 
-    Only run a snippet directly where no harness applies and execution is what
-    settles the verdict. Then: copy it into a throwaway file under a temporary
-    directory and never run it inside the project tree; do not run code that
-    makes network calls, uses credentials, or deletes anything -- mark it
-    NEEDS_REVIEW instead; keep it short and abandon anything that hangs. A
-    snippet missing imports, fixtures or setup is a schematic example, not
-    broken code: supply the obvious import where that is clearly the author's
-    intent, and otherwise lower the verification level rather than failing the
-    comment.|]
+  Only run a snippet directly where no harness applies and execution is what
+  settles the verdict. Then: copy it into a throwaway file under a temporary
+  directory and never run it inside the project tree; do not run code that
+  makes network calls, uses credentials, or deletes anything -- mark it
+  NEEDS_REVIEW instead; keep it short and abandon anything that hangs. A
+  snippet missing imports, fixtures or setup is a schematic example, not
+  broken code: supply the obvious import where that is clearly the author's
+  intent, and otherwise lower the verification level rather than failing the
+  comment.|]
 
 -- | @references\/verification-guide.md@'s @## False-positive guardrails@.
 --
@@ -435,21 +430,20 @@ verificationTiers =
 -- declaring a correct comment wrong and then 'fixing' it.\"
 falsePositiveGuardrails :: Text
 falsePositiveGuardrails =
-  wfText
-    [wf|
-    The most damaging failure of this audit is declaring a correct comment wrong
-    and then "fixing" it. Guard against it:
+  [wft|
+  The most damaging failure of this audit is declaring a correct comment wrong
+  and then "fixing" it. Guard against it:
 
-    - INCORRECT requires explicit counter-evidence. If you cannot quote the code
-      that contradicts the comment, the verdict is not INCORRECT.
-    - Where a claim depends on business logic, intent or context outside this
-      repository, the verdict is NEEDS_REVIEW. Do not guess.
-    - Be especially conservative with rationale, security, performance,
-      concurrency and environment claims: they are usually only partly provable.
-    - Quote the exact claim and the exact evidence, so a human can audit the
-      verdict without redoing it.
-    - Distinguish "could not verify" from "proven false". The first is
-      NEEDS_REVIEW or UNVERIFIABLE; only the second is INCORRECT.|]
+  - INCORRECT requires explicit counter-evidence. If you cannot quote the code
+    that contradicts the comment, the verdict is not INCORRECT.
+  - Where a claim depends on business logic, intent or context outside this
+    repository, the verdict is NEEDS_REVIEW. Do not guess.
+  - Be especially conservative with rationale, security, performance,
+    concurrency and environment claims: they are usually only partly provable.
+  - Quote the exact claim and the exact evidence, so a human can audit the
+    verdict without redoing it.
+  - Distinguish "could not verify" from "proven false". The first is
+    NEEDS_REVIEW or UNVERIFIABLE; only the second is INCORRECT.|]
 
 -- ---------------------------------------------------------------------------
 -- The prompts
@@ -463,24 +457,22 @@ falsePositiveGuardrails =
 -- and \"can therefore produce false positives __or silent omissions__\".
 inventoryBrief :: Text
 inventoryBrief =
-  wfText
-    [wf|
-    The extractor's inventory pass, as it reported it. These lines are the
-    audit's denominator: how many files were scanned, how many were skipped, how
-    many comments were found, and how many are pending a verdict.
+  [wft|
+  The extractor's inventory pass, as it reported it. These lines are the
+  audit's denominator: how many files were scanned, how many were skipped, how
+  many comments were found, and how many are pending a verdict.
 
-    The skipped count is the one that matters most. An unrecognised extension is
-    a surface this audit did not reach, and a surface it did not reach is not a
-    surface it found clean.|]
+  The skipped count is the one that matters most. An unrecognised extension is
+  a surface this audit did not reach, and a surface it did not reach is not a
+  surface it found clean.|]
 
 -- | What the pending receipt is introduced as.
 pendingBrief :: Text
 pendingBrief =
-  wfText
-    [wf|
-    The batch: one line per comment still awaiting a verdict, giving its id, its
-    path and line range, and its form. This is the extractor's own list, bounded
-    by the limit in the command above.|]
+  [wft|
+  The batch: one line per comment still awaiting a verdict, giving its id, its
+  path and line range, and its form. This is the extractor's own list, bounded
+  by the limit in the command above.|]
 
 -- | What the audit act is told.
 --
@@ -489,28 +481,27 @@ pendingBrief =
 -- spliced from their own defines.
 auditBrief :: Text
 auditBrief =
-  wfText
-    [wf|
-    Audit the batch of comments below, one at a time, and record a verdict for
-    every one of them.
+  [wft|
+  Audit the batch of comments below, one at a time, and record a verdict for
+  every one of them.
 
-    For each id: read its text with the extractor's `show` subcommand, then open
-    the surrounding code and read enough of it to understand the claim -- not
-    just the commented line. Prefer this project's own tools as ground truth:
-    a type checker, a linter, a compiler or an existing test is stronger
-    evidence than a reading of the source.
+  For each id: read its text with the extractor's `show` subcommand, then open
+  the surrounding code and read enough of it to understand the claim -- not
+  just the commented line. Prefer this project's own tools as ground truth:
+  a type checker, a linter, a compiler or an existing test is stronger
+  evidence than a reading of the source.
 
-    Then record the verdict with the extractor's `update` subcommand, giving the
-    id, the verdict, the confidence, the claim types, the evidence -- what you
-    checked and what you found -- and a recommendation where you have one.
+  Then record the verdict with the extractor's `update` subcommand, giving the
+  id, the verdict, the confidence, the claim types, the evidence -- what you
+  checked and what you found -- and a recommendation where you have one.
 
-    Evidence before verdict, always. Never call a comment wrong without concrete
-    proof from the current code.
+  Evidence before verdict, always. Never call a comment wrong without concrete
+  proof from the current code.
 
-    Change no comment and no line of code in this turn. This turn judges; a
-    later one, and only if a separate reviewer approves it, edits.
+  Change no comment and no line of code in this turn. This turn judges; a
+  later one, and only if a separate reviewer approves it, edits.
 
-    When the batch is done, reply DONE.|]
+  When the batch is done, reply DONE.|]
 
 -- | What the stats receipt is introduced as.
 --
@@ -519,12 +510,11 @@ auditBrief =
 -- @'Workflows.Deciders.auditIncomplete'@ reads.
 statsBrief :: Text
 statsBrief =
-  wfText
-    [wf|
-    The manifest's counts, as the extractor reports them: the total, how many
-    are still pending, how many are audited, and the tally by verdict. The last
-    line is the tool's own statement of whether every extracted entry now has a
-    verdict.|]
+  [wft|
+  The manifest's counts, as the extractor reports them: the total, how many
+  are still pending, how many are audited, and the tally by verdict. The last
+  line is the tool's own statement of whether every extracted entry now has a
+  verdict.|]
 
 -- | What the ledger receipt is introduced as.
 --
@@ -532,12 +522,11 @@ statsBrief =
 -- ledger … on disk, not in working memory. This makes the audit resumable.\"
 ledgerBrief :: Text
 ledgerBrief =
-  wfText
-    [wf|
-    The audit manifest, read back from disk exactly as it now stands. Every
-    verdict, confidence, claim-type list, evidence string and recommendation in
-    it was written by the auditing turn and is now bytes: what follows is read
-    from the file, not recalled.|]
+  [wft|
+  The audit manifest, read back from disk exactly as it now stands. Every
+  verdict, confidence, claim-type list, evidence string and recommendation in
+  it was written by the auditing turn and is now bytes: what follows is read
+  from the file, not recalled.|]
 
 -- | What the reconciliation question asks.
 --
@@ -548,30 +537,29 @@ ledgerBrief =
 -- reconciliation is still required\".
 reconcileBrief :: Text
 reconcileBrief =
-  wfText
-    [wf|
-    Reconcile the audit's denominator. You did no auditing: your one job is to
-    say whether the surface the extractor covered is the surface that was
-    declared in scope.
+  [wft|
+  Reconcile the audit's denominator. You did no auditing: your one job is to
+  say whether the surface the extractor covered is the surface that was
+  declared in scope.
 
-    Compare the inventory's files-scanned and files-skipped counts against the
-    scope this run was given. Then look for the shapes this extractor is known
-    to miss -- Python uses its real tokenizer, everything else is a heuristic
-    state machine, and it does not model every raw string, heredoc,
-    embedded-language string or regex literal. An unrecognised extension appears
-    only in the skipped count and must be audited directly if it was in scope.
+  Compare the inventory's files-scanned and files-skipped counts against the
+  scope this run was given. Then look for the shapes this extractor is known
+  to miss -- Python uses its real tokenizer, everything else is a heuristic
+  state machine, and it does not model every raw string, heredoc,
+  embedded-language string or regex literal. An unrecognised extension appears
+  only in the skipped count and must be audited directly if it was in scope.
 
-    Answer in one of exactly two forms:
+  Answer in one of exactly two forms:
 
-    - RECONCILED -- followed by the file count you accounted for and the skipped
-      surfaces you are satisfied were out of scope.
-    - UNRECONCILED: <one line per gap> -- a skipped surface that was in scope, a
-      language whose comment forms this extractor cannot see, or a count that
-      does not add up. Name the surface and why it matters.
+  - RECONCILED -- followed by the file count you accounted for and the skipped
+    surfaces you are satisfied were out of scope.
+  - UNRECONCILED: <one line per gap> -- a skipped surface that was in scope, a
+    language whose comment forms this extractor cannot see, or a count that
+    does not add up. Name the surface and why it matters.
 
-    Zero pending entries is not proof that extraction itself was complete. That
-    sentence is the reason this question exists, and answering RECONCILED because
-    the counts look tidy is the failure it is here to prevent.|]
+  Zero pending entries is not proof that extraction itself was complete. That
+  sentence is the reason this question exists, and answering RECONCILED because
+  the counts look tidy is the failure it is here to prevent.|]
 
 -- | What the guard is told, above 'Workflows.Escalation.endingSpec'.
 --
@@ -581,28 +569,27 @@ reconcileBrief =
 -- putting it here rather than in the auditor's own checklist.
 guardBrief :: Text
 guardBrief =
-  wfText
-    [wf|
-    You are the false-positive guard. You did not audit these comments and you
-    are not being asked to re-audit them: you are asked whether the findings
-    below are safe to act on.
+  [wft|
+  You are the false-positive guard. You did not audit these comments and you
+  are not being asked to re-audit them: you are asked whether the findings
+  below are safe to act on.
 
-    Approve only if all of these hold:
+  Approve only if all of these hold:
 
-    - every INCORRECT finding quotes the code that contradicts the comment --
-      not an absence of confirmation, an actual contradiction;
-    - no finding that depends on business logic, intent or context outside this
-      repository is anything other than NEEDS_REVIEW or UNVERIFIABLE;
-    - no security, performance, concurrency, rationale or environment claim was
-      graded VALID or INCORRECT on partial evidence;
-    - every finding marked high confidence names evidence that could be checked
-      by somebody who is not its author;
-    - no finding proposes changing code to match a comment.
+  - every INCORRECT finding quotes the code that contradicts the comment --
+    not an absence of confirmation, an actual contradiction;
+  - no finding that depends on business logic, intent or context outside this
+    repository is anything other than NEEDS_REVIEW or UNVERIFIABLE;
+  - no security, performance, concurrency, rationale or environment claim was
+    graded VALID or INCORRECT on partial evidence;
+  - every finding marked high confidence names evidence that could be checked
+    by somebody who is not its author;
+  - no finding proposes changing code to match a comment.
 
-    Object with one line per finding that fails, naming the id and which
-    condition it failed. Your objection is what stops an edit, so be exact: a
-    finding you object to without a reason stops a correct fix, and a finding
-    you pass without evidence licenses a wrong one.|]
+  Object with one line per finding that fails, naming the id and which
+  condition it failed. Your objection is what stops an edit, so be exact: a
+  finding you object to without a reason stops a correct fix, and a finding
+  you pass without evidence licenses a wrong one.|]
 
 -- | What the corrector is told between guard rounds.
 --
@@ -612,18 +599,17 @@ guardBrief =
 -- is the corrected /finding set/, and 'commentsFixFn' is what applies one.
 fixDraftBrief :: Text
 fixDraftBrief =
-  wfText
-    [wf|
-    Produce the corrected finding set and nothing else. Your output goes
-    straight back to the guard.
+  [wft|
+  Produce the corrected finding set and nothing else. Your output goes
+  straight back to the guard.
 
-    For each finding the guard objected to: downgrade the verdict to the
-    conservative one the evidence actually supports -- NEEDS_REVIEW where
-    counter-evidence is incomplete, UNVERIFIABLE where the claim cannot be
-    checked from this repository at all -- or supply the missing evidence
-    verbatim from the code if it exists. Never argue a verdict up. Leave every
-    finding the guard did not object to exactly as it stands, including its
-    evidence string.|]
+  For each finding the guard objected to: downgrade the verdict to the
+  conservative one the evidence actually supports -- NEEDS_REVIEW where
+  counter-evidence is incomplete, UNVERIFIABLE where the claim cannot be
+  checked from this repository at all -- or supply the missing evidence
+  verbatim from the code if it exists. Never argue a verdict up. Leave every
+  finding the guard did not object to exactly as it stands, including its
+  evidence string.|]
 
 -- | What the fix act is told.
 --
@@ -634,25 +620,24 @@ fixDraftBrief =
 -- makes this turn happen at all.
 fixBrief :: Text
 fixBrief =
-  wfText
-    [wf|
-    Apply the approved fixes to the comments themselves.
+  [wft|
+  Apply the approved fixes to the comments themselves.
 
-    Edit a comment's text in place only where its verdict is STALE, INCORRECT,
-    MISLEADING or ORPHANED and its confidence is high and the correct content is
-    unambiguous from the recorded evidence. Never edit a NEEDS_REVIEW or
-    UNVERIFIABLE finding, and never edit a medium- or low-confidence one: leave
-    those for a human and say so.
+  Edit a comment's text in place only where its verdict is STALE, INCORRECT,
+  MISLEADING or ORPHANED and its confidence is high and the correct content is
+  unambiguous from the recorded evidence. Never edit a NEEDS_REVIEW or
+  UNVERIFIABLE finding, and never edit a medium- or low-confidence one: leave
+  those for a human and say so.
 
-    Never change the surrounding code to make a comment true. If a comment is
-    right and the code is wrong, that is a separate finding, and it is reported
-    rather than acted on.
+  Never change the surrounding code to make a comment true. If a comment is
+  right and the code is wrong, that is a separate finding, and it is reported
+  rather than acted on.
 
-    Deleting a comment is a valid fix for an orphaned reference or a resolved
-    TODO, but prefer correcting to deleting unless the comment is purely
-    obsolete.
+  Deleting a comment is a valid fix for an orphaned reference or a resolved
+  TODO, but prefer correcting to deleting unless the comment is purely
+  obsolete.
 
-    When you are done, reply DONE with a one-line list of the ids you edited.|]
+  When you are done, reply DONE with a one-line list of the ids you edited.|]
 
 -- ---------------------------------------------------------------------------
 -- The five provenance lines
@@ -746,41 +731,40 @@ commentsFixFn =
 -- items, carried in the file's own order.
 commentsReportBrief :: Text
 commentsReportBrief =
-  wfText
-    [wf|
-    Write the comment-audit report.
+  [wft|
+  Write the comment-audit report.
 
-    Open with the provenance line you were given, verbatim, on its own line. It
-    is this run's own account of how it ended, and it is not yours to soften or
-    to restate.
+  Open with the provenance line you were given, verbatim, on its own line. It
+  is this run's own account of how it ended, and it is not yours to soften or
+  to restate.
 
-    Group the findings by severity, mapping them this way:
+  Group the findings by severity, mapping them this way:
 
-    - Critical: INCORRECT or MISLEADING on a behavioural, security, performance,
-      concurrency, or signature claim -- a reader acting on the comment would be
-      actively misled.
-    - High: STALE or ORPHANED on a behavioural, reference or code-in-comment
-      claim; a broken doctest.
-    - Medium: a stale temporal or version claim, a dead suppression, a resolved
-      TODO.
-    - Low: UNVERIFIABLE and NEEDS_REVIEW items needing a human, and wording
-      nits.
+  - Critical: INCORRECT or MISLEADING on a behavioural, security, performance,
+    concurrency, or signature claim -- a reader acting on the comment would be
+    actively misled.
+  - High: STALE or ORPHANED on a behavioural, reference or code-in-comment
+    claim; a broken doctest.
+  - Medium: a stale temporal or version claim, a dead suppression, a resolved
+    TODO.
+  - Low: UNVERIFIABLE and NEEDS_REVIEW items needing a human, and wording
+    nits.
 
-    Each finding is one block:
+  Each finding is one block:
 
-      <severity>  <path>:<line>  [<verdict>, confidence=<level>]
-        claim:    "<the quoted comment text>"
-        evidence: <what was checked and what was found>
-        fix:      <applied | proposed | recommendation | none>
+    <severity>  <path>:<line>  [<verdict>, confidence=<level>]
+      claim:    "<the quoted comment text>"
+      evidence: <what was checked and what was found>
+      fix:      <applied | proposed | recommendation | none>
 
-    End with three things: the counts by verdict; the fixes applied
-    automatically, kept apart from those left for human review; and every
-    language or file whose surface was NOT covered, so a reader knows this
-    audit's true boundary.
+  End with three things: the counts by verdict; the fixes applied
+  automatically, kept apart from those left for human review; and every
+  language or file whose surface was NOT covered, so a reader knows this
+  audit's true boundary.
 
-    Quote claims and evidence from the manifest. Do not restate a verdict in
-    stronger terms than the manifest records, and do not promote a NEEDS_REVIEW
-    to a defect because the finding reads convincingly.|]
+  Quote claims and evidence from the manifest. Do not restate a verdict in
+  stronger terms than the manifest records, and do not promote a NEEDS_REVIEW
+  to a defect because the finding reads convincingly.|]
 
 -- | The report every ending calls.
 --

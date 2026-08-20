@@ -206,12 +206,11 @@ teammates =
 -- @confer@'s rule, and 'teamsScript' is where it is checked.
 teamStance :: Text
 teamStance =
-  wfText
-    [wf|
-    You are exploring, not deciding. Report what you found and what you judge,
-    keep the two apart, and say which of your claims you verified and which you
-    are asserting from experience. Where the problem as stated does not give you
-    enough to answer, say what is missing rather than assuming it.|]
+  [wft|
+  You are exploring, not deciding. Report what you found and what you judge,
+  keep the two apart, and say which of your claims you verified and which you
+  are asserting from experience. Where the problem as stated does not give you
+  enough to answer, say what is missing rather than assuming it.|]
 
 -- | Ten angles, three serving rungs.
 --
@@ -247,27 +246,25 @@ teamsRoster =
 -- to arrive.
 teamsSubject :: Text -> Text -> Text
 teamsSubject problem context =
-  wfText
-    [wf|
-    The problem this team is exploring:
+  [wft|
+  The problem this team is exploring:
 
-    {problem}
+  {problem}
 
-    The context. This may be empty, and empty means the problem stands on its
-    own words -- it does not mean a document failed to arrive:
+  The context. This may be empty, and empty means the problem stands on its
+  own words -- it does not mean a document failed to arrive:
 
-    {context}|]
+  {context}|]
 
 -- | What each member is told about the shape of its answer.
 teamClosing :: Text
 teamClosing =
-  wfText
-    [wf|
-    Report your angle and nothing else. Your answer is one block of a document
-    whose other blocks are your teammates', each fenced under its own name: do
-    not summarise the whole, do not write theirs, and do not recommend a course
-    of action for the team -- that is a later question, put to somebody who has
-    read all of you.|]
+  [wft|
+  Report your angle and nothing else. Your answer is one block of a document
+  whose other blocks are your teammates', each fenced under its own name: do
+  not summarise the whole, do not write theirs, and do not recommend a course
+  of action for the team -- that is a later question, put to somebody who has
+  read all of you.|]
 
 -- | The devil's advocate, over the fold.
 --
@@ -285,21 +282,20 @@ advocateBrief = underChallenge devilStance
 -- above it.
 devilStance :: Text
 devilStance =
-  wfText
-    [wf|
-    You are the devil's advocate, and you are reading a document the team has
-    already written. Argue against it -- not against the problem.
+  [wft|
+  You are the devil's advocate, and you are reading a document the team has
+  already written. Argue against it -- not against the problem.
 
-    Take the strongest position each block reached and say why it might be
-    wrong: the assumption it rests on that nobody stated, the case it does not
-    cover, the two blocks that have quietly agreed on something neither
-    checked. Where the whole team converged, that is where to look hardest;
-    agreement between parties who read the same brief is not evidence.
+  Take the strongest position each block reached and say why it might be
+  wrong: the assumption it rests on that nobody stated, the case it does not
+  cover, the two blocks that have quietly agreed on something neither
+  checked. Where the whole team converged, that is where to look hardest;
+  agreement between parties who read the same brief is not evidence.
 
-    Name what the team did not consider at all. If the strongest objection you
-    can find is weak, say that plainly and say why -- an advocate who
-    manufactures an objection has cost the reader more than one who reports the
-    case is sound.|]
+  Name what the team did not consider at all. If the strongest objection you
+  can find is weak, say that plainly and say why -- an advocate who
+  manufactures an objection has cost the reader more than one who reports the
+  case is sound.|]
 
 -- | The synthesis brief, with the roster it accounts for derived from the same
 -- table.
@@ -313,36 +309,35 @@ devilStance =
 -- exploration has neither.
 teamsSynthesis :: Roster -> Text
 teamsSynthesis r =
-  wfText
-    [wf|
-    Below is the problem, a document of {count} blocks -- one per teammate, each
-    fenced under its own name -- and a devil's advocate's reading of that
-    document. The teammates and what each owns:
+  [wft|
+  Below is the problem, a document of {count} blocks -- one per teammate, each
+  fenced under its own name -- and a devil's advocate's reading of that
+  document. The teammates and what each owns:
 
-    {table}
+  {table}
 
-    First, account for the blocks. If any named teammate's block is missing or
-    empty, reply with exactly
+  First, account for the blocks. If any named teammate's block is missing or
+  empty, reply with exactly
 
-      INCOMPLETE: <the names of the missing blocks>
+    INCOMPLETE: <the names of the missing blocks>
 
-    and nothing else. Do not review what did arrive: a partial team folded into
-    a recommendation is indistinguishable from a whole one, and that is the one
-    mistake this step exists to prevent.
+  and nothing else. Do not review what did arrive: a partial team folded into
+  a recommendation is indistinguishable from a whole one, and that is the one
+  mistake this step exists to prevent.
 
-    Otherwise, review all the work. In this order:
+  Otherwise, review all the work. In this order:
 
-    1. Where the blocks agree, say so once and say whether the agreement is
-       independent or is two teammates reading the same source.
-    2. Where they conflict, name the conflict, say what turns on it, and say
-       what would settle it. Do not average them.
-    3. Say which of the advocate's objections survives -- naming, for each, the
-       block it lands on -- and which the document already answers.
-    4. Close with what the team is recommending, what it is not yet in a
-       position to recommend, and the one decision that has to be made next.
+  1. Where the blocks agree, say so once and say whether the agreement is
+     independent or is two teammates reading the same source.
+  2. Where they conflict, name the conflict, say what turns on it, and say
+     what would settle it. Do not average them.
+  3. Say which of the advocate's objections survives -- naming, for each, the
+     block it lands on -- and which the document already answers.
+  4. Close with what the team is recommending, what it is not yet in a
+     position to recommend, and the one decision that has to be made next.
 
-    Judge the work, do not redo it. A teammate's finding you disagree with is
-    reported with your disagreement beside it, not replaced.|]
+  Judge the work, do not redo it. A teammate's finding you disagree with is
+  reported with your disagreement beside it, not replaced.|]
   where
     count = tshow (length r)
     table = rosterTable r
@@ -385,19 +380,18 @@ shortTeamNote =
 -- above them.
 teamsWriteBrief :: Text
 teamsWriteBrief =
-  wfText
-    [wf|
-    Write the team's exploration to `teams-<date>.md` in the current directory.
+  [wft|
+  Write the team's exploration to `teams-<date>.md` in the current directory.
 
-    In this order, and change nothing on the way: the provenance line you were
-    given, verbatim, first; then the problem this team was exploring; then every
-    angle's block, verbatim, under its own name as a heading; then the devil's
-    advocate's reading under its own heading; then the review of all the work.
+  In this order, and change nothing on the way: the provenance line you were
+  given, verbatim, first; then the problem this team was exploring; then every
+  angle's block, verbatim, under its own name as a heading; then the devil's
+  advocate's reading under its own heading; then the review of all the work.
 
-    You are transcribing, not editing. Do not summarise a block, do not merge
-    two, do not reorder them, and do not resolve a disagreement the review left
-    open -- a reader who wanted one voice would not have asked for a team. Then
-    reply DONE.|]
+  You are transcribing, not editing. Do not summarise a block, do not merge
+  two, do not reorder them, and do not resolve a disagreement the review left
+  open -- a reader who wanted one voice would not have asked for a team. Then
+  reply DONE.|]
 
 -- ---------------------------------------------------------------------------
 -- The artefact both endings write through

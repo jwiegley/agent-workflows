@@ -288,12 +288,11 @@ payloadPath = "/tmp/expenses.json"
 -- | What the inventory receipt is introduced as.
 inventoryBrief :: Text
 inventoryBrief =
-  wfText
-    [wf|
-    The receipt files in the directory this run was given: one path per line,
-    non-recursive, and only the seven document and image types a receipt comes
-    in. These are bytes `find` wrote, so a file that is not in this list is a
-    file this run has no evidence of.|]
+  [wft|
+  The receipt files in the directory this run was given: one path per line,
+  non-recursive, and only the seven document and image types a receipt comes
+  in. These are bytes `find` wrote, so a file that is not in this list is a
+  file this run has no evidence of.|]
 
 -- | @commands\/expense-report.md@ Step 2, whole.
 --
@@ -305,77 +304,74 @@ inventoryBrief =
 -- (@Hertz, Enterprise, Avis, etc.@) — the rule stands without the examples.
 extractBrief :: Text
 extractBrief =
-  wfText
-    [wf|
-    You are an expense report assistant. Read each receipt file named below --
-    open the actual document; do not guess from its filename -- and extract one
-    row per expense.
+  [wft|
+  You are an expense report assistant. Read each receipt file named below --
+  open the actual document; do not guess from its filename -- and extract one
+  row per expense.
 
-    Seven fields per row:
+  Seven fields per row:
 
-    - Date: the transaction date, not the print or download date. Format
-      MM/DD/YYYY.
-    - Category: exactly one of Flights, Hotel, Dining, Rental Cars,
-      Lyft / Uber. Infer it from the vendor and the context.
-    - Vendor: the business name, as it appears ("United Airlines", "Marriott
-      Downtown", "Uber").
-    - Amount: the total charged, after tax and tip.
-    - Payment Method: if visible -- "Corporate Card", "Personal Card", the card's
-      last four digits. Otherwise leave it blank.
-    - Notes: confirmation numbers, an itemized breakdown, special circumstances.
-    - Source File: the path from the list below that this row came from,
-      verbatim.
+  - Date: the transaction date, not the print or download date. Format
+    MM/DD/YYYY.
+  - Category: exactly one of Flights, Hotel, Dining, Rental Cars,
+    Lyft / Uber. Infer it from the vendor and the context.
+  - Vendor: the business name, as it appears ("United Airlines", "Marriott
+    Downtown", "Uber").
+  - Amount: the total charged, after tax and tip.
+  - Payment Method: if visible -- "Corporate Card", "Personal Card", the card's
+    last four digits. Otherwise leave it blank.
+  - Notes: confirmation numbers, an itemized breakdown, special circumstances.
+  - Source File: the path from the list below that this row came from,
+    verbatim.
 
-    Where one receipt covers several expenses -- a hotel folio with a room charge
-    and parking -- write one row per line item, all naming the same source file.
+  Where one receipt covers several expenses -- a hotel folio with a room charge
+  and parking -- write one row per line item, all naming the same source file.
 
-    Answer with the table in this order: by date, and within a date by vendor.
+  Answer with the table in this order: by date, and within a date by vendor.
 
-    Present it as a Markdown table with those columns and a leading row number,
-    then a Trip metadata block naming the trip, the destination inferred from the
-    receipt locations, the date range from earliest to latest, and a blank
-    traveler line for the operator to fill.
+  Present it as a Markdown table with those columns and a leading row number,
+  then a Trip metadata block naming the trip, the destination inferred from the
+  receipt locations, the date range from earliest to latest, and a blank
+  traveler line for the operator to fill.
 
-    Then, and this part is read by the program rather than by a person, one
-    trailer line per uncertain row:
+  Then, and this part is read by the program rather than by a person, one
+  trailer line per uncertain row:
 
-      REVIEW: <row number> <which field is uncertain, and what the candidates are>
+    REVIEW: <row number> <which field is uncertain, and what the candidates are>
 
-    and if nothing at all is uncertain, exactly one line reading
+  and if nothing at all is uncertain, exactly one line reading
 
-      NO REVIEW NEEDED
+    NO REVIEW NEEDED
 
-    A row is uncertain when any of its seven fields is a guess: two plausible
-    totals, an unreadable date, a vendor you inferred from a logo, a category
-    that could be two of the five. Say so. An uncertain row silently presented as
-    certain is the one failure here that reaches an accounting department.|]
+  A row is uncertain when any of its seven fields is a guess: two plausible
+  totals, an unreadable date, a vendor you inferred from a logo, a category
+  that could be two of the five. Say so. An uncertain row silently presented as
+  certain is the one failure here that reaches an accounting department.|]
 
 -- | @commands\/expense-report.md@'s category inference rules, verbatim.
 categoryRules :: Text
 categoryRules =
-  wfText
-    [wf|
-    Category inference:
+  [wft|
+  Category inference:
 
-    - airlines, boarding passes, baggage fees, seat upgrades -> Flights
-    - hotels, motels, Airbnb, lodging, resort fees -> Hotel
-    - restaurants, cafes, room service, food delivery, grocery -> Dining
-    - car rental companies, fuel, tolls -> Rental Cars
-    - Uber, Lyft, any rideshare -> Lyft / Uber|]
+  - airlines, boarding passes, baggage fees, seat upgrades -> Flights
+  - hotels, motels, Airbnb, lodging, resort fees -> Hotel
+  - restaurants, cafes, room service, food delivery, grocery -> Dining
+  - car rental companies, fuel, tolls -> Rental Cars
+  - Uber, Lyft, any rideshare -> Lyft / Uber|]
 
 -- | @commands\/expense-report.md@'s amount extraction rules, verbatim.
 amountRules :: Text
 amountRules =
-  wfText
-    [wf|
-    Amounts:
+  [wft|
+  Amounts:
 
-    - always prefer the "Total" or "Amount Charged" line over a subtotal;
-    - where there is a tip, use the total including it;
-    - for a multi-currency receipt, note the original currency in Notes and
-      convert to USD where you can say what rate you used;
-    - where several amounts are genuinely ambiguous, take the most likely one,
-      say which candidates exist in Notes, and flag the row.|]
+  - always prefer the "Total" or "Amount Charged" line over a subtotal;
+  - where there is a tip, use the total including it;
+  - for a multi-currency receipt, note the original currency in Notes and
+    convert to USD where you can say what rate you used;
+  - where several amounts are genuinely ambiguous, take the most likely one,
+    say which candidates exist in Notes, and flag the row.|]
 
 -- | What the owner is asked, in binding position, when something is uncertain.
 --
@@ -391,28 +387,27 @@ amountRules =
 -- objection and buys a trip that cannot help.
 confirmBrief :: Text
 confirmBrief =
-  wfText
-    [wf|
-    Here is the expense table extracted from your receipts. At least one row is
-    flagged: the trailer lines say which, and what was uncertain about each.
+  [wft|
+  Here is the expense table extracted from your receipts. At least one row is
+  flagged: the trailer lines say which, and what was uncertain about each.
 
-    Read the flagged rows against the receipts and answer with exactly one of
-    these, on its own last line:
+  Read the flagged rows against the receipts and answer with exactly one of
+  these, on its own last line:
 
-    - APPROVE -- the table is right as it stands. The spreadsheet is built from
-      it and nothing else happens. Write that word alone: anything else on the
-      line is read as a correction, and a correction buys a round.
-    - OBJECTION: <one line> -- the corrections, on one line, in your own words:
-      "row 3 amount is 72.50", "row 2 is Dining not Lyft / Uber", "trip name is
-      Berlin Conference 2026", "drop row 5, it is a duplicate of row 4". That
-      line is the ONLY thing the correcting turn is told, so put everything you
-      want changed in it.
+  - APPROVE -- the table is right as it stands. The spreadsheet is built from
+    it and nothing else happens. Write that word alone: anything else on the
+    line is read as a correction, and a correction buys a round.
+  - OBJECTION: <one line> -- the corrections, on one line, in your own words:
+    "row 3 amount is 72.50", "row 2 is Dining not Lyft / Uber", "trip name is
+    Berlin Conference 2026", "drop row 5, it is a duplicate of row 4". That
+    line is the ONLY thing the correcting turn is told, so put everything you
+    want changed in it.
 
-    If, and only if, you cannot judge this table at all -- it is not your trip,
-    the rows do not correspond to receipts you recognise, something outside this
-    run has to be fixed first -- reply with NOTHING AT ALL: an empty answer. An
-    empty answer stops the run and builds no spreadsheet. An explanation of why
-    you are stuck is an objection and buys a correction round that cannot help.|]
+  If, and only if, you cannot judge this table at all -- it is not your trip,
+  the rows do not correspond to receipts you recognise, something outside this
+  run has to be fixed first -- reply with NOTHING AT ALL: an empty answer. An
+  empty answer stops the run and builds no spreadsheet. An explanation of why
+  you are stuck is an objection and buys a correction round that cannot help.|]
 
 -- | What the owner is asked when the extraction flagged nothing.
 --
@@ -422,34 +417,32 @@ confirmBrief =
 -- decides which.
 cleanConfirmBrief :: Text
 cleanConfirmBrief =
-  wfText
-    [wf|
-    Here is the expense table extracted from your receipts. The extraction
-    flagged nothing as uncertain -- every field on every row came off a receipt
-    without a judgment call.
+  [wft|
+  Here is the expense table extracted from your receipts. The extraction
+  flagged nothing as uncertain -- every field on every row came off a receipt
+  without a judgment call.
 
-    Yes builds the spreadsheet from this table. No stops the run, changes
-    nothing, and reports the table as it stands so you can say what is wrong.
+  Yes builds the spreadsheet from this table. No stops the run, changes
+  nothing, and reports the table as it stands so you can say what is wrong.
 
-    Build it?|]
+  Build it?|]
 
 -- | What the correcting turn is told.
 correctBrief :: Text
 correctBrief =
-  wfText
-    [wf|
-    The operator read the expense table and asked for changes. Produce the
-    corrected table and nothing else -- the same shape as before, including the
-    trailer lines, and no commentary about what you changed.
+  [wft|
+  The operator read the expense table and asked for changes. Produce the
+  corrected table and nothing else -- the same shape as before, including the
+  trailer lines, and no commentary about what you changed.
 
-    Apply exactly what he asked for and nothing more. He is looking at the
-    receipts and you are not: where his correction contradicts what you read, he
-    is right and the row takes his value.
+  Apply exactly what he asked for and nothing more. He is looking at the
+  receipts and you are not: where his correction contradicts what you read, he
+  is right and the row takes his value.
 
-    Where his line asks for something you cannot do -- a category outside the
-    five, a row number that does not exist -- leave that part alone and say so in
-    one line at the top. Then re-derive the trailer lines: a row he corrected is
-    no longer uncertain unless something else about it still is.|]
+  Where his line asks for something you cannot do -- a category outside the
+  five, a row number that does not exist -- leave that part alone and say so in
+  one line at the top. Then re-derive the trailer lines: a row he corrected is
+  no longer uncertain unless something else about it still is.|]
 
 -- | What the payload act is told.
 --
@@ -457,41 +450,39 @@ correctBrief =
 -- field.
 payloadBrief :: Text
 payloadBrief =
-  wfText
-    [wf|
-    Write the confirmed table below to a JSON file, and write nothing else.
+  [wft|
+  Write the confirmed table below to a JSON file, and write nothing else.
 
-    The path is given below and is the one the filler script reads. The shape is
-    exactly this:
+  The path is given below and is the one the filler script reads. The shape is
+  exactly this:
 
-    {{"trip": {{"name": …, "destination": …, "dates": …, "traveler": "",
-    "department": "", "report_number": ""}},
-    "expenses": [{{"date": "MM/DD/YYYY", "category": …, "vendor": …,
-    "amount": <a number, not a string, no currency symbol>,
-    "payment_method": …, "receipt_path": "<absolute path>", "notes": …,
-    "flag": ""}}, …]}}
+  {{"trip": {{"name": …, "destination": …, "dates": …, "traveler": "",
+  "department": "", "report_number": ""}},
+  "expenses": [{{"date": "MM/DD/YYYY", "category": …, "vendor": …,
+  "amount": <a number, not a string, no currency symbol>,
+  "payment_method": …, "receipt_path": "<absolute path>", "notes": …,
+  "flag": ""}}, …]}}
 
-    Three things the shape does not say and the script depends on:
+  Three things the shape does not say and the script depends on:
 
-    - `amount` is a JSON number. "$487.30" is a string and will not sum.
-    - `receipt_path` is absolute. The script turns it into a file:// hyperlink,
-      and a relative path becomes a dead link in somebody else's spreadsheet.
-    - `category` is one of the five, spelled exactly as in the table --
-      "Lyft / Uber" has spaces around the slash.
+  - `amount` is a JSON number. "$487.30" is a string and will not sum.
+  - `receipt_path` is absolute. The script turns it into a file:// hyperlink,
+    and a relative path becomes a dead link in somebody else's spreadsheet.
+  - `category` is one of the five, spelled exactly as in the table --
+    "Lyft / Uber" has spaces around the slash.
 
-    Leave `traveler`, `department` and `report_number` empty: they are the
-    operator's to fill.
+  Leave `traveler`, `department` and `report_number` empty: they are the
+  operator's to fill.
 
-    When you are done, reply DONE with the number of expense objects you wrote.|]
+  When you are done, reply DONE with the number of expense objects you wrote.|]
 
 -- | What the filler receipt is introduced as.
 fillBrief :: Text
 fillBrief =
-  wfText
-    [wf|
-    The filler script, run over the payload this run just wrote. Whatever it
-    prints is the answer: it copies the template, fills only the data cells, and
-    leaves every SUBTOTAL and Grand Total formula intact to recalculate in Excel.|]
+  [wft|
+  The filler script, run over the payload this run just wrote. Whatever it
+  prints is the answer: it copies the template, fills only the data cells, and
+  leaves every SUBTOTAL and Grand Total formula intact to recalculate in Excel.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines
@@ -597,40 +588,39 @@ expenseBuildFn script payload =
 -- script rather than an instruction to anybody.
 expenseReportBrief :: Text
 expenseReportBrief =
-  wfText
-    [wf|
-    Write the report for an expense-report run. It is read by the operator, who
-    will open the spreadsheet before submitting it.
+  [wft|
+  Write the report for an expense-report run. It is read by the operator, who
+  will open the spreadsheet before submitting it.
 
-    Open with the provenance line you were given, verbatim, on its own line. It is
-    the run's own account of how it ended and it is not yours to soften: in
-    particular, if it says nothing was built, do not describe a spreadsheet.
+  Open with the provenance line you were given, verbatim, on its own line. It is
+  the run's own account of how it ended and it is not yours to soften: in
+  particular, if it says nothing was built, do not describe a spreadsheet.
 
-    Then, from the work below and nothing else:
+  Then, from the work below and nothing else:
 
-    - the output file path, if one exists, taken from the filler script's own
-      output rather than from what you expect it to be;
-    - a count of expenses per category, and the total;
-    - every row that was flagged for review and what became of it;
-    - which receipt files in the file list produced no row, and which rows name a
-      file that is not in the list. Both are errors and neither is visible from
-      the table alone.
+  - the output file path, if one exists, taken from the filler script's own
+    output rather than from what you expect it to be;
+  - a count of expenses per category, and the total;
+  - every row that was flagged for review and what became of it;
+  - which receipt files in the file list produced no row, and which rows name a
+    file that is not in the list. Both are errors and neither is visible from
+    the table alone.
 
-    Then these three, which are facts about the tooling and are worth repeating
-    every time:
+  Then these three, which are facts about the tooling and are worth repeating
+  every time:
 
-    - the script writes file:// hyperlinks to local receipts; replace them with
-      cloud-hosted URLs before sharing the sheet with accounting;
-    - the template has eight rows per category, so a category with more than
-      eight expenses needs rows inserted by hand -- say so if any category is at
-      or over eight;
-    - open the spreadsheet and check the subtotals: the script fills data cells
-      only and leaves the formulas to recalculate, which is the intended
-      behaviour and not a verification.
+  - the script writes file:// hyperlinks to local receipts; replace them with
+    cloud-hosted URLs before sharing the sheet with accounting;
+  - the template has eight rows per category, so a category with more than
+    eight expenses needs rows inserted by hand -- say so if any category is at
+    or over eight;
+  - open the spreadsheet and check the subtotals: the script fills data cells
+    only and leaves the formulas to recalculate, which is the intended
+    behaviour and not a verification.
 
-    One thing you must not write. Do not describe an amount, a date or a vendor
-    as verified against a receipt. Nothing in this run read a receipt document
-    except the extracting turn, and its own uncertainty is what the flags record.|]
+  One thing you must not write. Do not describe an amount, a date or a vendor
+  as verified against a receipt. Nothing in this run read a receipt document
+  except the extracting turn, and its own uncertainty is what the flags record.|]
 
 -- | One act, six provenance lines.
 --

@@ -642,21 +642,19 @@ auditRoster files =
 -- | What the target probe is asked.
 probeBrief :: Text
 probeBrief =
-  wfText
-    [wf|
-    Does this working tree have the make target this battery builds? A yes means
-    the tree is the one this rung is written for. A no means it is the other
-    rung's tree, and the run stops rather than building something that is not
-    there.|]
+  [wft|
+  Does this working tree have the make target this battery builds? A yes means
+  the tree is the one this rung is written for. A no means it is the other
+  rung's tree, and the run stops rather than building something that is not
+  there.|]
 
 -- | What the file-list receipt is introduced as.
 changedBrief :: Text
 changedBrief =
-  wfText
-    [wf|
-    The files this branch changed, as bytes `git diff --name-only` wrote. This is
-    a receipt: it is the evidence the derived model set is audited against, and
-    nothing is added to it.|]
+  [wft|
+  The files this branch changed, as bytes `git diff --name-only` wrote. This is
+  a receipt: it is the evidence the derived model set is audited against, and
+  nothing is added to it.|]
 
 -- | What the diff receipt is introduced as.
 --
@@ -666,11 +664,10 @@ changedBrief =
 -- different trees.
 snapshotBrief :: Text
 snapshotBrief =
-  wfText
-    [wf|
-    The frozen scope snapshot for this battery's audit. Every reviewer below
-    reads this and only this, so that no two of them are looking at different
-    trees.|]
+  [wft|
+  The frozen scope snapshot for this battery's audit. Every reviewer below
+  reads this and only this, so that no two of them are looking at different
+  trees.|]
 
 -- | What the derivation question is asked — the audit of the invocation.
 --
@@ -681,70 +678,67 @@ snapshotBrief =
 -- argv is the right set. See the module header's second note.
 derivationBrief :: Text
 derivationBrief =
-  wfText
-    [wf|
-    Audit this run's model set against what the branch diff implies. The set is
-    already fixed -- it is in the argv of the commands this run will execute, and
-    it is listed below -- so your job is to say whether it is the right set, not
-    to choose it.
+  [wft|
+  Audit this run's model set against what the branch diff implies. The set is
+  already fixed -- it is in the argv of the commands this run will execute, and
+  it is listed below -- so your job is to say whether it is the right set, not
+  to choose it.
 
-    Map the changed paths back to models by the four signals, in order of
-    specificity:
+  Map the changed paths back to models by the four signals, in order of
+  specificity:
 
-    A. `config/models.yaml` edits -- a new or changed variant names its model
-       directly.
-    B. `ingest/export/*_export.py` -- an arch-specific export module names its
-       arch family.
-    C. `h/tron/plugins/*.hpp` -- a hand-authored plugin names its model.
-    D. `gen/src/tron/h/tron/plugins/*` -- build artifacts, which confirm rather
-       than establish.
+  A. `config/models.yaml` edits -- a new or changed variant names its model
+     directly.
+  B. `ingest/export/*_export.py` -- an arch-specific export module names its
+     arch family.
+  C. `h/tron/plugins/*.hpp` -- a hand-authored plugin names its model.
+  D. `gen/src/tron/h/tron/plugins/*` -- build artifacts, which confirm rather
+     than establish.
 
-    Shared-infrastructure edits are SUPPORTING. They do not widen the gate to
-    sibling models, and they never auto-escalate to the family or to the full
-    matrix. Advancing one model always means touching shared files; that is not
-    evidence about the siblings.
+  Shared-infrastructure edits are SUPPORTING. They do not widen the gate to
+  sibling models, and they never auto-escalate to the family or to the full
+  matrix. Advancing one model always means touching shared files; that is not
+  evidence about the siblings.
 
-    Answer with:
+  Answer with:
 
-    - the set the four signals imply, as runtime slugs;
-    - for each model in the run's argv, whether the signals support it,
-      contradict it, or say nothing about it;
-    - for each model the signals imply and the argv omits, say so plainly -- a
-      gate that skips a model the diff advances is the failure this step exists
-      to catch.
+  - the set the four signals imply, as runtime slugs;
+  - for each model in the run's argv, whether the signals support it,
+    contradict it, or say nothing about it;
+  - for each model the signals imply and the argv omits, say so plainly -- a
+    gate that skips a model the diff advances is the failure this step exists
+    to catch.
 
-    If the diff implies NO model at all -- no model-affecting change -- then make
-    the first line of your answer exactly
+  If the diff implies NO model at all -- no model-affecting change -- then make
+  the first line of your answer exactly
 
-      NO MODEL-AFFECTING CHANGES
+    NO MODEL-AFFECTING CHANGES
 
-    and say underneath which files changed and why none of them maps to a model.
-    An empty or unrunnable derived set is INCOMPLETE and never a success, and
-    that line is what this run reads to enforce it.|]
+  and say underneath which files changed and why none of them maps to a model.
+  An empty or unrunnable derived set is INCOMPLETE and never a success, and
+  that line is what this run reads to enforce it.|]
 
 -- | What the build receipt is asked.
 buildBrief :: Text
 buildBrief =
-  wfText
-    [wf|
-    The rebuild. A pass means exit 0 with no `error:` line; a failure carries the
-    build's own first failing line, which is then the subject of the report rather
-    than a paraphrase of it. If `gen/` is corrupt from a prior non-Nix `make`, that
-    is what the failing line will say, and the fix is to remove it and build
-    again.|]
+  [wft|
+  The rebuild. A pass means exit 0 with no `error:` line; a failure carries the
+  build's own first failing line, which is then the subject of the report rather
+  than a paraphrase of it. If `gen/` is corrupt from a prior non-Nix `make`, that
+  is what the failing line will say, and the fix is to remove it and build
+  again.|]
 
 -- | What each unit-test layer is asked.
 unitBrief :: Text
 unitBrief =
-  wfText
-    [wf|
-    One layer of the unit-test sweep. All layers must pass, including the
-    byte-identity MD5 baselines. Never weaken or skip a failing test: if a
-    baseline legitimately changed because emitter output changed, that is a
-    deliberate update with a reason, and it is not something this run may do.
+  [wft|
+  One layer of the unit-test sweep. All layers must pass, including the
+  byte-identity MD5 baselines. Never weaken or skip a failing test: if a
+  baseline legitimately changed because emitter output changed, that is a
+  deliberate update with a reason, and it is not something this run may do.
 
-    Every layer is asked, whatever the earlier ones answered. This sweep does not
-    stop at the first failure.|]
+  Every layer is asked, whatever the earlier ones answered. This sweep does not
+  stop at the first failure.|]
 
 -- | What each gate case is asked.
 --
@@ -753,36 +747,34 @@ unitBrief =
 -- question can carry, and the taxonomy is read from it by 'gradingBrief'.
 gateBrief :: Text
 gateBrief =
-  wfText
-    [wf|
-    One case of the headline correctness gate, in its own process. A pass is a
-    pass for that one (model, prompt-length) cell and for nothing else.
+  [wft|
+  One case of the headline correctness gate, in its own process. A pass is a
+  pass for that one (model, prompt-length) cell and for nothing else.
 
-    What the exit code means, and the distinctions matter more here than anywhere
-    else in this run:
+  What the exit code means, and the distinctions matter more here than anywhere
+  else in this run:
 
-    - exit 0 with no SKIPPED line -- PASS for this cell.
-    - exit 0 with a SKIPPED line -- SKIPPED, which is INCOMPLETE and not a pass.
-    - a divergence line -- DIVERGE: a real correctness regression, reported with
-      the position and the match count.
-    - "No tests ran" or "No test cases matched" -- NO-MATCH: a selector or runner
-      fault. Report it. It is never a pass, and it is never counted as a failure
-      of the model.
-    - a missing weights file -- WEIGHTS-MISSING, which is INCOMPLETE.
-    - a lock, a busy device, an environment-setup failure or HBM exhaustion --
-      LOCK-CONTENTION: re-run this case alone before concluding anything.
-    - a timeout -- TIMEOUT, which is INCOMPLETE. A cold weight cache makes a
-      first run slow; that is a provisioning fact, not a correctness one.|]
+  - exit 0 with no SKIPPED line -- PASS for this cell.
+  - exit 0 with a SKIPPED line -- SKIPPED, which is INCOMPLETE and not a pass.
+  - a divergence line -- DIVERGE: a real correctness regression, reported with
+    the position and the match count.
+  - "No tests ran" or "No test cases matched" -- NO-MATCH: a selector or runner
+    fault. Report it. It is never a pass, and it is never counted as a failure
+    of the model.
+  - a missing weights file -- WEIGHTS-MISSING, which is INCOMPLETE.
+  - a lock, a busy device, an environment-setup failure or HBM exhaustion --
+    LOCK-CONTENTION: re-run this case alone before concluding anything.
+  - a timeout -- TIMEOUT, which is INCOMPLETE. A cold weight cache makes a
+    first run slow; that is a provisioning fact, not a correctness one.|]
 
 -- | What the semantic check is asked.
 semanticBrief :: Text
 semanticBrief =
-  wfText
-    [wf|
-    The semantic check, which complements the byte-level or logit-level gate
-    above rather than replacing it. A pass here and a failure there, or the
-    reverse, are different findings about different codepaths, and the report says
-    which.|]
+  [wft|
+  The semantic check, which complements the byte-level or logit-level gate
+  above rather than replacing it. A pass here and a failure there, or the
+  reverse, are different findings about different codepaths, and the report says
+  which.|]
 
 -- | What each perf trial is asked.
 --
@@ -793,24 +785,23 @@ semanticBrief =
 -- trial ran with the same flags.
 perfBrief :: Text
 perfBrief =
-  wfText
-    [wf|
-    One perf and decode-token trial, on the fixed methodology: 64-token prompt,
-    32-token greedy decode, temperature 0, determinism paid for, seed 42, and the
-    whole machine. Do not vary any of it, or the numbers are not comparable with
-    the committed baseline.
+  [wft|
+  One perf and decode-token trial, on the fixed methodology: 64-token prompt,
+  32-token greedy decode, temperature 0, determinism paid for, seed 42, and the
+  whole machine. Do not vary any of it, or the numbers are not comparable with
+  the committed baseline.
 
-    Report gen-time in ms/tok, tok/s, wall, and the decoded token IDs. A median
-    over three trials is what the gate reads; a single trial is a sample. If the
-    page cache could not be dropped, say so and label wall NON-COMPARABLE -- a
-    warm cache has produced a fake 18% wall "win" on this pipeline before.
+  Report gen-time in ms/tok, tok/s, wall, and the decoded token IDs. A median
+  over three trials is what the gate reads; a single trial is a sample. If the
+  page cache could not be dropped, say so and label wall NON-COMPARABLE -- a
+  warm cache has produced a fake 18% wall "win" on this pipeline before.
 
-    Flag any median gen-time/tok regression above 5%.
+  Flag any median gen-time/tok regression above 5%.
 
-    Phase separation, because it decides who owns a bug: this is the external
-    decode loop with KV cache and sampling. The gate above is the in-process
-    prompt path. A divergence here with a clean gate is in the decode loop or the
-    host, and not in the emitter.|]
+  Phase separation, because it decides who owns a bug: this is the external
+  decode loop with KV cache and sampling. The gate above is the in-process
+  prompt path. A divergence here with a clean gate is in the decode loop or the
+  host, and not in the emitter.|]
 
 -- | The closing line every audit member is given.
 --
@@ -820,28 +811,27 @@ perfBrief =
 -- two other commands and are one fold here.
 auditClosing :: Tier -> Text
 auditClosing t =
-  wfText
-    [wf|
-    This is the review arm of the `{name}` battery. The branch under review is a
-    model-support branch: it adds or fixes support for one model or one
-    architecture family on an FPGA inference pipeline.
+  [wft|
+  This is the review arm of the `{name}` battery. The branch under review is a
+  model-support branch: it adds or fixes support for one model or one
+  architecture family on an FPGA inference pipeline.
 
-    Two things follow from that, and they are the difference between a useful
-    finding here and a generic one:
+  Two things follow from that, and they are the difference between a useful
+  finding here and a generic one:
 
-    - A claim about numerical behaviour belongs to the correctness gate, which
-      has already run in this same program. Do not speculate about logits. Do
-      report code that could make a tolerance, a golden or a baseline mean
-      something other than what it says.
-    - A test weakened, skipped, quarantined without a removal condition, or
-      whose baseline was updated without a stated reason is a BLOCKING finding in
-      this battery, whatever it would be elsewhere. The whole run is a claim
-      about correctness, and a claim resting on a test that no longer asserts
-      anything is the failure mode this rung exists to prevent.
+  - A claim about numerical behaviour belongs to the correctness gate, which
+    has already run in this same program. Do not speculate about logits. Do
+    report code that could make a tolerance, a golden or a baseline mean
+    something other than what it says.
+  - A test weakened, skipped, quarantined without a removal condition, or
+    whose baseline was updated without a stated reason is a BLOCKING finding in
+    this battery, whatever it would be elsewhere. The whole run is a claim
+    about correctness, and a claim resting on a test that no longer asserts
+    anything is the failure mode this rung exists to prevent.
 
-    Report your findings and nothing else. Your answer is one block of a document
-    whose other blocks are your siblings', each fenced under its own name: do not
-    summarise the whole, and do not address the reader of any block but your own.|]
+  Report your findings and nothing else. Your answer is one block of a document
+  whose other blocks are your siblings', each fenced under its own name: do not
+  summarise the whole, and do not address the reader of any block but your own.|]
   where
     name = retestName t
 
@@ -866,71 +856,70 @@ auditClosing t =
 -- a battery whose claim discipline nobody applied.
 gradingBrief :: Battery -> [Model] -> Text
 gradingBrief b ms =
-  wfText
-    [wf|
-    Grade this battery. You did not run any of it: below are the commands' own
-    answers and the reviewers' own blocks, and your job is to classify them
-    without softening anything.
+  [wft|
+  Grade this battery. You did not run any of it: below are the commands' own
+  answers and the reviewers' own blocks, and your job is to classify them
+  without softening anything.
 
-    The oracle this run gated against: {oracle}
+  The oracle this run gated against: {oracle}
 
-    The boundary discipline this run is held to: {boundary}
+  The boundary discipline this run is held to: {boundary}
 
-    The models in the run's argv:
+  The models in the run's argv:
 
-    {fleet}
+  {fleet}
 
-    Produce, in this order:
+  Produce, in this order:
 
-    1. One row per (model, cell) the gate reported, with its verdict word from
-       this closed set and no other:
+  1. One row per (model, cell) the gate reported, with its verdict word from
+     this closed set and no other:
 
-         PASS  QUARANTINED-PASS  SKIPPED  QUARANTINED-FAIL  DIVERGE
-         REACHABILITY-REGRESSION  OUT-OF-SCOPE  NO-COVERAGE  NO-MATCH
-         WEIGHTS-MISSING  TIMEOUT  LOCK-CONTENTION  FAIL
+       PASS  QUARANTINED-PASS  SKIPPED  QUARANTINED-FAIL  DIVERGE
+       REACHABILITY-REGRESSION  OUT-OF-SCOPE  NO-COVERAGE  NO-MATCH
+       WEIGHTS-MISSING  TIMEOUT  LOCK-CONTENTION  FAIL
 
-       Never collapse them. "N/N PASS" over a set containing a SKIPPED is a false
-       statement about correctness, and it is the specific false statement this
-       battery exists to make impossible.
+     Never collapse them. "N/N PASS" over a set containing a SKIPPED is a false
+     statement about correctness, and it is the specific false statement this
+     battery exists to make impossible.
 
-    2. The build, the unit layers, the semantic check and the perf trials, each
-       with what its command actually answered.
+  2. The build, the unit layers, the semantic check and the perf trials, each
+     with what its command actually answered.
 
-    3. The review findings, by severity, from the blocks below.
+  3. The review findings, by severity, from the blocks below.
 
-    4. Then the classification lines. THIS IS THE PART THAT IS READ MECHANICALLY,
-       so the shape is not negotiable. For every non-passing thing, write ONE
-       LINE that BEGINS with its verdict word, a colon, and what it was about:
+  4. Then the classification lines. THIS IS THE PART THAT IS READ MECHANICALLY,
+     so the shape is not negotiable. For every non-passing thing, write ONE
+     LINE that BEGINS with its verdict word, a colon, and what it was about:
 
-         DIVERGE: ingested-phi-4, 64-token cell, first divergence at position 12
-         NO-COVERAGE: ingested-qwen-2.5-32b, len-16384 cell is not registered
-         REGRESSION: ingested-llama-3.1-8b, median gen-time/tok up 7.4%
+       DIVERGE: ingested-phi-4, 64-token cell, first divergence at position 12
+       NO-COVERAGE: ingested-qwen-2.5-32b, len-16384 cell is not registered
+       REGRESSION: ingested-llama-3.1-8b, median gen-time/tok up 7.4%
 
-       An OUT-OF-SCOPE cell is reported with its limit and is NOT one of these
-       lines: it is neither a pass nor an incompleteness nor a regression, and a
-       line beginning with a verdict word is read as one of the latter two.
+     An OUT-OF-SCOPE cell is reported with its limit and is NOT one of these
+     lines: it is neither a pass nor an incompleteness nor a regression, and a
+     line beginning with a verdict word is read as one of the latter two.
 
-    5. Last, the overall verdict, on its own final line, as one of:
+  5. Last, the overall verdict, on its own final line, as one of:
 
-         {verdict}
-         INCOMPLETE
-         REGRESSION
+       {verdict}
+       INCOMPLETE
+       REGRESSION
 
-       {verdict} requires: every in-scope measured row PASS or QUARANTINED-PASS,
-       no DIVERGE, no REACHABILITY-REGRESSION, no missing required coverage, no
-       setup failure, no perf regression above 5%, and a clean review. Quote the
-       oracle, the codepath and the prompt-set bound beside it.
+     {verdict} requires: every in-scope measured row PASS or QUARANTINED-PASS,
+     no DIVERGE, no REACHABILITY-REGRESSION, no missing required coverage, no
+     setup failure, no perf regression above 5%, and a clean review. Quote the
+     oracle, the codepath and the prompt-set bound beside it.
 
-       INCOMPLETE for any NO-COVERAGE, SKIPPED, WEIGHTS-MISSING, TIMEOUT,
-       unresolved LOCK-CONTENTION or NO-MATCH on an in-scope cell, or an empty or
-       unrunnable model set.
+     INCOMPLETE for any NO-COVERAGE, SKIPPED, WEIGHTS-MISSING, TIMEOUT,
+     unresolved LOCK-CONTENTION or NO-MATCH on an in-scope cell, or an empty or
+     unrunnable model set.
 
-       REGRESSION for any DIVERGE, any in-scope REACHABILITY-REGRESSION, any perf
-       regression above 5%, or any blocking review finding.
+     REGRESSION for any DIVERGE, any in-scope REACHABILITY-REGRESSION, any perf
+     regression above 5%, or any blocking review finding.
 
-    A FAIL with a signal is triaged before it is classified: an environment or
-    harness cause folds into INCOMPLETE, a confirmed fault in the pipeline folds
-    into REGRESSION. Say which and why.|]
+  A FAIL with a signal is triaged before it is classified: an environment or
+  harness cause folds into INCOMPLETE, a confirmed fault in the pipeline folds
+  into REGRESSION. Say which and why.|]
   where
     oracle = batOracle b
     boundary = batBoundary b
@@ -1026,34 +1015,33 @@ correctNote t =
 -- | What the report is written through.
 retestReportBrief :: Text
 retestReportBrief =
-  wfText
-    [wf|
-    Write the consolidated report for a model-support retest. One report, whatever
-    the run found: it is read by the person deciding whether this branch ships.
+  [wft|
+  Write the consolidated report for a model-support retest. One report, whatever
+  the run found: it is read by the person deciding whether this branch ships.
 
-    Open with the provenance line you were given, verbatim, on its own line. It is
-    the run's own account of what ran and what did not, and it is not yours to
-    soften -- in particular, if it says nothing was gated, do not report a
-    correctness result.
+  Open with the provenance line you were given, verbatim, on its own line. It is
+  the run's own account of what ran and what did not, and it is not yours to
+  soften -- in particular, if it says nothing was gated, do not report a
+  correctness result.
 
-    Then, from the work below and nothing else:
+  Then, from the work below and nothing else:
 
-    - the model set the run gated, as runtime slugs, and what the audit of that
-      set said about it;
-    - one row per (model, cell), with its verdict word from the closed set,
-      never collapsed and never rounded into a pass rate;
-    - the build, the unit layers, the semantic check and the perf numbers;
-    - the review findings by severity;
-    - the overall verdict, with the oracle, the codepath, the prompt set and the
-      tolerance or identity criterion quoted beside it;
-    - what was NOT measured, and what would measure it.
+  - the model set the run gated, as runtime slugs, and what the audit of that
+    set said about it;
+  - one row per (model, cell), with its verdict word from the closed set,
+    never collapsed and never rounded into a pass rate;
+  - the build, the unit layers, the semantic check and the perf numbers;
+  - the review findings by severity;
+  - the overall verdict, with the oracle, the codepath, the prompt set and the
+    tolerance or identity criterion quoted beside it;
+  - what was NOT measured, and what would measure it.
 
-    Two things you must not write. Do not report a command's result that is not in
-    the work below -- if it did not run, nothing follows from it. And do not
-    collapse SKIPPED, QUARANTINED, NO-COVERAGE, OUT-OF-SCOPE or TIMEOUT into PASS,
-    or into a fraction that hides them: they are distinct states about distinct
-    kinds of ignorance, and the whole value of this battery is that it can tell
-    them apart.|]
+  Two things you must not write. Do not report a command's result that is not in
+  the work below -- if it did not run, nothing follows from it. And do not
+  collapse SKIPPED, QUARANTINED, NO-COVERAGE, OUT-OF-SCOPE or TIMEOUT into PASS,
+  or into a fraction that hides them: they are distinct states about distinct
+  kinds of ignorance, and the whole value of this battery is that it can tell
+  them apart.|]
 
 -- | One act, five provenance lines.
 --

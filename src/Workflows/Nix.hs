@@ -417,28 +417,27 @@ spelled t
 -- three-way loop would buy an arm nothing can take.
 searchStrategy :: Text
 searchStrategy =
-  wfText
-    [wf|
-    Resolve this the way the operator's own NixOS practice does, in this order:
+  [wft|
+  Resolve this the way the operator's own NixOS practice does, in this order:
 
-    1. First, `nix search nixpkgs` -- or search.nixos.org -- for an existing
-       package or option.
-    2. Second, the Home Manager manual's options, for anything user-scoped.
-    3. Third, flakes, via search.nixos.org/flakes or FlakeHub.
-    4. Fourth, community solutions and examples, by live search where you have
-       one.
-    5. Fifth, the nixpkgs repository itself, for a similar implementation.
+  1. First, `nix search nixpkgs` -- or search.nixos.org -- for an existing
+     package or option.
+  2. Second, the Home Manager manual's options, for anything user-scoped.
+  3. Third, flakes, via search.nixos.org/flakes or FlakeHub.
+  4. Fourth, community solutions and examples, by live search where you have
+     one.
+  5. Fifth, the nixpkgs repository itself, for a similar implementation.
 
-    Validate that every option you name actually exists before you propose it,
-    and say how you validated it. Never assume an option exists: a plausible
-    option name is the most expensive mistake in this domain, because it looks
-    exactly like a correct one until a build fails minutes later. Where you could
-    not verify one, say so beside it rather than presenting the whole proposal at
-    one confidence.
+  Validate that every option you name actually exists before you propose it,
+  and say how you validated it. Never assume an option exists: a plausible
+  option name is the most expensive mistake in this domain, because it looks
+  exactly like a correct one until a build fails minutes later. Where you could
+  not verify one, say so beside it rather than presenting the whole proposal at
+  one confidence.
 
-    Say which of the five steps produced each part of your answer. A step you
-    could not take -- because this run has no live search, for instance -- is
-    worth naming: it tells the reader what the diagnosis did not see.|]
+  Say which of the five steps produced each part of your answer. A step you
+  could not take -- because this run has no live search, for instance -- is
+  worth naming: it tells the reader what the diagnosis did not see.|]
 
 -- ---------------------------------------------------------------------------
 -- The prompts
@@ -460,11 +459,10 @@ searchStrategy =
 -- failure is attributable to this run's own edit.
 buildBrief :: Text
 buildBrief =
-  wfText
-    [wf|
-    The host's own build driver, run before anything is diagnosed or changed.
-    This is the baseline: the same command is run again after the repair, so its
-    verdict here is what makes the later one attributable.|]
+  [wft|
+  The host's own build driver, run before anything is diagnosed or changed.
+  This is the baseline: the same command is run again after the repair, so its
+  verdict here is what makes the later one attributable.|]
 
 -- | What the diagnosis is asked.
 --
@@ -476,51 +474,49 @@ buildBrief =
 -- for as one.
 diagnoseBrief :: Text
 diagnoseBrief =
-  wfText
-    [wf|
-    Diagnose this and propose the repair. Answer with the diagnosis and the
-    repair plan, and nothing else: a later step applies it and a later step still
-    verifies it, so what you write is read as instructions and not as a
-    discussion.
+  [wft|
+  Diagnose this and propose the repair. Answer with the diagnosis and the
+  repair plan, and nothing else: a later step applies it and a later step still
+  verifies it, so what you write is read as instructions and not as a
+  discussion.
 
-    Work in this order, and break the problem down further wherever a step is
-    doing more than one thing:
+  Work in this order, and break the problem down further wherever a step is
+  doing more than one thing:
 
-    1. What the evidence actually says. Quote the line that matters. Distinguish
-       what the evidence shows from what you infer from it.
-    2. The cause, named as a specific thing in a specific file, or named as
-       unknown. "Probably a version mismatch" is not a cause; a module option
-       that changed name between releases is.
-    3. The repair, as an edit: which file, which attribute, what it becomes.
-       Where a repair has a cheap containment and a correct fix, give both and
-       say which is which.
-    4. What would show the repair worked, beyond the build passing. The build is
-       run again after the repair whatever you say here, so this is about
-       behaviour: a service that answers, a unit that stays up, a metric that
-       returns.
-    5. What you did NOT establish. This is the part a report is written from and
-       the part a tired diagnosis leaves out.|]
+  1. What the evidence actually says. Quote the line that matters. Distinguish
+     what the evidence shows from what you infer from it.
+  2. The cause, named as a specific thing in a specific file, or named as
+     unknown. "Probably a version mismatch" is not a cause; a module option
+     that changed name between releases is.
+  3. The repair, as an edit: which file, which attribute, what it becomes.
+     Where a repair has a cheap containment and a correct fix, give both and
+     say which is which.
+  4. What would show the repair worked, beyond the build passing. The build is
+     run again after the repair whatever you say here, so this is about
+     behaviour: a service that answers, a unit that stays up, a metric that
+     returns.
+  5. What you did NOT establish. This is the part a report is written from and
+     the part a tired diagnosis leaves out.|]
 
 -- | What the repair act is told.
 repairPlanBrief :: Text
 repairPlanBrief =
-  wfText
-    [wf|
-    Apply the repair the diagnosis below describes, and only that.
+  [wft|
+  Apply the repair the diagnosis below describes, and only that.
 
-    Edit the configuration the plan names. Do not reformat the files you are in,
-    do not fix an unrelated thing you notice, and do not widen the change to
-    cover a case the diagnosis did not establish -- the build after this turn is
-    the evidence that the change worked, and a change that did three things
-    cannot be attributed by it.
+  Edit the configuration the plan names. Do not reformat the files you are in,
+  do not fix an unrelated thing you notice, and do not widen the change to
+  cover a case the diagnosis did not establish -- the build after this turn is
+  the evidence that the change worked, and a change that did three things
+  cannot be attributed by it.
 
-    Where the plan gave both a containment and a correct fix, apply the correct
-    fix unless the plan said the containment must come first.
+  Where the plan gave both a containment and a correct fix, apply the correct
+  fix unless the plan said the containment must come first.
 
-    Do not activate anything. The next step builds; activation is the operator's,
-    with a working build in hand.
+  Do not activate anything. The next step builds; activation is the operator's,
+  with a working build in hand.
 
-    When you are done, reply DONE with one line per file changed.|]
+  When you are done, reply DONE with one line per file changed.|]
 
 -- ---------------------------------------------------------------------------
 -- The three provenance lines
@@ -625,30 +621,29 @@ stillBrokenNote t =
 -- document that is the diagnosis and the driver's own words.
 nixReportBrief :: Text
 nixReportBrief =
-  wfText
-    [wf|
-    Write the report for a NixOS repair run. It is read by the operator of the
-    machine, who will decide from it whether to activate the configuration.
+  [wft|
+  Write the report for a NixOS repair run. It is read by the operator of the
+  machine, who will decide from it whether to activate the configuration.
 
-    Open with the provenance line you were given, verbatim, on its own line. It
-    is the run's own account of how it ended and it is not yours to soften.
+  Open with the provenance line you were given, verbatim, on its own line. It
+  is the run's own account of how it ended and it is not yours to soften.
 
-    Then, from the diagnosis and the build verdicts below and nothing else:
+  Then, from the diagnosis and the build verdicts below and nothing else:
 
-    - what the evidence said, quoting the line that mattered;
-    - the cause, or that it was not established;
-    - the edit that was applied, file by file;
-    - what the build driver said afterwards, verbatim;
-    - what the diagnosis explicitly did NOT establish;
-    - what to watch after activating, and what would indicate the repair was
-      wrong.
+  - what the evidence said, quoting the line that mattered;
+  - the cause, or that it was not established;
+  - the edit that was applied, file by file;
+  - what the build driver said afterwards, verbatim;
+  - what the diagnosis explicitly did NOT establish;
+  - what to watch after activating, and what would indicate the repair was
+    wrong.
 
-    Do not report an option as verified because the diagnosis named it
-    confidently. A green build is what verifies an option exists; say which
-    claims rest on the build and which rest on a reading.
+  Do not report an option as verified because the diagnosis named it
+  confidently. A green build is what verifies an option exists; say which
+  claims rest on the build and which rest on a reading.
 
-    Nothing in this run activated a configuration. Do not write a sentence that
-    reads as though the machine has been switched.|]
+  Nothing in this run activated a configuration. Do not write a sentence that
+  reads as though the machine has been switched.|]
 
 -- | One act, five provenance lines.
 --

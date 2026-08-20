@@ -461,10 +461,9 @@ sitrepRoster =
 -- argv and this is only what the receipt is introduced as.
 dossierBrief :: Text
 dossierBrief =
-  wfText
-    [wf|
-    Run and report. This is a receipt: whatever the command writes is the
-    answer, and nothing is added to it.|]
+  [wft|
+  Run and report. This is a receipt: whatever the command writes is the
+  answer, and nothing is added to it.|]
 
 -- | What every section is told about the shape of its block.
 --
@@ -474,21 +473,20 @@ dossierBrief =
 -- handed the same one. That is tier 1 and it costs nothing.
 sectionClosing :: Text -> Text
 sectionClosing scope =
-  wfText
-    [wf|
-    Write your section and nothing else. Your answer is one block of a document
-    whose other blocks are the other sections', each fenced under its own name:
-    do not write theirs, do not summarise the document, and do not add a heading
-    of your own above your content -- the fold supplies your name.
+  [wft|
+  Write your section and nothing else. Your answer is one block of a document
+  whose other blocks are the other sections', each fenced under its own name:
+  do not write theirs, do not summarise the document, and do not add a heading
+  of your own above your content -- the fold supplies your name.
 
-    Keep it direct and useful, and prefer concrete status to narrative colour.
-    Do not hide weak evidence, a missing measurement or an optimistic estimate
-    behind polished prose.
+  Keep it direct and useful, and prefer concrete status to narrative colour.
+  Do not hide weak evidence, a missing measurement or an optimistic estimate
+  behind polished prose.
 
-    What the operator said this account is about, which may be empty -- and
-    empty means the evidence below is the whole of the scope:
+  What the operator said this account is about, which may be empty -- and
+  empty means the evidence below is the whole of the scope:
 
-    {scope}|]
+  {scope}|]
 
 -- | @commands\/report.md@'s estimate, as its own question on its own engine.
 --
@@ -499,24 +497,23 @@ sectionClosing scope =
 -- receipts as much as about the plan.
 estimateBrief :: Text
 estimateBrief =
-  wfText
-    [wf|
-    You are estimating work you did not plan. Below is a remaining-scope
-    document, one block per category, and the command receipts it was drawn
-    from.
+  [wft|
+  You are estimating work you did not plan. Below is a remaining-scope
+  document, one block per category, and the command receipts it was drawn
+  from.
 
-    Give the estimate: how long the remaining work is likely to take, as a range
-    where the uncertainty is material, and how much of it is elapsed time rather
-    than effort. Ground it in the receipts -- the commit series shows how long
-    what has been done actually took -- and say which comparison you used.
+  Give the estimate: how long the remaining work is likely to take, as a range
+  where the uncertainty is material, and how much of it is elapsed time rather
+  than effort. Ground it in the receipts -- the commit series shows how long
+  what has been done actually took -- and say which comparison you used.
 
-    Then name what could move it: the count of open questions, the unknowns not
-    yet thought through, the verification cost, and anything in the document
-    whose size you cannot judge from the evidence. An estimate whose assumptions
-    are not stated is a number somebody will quote without them.
+  Then name what could move it: the count of open questions, the unknowns not
+  yet thought through, the verification cost, and anything in the document
+  whose size you cannot judge from the evidence. An estimate whose assumptions
+  are not stated is a number somebody will quote without them.
 
-    Do not re-plan the work, do not add a category, and do not correct the
-    document. If a block is missing or empty, say so in one line first.|]
+  Do not re-plan the work, do not add a category, and do not correct the
+  document. If a block is missing or empty, say so in one line first.|]
 
 -- | @commands\/narrative.md@'s evidence half.
 --
@@ -528,26 +525,25 @@ estimateBrief =
 -- the writer is given instead of the receipts.
 chronologyBrief :: Text
 chronologyBrief =
-  wfText
-    [wf|
-    Build the chronology, and nothing else. You are not writing the narrative:
-    you are establishing what happened, in order, so that somebody else can.
+  [wft|
+  Build the chronology, and nothing else. You are not writing the narrative:
+  you are establishing what happened, in order, so that somebody else can.
 
-    From the receipts below -- the journal, the commit series, the diff and the
-    working tree -- produce:
+  From the receipts below -- the journal, the commit series, the diff and the
+  working tree -- produce:
 
-    - the sequence of events, oldest first, one line each, with the receipt each
-      line comes from named in brackets at its end;
-    - the few moments where the understanding changed: a constraint discovered,
-      an assumption falsified, a design corrected. These are the ones worth
-      finding, and there are usually three or four;
-    - the durable themes: constraints found, principles clarified, mistakes
-      corrected, verification lessons;
-    - what the evidence does NOT show, listed plainly.
+  - the sequence of events, oldest first, one line each, with the receipt each
+    line comes from named in brackets at its end;
+  - the few moments where the understanding changed: a constraint discovered,
+    an assumption falsified, a design corrected. These are the ones worth
+    finding, and there are usually three or four;
+  - the durable themes: constraints found, principles clarified, mistakes
+    corrected, verification lessons;
+  - what the evidence does NOT show, listed plainly.
 
-    Every line is either carried by a receipt or is in the last list. Do not
-    smooth a gap, do not infer a motive, and do not promote a commit message
-    into a decision: a message says what somebody wrote, not what they knew.|]
+  Every line is either carried by a receipt or is in the last list. Do not
+  smooth a gap, do not infer a motive, and do not promote a commit message
+  into a decision: a message says what somebody wrote, not what they knew.|]
 
 -- | @commands\/narrative.md@'s prose half.
 --
@@ -564,35 +560,34 @@ chronologyBrief =
 -- source.
 narrativeBrief :: Text
 narrativeBrief =
-  wfText
-    [wf|
-    Write the development narrative. Below is a chronology of the work, built
-    from command receipts by somebody else; it is your whole source.
+  [wft|
+  Write the development narrative. Below is a chronology of the work, built
+  from command receipts by somebody else; it is your whole source.
 
-    Tell the story of the work: what problem was being solved, what had to be
-    discovered, where the path was harder than it first appeared, how those
-    difficulties were overcome, which principles emerged, and what understanding
-    the finished work now preserves. It must not read like a changelog, a commit
-    summary or a postmortem, and it must not drown a thoughtful reader in
-    implementation detail.
+  Tell the story of the work: what problem was being solved, what had to be
+  discovered, where the path was harder than it first appeared, how those
+  difficulties were overcome, which principles emerged, and what understanding
+  the finished work now preserves. It must not read like a changelog, a commit
+  summary or a postmortem, and it must not drown a thoughtful reader in
+  implementation detail.
 
-    A useful shape, adjusted to the material: Title; Purpose; How the Work
-    Unfolded; What Had to Be Learned; How the Difficulties Were Resolved;
-    Principles Preserved; Where the Work Now Stands. Begin with the purpose and
-    the governing principles, and let the practical consequences follow from
-    them. Use transitions that show how one discovery led to the next.
+  A useful shape, adjusted to the material: Title; Purpose; How the Work
+  Unfolded; What Had to Be Learned; How the Difficulties Were Resolved;
+  Principles Preserved; Where the Work Now Stands. Begin with the purpose and
+  the governing principles, and let the practical consequences follow from
+  them. Use transitions that show how one discovery led to the next.
 
-    End with a short source note naming the journal, the commit range, the
-    working-tree state and any planning documents the chronology drew on. Keep
-    it factual and compact.
+  End with a short source note naming the journal, the commit range, the
+  working-tree state and any planning documents the chronology drew on. Keep
+  it factual and compact.
 
-    Every claim you make must be carried by a line of the chronology. Where the
-    chronology says the evidence does not show something, either leave the claim
-    out or phrase it as an interpretation and say what it rests on. Somebody who
-    did not write this will check that, against the receipts, before it is
-    filed.
+  Every claim you make must be carried by a line of the chronology. Where the
+  chronology says the evidence does not show something, either leave the claim
+  out or phrase it as an interpretation and say what it rests on. Somebody who
+  did not write this will check that, against the receipts, before it is
+  filed.
 
-    {register}|]
+  {register}|]
   where
     register = itVoice
 
@@ -606,23 +601,22 @@ narrativeBrief =
 -- reader of whether it opened with a forbidden opening.
 sourcingBrief :: Text
 sourcingBrief =
-  wfText
-    [wf|
-    You are auditing a narrative you did not write, against the receipts it was
-    supposed to be drawn from. You are not improving it and not rewriting it.
+  [wft|
+  You are auditing a narrative you did not write, against the receipts it was
+  supposed to be drawn from. You are not improving it and not rewriting it.
 
-    Take its claims one at a time. For each, find the receipt that carries it.
-    Object if a claim has no source in the evidence; object if a claim is
-    presented as fact where the evidence supports only an interpretation; object
-    if a difficulty, a decision or an outcome appears that the receipts do not
-    show. Quote the sentence in every objection -- an objection without a
-    quotation is not actionable by whoever has to fix it.
+  Take its claims one at a time. For each, find the receipt that carries it.
+  Object if a claim has no source in the evidence; object if a claim is
+  presented as fact where the evidence supports only an interpretation; object
+  if a difficulty, a decision or an outcome appears that the receipts do not
+  show. Quote the sentence in every objection -- an objection without a
+  quotation is not actionable by whoever has to fix it.
 
-    Self-congratulation, marketing language, theatrical language and false drama
-    are also objections: this register does not permit them, and a narrative that
-    reaches for them is usually covering a claim it cannot source.
+  Self-congratulation, marketing language, theatrical language and false drama
+  are also objections: this register does not permit them, and a narrative that
+  reaches for them is usually covering a claim it cannot source.
 
-    {selfCheck}|]
+  {selfCheck}|]
   where
     selfCheck = itVoiceSelfCheck
 
@@ -635,56 +629,54 @@ sourcingBrief =
 -- itself the durable plan has no referent for it.
 journalBrief :: Text
 journalBrief =
-  wfText
-    [wf|
-    Create or continue the learning journal for this work, as a Markdown file in
-    the current project -- preferably beside the task's handoff or planning
-    document where one exists. If you create it, say where.
+  [wft|
+  Create or continue the learning journal for this work, as a Markdown file in
+  the current project -- preferably beside the task's handoff or planning
+  document where one exists. If you create it, say where.
 
-    The journal is not a task list, a handoff, a scratchpad, a transcript or a
-    command log. It exists to preserve the learning that happened while solving
-    a real problem: discoveries, design shifts, constraints, failures that
-    taught something durable, implementation principles, research findings, and
-    the moments where the system proved too general, too specific, or shaped
-    differently than expected.
+  The journal is not a task list, a handoff, a scratchpad, a transcript or a
+  command log. It exists to preserve the learning that happened while solving
+  a real problem: discoveries, design shifts, constraints, failures that
+  taught something durable, implementation principles, research findings, and
+  the moments where the system proved too general, too specific, or shaped
+  differently than expected.
 
-    On a new journal, write a brief preface first, defining: the scope of the
-    work being observed; what kinds of entries are valuable for it; the tag
-    vocabulary to use; and the rule that entries are append-only and timestamped.
+  On a new journal, write a brief preface first, defining: the scope of the
+  work being observed; what kinds of entries are valuable for it; the tag
+  vocabulary to use; and the rule that entries are append-only and timestamped.
 
-    APPEND ONLY. Add entries at the end of the file and never back-edit an
-    existing one. Where earlier understanding turned out to be wrong, append a
-    new entry stating the correction and what changed. Keep a blank line between
-    entries.
+  APPEND ONLY. Add entries at the end of the file and never back-edit an
+  existing one. Where earlier understanding turned out to be wrong, append a
+  new entry stating the correction and what changed. Keep a blank line between
+  entries.
 
-    Begin every entry with an absolute timestamp, including the timezone where
-    it is known, and tag it with one or more concise area tags in square
-    brackets -- fitted to this project, such as [api], [cli], [data], [design],
-    [docs], [runtime], [tests], [verification], or a local subsystem name.
+  Begin every entry with an absolute timestamp, including the timezone where
+  it is known, and tag it with one or more concise area tags in square
+  brackets -- fitted to this project, such as [api], [cli], [data], [design],
+  [docs], [runtime], [tests], [verification], or a local subsystem name.
 
-    Each entry captures, compactly: what was discovered; what evidence or
-    failure exposed it; what changed in the implementation, the plan or the
-    mental model; and why it may matter for similar work later.
+  Each entry captures, compactly: what was discovered; what evidence or
+  failure exposed it; what changed in the implementation, the plan or the
+  mental model; and why it may matter for similar work later.
 
-    Do not journal a routine step, a passing test, a command or a transient
-    thought. Prefer the gems: the hard-won constraints, the surprising
-    couplings, the principles, the war stories. When you are done, reply DONE.|]
+  Do not journal a routine step, a passing test, a command or a transient
+  thought. Prefer the gems: the hard-won constraints, the surprising
+  couplings, the principles, the war stories. When you are done, reply DONE.|]
 
 -- | @commands\/halt.md@ step 2, as what this caller asks of the commit
 -- decomposition.
 haltCommitStyle :: Text
 haltCommitStyle =
-  wfText
-    [wf|
-    This series is being written so that a session can stop cleanly and be
-    resumed in a fresh one, possibly on another machine. Nothing may be left
-    uncommitted that the next session would need, and nothing half-finished may
-    be committed in a state that does not build: where a change is genuinely
-    unfinished, commit what stands on its own and say in the message what is
-    missing.
+  [wft|
+  This series is being written so that a session can stop cleanly and be
+  resumed in a fresh one, possibly on another machine. Nothing may be left
+  uncommitted that the next session would need, and nothing half-finished may
+  be committed in a state that does not build: where a change is genuinely
+  unfinished, commit what stands on its own and say in the message what is
+  missing.
 
-    The last commit's message is the one the next session reads first. Write it
-    as the summary of where the work stopped.|]
+  The last commit's message is the one the next session reads first. Write it
+  as the summary of where the work stopped.|]
 
 -- | What the push act is told.
 pushBrief :: Text
@@ -708,39 +700,37 @@ pushBrief =
 -- The row it names is real: @fess@ is registered, and @wf cost fess@ prices it.
 fessInstruction :: Text
 fessInstruction =
-  wfText
-    [wf|
-    Reproduce the following block verbatim in the document, under the heading
-    `Standing instruction for the resuming system`. It is addressed to whatever
-    system picks this work up, and it is not yours to reword, soften or
-    summarise:
+  [wft|
+  Reproduce the following block verbatim in the document, under the heading
+  `Standing instruction for the resuming system`. It is addressed to whatever
+  system picks this work up, and it is not yours to reword, soften or
+  summarise:
 
-      At the end of EVERY subtask you perform against this plan, run the `fess`
-      workflow over the work you have just done -- `wf run fess` with the
-      request you were given and the base you started from -- and act on what it
-      finds before starting the next subtask. Its job is to catch the things
-      that are easy to report as done and hard to prove: a manufactured claim, a
-      verification that did not happen, a fallback silently taken. A subtask
-      whose audit you skipped is a subtask nobody has checked.|]
+    At the end of EVERY subtask you perform against this plan, run the `fess`
+    workflow over the work you have just done -- `wf run fess` with the
+    request you were given and the base you started from -- and act on what it
+    finds before starting the next subtask. Its job is to catch the things
+    that are easy to report as done and hard to prove: a manufactured claim, a
+    verification that did not happen, a fallback silently taken. A subtask
+    whose audit you skipped is a subtask nobody has checked.|]
 
 -- | @commands\/halt.md@ steps 3 and 4, as the artefact's own brief.
 haltWriteBrief :: Text
 haltWriteBrief =
-  wfText
-    [wf|
-    Write the handoff and remaining-scope document to the `~/dl` directory --
-    create it if it does not exist -- and NOT into the project or the current
-    directory. Name it after the project and the date.
+  [wft|
+  Write the handoff and remaining-scope document to the `~/dl` directory --
+  create it if it does not exist -- and NOT into the project or the current
+  directory. Name it after the project and the date.
 
-    Its job is stated in one line: a fresh session, on another machine, with
-    none of this context, must be able to resume from this document alone.
+  Its job is stated in one line: a fresh session, on another machine, with
+  none of this context, must be able to resume from this document alone.
 
-    In this order: the provenance line you were given, verbatim; what is done;
-    what remains, phase by phase, from the document below; how completion is to
-    be verified for each phase; and exactly how to resume -- the branch, the
-    commands, the first thing to read.
+  In this order: the provenance line you were given, verbatim; what is done;
+  what remains, phase by phase, from the document below; how completion is to
+  be verified for each phase; and exactly how to resume -- the branch, the
+  commands, the first thing to read.
 
-    Then reply DONE.|]
+  Then reply DONE.|]
 
 -- | @commands\/sitrep.md@'s destination and naming scheme.
 --
@@ -749,21 +739,20 @@ haltWriteBrief =
 -- names are receipts in the document beside it.
 sitrepDestination :: Text
 sitrepDestination =
-  wfText
-    [wf|
-    Write the sitrep as a Markdown file in the `~/Documents/Obsidian` directory
-    -- create it if it does not exist -- and NEVER into the project or the
-    current directory.
+  [wft|
+  Write the sitrep as a Markdown file in the `~/Documents/Obsidian` directory
+  -- create it if it does not exist -- and NEVER into the project or the
+  current directory.
 
-    Its name follows this scheme exactly:
+  Its name follows this scheme exactly:
 
-      YYYYMMDDTHHMM-SITREP-PROJECT-BRANCH.md
+    YYYYMMDDTHHMM-SITREP-PROJECT-BRANCH.md
 
-    where YYYYMMDDTHHMM is the local time now in that format; PROJECT is the
-    basename of the repository path in the `project` receipt below; and BRANCH is
-    the branch name in the `branch` receipt below, with every `/` replaced by
-    `-`. Take both from the receipts and from nowhere else: a name assembled from
-    memory is a name that does not match the run.|]
+  where YYYYMMDDTHHMM is the local time now in that format; PROJECT is the
+  basename of the repository path in the `project` receipt below; and BRANCH is
+  the branch name in the `branch` receipt below, with every `/` replaced by
+  `-`. Take both from the receipts and from nowhere else: a name assembled from
+  memory is a name that does not match the run.|]
 
 -- | Where @account-report@ writes.
 --
@@ -774,16 +763,15 @@ sitrepDestination =
 -- that might help you with such an update.\"
 reportDestination :: Text
 reportDestination =
-  wfText
-    [wf|
-    Write the report as a Markdown file in the current directory, named
-    `remaining-scope-<date>.md`.
+  [wft|
+  Write the report as a Markdown file in the current directory, named
+  `remaining-scope-<date>.md`.
 
-    Open it with a metadata block -- the date, the branch, the commit at HEAD
-    from the receipts, and the scope this account was given -- so that a later
-    run asked to update this document can tell what it was written against.
-    Write it for a reader who already knows the project's ideas and concepts: no
-    introduction to the problem, no glossary, no recapitulation.|]
+  Open it with a metadata block -- the date, the branch, the commit at HEAD
+  from the receipts, and the scope this account was given -- so that a later
+  run asked to update this document can tell what it was written against.
+  Write it for a reader who already knows the project's ideas and concepts: no
+  introduction to the problem, no glossary, no recapitulation.|]
 
 -- | Where @account-narrative@ writes.
 narrativeDestination :: Text
@@ -794,20 +782,19 @@ narrativeDestination =
 -- | The brief every artefact is written through.
 accountWriteBrief :: Text
 accountWriteBrief =
-  wfText
-    [wf|
-    You are writing an account of a run, and you are transcribing rather than
-    composing: the blocks below were written by the parties that own them.
+  [wft|
+  You are writing an account of a run, and you are transcribing rather than
+  composing: the blocks below were written by the parties that own them.
 
-    Follow the destination instruction you were given exactly -- it names the
-    directory, the naming scheme and where the name's parts come from.
+  Follow the destination instruction you were given exactly -- it names the
+  directory, the naming scheme and where the name's parts come from.
 
-    In this order: the provenance line, verbatim, first; then the document,
-    block by block, under each block's own name as a heading; then the addendum,
-    if one was given, at the end and under its own heading.
+  In this order: the provenance line, verbatim, first; then the document,
+  block by block, under each block's own name as a heading; then the addendum,
+  if one was given, at the end and under its own heading.
 
-    Do not merge two blocks, do not reorder them, do not drop one because it is
-    thin, and do not add a section of your own. Then reply DONE.|]
+  Do not merge two blocks, do not reorder them, do not drop one because it is
+  thin, and do not add a section of your own. Then reply DONE.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines

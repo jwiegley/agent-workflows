@@ -94,11 +94,11 @@ import Agentic.Workflow
     decide,
     revising,
     wf,
+    wft,
   )
 import qualified Agentic.Workflow.Do as W
 import Data.String (fromString)
 import Data.Text (Text)
-import Workflows.Prose (wfText)
 
 -- ---------------------------------------------------------------------------
 -- The free test, and the exit code
@@ -185,13 +185,12 @@ gate check repair fixer subject bound =
 -- trip would be paying for them once per trip.
 repairBrief :: Text
 repairBrief =
-  wfText
-    [wf|
-    A check failed. Produce the corrected artefact and nothing else -- no
-    commentary, no diff of your reasoning, no explanation above it. Your output
-    is fed straight back to the same check.
+  [wft|
+  A check failed. Produce the corrected artefact and nothing else -- no
+  commentary, no diff of your reasoning, no explanation above it. Your output
+  is fed straight back to the same check.
 
-    Fix the cause the failing line names. Do not silence the check, do not
-    weaken it, and do not route around it: if the check is wrong, say so in one
-    line at the top and leave the artefact unchanged, because a check quietly
-    disabled is the failure this loop exists to prevent.|]
+  Fix the cause the failing line names. Do not silence the check, do not
+  weaken it, and do not route around it: if the check is wrong, say so in one
+  line at the top and leave the artefact unchanged, because a check quietly
+  disabled is the failure this loop exists to prevent.|]

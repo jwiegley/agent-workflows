@@ -150,21 +150,19 @@ rungStyle Push =
   \green, so the last commit's message is the one a reviewer reads first. Write \
   \it as the summary of the whole."
 rungStyle Recommit =
-  wfText
-    [wf|
-    Each commit in this series will be submitted as its own pull request in a
-    stack of pull requests representing this feature. So each one must pass
-    scrutiny and the full CI suite ON ITS OWN, not merely at the end of the
-    series: a commit that only builds once its successor lands is not a commit
-    in this series, it is two commits written as one.|]
+  [wft|
+  Each commit in this series will be submitted as its own pull request in a
+  stack of pull requests representing this feature. So each one must pass
+  scrutiny and the full CI suite ON ITS OWN, not merely at the end of the
+  series: a commit that only builds once its successor lands is not a commit
+  in this series, it is two commits written as one.|]
 rungStyle Bankruptcy =
-  wfText
-    [wf|
-    The entire branch has already been unwound: its work is sitting uncommitted
-    in the working tree and its old history is gone. What you produce replaces
-    that history entirely, so it should be much more compact than what it
-    replaces and much quicker to rebase in future. Do not attempt to reproduce
-    the old commit boundaries -- they are what was wrong.|]
+  [wft|
+  The entire branch has already been unwound: its work is sitting uncommitted
+  in the working tree and its old history is gone. What you produce replaces
+  that history entirely, so it should be much more compact than what it
+  replaces and much quicker to rebase in future. Do not attempt to reproduce
+  the old commit boundaries -- they are what was wrong.|]
 
 -- | How many repair trips the rung's gate is given.
 --
@@ -210,46 +208,45 @@ commitRungName Bankruptcy = "commit-bankruptcy"
 -- and costs a sixth of the prompt to repeat.
 commitDiscipline :: Text
 commitDiscipline =
-  wfText
-    [wf|
-    Commit all work as a series of atomic, logically sequenced commits. Each
-    commit should represent one coherent change that can be understood,
-    reviewed, and reverted independently.
+  [wft|
+  Commit all work as a series of atomic, logically sequenced commits. Each
+  commit should represent one coherent change that can be understood,
+  reviewed, and reverted independently.
 
-    Decomposition principles.
+  Decomposition principles.
 
-    - Scope each commit to a single logical change. A commit should do exactly
-      one thing: add a function, fix a bug, refactor a module, update
-      documentation. If you find yourself writing "and" in a commit message,
-      consider splitting the commit.
-    - Sequence commits to tell a story. Arrange commits so each builds naturally
-      on the previous. A reviewer reading the series should understand why each
-      change was made and how the code evolved. Foundational changes come before
-      dependent ones.
-    - Keep each commit in a working state. Every commit should compile, pass
-      tests, and not introduce obvious regressions. This enables bisection for
-      debugging and allows reviewers to check out any point in history.
+  - Scope each commit to a single logical change. A commit should do exactly
+    one thing: add a function, fix a bug, refactor a module, update
+    documentation. If you find yourself writing "and" in a commit message,
+    consider splitting the commit.
+  - Sequence commits to tell a story. Arrange commits so each builds naturally
+    on the previous. A reviewer reading the series should understand why each
+    change was made and how the code evolved. Foundational changes come before
+    dependent ones.
+  - Keep each commit in a working state. Every commit should compile, pass
+    tests, and not introduce obvious regressions. This enables bisection for
+    debugging and allows reviewers to check out any point in history.
 
-    Categorize before committing. Group the working tree's changes into these
-    six, and commit them in this order wherever a dependency exists between
-    them -- refactoring that enables a new feature precedes the feature:
+  Categorize before committing. Group the working tree's changes into these
+  six, and commit them in this order wherever a dependency exists between
+  them -- refactoring that enables a new feature precedes the feature:
 
-    1. Infrastructure and setup -- new dependencies, configuration, tooling.
-    2. Refactoring -- restructuring existing code without changing behaviour.
-    3. New functionality -- features, APIs, modules.
-    4. Bug fixes -- corrections to existing behaviour.
-    5. Tests -- new or modified test coverage.
-    6. Documentation -- comments, READMEs, inline docs.
+  1. Infrastructure and setup -- new dependencies, configuration, tooling.
+  2. Refactoring -- restructuring existing code without changing behaviour.
+  3. New functionality -- features, APIs, modules.
+  4. Bug fixes -- corrections to existing behaviour.
+  5. Tests -- new or modified test coverage.
+  6. Documentation -- comments, READMEs, inline docs.
 
-    Message format: a summary line, a blank line, a body, a blank line, a
-    footer. The summary is imperative mood, no period, under 50 characters, and
-    describes what applying the commit does rather than what you did. The body
-    explains the motivation and contrasts with previous behaviour, wrapped at 72
-    characters, and is about WHY -- the diff already shows what. The footer
-    references issues, breaking changes or co-authors.
+  Message format: a summary line, a blank line, a body, a blank line, a
+  footer. The summary is imperative mood, no period, under 50 characters, and
+  describes what applying the commit does rather than what you did. The body
+  explains the motivation and contrasts with previous behaviour, wrapped at 72
+  characters, and is about WHY -- the diff already shows what. The footer
+  references issues, breaking changes or co-authors.
 
-    Answer with the commit plan and nothing else: one numbered entry per commit,
-    each naming its category, the files or hunks it takes, and its summary line.|]
+  Answer with the commit plan and nothing else: one numbered entry per commit,
+  each naming its category, the files or hunks it takes, and its summary line.|]
 
 -- | @commands\/commit.md@'s @# Staging Strategy@ and @# Handling Mixed Changes@,
 -- and its @# Quality Checklist@ -- the part addressed to whoever is doing the
@@ -261,28 +258,27 @@ commitDiscipline =
 -- See 'commitProgram'.
 stagingBrief :: Text
 stagingBrief =
-  wfText
-    [wf|
-    Create the commits the plan below describes, in the order it gives them.
+  [wft|
+  Create the commits the plan below describes, in the order it gives them.
 
-    Stage selectively: `git add -p` for hunks within a file, `git add <paths>` to
-    group related files, and `git diff --staged` to review what is about to be
-    committed. When a single file contains changes belonging to several logical
-    commits, stage its hunks separately rather than committing the whole file.
+  Stage selectively: `git add -p` for hunks within a file, `git add <paths>` to
+  group related files, and `git diff --staged` to review what is about to be
+  committed. When a single file contains changes belonging to several logical
+  commits, stage its hunks separately rather than committing the whole file.
 
-    Where the tree's changes are entangled: identify the distinct changes,
-    determine which require which, order the commits to satisfy those
-    dependencies, stage incrementally to isolate each, and verify the repository
-    still works after each one.
+  Where the tree's changes are entangled: identify the distinct changes,
+  determine which require which, order the commits to satisfy those
+  dependencies, stage incrementally to isolate each, and verify the repository
+  still works after each one.
 
-    Before finalizing each commit, check that it does exactly one thing; that
-    someone could understand it without seeing the others; that its message is
-    searchable -- somebody grepping history for this change will find it; and
-    that reverting it would cleanly undo one logical change.
+  Before finalizing each commit, check that it does exactly one thing; that
+  someone could understand it without seeing the others; that its message is
+  searchable -- somebody grepping history for this change will find it; and
+  that reverting it would cleanly undo one logical change.
 
-    When you are done, reply DONE.
+  When you are done, reply DONE.
 
-    The plan:|]
+  The plan:|]
 
 -- | What the series receipt is introduced as.
 --
@@ -307,19 +303,18 @@ treeBrief =
 -- and picks a side.
 largerCommitBrief :: Text
 largerCommitBrief =
-  wfText
-    [wf|
-    The commit series below was produced, and the repository's own test gate
-    still objects after every repair trip this run was given. Report it as
-    unfinished, not as done.
+  [wft|
+  The commit series below was produced, and the repository's own test gate
+  still objects after every repair trip this run was given. Report it as
+  unfinished, not as done.
 
-    The standing instruction, which is the reason nothing was thrown away: when
-    changes are too entangled to separate cleanly, prefer a slightly larger
-    commit with a clear message over a commit that leaves the repository in a
-    broken state. Say which commits in the series you would merge to get there,
-    and what the gate was still objecting to.
+  The standing instruction, which is the reason nothing was thrown away: when
+  changes are too entangled to separate cleanly, prefer a slightly larger
+  commit with a clear message over a commit that leaves the repository in a
+  broken state. Say which commits in the series you would merge to get there,
+  and what the gate was still objecting to.
 
-    Every edit the repair trips made is still in the tree. The series:|]
+  Every edit the repair trips made is still in the tree. The series:|]
 
 -- | The report for the arm where the postcondition failed.
 --
@@ -328,29 +323,27 @@ largerCommitBrief =
 -- compiler makes it be written.
 treeMovedBrief :: Text
 treeMovedBrief =
-  wfText
-    [wf|
-    The commit series below was produced and the test gate approved it, but the
-    tree at HEAD is NOT the tree this run was told it must end at. Only the
-    history was supposed to move.
+  [wft|
+  The commit series below was produced and the test gate approved it, but the
+  tree at HEAD is NOT the tree this run was told it must end at. Only the
+  history was supposed to move.
 
-    Do not report this run as finished. Say what is in HEAD's tree that should
-    not be, or missing from it that should be, and name the commit that did it.
-    `git diff` between the two tree objects is the first thing to look at.
+  Do not report this run as finished. Say what is in HEAD's tree that should
+  not be, or missing from it that should be, and name the commit that did it.
+  `git diff` between the two tree objects is the first thing to look at.
 
-    The series that was produced:|]
+  The series that was produced:|]
 
 -- | The report the three non-publishing rungs end in.
 committedBrief :: Text
 committedBrief =
-  wfText
-    [wf|
-    The commit series below was produced, the repository's own test gate
-    approved it, and the tree at HEAD is the tree this run was told it must end
-    at -- so the work is committed and nothing but the history moved.
+  [wft|
+  The commit series below was produced, the repository's own test gate
+  approved it, and the tree at HEAD is the tree this run was told it must end
+  at -- so the work is committed and nothing but the history moved.
 
-    Report the series: one line per commit, and one line saying which of the six
-    change categories each belongs to. The series:|]
+  Report the series: one line per commit, and one line saying which of the six
+  change categories each belongs to. The series:|]
 
 -- | /Source:/ @commands\/push.md@.
 pushBrief :: Text

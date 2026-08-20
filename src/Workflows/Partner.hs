@@ -311,53 +311,52 @@ observationCategories ideas =
 -- reading of the five sections appears only when the ideation pass does.
 observationContract :: Bool -> Text
 observationContract ideas =
-  wfText
-    [wf|
-    Publish each finding as its own observation entry: one file per finding, and
-    a file must be COMPLETE before it appears in the observations directory.
+  [wft|
+  Publish each finding as its own observation entry: one file per finding, and
+  a file must be COMPLETE before it appears in the observations directory.
 
-    Use this shape exactly:
+  Use this shape exactly:
 
-    # Observation: <short imperative title>
+  # Observation: <short imperative title>
 
-    - **Source commit**: `<full-sha>`
-    - **Observed at**: `<ISO-8601 UTC timestamp with milliseconds>`
-    - **Severity**: Critical | High | Medium | Low
-    - **Category**: {categoryLine}
-    - **File**: `path/to/file.ext:line`
-    - **Confidence**: <0-100>
+  - **Source commit**: `<full-sha>`
+  - **Observed at**: `<ISO-8601 UTC timestamp with milliseconds>`
+  - **Severity**: Critical | High | Medium | Low
+  - **Category**: {categoryLine}
+  - **File**: `path/to/file.ext:line`
+  - **Confidence**: <0-100>
 
-    ## Problem
+  ## Problem
 
-    <Concrete description of what is wrong.>
+  <Concrete description of what is wrong.>
 
-    ## Impact
+  ## Impact
 
-    <Why this matters.>
+  <Why this matters.>
 
-    ## Suggested Fix
+  ## Suggested Fix
 
-    <Specific remediation. Include code when useful.>
+  <Specific remediation. Include code when useful.>
 
-    ## Verification
+  ## Verification
 
-    <Tests, commands, or manual checks that should prove the fix.>
+  <Tests, commands, or manual checks that should prove the fix.>
 
-    The filename is the full ISO timestamp, in UTC, and nothing else:
-    `<dir>/YYYY-MM-DDTHH:MM:SS.mmmZ.md`. No counters, no titles, no SHA
-    fragments. If a name already exists for the current millisecond, wait for the
-    next millisecond and generate a new one.
+  The filename is the full ISO timestamp, in UTC, and nothing else:
+  `<dir>/YYYY-MM-DDTHH:MM:SS.mmmZ.md`. No counters, no titles, no SHA
+  fragments. If a name already exists for the current millisecond, wait for the
+  next millisecond and generate a new one.
 
-    ATOMIC WRITE. Never stream a partial observation into its final pathname.
-    Build the whole content first; write it to a hidden temporary file in the same
-    directory on the same filesystem, for example `.<stamp>.md.tmp.<pid>`; flush
-    and close it; then rename it into place. If the final path already exists,
-    discard the temp file and try again with a fresh timestamp. A half-written
-    observation is worse than a missing one, because the draining half will read
-    it.
+  ATOMIC WRITE. Never stream a partial observation into its final pathname.
+  Build the whole content first; write it to a hidden temporary file in the same
+  directory on the same filesystem, for example `.<stamp>.md.tmp.<pid>`; flush
+  and close it; then rename it into place. If the final path already exists,
+  discard the temp file and try again with a fresh timestamp. A half-written
+  observation is worse than a missing one, because the draining half will read
+  it.
 
-    Do not stage and do not commit anything. This half of the partnership
-    produces coordination files and nothing else.{ideaReading}|]
+  Do not stage and do not commit anything. This half of the partnership
+  produces coordination files and nothing else.{ideaReading}|]
   where
     categoryLine = T.intercalate " | " (observationCategories ideas)
     ideaReading :: Text
@@ -404,11 +403,10 @@ partnerRoster Cleanup _ = []
 -- @'Workflows.Evidence.gitShowCommit'@.
 commitBrief :: Text
 commitBrief =
-  wfText
-    [wf|
-    One commit, with its stat and its patch, as `git show` wrote it. This is the
-    whole subject of this review: the commit before it is context you do not
-    have, and the commit after it does not exist yet.|]
+  [wft|
+  One commit, with its stat and its patch, as `git show` wrote it. This is the
+  whole subject of this review: the commit before it is context you do not
+  have, and the commit after it does not exist yet.|]
 
 -- | What every defect member is told about the shape of its block, and what it
 -- must leave alone.
@@ -418,23 +416,22 @@ commitBrief =
 -- prefer-silence rule, which is the best sentence in either file.
 defectClosing :: Text
 defectClosing =
-  wfText
-    [wf|
-    Report your findings and nothing else. Your answer is one block of a document
-    whose other blocks are your siblings', each fenced under its own name.
+  [wft|
+  Report your findings and nothing else. Your answer is one block of a document
+  whose other blocks are your siblings', each fenced under its own name.
 
-    Report only ACTIONABLE DEFECTS: correctness bugs, security problems,
-    regressions, missing required tests, broken public contracts, unsafe
-    migrations, serious performance issues, and documentation errors that could
-    mislead a future change.
+  Report only ACTIONABLE DEFECTS: correctness bugs, security problems,
+  regressions, missing required tests, broken public contracts, unsafe
+  migrations, serious performance issues, and documentation errors that could
+  mislead a future change.
 
-    Exclude coordination-only changes -- anything under the observations
-    directory itself -- unless they affect executable behaviour or this workflow.
+  Exclude coordination-only changes -- anything under the observations
+  directory itself -- unless they affect executable behaviour or this workflow.
 
-    Drop vague preferences, style nits, low-confidence concerns and duplicates.
-    Prefer ZERO observations over noisy observations: this review's output
-    becomes files somebody else has to read and drain, so a finding that is not
-    worth acting on is worse here than elsewhere.|]
+  Drop vague preferences, style nits, low-confidence concerns and duplicates.
+  Prefer ZERO observations over noisy observations: this review's output
+  becomes files somebody else has to read and drain, so a finding that is not
+  worth acting on is worse here than elsewhere.|]
 
 -- | @commands\/partner-collaborator.md@'s @## Ideas and Suggestions@ section,
 -- as the brief of one drawn question.
@@ -446,53 +443,51 @@ defectClosing =
 -- items one answer was asked to produce.
 ideationBrief :: Text
 ideationBrief =
-  wfText
-    [wf|
-    Beyond defects, surface one genuinely useful new idea sparked by the commit
-    below: a better design, a missing capability, a follow-on optimisation, a
-    simpler formulation, or where this work could go next.
+  [wft|
+  Beyond defects, surface one genuinely useful new idea sparked by the commit
+  below: a better design, a missing capability, a follow-on optimisation, a
+  simpler formulation, or where this work could go next.
 
-    Be playful and think laterally. Instead of refining the obvious solution
-    head-on, move sideways: reframe the problem, attack it from an oblique angle,
-    and let an unexpected association suggest an approach a straight-line
-    analysis would never reach. Work this way:
+  Be playful and think laterally. Instead of refining the obvious solution
+  head-on, move sideways: reframe the problem, attack it from an oblique angle,
+  and let an unexpected association suggest an approach a straight-line
+  analysis would never reach. Work this way:
 
-    1. Identify a hidden assumption the commit takes for granted -- about the
-       data, the hardware, the workflow, the order of operations, what "must" be
-       true.
-    2. Invert that assumption and follow where it leads.
-    3. Reach for a technique from an unrelated discipline -- biology, logistics,
-       music, finance, game design -- and apply it here.
-    4. Explain why the seemingly crazy result might actually work: the concrete
-       mechanism that makes it plausible, not the vibe.
+  1. Identify a hidden assumption the commit takes for granted -- about the
+     data, the hardware, the workflow, the order of operations, what "must" be
+     true.
+  2. Invert that assumption and follow where it leads.
+  3. Reach for a technique from an unrelated discipline -- biology, logistics,
+     music, finance, game design -- and apply it here.
+  4. Explain why the seemingly crazy result might actually work: the concrete
+     mechanism that makes it plausible, not the vibe.
 
-    This is strictly opt-in on quality. Give the idea ONLY if it is concrete,
-    grounded in the code you just read, and clearly valuable. If you have
-    nothing, or what you have is weak, reply with exactly
+  This is strictly opt-in on quality. Give the idea ONLY if it is concrete,
+  grounded in the code you just read, and clearly valuable. If you have
+  nothing, or what you have is weak, reply with exactly
 
-      NO IDEA WORTH KEEPING
+    NO IDEA WORTH KEEPING
 
-    and nothing else. Silence is better than noise, and padding a review with a
-    speculative direction to look thorough is the failure this instruction
-    exists to prevent.
+  and nothing else. Silence is better than noise, and padding a review with a
+  speculative direction to look thorough is the failure this instruction
+  exists to prevent.
 
-    An idea never displaces or dilutes an actionable defect: they are different
-    things and they are collected separately.|]
+  An idea never displaces or dilutes an actionable defect: they are different
+  things and they are collected separately.|]
 
 -- | What the publishing act is told, above the contract.
 publishBrief :: Text
 publishBrief =
-  wfText
-    [wf|
-    Publish the findings below as observation entries, in the observations
-    directory named for you, one file per finding.
+  [wft|
+  Publish the findings below as observation entries, in the observations
+  directory named for you, one file per finding.
 
-    Judge each finding against the contract before writing it: a block that
-    reported nothing produces no file, and a finding that does not name a file
-    and a line produces no file either. Do not merge two findings into one
-    observation and do not split one into two.
+  Judge each finding against the contract before writing it: a block that
+  reported nothing produces no file, and a finding that does not name a file
+  and a line produces no file either. Do not merge two findings into one
+  observation and do not split one into two.
 
-    When you are done, reply DONE.|]
+  When you are done, reply DONE.|]
 
 -- | What the closing directory receipt is introduced as.
 --
@@ -528,29 +523,28 @@ publishedBrief =
 -- because the context separation they wanted comes free.
 assignmentBrief :: Text
 assignmentBrief =
-  wfText
-    [wf|
-    You are addressing partner review observations in this repository. Process
-    the observation files listed below, in the order they are given.
+  [wft|
+  You are addressing partner review observations in this repository. Process
+  the observation files listed below, in the order they are given.
 
-    For each observation:
+  For each observation:
 
-    1. Read it completely.
-    2. Verify that the finding is still applicable to the code as it now stands.
-    3. If it is valid, implement the smallest correct fix, and add or update a
-       focused test where the risk warrants one.
-    4. If it is obsolete or a false positive, record the evidence for that
-       instead of changing code.
-    5. Remove the observation file only after the item has been addressed or
-       proven inapplicable.
-    6. Do not commit. Leave every change in the working tree for review.
+  1. Read it completely.
+  2. Verify that the finding is still applicable to the code as it now stands.
+  3. If it is valid, implement the smallest correct fix, and add or update a
+     focused test where the risk warrants one.
+  4. If it is obsolete or a false positive, record the evidence for that
+     instead of changing code.
+  5. Remove the observation file only after the item has been addressed or
+     proven inapplicable.
+  6. Do not commit. Leave every change in the working tree for review.
 
-    Then write a concise handoff: each observation file, its resolution, the
-    files you changed, and the verification you performed.
+  Then write a concise handoff: each observation file, its resolution, the
+  files you changed, and the verification you performed.
 
-    {discipline}
+  {discipline}
 
-    When you are done, reply DONE.|]
+  When you are done, reply DONE.|]
   where
     discipline = fixAllRule
 
@@ -571,39 +565,37 @@ reviewEvidenceBrief =
 -- a model to confirm them is what the corpus does instead of testing them.
 mainReviewBrief :: Text
 mainReviewBrief =
-  wfText
-    [wf|
-    Review what the round just did. You are reading, not writing: report only,
-    and do not edit, stage or commit anything.
+  [wft|
+  Review what the round just did. You are reading, not writing: report only,
+  and do not edit, stage or commit anything.
 
-    Against the diff and the round's own handoff:
+  Against the diff and the round's own handoff:
 
-    - Confirm that every observation file in the batch was either removed or
-      explicitly justified as inapplicable, and name any that were neither.
-    - Re-read any fix that looks uncertain and say what makes it uncertain. Do
-      not accept a superficial deletion: an observation file removed without a
-      corresponding change in the diff is the failure this review exists to
-      catch.
-    - Say which verification commands the handoff names, which of them the diff
-      makes plausible, and which further check the risk warrants.
+  - Confirm that every observation file in the batch was either removed or
+    explicitly justified as inapplicable, and name any that were neither.
+  - Re-read any fix that looks uncertain and say what makes it uncertain. Do
+    not accept a superficial deletion: an observation file removed without a
+    corresponding change in the diff is the failure this review exists to
+    catch.
+  - Say which verification commands the handoff names, which of them the diff
+    makes plausible, and which further check the risk warrants.
 
-    Answer with those three findings and nothing else.|]
+  Answer with those three findings and nothing else.|]
 
 -- | The brief the report act is given.
 partnerWriteBrief :: Text
 partnerWriteBrief =
-  wfText
-    [wf|
-    Write the report for a partner run. It is read by whoever is running the
-    other half of the partnership.
+  [wft|
+  Write the report for a partner run. It is read by whoever is running the
+  other half of the partnership.
 
-    Open with the provenance line you were given, verbatim, on its own line.
-    Then, from the evidence below and nothing else: what was reviewed or
-    drained, what now stands in the observations directory -- by filename, from
-    the receipt -- and what the other half should do next.
+  Open with the provenance line you were given, verbatim, on its own line.
+  Then, from the evidence below and nothing else: what was reviewed or
+  drained, what now stands in the observations directory -- by filename, from
+  the receipt -- and what the other half should do next.
 
-    Do not describe an observation the evidence does not carry, and do not count
-    files the receipt does not list. Then reply DONE.|]
+  Do not describe an observation the evidence does not carry, and do not count
+  files the receipt does not list. Then reply DONE.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines
@@ -655,17 +647,14 @@ publishedNote role =
 -- Free in both folds: an input is a define, so this adds no question and no path.
 onThisRun :: Text -> Text -> Text
 onThisRun engine note =
-  note
-    <> " "
-    <> wfText
-      [wf|
-      This run's engine, from the runner and from no party asked above: {engine}.
-      A new session per question means every question above was put to a party
-      that had seen no other; one session for the run means they all landed in
-      one conversation, in program order, each having read what came before --
-      and if that conversation is also where the reviewed work was done, a review
-      in it is the work reviewing itself. Say which of the two this was, in one
-      sentence, before anything else.|]
+  [wft|
+  {note} This run's engine, from the runner and from no party asked above: {engine}.
+  A new session per question means every question above was put to a party
+  that had seen no other; one session for the run means they all landed in
+  one conversation, in program order, each having read what came before --
+  and if that conversation is also where the reviewed work was done, a review
+  in it is the work reviewing itself. Say which of the two this was, in one
+  sentence, before anything else.|]
 
 -- | The reviewing arm where nothing was written.
 --
@@ -719,20 +708,19 @@ notDrainedNote =
 -- specific about.
 cleanupCommitStyle :: Text
 cleanupCommitStyle =
-  wfText
-    [wf|
-    This is a cleanup of partner review observations, and it is ONE commit for
-    the whole batch -- not one per observation. Commit only the cleanup changes
-    and the removal of any tracked observation files; do not add untracked
-    observation files to the repository.
+  [wft|
+  This is a cleanup of partner review observations, and it is ONE commit for
+  the whole batch -- not one per observation. Commit only the cleanup changes
+  and the removal of any tracked observation files; do not add untracked
+  observation files to the repository.
 
-    The message is of this shape:
+  The message is of this shape:
 
-      Address partner review observations
+    Address partner review observations
 
-      Resolve observations from <first timestamp> through <last timestamp>.
+    Resolve observations from <first timestamp> through <last timestamp>.
 
-    with the timestamps taken from the filenames the batch actually held.|]
+  with the timestamps taken from the filenames the batch actually held.|]
 
 -- ---------------------------------------------------------------------------
 -- The functions

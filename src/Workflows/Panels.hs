@@ -77,9 +77,10 @@ import Agentic.Workflow
     panel,
     panelText,
     wf,
+    wft,
   )
 import Data.Text (Text)
-import Workflows.Prose (bullets, tshow, wfText)
+import Workflows.Prose (bullets, tshow)
 import Workflows.Rubrics.Finding (verdictSpec)
 
 -- ---------------------------------------------------------------------------
@@ -251,25 +252,24 @@ withEvidence r closing subject dossier =
 -- summarising the blocks it got.
 refusingSynthesis :: Roster -> Text
 refusingSynthesis r =
-  wfText
-    [wf|
-    Below is a document of {count} blocks, one per reviewer, each fenced under
-    its own name. The reviewers and what each owns:
+  [wft|
+  Below is a document of {count} blocks, one per reviewer, each fenced under
+  its own name. The reviewers and what each owns:
 
-    {table}
+  {table}
 
-    First, account for the blocks. If any named reviewer's block is missing or
-    empty, reply with exactly
+  First, account for the blocks. If any named reviewer's block is missing or
+  empty, reply with exactly
 
-      INCOMPLETE: <the names of the missing blocks>
+    INCOMPLETE: <the names of the missing blocks>
 
-    and nothing else. Do not summarise what did arrive: a partial fan-out folded
-    into a ranked list is indistinguishable from a clean tree, and that is the
-    one mistake this step exists to prevent.
+  and nothing else. Do not summarise what did arrive: a partial fan-out folded
+  into a ranked list is indistinguishable from a clean tree, and that is the
+  one mistake this step exists to prevent.
 
-    Otherwise, produce the consolidated report: deduplicate findings that name
-    the same file and line, sort by severity, keep every reviewer's clean
-    statement as its own line, and order the fixes smallest-safe-first.|]
+  Otherwise, produce the consolidated report: deduplicate findings that name
+  the same file and line, sort by severity, keep every reviewer's clean
+  statement as its own line, and order the fixes smallest-safe-first.|]
   where
     count = tshow (length r)
     table = rosterTable r

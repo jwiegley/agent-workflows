@@ -80,11 +80,11 @@ import Agentic.Workflow
     ask,
     revisingOn,
     wf,
+    wft,
   )
 import qualified Agentic.Workflow.Do as W
 import Data.String (fromString)
 import Data.Text (Text)
-import Workflows.Prose (wfText)
 
 -- ---------------------------------------------------------------------------
 -- The three endings
@@ -111,19 +111,18 @@ endings =
 -- explaining why it is blocked has objected, which buys another trip.
 endingSpec :: Text
 endingSpec =
-  wfText
-    [wf|
-    End your answer with exactly one of these, on its own last line:
+  [wft|
+  End your answer with exactly one of these, on its own last line:
 
-    - APPROVE -- the work is complete as it stands.
-    - OBJECTION: <one line> -- the work is sound but not done; the line says
-      what remains, and it is the only thing the next round is told.
+  - APPROVE -- the work is complete as it stands.
+  - OBJECTION: <one line> -- the work is sound but not done; the line says
+    what remains, and it is the only thing the next round is told.
 
-    If, and only if, you cannot judge the work at all -- the artefact is not
-    what you were told it is, or something outside this run has to change first
-    -- reply with NOTHING AT ALL: an empty answer. An empty answer ends the loop
-    as blocked. An explanation of why you are blocked is an objection, and buys
-    another round that cannot help.|]
+  If, and only if, you cannot judge the work at all -- the artefact is not
+  what you were told it is, or something outside this run has to change first
+  -- reply with NOTHING AT ALL: an empty answer. An empty answer ends the loop
+  as blocked. An explanation of why you are blocked is an objection, and buys
+  another round that cannot help.|]
 
 -- ---------------------------------------------------------------------------
 -- The loop

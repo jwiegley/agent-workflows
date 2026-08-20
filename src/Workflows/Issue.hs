@@ -214,11 +214,10 @@ prSearchBrief =
 -- | What the issue receipt is introduced as.
 issueBrief :: Text
 issueBrief =
-  wfText
-    [wf|
-    The GitHub issue this run was given, as JSON: its title, its state, its
-    labels, its body and its comments. This is the whole statement of the
-    problem, and anything not in it is not part of this issue.|]
+  [wft|
+  The GitHub issue this run was given, as JSON: its title, its state, its
+  labels, its body and its comments. This is the whole statement of the
+  problem, and anything not in it is not part of this issue.|]
 
 -- | What the branch-history receipt is introduced as.
 --
@@ -239,17 +238,16 @@ historyBrief =
 -- receipts — so the judgment is made over bytes rather than over a memory.
 triageBrief :: Text
 triageBrief =
-  wfText
-    [wf|
-    Decide one thing: is the work this issue asks for still outstanding?
+  [wft|
+  Decide one thing: is the work this issue asks for still outstanding?
 
-    Read the issue and the branch's commit log below. Answer no -- the issue is
-    NOT outstanding -- if the log shows the behaviour it asks for has already
-    been implemented or the bug it reports has already been fixed. Answer yes if
-    the work still has to be done, or if the log does not settle it: a wrong
-    "no" ends this run without fixing anything, and a wrong "yes" costs one
-    superfluous investigation. Prefer yes when the evidence is thin, and say
-    nothing but the answer.|]
+  Read the issue and the branch's commit log below. Answer no -- the issue is
+  NOT outstanding -- if the log shows the behaviour it asks for has already
+  been implemented or the bug it reports has already been fixed. Answer yes if
+  the work still has to be done, or if the log does not settle it: a wrong
+  "no" ends this run without fixing anything, and a wrong "yes" costs one
+  superfluous investigation. Prefer yes when the evidence is thin, and say
+  nothing but the answer.|]
 
 -- | What the confirmation-test flag asks.
 --
@@ -270,23 +268,22 @@ confirmationBrief =
 -- the environment's and not a program's to assert.
 planBrief :: Text
 planBrief =
-  wfText
-    [wf|
-    Think deeply about the issue below, then produce the plan for fixing it and
-    nothing else.
+  [wft|
+  Think deeply about the issue below, then produce the plan for fixing it and
+  nothing else.
 
-    The plan is a numbered list. Each entry names the file it touches, what
-    changes there, and how that step will be verified -- the command to run, or
-    the test that must go from failing to passing. Foundational steps come
-    before the steps that depend on them.
+  The plan is a numbered list. Each entry names the file it touches, what
+  changes there, and how that step will be verified -- the command to run, or
+  the test that must go from failing to passing. Foundational steps come
+  before the steps that depend on them.
 
-    The plan must include the tests: every fix carries the test that would have
-    caught the bug, and a step that says "add tests" without saying which
-    behaviour they pin is not a step. It must also include the linting and
-    type-checking the repository already runs, as its own last step.
+  The plan must include the tests: every fix carries the test that would have
+  caught the bug, and a step that says "add tests" without saying which
+  behaviour they pin is not a step. It must also include the linting and
+  type-checking the repository already runs, as its own last step.
 
-    Do not begin the work and do not write code here. This job is long, and a
-    plan that can be read in one page is what makes it resumable.|]
+  Do not begin the work and do not write code here. This job is long, and a
+  plan that can be read in one page is what makes it resumable.|]
 
 -- | What the working act is told, above the plan and the guidance.
 --
@@ -295,21 +292,20 @@ planBrief =
 -- from "Workflows.Rubrics.Discipline" — which is where those sentences live once.
 workBrief :: Text
 workBrief =
-  wfText
-    [wf|
-    Carry out the plan below, step by step, in the order it gives.
+  [wft|
+  Carry out the plan below, step by step, in the order it gives.
 
-    After each step, run the verification that step names and do not proceed
-    past a failing one: fix the cause, then continue. When the plan is done, run
-    the repository's own linting and type checking and leave both clean.
+  After each step, run the verification that step names and do not proceed
+  past a failing one: fix the cause, then continue. When the plan is done, run
+  the repository's own linting and type checking and leave both clean.
 
-    {noDeferral}
+  {noDeferral}
 
-    {upstream}
+  {upstream}
 
-    {testing}
+  {testing}
 
-    When you are done, reply DONE.|]
+  When you are done, reply DONE.|]
   where
     noDeferral = fixAllRule
     upstream = upstreamRule
@@ -331,19 +327,18 @@ workGuidance persona promoting n =
     promotion
       | not promoting = ""
       | otherwise =
-          wfText
-            [wf|
-            This issue has a confirmation test waiting at {path}. That test
-            "confirms" the bug by asserting the behaviour the issue reports, so
-            it passes while the bug is present.
+          [wft|
+          This issue has a confirmation test waiting at {path}. That test
+          "confirms" the bug by asserting the behaviour the issue reports, so
+          it passes while the bug is present.
 
-            Promote it as part of this work: move it to `test/regress`, then
-            rewrite it to assert the CORRECT expected behaviour -- which will
-            fail at first -- and fix the issue until it passes. Research what
-            the correct behaviour actually is rather than inverting the
-            assertion; an inverted confirmation test pins whatever the fix
-            happened to do. Add whatever further tests show that no neighbouring
-            behaviour moved.|]
+          Promote it as part of this work: move it to `test/regress`, then
+          rewrite it to assert the CORRECT expected behaviour -- which will
+          fail at first -- and fix the issue until it passes. Research what
+          the correct behaviour actually is rather than inverting the
+          assertion; an inverted confirmation test pins whatever the fix
+          happened to do. Add whatever further tests show that no neighbouring
+          behaviour moved.|]
     path = todoTestPath n
 
 -- | The regression-test-only arm's act.
@@ -354,17 +349,16 @@ workGuidance persona promoting n =
 -- dealt with.\"
 regressionOnlyBrief :: Text
 regressionOnlyBrief =
-  wfText
-    [wf|
-    The issue below has already been addressed by a commit on this branch, so
-    there is no fix to write. Add the regression test that demonstrates it has
-    been dealt with, and nothing else.
+  [wft|
+  The issue below has already been addressed by a commit on this branch, so
+  there is no fix to write. Add the regression test that demonstrates it has
+  been dealt with, and nothing else.
 
-    The test must fail if the fixing commit were reverted -- that is the whole
-    of its value. Name, in one line above it, which commit it pins.
+  The test must fail if the fixing commit were reverted -- that is the whole
+  of its value. Name, in one line above it, which commit it pins.
 
-    Do not re-fix, do not refactor what the commit did, and do not add tests for
-    behaviour the issue does not mention. When you are done, reply DONE.|]
+  Do not re-fix, do not refactor what the commit did, and do not add tests for
+  behaviour the issue does not mention. When you are done, reply DONE.|]
 
 -- | What the push act is told.
 pushBrief :: Text
@@ -391,21 +385,20 @@ prBrief =
 -- a pull request can read it — see @'Workflows.Evidence.ghPrCurrent'@.
 sweepLedgerBrief :: Text
 sweepLedgerBrief =
-  wfText
-    [wf|
-    This is the record of the pull request this run just opened, as JSON,
-    straight from the GitHub API. Build the inventory of unresolved automated
-    review items in it -- BugBot, Cursor, Devin and the rest -- as a numbered
-    checklist: number, author, category, file and line where applicable, and one
-    line on what each raises.
+  [wft|
+  This is the record of the pull request this run just opened, as JSON,
+  straight from the GitHub API. Build the inventory of unresolved automated
+  review items in it -- BugBot, Cursor, Devin and the rest -- as a numbered
+  checklist: number, author, category, file and line where applicable, and one
+  line on what each raises.
 
-    Include only bot and automated authors: an author whose type is Bot, or
-    failing that whose login contains "bot", "[bot]" or "app/". If there are
-    none, reply with exactly
+  Include only bot and automated authors: an author whose type is Bot, or
+  failing that whose login contains "bot", "[bot]" or "app/". If there are
+  none, reply with exactly
 
-      No unresolved bot comments found
+    No unresolved bot comments found
 
-    and nothing else.|]
+  and nothing else.|]
 
 -- | What this caller asks of the commit decomposition, above the standing
 -- discipline.
@@ -417,17 +410,16 @@ sweepLedgerBrief =
 -- the whole of what separates that function's four registered callers.
 commitStyle :: Text
 commitStyle =
-  wfText
-    [wf|
-    This series fixes a GitHub issue and will be pushed and opened as a pull
-    request as soon as it is written, so the last commit's message is the one a
-    reviewer reads first: write it as the summary of the whole, and name the
-    issue in it.
+  [wft|
+  This series fixes a GitHub issue and will be pushed and opened as a pull
+  request as soon as it is written, so the last commit's message is the one a
+  reviewer reads first: write it as the summary of the whole, and name the
+  issue in it.
 
-    The regression test and the fix it pins belong to two different commits,
-    test first, so that the series shows the test failing before it shows it
-    passing. A reviewer bisecting this branch should be able to stop at the test
-    commit and watch it fail.|]
+  The regression test and the fix it pins belong to two different commits,
+  test first, so that the series shows the test failing before it shows it
+  passing. A reviewer bisecting this branch should be able to stop at the test
+  commit and watch it fail.|]
 
 -- | The exclusion policy this caller hands @botSweepFn@.
 --
@@ -469,21 +461,20 @@ leftBrief =
 -- | The brief the report act is given.
 issueWriteBrief :: Text
 issueWriteBrief =
-  wfText
-    [wf|
-    Write the report for an issue run. It is read by somebody who was not
-    watching and has to decide what happens next.
+  [wft|
+  Write the report for an issue run. It is read by somebody who was not
+  watching and has to decide what happens next.
 
-    Open with the provenance line you were given, verbatim, on its own line. It
-    is the run's own account of how it ended and it is not yours to soften.
+  Open with the provenance line you were given, verbatim, on its own line. It
+  is the run's own account of how it ended and it is not yours to soften.
 
-    Then, from the evidence below and nothing else: what the issue asked for,
-    what this run did about it, and what the next run would have to do. Name
-    every file, command and commit the evidence names, and nothing it does not.
+  Then, from the evidence below and nothing else: what the issue asked for,
+  what this run did about it, and what the next run would have to do. Name
+  every file, command and commit the evidence names, and nothing it does not.
 
-    Do not describe work the evidence does not show, and do not report the issue
-    as closed -- closing it is the pull request's business and merging is
-    somebody else's.|]
+  Do not describe work the evidence does not show, and do not report the issue
+  as closed -- closing it is the pull request's business and merging is
+  somebody else's.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines

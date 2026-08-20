@@ -212,40 +212,39 @@ remover = tool "dce-act"
 -- text below states the rule and the program states the number.
 operatingPrinciples :: Text
 operatingPrinciples =
-  wfText
-    [wf|
-    Operating principles. Read these first, every time.
+  [wft|
+  Operating principles. Read these first, every time.
 
-    1. Conservative by default. When uncertain, the verdict is keep, never
-       remove. Uncertainty never resolves to removal -- not by majority vote,
-       not by "the evidence mostly points that way."
-    2. Pure deletions and surgical modifications only. Do not refactor, rename,
-       reformat or "improve" adjacent code. A modify verdict applies only the
-       concrete diff the debate produced -- nothing more. Do not fix unrelated
-       bugs along the way; record them in the final report instead.
-    3. Atomic commits. One logical region per commit, with a clear message. Each
-       commit must leave the build and tests passing.
-    4. Two-evidence rule for dynamic languages. Where a language supports
-       reflection or string-based dispatch, a passing test suite is not
-       sufficient evidence of safety. Require at least two independent forms of
-       evidence before a region is marked a removal candidate, and again before
-       a remove verdict is finalized. The two must be independent modalities --
-       a static "no references" result AND an entry-point or registration check
-       -- not two variants of the same grep.
-    5. Native tooling first. Prefer the compiler flags and lints this repository
-       already configures. Never install a static-analysis tool: if a
-       recommended tool is not present, note it and move on.
-    6. Avoid the yak-shaving trap. If the project's build or test commands fail
-       for want of a toolchain, report that and stop. Do not spend the run
-       trying to install things.
-    7. Blast-radius cap. Stop at the cap this run was given. If more candidates
-       carry a non-keep verdict, list them in the report and stop; the operator
-       can re-invoke for another pass.
-    8. Never bypass safety. No --no-verify, no --force, no skipping tests, no
-       amending commits to hide failures.
-    9. Markers never escape. DCE-BEGIN and DCE-END are working-tree-only
-       scaffolding. They are never committed, never pushed, and must be gone
-       before this run reports success.|]
+  1. Conservative by default. When uncertain, the verdict is keep, never
+     remove. Uncertainty never resolves to removal -- not by majority vote,
+     not by "the evidence mostly points that way."
+  2. Pure deletions and surgical modifications only. Do not refactor, rename,
+     reformat or "improve" adjacent code. A modify verdict applies only the
+     concrete diff the debate produced -- nothing more. Do not fix unrelated
+     bugs along the way; record them in the final report instead.
+  3. Atomic commits. One logical region per commit, with a clear message. Each
+     commit must leave the build and tests passing.
+  4. Two-evidence rule for dynamic languages. Where a language supports
+     reflection or string-based dispatch, a passing test suite is not
+     sufficient evidence of safety. Require at least two independent forms of
+     evidence before a region is marked a removal candidate, and again before
+     a remove verdict is finalized. The two must be independent modalities --
+     a static "no references" result AND an entry-point or registration check
+     -- not two variants of the same grep.
+  5. Native tooling first. Prefer the compiler flags and lints this repository
+     already configures. Never install a static-analysis tool: if a
+     recommended tool is not present, note it and move on.
+  6. Avoid the yak-shaving trap. If the project's build or test commands fail
+     for want of a toolchain, report that and stop. Do not spend the run
+     trying to install things.
+  7. Blast-radius cap. Stop at the cap this run was given. If more candidates
+     carry a non-keep verdict, list them in the report and stop; the operator
+     can re-invoke for another pass.
+  8. Never bypass safety. No --no-verify, no --force, no skipping tests, no
+     amending commits to hide failures.
+  9. Markers never escape. DCE-BEGIN and DCE-END are working-tree-only
+     scaffolding. They are never committed, never pushed, and must be gone
+     before this run reports success.|]
 
 -- | @references\/gates-and-report.md@'s @## Approval gates@ — the ten
 -- conditions that stop a non-@keep@ verdict.
@@ -257,30 +256,29 @@ operatingPrinciples =
 -- says why, and says what the strong form would be.
 approvalGates :: Text
 approvalGates =
-  wfText
-    [wf|
-    Approval gates. A region that hits any of these cannot be removed or
-    modified by this run. Its verdict is keep, and the report says which gate it
-    hit and what your recommendation would have been -- so that a human can
-    decide it in one reading, with the evidence in front of him.
+  [wft|
+  Approval gates. A region that hits any of these cannot be removed or
+  modified by this run. Its verdict is keep, and the report says which gate it
+  hit and what your recommendation would have been -- so that a human can
+  decide it in one reading, with the evidence in front of him.
 
-    - a public API surface: library exports, CLI commands, web routes, RPC
-      handlers, GraphQL types, OpenAPI endpoints;
-    - anything matching the exclusion allowlist you built in discovery;
-    - any database migration;
-    - anything inside a generated or vendored directory;
-    - test fixtures, golden files, or i18n keys;
-    - anything mentioned in a deploy, ops or runbook file;
-    - anything touched inside the recency window this run was given;
-    - conditional-compilation branches -- #ifdef, cfg!, feature gates -- whose
-      inactive arm targets a platform this run cannot build;
-    - a dead feature-flag definition whose default may still be read from a
-      remote config service;
-    - a deprecated API that may still have external consumers, even where every
-      internal caller is gone.
+  - a public API surface: library exports, CLI commands, web routes, RPC
+    handlers, GraphQL types, OpenAPI endpoints;
+  - anything matching the exclusion allowlist you built in discovery;
+  - any database migration;
+  - anything inside a generated or vendored directory;
+  - test fixtures, golden files, or i18n keys;
+  - anything mentioned in a deploy, ops or runbook file;
+  - anything touched inside the recency window this run was given;
+  - conditional-compilation branches -- #ifdef, cfg!, feature gates -- whose
+    inactive arm targets a platform this run cannot build;
+  - a dead feature-flag definition whose default may still be read from a
+    remote config service;
+  - a deprecated API that may still have external consumers, even where every
+    internal caller is gone.
 
-    Do not present a gated region as removable-but-deferred. Present the
-    evidence, the gate, and the recommendation.|]
+  Do not present a gated region as removable-but-deferred. Present the
+  evidence, the gate, and the recommendation.|]
 
 -- | @references\/gates-and-report.md@'s @## What to never do@.
 --
@@ -291,27 +289,26 @@ approvalGates =
 -- whoever is holding it.
 neverDo :: Text
 neverDo =
-  wfText
-    [wf|
-    Never, in any phase:
+  [wft|
+  Never, in any phase:
 
-    - commit or push a DCE marker or the sidecar directory. They are
-      working-tree-only scaffolding;
-    - insert a marker where a comment is not syntactically legal -- record it in
-      the sidecar instead;
-    - modify .git/, CI workflows or hooks unless this run's scope named them;
-    - delete a file from a directory containing "Code generated", "@generated",
-      or listed in .gitattributes as linguist-generated;
-    - use git push --force, git reset --hard, or a rebase that hides commits;
-    - bypass pre-commit or lefthook with --no-verify;
-    - install a static-analysis tool. If it is absent, skip it and say so;
-    - remove old-looking code on the strength of its age. Many projects have
-      stable, rarely-touched, still-load-bearing modules;
-    - trust a single evidence source in a dynamic language;
-    - let a balanced-looking debate justify removal. Uncertainty resolves to
-      keep;
-    - claim "no behaviour change". Report the evidence collected and let the
-      reader judge.|]
+  - commit or push a DCE marker or the sidecar directory. They are
+    working-tree-only scaffolding;
+  - insert a marker where a comment is not syntactically legal -- record it in
+    the sidecar instead;
+  - modify .git/, CI workflows or hooks unless this run's scope named them;
+  - delete a file from a directory containing "Code generated", "@generated",
+    or listed in .gitattributes as linguist-generated;
+  - use git push --force, git reset --hard, or a rebase that hides commits;
+  - bypass pre-commit or lefthook with --no-verify;
+  - install a static-analysis tool. If it is absent, skip it and say so;
+  - remove old-looking code on the strength of its age. Many projects have
+    stable, rarely-touched, still-load-bearing modules;
+  - trust a single evidence source in a dynamic language;
+  - let a balanced-looking debate justify removal. Uncertainty resolves to
+    keep;
+  - claim "no behaviour change". Report the evidence collected and let the
+    reader judge.|]
 
 -- ---------------------------------------------------------------------------
 -- The three tier-1 readings of an input
@@ -436,12 +433,11 @@ capCeiling t
 -- safely later.\"
 baselineTreeBrief :: Text
 baselineTreeBrief =
-  wfText
-    [wf|
-    The working tree as it stands before anything is marked, analysed or
-    removed. A dead-code pass inserts markers into the tree and discards them
-    with `git restore`, so a tree that was already dirty is a tree whose markers
-    cannot be told from somebody's work in progress.|]
+  [wft|
+  The working tree as it stands before anything is marked, analysed or
+  removed. A dead-code pass inserts markers into the tree and discards them
+  with `git restore`, so a tree that was already dirty is a tree whose markers
+  cannot be told from somebody's work in progress.|]
 
 -- | What the baseline gate is asked.
 --
@@ -450,11 +446,10 @@ baselineTreeBrief =
 -- state. Do not try to fix the failure as part of this run.\"
 baselineGateBrief :: Text
 baselineGateBrief =
-  wfText
-    [wf|
-    The repository's own build-and-test gate, run before anything has changed.
-    This is the baseline: the same command will be run again after each removal,
-    and a removal is only judged safe by comparison with this run.|]
+  [wft|
+  The repository's own build-and-test gate, run before anything has changed.
+  This is the baseline: the same command will be run again after each removal,
+  and a removal is only judged safe by comparison with this run.|]
 
 -- | What each analyzer receipt is introduced as.
 --
@@ -463,11 +458,10 @@ baselineGateBrief =
 -- that are __already available__ … do not install new tools\".
 analyzerBrief :: Text
 analyzerBrief =
-  wfText
-    [wf|
-    Run and report. This is a receipt: whatever the command writes is the
-    answer, and nothing is added to it. A command that is not installed on this
-    machine did not run, which is a different fact from finding nothing.|]
+  [wft|
+  Run and report. This is a receipt: whatever the command writes is the
+  answer, and nothing is added to it. A command that is not installed on this
+  machine did not run, which is a different fact from finding nothing.|]
 
 -- | What the discovery question asks for.
 --
@@ -476,39 +470,38 @@ analyzerBrief =
 -- \"this step is the most important defense against breaking the project.\"
 discoveryBrief :: Text
 discoveryBrief =
-  wfText
-    [wf|
-    Phase 1, discovery. Produce two things and nothing else: a Discovery Report
-    and an Exclusion Allowlist.
+  [wft|
+  Phase 1, discovery. Produce two things and nothing else: a Discovery Report
+  and an Exclusion Allowlist.
 
-    The Discovery Report, from the receipts you were given and from the
-    repository they describe: whether this is a monorepo and which packages
-    consume which; the languages and build system; exactly how tests and lints
-    are run; the entry points -- library exports, binary targets, CLI commands,
-    web routes, scheduled jobs, queue consumers, plugin registrations; the CI
-    configuration, which is what reveals the load-bearing scripts and symbols;
-    where the documentation lives; and any CLAUDE.md or AGENTS.md convention
-    file, whose rules this run obeys.
+  The Discovery Report, from the receipts you were given and from the
+  repository they describe: whether this is a monorepo and which packages
+  consume which; the languages and build system; exactly how tests and lints
+  are run; the entry points -- library exports, binary targets, CLI commands,
+  web routes, scheduled jobs, queue consumers, plugin registrations; the CI
+  configuration, which is what reveals the load-bearing scripts and symbols;
+  where the documentation lives; and any CLAUDE.md or AGENTS.md convention
+  file, whose rules this run obeys.
 
-    The Exclusion Allowlist: every place code is wired up at runtime by
-    convention, reflection or string lookup. Dependency injection and service
-    registration; file-system routing and autoloading; ORM, serializer, admin
-    and middleware registrations; decorators and macros that register handlers;
-    reflection and dynamic dispatch; native and FFI surface; manifests and
-    infrastructure -- Helm, Terraform, Kubernetes, CI YAML, systemd units,
-    Dockerfiles, package scripts, Makefile targets, entry points, cron entries;
-    schemas, whose dead-looking message types may be required by external
-    consumers or by stored data; i18n keys; telemetry, metric and feature-flag
-    names, which are referenced from dashboards and remote config and will never
-    appear in a code search; permission and policy names; database migrations,
-    every one of which is load-bearing while any environment references it;
-    generated and vendored directories; and test fixtures named from CI by
-    filename.
+  The Exclusion Allowlist: every place code is wired up at runtime by
+  convention, reflection or string lookup. Dependency injection and service
+  registration; file-system routing and autoloading; ORM, serializer, admin
+  and middleware registrations; decorators and macros that register handlers;
+  reflection and dynamic dispatch; native and FFI surface; manifests and
+  infrastructure -- Helm, Terraform, Kubernetes, CI YAML, systemd units,
+  Dockerfiles, package scripts, Makefile targets, entry points, cron entries;
+  schemas, whose dead-looking message types may be required by external
+  consumers or by stored data; i18n keys; telemetry, metric and feature-flag
+  names, which are referenced from dashboards and remote config and will never
+  appear in a code search; permission and policy names; database migrations,
+  every one of which is load-bearing while any environment references it;
+  generated and vendored directories; and test fixtures named from CI by
+  filename.
 
-    Everything in that allowlist is must-not-remove without a human. Write it as
-    a structured list of paths, directories, symbols and string patterns, and
-    write it before you have looked at a single candidate: an allowlist compiled
-    after the candidates is an allowlist shaped by what you hoped to remove.|]
+  Everything in that allowlist is must-not-remove without a human. Write it as
+  a structured list of paths, directories, symbols and string patterns, and
+  write it before you have looked at a single candidate: an allowlist compiled
+  after the candidates is an allowlist shaped by what you hoped to remove.|]
 
 -- | What the MARK act is told.
 --
@@ -518,64 +511,63 @@ discoveryBrief =
 -- annotate, and change nothing else.
 markBrief :: Text
 markBrief =
-  wfText
-    [wf|
-    Phase 1, marking. This phase inserts comments and writes one new file. It
-    removes nothing, edits no line of code, and commits nothing.
+  [wft|
+  Phase 1, marking. This phase inserts comments and writes one new file. It
+  removes nothing, edits no line of code, and commits nothing.
 
-    For every candidate, collect the evidence before you mark it: a repo-wide
-    grep including hidden files, over the symbol and its plausible case
-    variants; a string-literal search, because a symbol referenced from a
-    decorator, a plugin registry or a dynamic import is referenced as text; a
-    filename search; a manifest scan across package scripts, Makefile targets,
-    entry points, every CI file, and any Helm, Terraform, Kubernetes, Docker or
-    systemd file; the framework's own route or handler listing where it has one;
-    the public-API surface, before and after; `git log --follow` on the file and
-    `git log -S` on the symbol, because recency is a signal and code touched
-    inside the recency window defaults to needing approval; whether any test,
-    fixture or snapshot references it; and whether its name matches anything in
-    your allowlist.
+  For every candidate, collect the evidence before you mark it: a repo-wide
+  grep including hidden files, over the symbol and its plausible case
+  variants; a string-literal search, because a symbol referenced from a
+  decorator, a plugin registry or a dynamic import is referenced as text; a
+  filename search; a manifest scan across package scripts, Makefile targets,
+  entry points, every CI file, and any Helm, Terraform, Kubernetes, Docker or
+  systemd file; the framework's own route or handler listing where it has one;
+  the public-API surface, before and after; `git log --follow` on the file and
+  `git log -S` on the symbol, because recency is a signal and code touched
+  inside the recency window defaults to needing approval; whether any test,
+  fixture or snapshot references it; and whether its name matches anything in
+  your allowlist.
 
-    Then classify it provisionally -- safe, needs-approval, or ambiguous. An
-    allowlist hit caps the class at needs-approval and can never be safe.
-    Anything uncertain is ambiguous or needs-approval. Nothing defaults to safe.
+  Then classify it provisionally -- safe, needs-approval, or ambiguous. An
+  allowlist hit caps the class at needs-approval and can never be safe.
+  Anything uncertain is ambiguous or needs-approval. Nothing defaults to safe.
 
-    Sweep the documentation the same way, and be more careful there because
-    nothing compiles it: docs anchored to a candidate symbol, examples that
-    reference a removed API, migration guides whose target version is older than
-    this codebase, TODOs whose issue is closed, README sections for a dependency
-    that has gone, stale ADRs and runbooks -- which are historical record and
-    default to needing approval -- and commented-out blocks older than about six
-    months.
+  Sweep the documentation the same way, and be more careful there because
+  nothing compiles it: docs anchored to a candidate symbol, examples that
+  reference a removed API, migration guides whose target version is older than
+  this codebase, TODOs whose issue is closed, README sections for a dependency
+  that has gone, stale ADRs and runbooks -- which are historical record and
+  default to needing approval -- and commented-out blocks older than about six
+  months.
 
-    Now bracket every bracketable region with a matched pair, using the file's
-    own comment syntax:
+  Now bracket every bracketable region with a matched pair, using the file's
+  own comment syntax:
 
-      <comment> DCE-BEGIN id=<NNN> kind=<symbol|block|comment-block|doc>
-                class=<safe|needs-approval|ambiguous> name=<symbol-or-desc>
-                evidence="<one line>"
-      ...the candidate region, unchanged...
-      <comment> DCE-END id=<NNN>
+    <comment> DCE-BEGIN id=<NNN> kind=<symbol|block|comment-block|doc>
+              class=<safe|needs-approval|ambiguous> name=<symbol-or-desc>
+              evidence="<one line>"
+    ...the candidate region, unchanged...
+    <comment> DCE-END id=<NNN>
 
-    Never insert a marker where a comment is not syntactically legal -- inside a
-    string literal, inside a JSON file, mid-expression, between a decorator and
-    its function, inside a multi-line literal. If a region cannot be bracketed
-    without risking a parse error, do not bracket it. Insert markers only; do not
-    touch the bracketed lines.
+  Never insert a marker where a comment is not syntactically legal -- inside a
+  string literal, inside a JSON file, mid-expression, between a decorator and
+  its function, inside a multi-line literal. If a region cannot be bracketed
+  without risking a parse error, do not bracket it. Insert markers only; do not
+  touch the bracketed lines.
 
-    Write the sidecar manifest at `.dce-pass-1/candidates.json`, which is the
-    authoritative record and includes every candidate that could not be
-    bracketed: the pass, the branch, the baseline commands, the starting commit,
-    and per candidate an id, kind, location, name, class, whether it was marked
-    in source, its evidence as a list, its anchored docs, whether it hit the
-    allowlist, and a null verdict. Whole-file deletions, unused imports, unused
-    dependencies and standalone doc files are sidecar-only: they have no
-    bracketable region.
+  Write the sidecar manifest at `.dce-pass-1/candidates.json`, which is the
+  authoritative record and includes every candidate that could not be
+  bracketed: the pass, the branch, the baseline commands, the starting commit,
+  and per candidate an id, kind, location, name, class, whether it was marked
+  in source, its evidence as a list, its anchored docs, whether it hit the
+  allowlist, and a null verdict. Whole-file deletions, unused imports, unused
+  dependencies and standalone doc files are sidecar-only: they have no
+  bracketable region.
 
-    Then answer, and this answer is what the debate reads: the Mark Report --
-    candidates by kind and by class, the sidecar path, and one line per
-    candidate giving its id, location, name, class and evidence. Do not
-    summarise the evidence away; the next phase argues from it.|]
+  Then answer, and this answer is what the debate reads: the Mark Report --
+  candidates by kind and by class, the sidecar path, and one line per
+  candidate giving its id, location, name, class and evidence. Do not
+  summarise the evidence away; the next phase argues from it.|]
 
 -- | What the marker diff is introduced as.
 --
@@ -593,16 +585,15 @@ markBrief =
 -- is.
 markedBrief :: Text
 markedBrief =
-  wfText
-    [wf|
-    The marker diff: every line phase 1 added to the working tree, as `git diff`
-    reports it. Nothing has been removed or edited -- these are comment markers
-    and one new sidecar file, and they are the whole of what phase 1 did.
+  [wft|
+  The marker diff: every line phase 1 added to the working tree, as `git diff`
+  reports it. Nothing has been removed or edited -- these are comment markers
+  and one new sidecar file, and they are the whole of what phase 1 did.
 
-    This is the artefact under debate. Each DCE-BEGIN line carries the region's
-    id, kind, provisional class, name and one-line evidence; each DCE-END closes
-    one. A region that is not bracketed here was not bracketed, whatever any
-    report says about it.|]
+  This is the artefact under debate. Each DCE-BEGIN line carries the region's
+  id, kind, provisional class, name and one-line evidence; each DCE-END closes
+  one. A region that is not bracketed here was not bracketed, whatever any
+  report says about it.|]
 
 -- | What each advocate is told about the shape of its answer.
 --
@@ -613,23 +604,22 @@ markedBrief =
 -- region must stay.
 debateClosing :: Text
 debateClosing =
-  wfText
-    [wf|
-    You are one of three advocates, and the fold that reads you requires ALL
-    THREE to approve before a region may be removed or modified. So the
-    direction of your answer matters more than its length:
+  [wft|
+  You are one of three advocates, and the fold that reads you requires ALL
+  THREE to approve before a region may be removed or modified. So the
+  direction of your answer matters more than its length:
 
-    - APPROVE means: on the question I own, nothing here forbids acting on this
-      pass.
-    - OBJECTION: <one line per region> means: these regions must not be acted on
-      this pass, and here is the concrete artefact -- file and line, config key,
-      route table entry, git range -- that says so.
+  - APPROVE means: on the question I own, nothing here forbids acting on this
+    pass.
+  - OBJECTION: <one line per region> means: these regions must not be acted on
+    this pass, and here is the concrete artefact -- file and line, config key,
+    route table entry, git range -- that says so.
 
-    Cite artefacts, never possibilities. "It might be used somewhere" is not
-    admissible; `src/app.py:41` is. An objection you cannot point at is an
-    objection that stops a safe removal, and a removal that should have been
-    stopped and was not is worse. Say which regions you object to and be exact
-    about the rest.|]
+  Cite artefacts, never possibilities. "It might be used somewhere" is not
+  admissible; `src/app.py:41` is. An objection you cannot point at is an
+  objection that stops a safe removal, and a removal that should have been
+  stopped and was not is worse. Say which regions you object to and be exact
+  about the rest.|]
 
 -- | What the ACT act is told, above the cap and the verdict.
 --
@@ -638,37 +628,36 @@ debateClosing =
 -- clean recovery, an atomic commit, and the cap.
 actBrief :: Text
 actBrief =
-  wfText
-    [wf|
-    Phase 3, acting. Walk the regions in dependency order, leaves first, so that
-    removing a callee never orphans a caller that is still there.
+  [wft|
+  Phase 3, acting. Walk the regions in dependency order, leaves first, so that
+  removing a callee never orphans a caller that is still there.
 
-    Apply exactly the verdict and nothing more. A kept region loses its markers
-    and is not committed. A modified region gets the concrete diff the debate
-    produced, its markers stripped, and its anchored doc updates in the same
-    commit -- no incidental edits. A removed region goes, markers and all,
-    together with the artefacts the sidecar attached to it: anchored docs, and
-    the imports the removal has just made unused. No refactors, no renames, no
-    reformatting.
+  Apply exactly the verdict and nothing more. A kept region loses its markers
+  and is not committed. A modified region gets the concrete diff the debate
+  produced, its markers stripped, and its anchored doc updates in the same
+  commit -- no incidental edits. A removed region goes, markers and all,
+  together with the artefacts the sidecar attached to it: anchored docs, and
+  the imports the removal has just made unused. No refactors, no renames, no
+  reformatting.
 
-    After each region: run the smallest-scope build the project supports and the
-    tests that cover the affected module. If anything fails, restore only the
-    files that verdict touched -- a repo-wide restore would wipe every other
-    pending region's markers -- never `git clean` the sidecar away, never
-    `git reset --hard`, downgrade that region's verdict to keep, record the
-    failure mode for the report, and move on. If it passes, stage and commit
-    only those files, with a message that names the symbol and summarises the
-    deciding evidence.
+  After each region: run the smallest-scope build the project supports and the
+  tests that cover the affected module. If anything fails, restore only the
+  files that verdict touched -- a repo-wide restore would wipe every other
+  pending region's markers -- never `git clean` the sidecar away, never
+  `git reset --hard`, downgrade that region's verdict to keep, record the
+  failure mode for the report, and move on. If it passes, stage and commit
+  only those files, with a message that names the symbol and summarises the
+  deciding evidence.
 
-    Every ~5 commits and again at the end of this phase, run the full baseline
-    command set and confirm it is green.
+  Every ~5 commits and again at the end of this phase, run the full baseline
+  command set and confirm it is green.
 
-    Before you finish: strip the markers of every region you did not act on.
-    Acted regions lost theirs in their commit; kept and skipped regions did not,
-    and a marker that survives this turn is the one failure this workflow
-    guarantees against.
+  Before you finish: strip the markers of every region you did not act on.
+  Acted regions lost theirs in their commit; kept and skipped regions did not,
+  and a marker that survives this turn is the one failure this workflow
+  guarantees against.
 
-    When you are done, reply DONE.|]
+  When you are done, reply DONE.|]
 
 -- | What the marker sweep is asked.
 --
@@ -677,10 +666,9 @@ actBrief =
 -- @'Workflows.Evidence.dceMarkers'@.
 sweepBrief :: Text
 sweepBrief =
-  wfText
-    [wf|
-    The marker sweep. Every DCE-BEGIN or DCE-END still in the tree is
-    scaffolding this run failed to remove.|]
+  [wft|
+  The marker sweep. Every DCE-BEGIN or DCE-END still in the tree is
+  scaffolding this run failed to remove.|]
 
 -- | What the closing delta receipt is introduced as.
 --
@@ -689,10 +677,9 @@ sweepBrief =
 -- two numbers a model recalls.
 deltaBrief :: Text
 deltaBrief =
-  wfText
-    [wf|
-    The commits this pass produced, oldest first. This is the removal history,
-    as git reports it: one line per commit, and nothing else in it.|]
+  [wft|
+  The commits this pass produced, oldest first. This is the removal history,
+  as git reports it: one line per commit, and nothing else in it.|]
 
 -- ---------------------------------------------------------------------------
 -- The five provenance lines
@@ -846,54 +833,53 @@ debateRoster =
 -- different endings in the corpus and are the @{provenance}@ argument here.
 deadCodeReportBrief :: Text
 deadCodeReportBrief =
-  wfText
-    [wf|
-    Write the dead-code elimination report. Print it; do not write it to disk
-    unless you were asked to.
+  [wft|
+  Write the dead-code elimination report. Print it; do not write it to disk
+  unless you were asked to.
 
-    Open with the provenance line you were given, verbatim, on its own line. It
-    is this run's own account of how it ended, and it is not yours to soften, to
-    restate, or to reconcile with what you think happened.
+  Open with the provenance line you were given, verbatim, on its own line. It
+  is this run's own account of how it ended, and it is not yours to soften, to
+  restate, or to reconcile with what you think happened.
 
-    Then:
+  Then:
 
-    # Dead-Code Elimination Report
+  # Dead-Code Elimination Report
 
-    **Scope**: <the scope sentence this run carried>
-    **Baseline**: <the command, and whether it passed before anything changed>
-    **Result**: green / red
-    **Markers remaining**: <from the sweep receipt, which is bytes>
+  **Scope**: <the scope sentence this run carried>
+  **Baseline**: <the command, and whether it passed before anything changed>
+  **Result**: green / red
+  **Markers remaining**: <from the sweep receipt, which is bytes>
 
-    ## Verdicts
-    Removed / Modified / Kept / Gated, with counts.
+  ## Verdicts
+  Removed / Modified / Kept / Gated, with counts.
 
-    ## Removed and modified
-    One line per commit: the sha, the verdict, the symbol, the files and line
-    delta, and the deciding evidence.
+  ## Removed and modified
+  One line per commit: the sha, the verdict, the symbol, the files and line
+  delta, and the deciding evidence.
 
-    ## Kept, and why
-    Location, symbol, and the concrete reference or the uncertainty that won the
-    debate.
+  ## Kept, and why
+  Location, symbol, and the concrete reference or the uncertainty that won the
+  debate.
 
-    ## Gated
-    Location, symbol, the evidence found, what was missing, and which approval
-    gate it hit.
+  ## Gated
+  Location, symbol, the evidence found, what was missing, and which approval
+  gate it hit.
 
-    ## Stale-doc changes
-    ## Toolchain notes
-    Tools attempted, tools missing, tools that produced output. A tool that is
-    not installed is not a clean result.
+  ## Stale-doc changes
+  ## Toolchain notes
+  Tools attempted, tools missing, tools that produced output. A tool that is
+  not installed is not a clean result.
 
-    ## Cap status
-    Whether the cap was reached, and how many non-keep verdicts remain.
+  ## Cap status
+  Whether the cap was reached, and how many non-keep verdicts remain.
 
-    ## Risks and uncertainties
-    ## Unrelated issues observed
-    Noticed and deliberately not fixed, per the operating principles.
+  ## Risks and uncertainties
+  ## Unrelated issues observed
+  Noticed and deliberately not fixed, per the operating principles.
 
-    Never claim there was no behaviour change. Report the evidence collected and
-    let the reader judge -- that is the whole difference between this report and
-    a reassurance.|]
+  Never claim there was no behaviour change. Report the evidence collected and
+  let the reader judge -- that is the whole difference between this report and
+  a reassurance.|]
 
 -- | One act, five provenance lines.
 --

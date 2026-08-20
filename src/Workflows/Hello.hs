@@ -56,11 +56,10 @@ helloDoc = "the smoke row: two cross-cutting lenses over one scrap, folded and r
 -- 'helloScript' key on it by prefix rather than by proofreading.
 scrapBrief :: Text
 scrapBrief =
-  wfText
-    [wf|
-    Write out one short function -- at most eight lines, in any language -- that
-    is worth reviewing: it should do something real and have exactly one thing
-    wrong with it. Reply with the code and nothing else.|]
+  [wft|
+  Write out one short function -- at most eight lines, in any language -- that
+  is worth reviewing: it should do something real and have exactly one thing
+  wrong with it. Reply with the code and nothing else.|]
 
 -- | The provenance line this row's report carries.
 --

@@ -146,28 +146,25 @@ worker = tool "checklist-worker"
 -- own working directory, so the list the program branches on is bytes.
 listBrief :: Text
 listBrief =
-  wfText
-    [wf|
-    The Markdown checklist this run was given, as it stands on disk before any
-    work has been done to it. Every task in it is either checked off already or
-    is work this run is here to do.|]
+  [wft|
+  The Markdown checklist this run was given, as it stands on disk before any
+  work has been done to it. Every task in it is either checked off already or
+  is work this run is here to do.|]
 
 -- | The same file, re-read after the first round.
 afterBrief :: Text
 afterBrief =
-  wfText
-    [wf|
-    The same checklist, re-read from disk now that the first round has finished
-    with it. This is the file as it stands, not an account of what was done to
-    it: anything still unchecked here is still undone.|]
+  [wft|
+  The same checklist, re-read from disk now that the first round has finished
+  with it. This is the file as it stands, not an account of what was done to
+  it: anything still unchecked here is still undone.|]
 
 -- | The same file, re-read after the self-verify round.
 finalBrief :: Text
 finalBrief =
-  wfText
-    [wf|
-    The same checklist, re-read from disk after the self-verification round.
-    This is the last look this run takes at it.|]
+  [wft|
+  The same checklist, re-read from disk after the self-verification round.
+  This is the last look this run takes at it.|]
 
 -- | What the round's first question asks for.
 --
@@ -178,27 +175,26 @@ finalBrief =
 -- rather than remembered while it is.
 orderBrief :: Text
 orderBrief =
-  wfText
-    [wf|
-    Below is a Markdown checklist. Decide what this round does, and answer with
-    that and nothing else.
+  [wft|
+  Below is a Markdown checklist. Decide what this round does, and answer with
+  that and nothing else.
 
-    Work only on tasks whose box is unchecked. For each one, in the order you
-    give them:
+  Work only on tasks whose box is unchecked. For each one, in the order you
+  give them:
 
-    1. Say whether it is still genuinely incomplete. A box may be unchecked
-       because the work was done and nobody ticked it; say so where the
-       checklist or the surrounding tree shows it, and say what shows it.
-    2. Say what completing it consists of, concretely enough that somebody
-       could do it without asking you a question.
-    3. Say what will show it is complete -- the command to run, the file to
-       look at, the behaviour to observe.
+  1. Say whether it is still genuinely incomplete. A box may be unchecked
+     because the work was done and nobody ticked it; say so where the
+     checklist or the surrounding tree shows it, and say what shows it.
+  2. Say what completing it consists of, concretely enough that somebody
+     could do it without asking you a question.
+  3. Say what will show it is complete -- the command to run, the file to
+     look at, the behaviour to observe.
 
-    Order them so that a task whose result another task needs comes first. If
-    two are independent, keep the checklist's own order: a reader of the file
-    should recognise the sequence.
+  Order them so that a task whose result another task needs comes first. If
+  two are independent, keep the checklist's own order: a reader of the file
+  should recognise the sequence.
 
-    Answer with one numbered entry per task and nothing else.|]
+  Answer with one numbered entry per task and nothing else.|]
 
 -- | What the round's act is told.
 --
@@ -208,27 +204,26 @@ orderBrief =
 -- "Workflows.Rubrics.Discipline", which is where that sentence lives once.
 workBrief :: Text
 workBrief =
-  wfText
-    [wf|
-    Carry out the round below, against the checklist file named in it.
+  [wft|
+  Carry out the round below, against the checklist file named in it.
 
-    For each entry in the plan, in the order given: do the work, confirm it is
-    actually complete by the check the entry names, and only then tick that
-    item's box in the checklist file. A box ticked before its check has passed
-    is worse than an unticked one, because the next round will not look at it
-    again.
+  For each entry in the plan, in the order given: do the work, confirm it is
+  actually complete by the check the entry names, and only then tick that
+  item's box in the checklist file. A box ticked before its check has passed
+  is worse than an unticked one, because the next round will not look at it
+  again.
 
-    Do not tick a box whose work you did not finish, do not delete or reword a
-    task to make it finishable, and do not add tasks. If an entry turns out to
-    be impossible or wrong, leave its box unchecked and append one line beneath
-    it beginning `BLOCKED:` saying why -- the next round reads the file, and a
-    line it can see is worth more than a paragraph in a reply nobody keeps.
+  Do not tick a box whose work you did not finish, do not delete or reword a
+  task to make it finishable, and do not add tasks. If an entry turns out to
+  be impossible or wrong, leave its box unchecked and append one line beneath
+  it beginning `BLOCKED:` saying why -- the next round reads the file, and a
+  line it can see is worth more than a paragraph in a reply nobody keeps.
 
-    {discipline}
+  {discipline}
 
-    When you are done, reply DONE.
+  When you are done, reply DONE.
 
-    The plan for this round:|]
+  The plan for this round:|]
   where
     discipline = fixAllRule
 
@@ -273,25 +268,24 @@ unfinishedNote =
 -- file's own bytes.
 checklistReportBrief :: Text
 checklistReportBrief =
-  wfText
-    [wf|
-    Write the report for a checklist run. It is read by somebody who was not
-    watching and who will decide from it whether the work is finished.
+  [wft|
+  Write the report for a checklist run. It is read by somebody who was not
+  watching and who will decide from it whether the work is finished.
 
-    Open with the provenance line you were given, verbatim, on its own line. It
-    is the run's own account of how it ended and it is not yours to soften or
-    to restate.
+  Open with the provenance line you were given, verbatim, on its own line. It
+  is the run's own account of how it ended and it is not yours to soften or
+  to restate.
 
-    Then, from the checklist below and nothing else:
+  Then, from the checklist below and nothing else:
 
-    - one line per task, saying checked or unchecked, in the file's own order;
-    - the count of each;
-    - every line beginning `BLOCKED:` reproduced verbatim, under the task it
-      sits beneath.
+  - one line per task, saying checked or unchecked, in the file's own order;
+  - the count of each;
+  - every line beginning `BLOCKED:` reproduced verbatim, under the task it
+    sits beneath.
 
-    Do not describe work that the checklist does not show. A ticked box is
-    evidence that somebody ticked it; it is not evidence about the code, and
-    this report does not pretend otherwise.|]
+  Do not describe work that the checklist does not show. A ticked box is
+  evidence that somebody ticked it; it is not evidence about the code, and
+  this report does not pretend otherwise.|]
 
 -- ---------------------------------------------------------------------------
 -- The two functions

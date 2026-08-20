@@ -380,31 +380,30 @@ stagedAt fid = "/tmp/nodered-" <> fid <> "/flow.json"
 -- correct.
 hostFacts :: Text
 hostFacts =
-  wfText
-    [wf|
-    This is Node-RED 4.1.10 on the owner's NixOS host. The facts that change what
-    a correct answer is:
+  [wft|
+  This is Node-RED 4.1.10 on the owner's NixOS host. The facts that change what
+  a correct answer is:
 
-    - Flow administration goes through `node-red-admin` and nothing else. The
-      transport is helper-owned and fixed; there is no URL, method or credential
-      to supply, and none is available to this run.
-    - Plugins installed through the Palette live in
-      `/var/lib/node-red/node_modules/`; plugins installed through Nix come from
-      the NixOS overlay, and the overlay is the right vehicle for a new one.
-    - `settings.js` is generated from `/etc/nixos/config/node-red-settings.js`.
-      The copy under `/nix/store` is read-only and is never edited.
-    - The service is `node-red.service`, running as user `node-red`.
-    - The event log is the PostgreSQL database `nodered_events`, with a Grafana
-      dashboard over it.
-    - Two config nodes are shared by everything: the Home Assistant server
-      `86b277e82b069e9b`, and the chronos location node `f1c80506d19d3de2`.
-    - CONTEXT PERSISTENCE IS ON BY DEFAULT: `contextStorage.default` is the
-      local filesystem store, so every `flow.set`/`get`, `global.set`/`get` and
-      `context.set`/`get` persists under `/var/lib/node-red/context/` with a
-      30-second flush. No `'file'` argument is needed, and code that passes one
-      is code written for a different host.
-    - There is no `~/.node-red/` on this host. A path under it is a path that
-      does not exist.|]
+  - Flow administration goes through `node-red-admin` and nothing else. The
+    transport is helper-owned and fixed; there is no URL, method or credential
+    to supply, and none is available to this run.
+  - Plugins installed through the Palette live in
+    `/var/lib/node-red/node_modules/`; plugins installed through Nix come from
+    the NixOS overlay, and the overlay is the right vehicle for a new one.
+  - `settings.js` is generated from `/etc/nixos/config/node-red-settings.js`.
+    The copy under `/nix/store` is read-only and is never edited.
+  - The service is `node-red.service`, running as user `node-red`.
+  - The event log is the PostgreSQL database `nodered_events`, with a Grafana
+    dashboard over it.
+  - Two config nodes are shared by everything: the Home Assistant server
+    `86b277e82b069e9b`, and the chronos location node `f1c80506d19d3de2`.
+  - CONTEXT PERSISTENCE IS ON BY DEFAULT: `contextStorage.default` is the
+    local filesystem store, so every `flow.set`/`get`, `global.set`/`get` and
+    `context.set`/`get` persists under `/var/lib/node-red/context/` with a
+    30-second flush. No `'file'` argument is needed, and code that passes one
+    is code written for a different host.
+  - There is no `~/.node-red/` on this host. A path under it is a path that
+    does not exist.|]
 
 -- | The six lenses the skill's house style and pitfalls become.
 --
@@ -423,217 +422,211 @@ houseRoster =
         lensOwns = "the direction of every gate's outputs, read from the wires that are there rather than inferred from a name",
         lensParty = reasoning (model "nodered-wiring"),
         lensBrief =
-          wfText
-            [wf|
-            You own the ONE mistake this codebase makes most often, and the whole
-            of your job is to read rather than to infer.
+          [wft|
+          You own the ONE mistake this codebase makes most often, and the whole
+          of your job is to read rather than to infer.
 
-            `api-current-state` with `halt_if` has two outputs. OUTPUT 0 FIRES
-            WHEN THE STATE MATCHES `halt_if`. OUTPUT 1 FIRES WHEN IT DOES NOT.
-            The convention here is that a gate is named as a lowercase question --
-            `anyone home?`, `office door closed?` -- and the question's "yes"
-            answer routes to output 0. One output is wired to the continuation and
-            the other is left empty.
+          `api-current-state` with `halt_if` has two outputs. OUTPUT 0 FIRES
+          WHEN THE STATE MATCHES `halt_if`. OUTPUT 1 FIRES WHEN IT DOES NOT.
+          The convention here is that a gate is named as a lowercase question --
+          `anyone home?`, `office door closed?` -- and the question's "yes"
+          answer routes to output 0. One output is wired to the continuation and
+          the other is left empty.
 
-            THE SAME `halt_if` STRING IS WIRED BOTH WAYS IN DIFFERENT PARTS OF
-            THIS CODEBASE. So DO NOT GUESS THE DIRECTION from the node's name:
-            read the existing wires in the tab you were given, say what they do,
-            and only then say what the requested change means for them. The
-            recorded failure is an Office HVAC misfire where
-            `office door closed? halt_if="off"` wired to output 0 meant "fire when
-            the door IS closed", which was the opposite of what the name suggested
-            to a reader.
+          THE SAME `halt_if` STRING IS WIRED BOTH WAYS IN DIFFERENT PARTS OF
+          THIS CODEBASE. So DO NOT GUESS THE DIRECTION from the node's name:
+          read the existing wires in the tab you were given, say what they do,
+          and only then say what the requested change means for them. The
+          recorded failure is an Office HVAC misfire where
+          `office door closed? halt_if="off"` wired to output 0 meant "fire when
+          the door IS closed", which was the opposite of what the name suggested
+          to a reader.
 
-            For a comparison, a JSONata halt is supported and is often clearer:
-            `halt_if_type: "jsonata"`, `halt_if: "3*24*60*60"`,
-            `halt_if_compare: "gt"`.
+          For a comparison, a JSONata halt is supported and is often clearer:
+          `halt_if_type: "jsonata"`, `halt_if: "3*24*60*60"`,
+          `halt_if_compare: "gt"`.
 
-            Also yours: `api-current-state`'s `outputProperties` value types. The
-            valid ones are entityState, entityId, jsonata, str, num, bool, flow,
-            global, msg, env, date, bin and eventData. `entity` IS NOT ONE -- for
-            an attribute, use jsonata with `$entity().attributes.<key>`. And every
-            working node here carries `override_topic: false`.
+          Also yours: `api-current-state`'s `outputProperties` value types. The
+          valid ones are entityState, entityId, jsonata, str, num, bool, flow,
+          global, msg, env, date, bin and eventData. `entity` IS NOT ONE -- for
+          an attribute, use jsonata with `$entity().attributes.<key>`. And every
+          working node here carries `override_topic: false`.
 
-            Report what the wires do, what the change requires, and every place
-            the requested change would depend on a direction you could not read.|]
+          Report what the wires do, what the change requires, and every place
+          the requested change would depend on a direction you could not read.|]
       },
     Lens
       { lensName = "triggers",
         lensOwns = "every time trigger: chronos, the six-field cron, sun-relative offsets, and the two millisecond traps",
         lensParty = reasoning (model "nodered-triggers"),
         lensBrief =
-          wfText
-            [wf|
-            You own the time triggers.
+          [wft|
+          You own the time triggers.
 
-            Use `chronos-scheduler`, not a stock `inject` with a cron expression.
-            The location config node is shared: `f1c80506d19d3de2`.
+          Use `chronos-scheduler`, not a stock `inject` with a cron expression.
+          The location config node is shared: `f1c80506d19d3de2`.
 
-            CRONTAB VALUES HERE ARE SIX-FIELD CronosJS: second, minute, hour,
-            day-of-month, month, day-of-week. `0 0 23 * * 2,4,6` is 23:00 on
-            Tuesday, Thursday and Saturday. A five-field expression is a
-            different schedule, and the day-of-week list belongs in the LAST
-            field. This is the ninth pitfall on the list and it is still the
-            easiest one to write.
+          CRONTAB VALUES HERE ARE SIX-FIELD CronosJS: second, minute, hour,
+          day-of-month, month, day-of-week. `0 0 23 * * 2,4,6` is 23:00 on
+          Tuesday, Thursday and Saturday. A five-field expression is a
+          different schedule, and the day-of-week list belongs in the LAST
+          field. This is the ninth pitfall on the list and it is still the
+          easiest one to write.
 
-            Sun-relative triggers: `type: "sun"`, `value` one of `sunsetStart`,
-            `goldenHour`, `night` and the rest, plus a `random` offset between 15
-            and 240 minutes so that many schedules do not all fire at once.
+          Sun-relative triggers: `type: "sun"`, `value` one of `sunsetStart`,
+          `goldenHour`, `night` and the rest, plus a `random` offset between 15
+          and 240 minutes so that many schedules do not all fire at once.
 
-            Two traps that are both about `chronos-repeat`, and both are
-            recorded because both have bitten:
+          Two traps that are both about `chronos-repeat`, and both are
+          recorded because both have bitten:
 
-            - ITS JSONATA INTERVAL IS IN MILLISECONDS. Returning `5` is five
-              milliseconds. For seconds, `$number($env("Repeat")) * 1000`.
-            - ITS "env" INTERVAL TYPE DOES NOT READ SUBFLOW ENVIRONMENT
-              VARIABLES. Inside a subflow, switch the interval type to `jsonata`
-              and use `$env("VarName")`.
+          - ITS JSONATA INTERVAL IS IN MILLISECONDS. Returning `5` is five
+            milliseconds. For seconds, `$number($env("Repeat")) * 1000`.
+          - ITS "env" INTERVAL TYPE DOES NOT READ SUBFLOW ENVIRONMENT
+            VARIABLES. Inside a subflow, switch the interval type to `jsonata`
+            and use `$env("VarName")`.
 
-            Scheduler names here are descriptive: `12:00-15:00`,
-            `~Golden Hour till ~11 PM`, `Program A 23:00`, `Pool ON 09:00`.
-            Inject buttons are time-shaped (`06:00 daily`, `Shut-off 23:15`) or
-            state-shaped (`Lockdown`, `Turn on`).|]
+          Scheduler names here are descriptive: `12:00-15:00`,
+          `~Golden Hour till ~11 PM`, `Program A 23:00`, `Pool ON 09:00`.
+          Inject buttons are time-shaped (`06:00 daily`, `Shut-off 23:15`) or
+          state-shaped (`Lockdown`, `Turn on`).|]
       },
     Lens
       { lensName = "calls",
         lensOwns = "every service call's field shape, including the three fields a v7 node is invalid without",
         lensParty = reasoning (model "nodered-calls"),
         lensBrief =
-          wfText
-            [wf|
-            You own the `api-call-service` nodes, and this is the seat where a
-            missing field makes the editor flag a node invalid even though the
-            runtime might still execute it.
+          [wft|
+          You own the `api-call-service` nodes, and this is the seat where a
+          missing field makes the editor flag a node invalid even though the
+          runtime might still execute it.
 
-            The field shapes, and they are not negotiable:
+          The field shapes, and they are not negotiable:
 
-            - `entityId` IS ALWAYS AN ARRAY. One entity: `["switch.x"]`. Several:
-              `["climate.a","climate.b"]`. A script or a scene: `[]`.
-            - `dataType` IS ALWAYS `"jsonata"`. Never `"json"`.
-            - `data` is either `""` for no extra payload, or compact JSONata:
-              `{{"preset_mode": "eco"}`, `{{"temperature": $env("Temperature")}`,
-              or a TTS payload built by concatenation.
+          - `entityId` IS ALWAYS AN ARRAY. One entity: `["switch.x"]`. Several:
+            `["climate.a","climate.b"]`. A script or a scene: `[]`.
+          - `dataType` IS ALWAYS `"jsonata"`. Never `"json"`.
+          - `data` is either `""` for no extra payload, or compact JSONata:
+            `{{"preset_mode": "eco"}`, `{{"temperature": $env("Temperature")}`,
+            or a TTS payload built by concatenation.
 
-            AND, ON v7, THREE MORE OR THE NODE IS INVALID: `action` spelled
-            `"<domain>.<service>"` IN ADDITION to the legacy `domain` and
-            `service` fields, plus `floorId: []`, `labelId: []` and
-            `blockInputOverrides`. Omitting any of them shows as a red triangle in
-            the editor.
+          AND, ON v7, THREE MORE OR THE NODE IS INVALID: `action` spelled
+          `"<domain>.<service>"` IN ADDITION to the legacy `domain` and
+          `service` fields, plus `floorId: []`, `labelId: []` and
+          `blockInputOverrides`. Omitting any of them shows as a red triangle in
+          the editor.
 
-            Action node names here are imperatives or device-verb-param:
-            `Turn off HVAC`, `purifier on`, `upstairs heat_cool 78-82`,
-            `bedroom heat off`, `tv_room set 78 heat`.
+          Action node names here are imperatives or device-verb-param:
+          `Turn off HVAC`, `purifier on`, `upstairs heat_cool 78-82`,
+          `bedroom heat off`, `tv_room set 78 heat`.
 
-            Every entity id you use must appear in the entity list in the dossier
-            you were given. If one you need is not there, say so and name it as
-            unverified -- do not write it into a node as though it were checked.|]
+          Every entity id you use must appear in the entity list in the dossier
+          you were given. If one you need is not there, say so and name it as
+          unverified -- do not write it into a node as though it were checked.|]
       },
     Lens
       { lensName = "state",
         lensOwns = "state-change triggers, their dwell semantics, the v6 schema, and the sensors that are known to be unreliable",
         lensParty = reasoning (model "nodered-state"),
         lensBrief =
-          wfText
-            [wf|
-            You own the state-change triggers and the debounces.
+          [wft|
+          You own the state-change triggers and the debounces.
 
-            `server-state-changed` ON v6 TAKES A NESTED SHAPE:
-            `entities: {{entity: [...], substring: [...], regex: [...]}`. NOT the
-            flat `entityId`/`entityIdType` of older versions. The wrong schema
-            raises a TypeError on startup -- "cannot read properties of undefined
-            (reading 'entity')" -- once per affected node. Always emit the nested
-            form.
+          `server-state-changed` ON v6 TAKES A NESTED SHAPE:
+          `entities: {{entity: [...], substring: [...], regex: [...]}`. NOT the
+          flat `entityId`/`entityIdType` of older versions. The wrong schema
+          raises a TypeError on startup -- "cannot read properties of undefined
+          (reading 'entity')" -- once per affected node. Always emit the nested
+          form.
 
-            `for: N` IS ENFORCED ON THE HOME ASSISTANT SIDE: the entity must STAY
-            in the matching state for that long. A flickery sensor resets the
-            dwell timer continuously and the trigger never fires. Two recorded
-            consequences: `binary_sensor.johns_mac_studio_active` is unreliable
-            for presence -- prefer `sensor.johns_mac_studio_active_camera` or
-            `_audio_output` compared against `Inactive`.
+          `for: N` IS ENFORCED ON THE HOME ASSISTANT SIDE: the entity must STAY
+          in the matching state for that long. A flickery sensor resets the
+          dwell timer continuously and the trigger never fires. Two recorded
+          consequences: `binary_sensor.johns_mac_studio_active` is unreliable
+          for presence -- prefer `sensor.johns_mac_studio_active_camera` or
+          `_audio_output` compared against `Inactive`.
 
-            `join-wait` RESET SEMANTICS ARE TWO DIFFERENT THINGS AND MUST NOT BE
-            CONFLATED: `msg.reset = true` silently DRAINS the queue;
-            `msg.complete` drains it to the EXPIRED output. The canonical use of
-            this node here is the Office tab's `confirmed absent`.
+          `join-wait` RESET SEMANTICS ARE TWO DIFFERENT THINGS AND MUST NOT BE
+          CONFLATED: `msg.reset = true` silently DRAINS the queue;
+          `msg.complete` drains it to the EXPIRED output. The canonical use of
+          this node here is the Office tab's `confirmed absent`.
 
-            Trigger names here carry their duration: `mac inactive 15min`,
-            `TV on 2min`, `Nasim leaves 15min`, `out of office 15min`.
+          Trigger names here carry their duration: `mac inactive 15min`,
+          `TV on 2min`, `Nasim leaves 15min`, `out of office 15min`.
 
-            Every entity id you rely on must appear in the entity list in the
-            dossier. Name any that does not as unverified.|]
+          Every entity id you rely on must appear in the entity list in the
+          dossier. Name any that does not as unverified.|]
       },
     Lens
       { lensName = "naming",
         lensOwns = "the naming conventions, the layout bands, and the subflow status pattern",
         lensParty = broad (model "nodered-naming"),
         lensBrief =
-          wfText
-            [wf|
-            You own what the tab will look like to the person who opens it in six
-            months, which is the owner.
+          [wft|
+          You own what the tab will look like to the person who opens it in six
+          months, which is the owner.
 
-            NAMES. Triggers carry their `for:` duration. Gates are lowercase
-            questions ending in a question mark: `anyone home?`,
-            `office door closed?`, `rain delay?`, `vacuum cleaning?`. Actions are
-            imperatives or device-verb-param. Inject buttons are time-shaped or
-            state-shaped. Schedulers are descriptive.
+          NAMES. Triggers carry their `for:` duration. Gates are lowercase
+          questions ending in a question mark: `anyone home?`,
+          `office door closed?`, `rain delay?`, `vacuum cleaning?`. Actions are
+          imperatives or device-verb-param. Inject buttons are time-shaped or
+          state-shaped. Schedulers are descriptive.
 
-            LAYOUT. Vertical bands, one per logical section, stacked top to bottom
-            with roughly 100 to 220 pixels between them. Each band is anchored by
-            a comment-as-header at x about 150 to 200 and y at the band's first
-            row. Flow runs left to right within a band. The comment uses
-            sentence-headline style with em-dashes or ellipses:
-            `When I leave the computer…`, `Pre-cool upstairs for Institute
-            Nights`, `B-Hyve Program A — Sac County Odd Addr (Tu/Th/Sa)`.
+          LAYOUT. Vertical bands, one per logical section, stacked top to bottom
+          with roughly 100 to 220 pixels between them. Each band is anchored by
+          a comment-as-header at x about 150 to 200 and y at the band's first
+          row. Flow runs left to right within a band. The comment uses
+          sentence-headline style with em-dashes or ellipses:
+          `When I leave the computer…`, `Pre-cool upstairs for Institute
+          Nights`, `B-Hyve Program A — Sac County Odd Addr (Tu/Th/Sa)`.
 
-            SUBFLOW STATUS. A subflow's success branch goes through a small
-            function that emits a status object to the status port:
+          SUBFLOW STATUS. A subflow's success branch goes through a small
+          function that emits a status object to the status port:
 
-              const stamp = new Date().toLocaleString('en-US', {{
-                month: 'short', day: 'numeric',
-                hour: 'numeric', minute: '2-digit', hour12: true
-              });
-              msg.payload = {{ fill: 'green', shape: 'dot',
-                              text: `${{env.get('Action')} called : ${{stamp}` };
-              return msg;
+            const stamp = new Date().toLocaleString('en-US', {{
+              month: 'short', day: 'numeric',
+              hour: 'numeric', minute: '2-digit', hour12: true
+            });
+            msg.payload = {{ fill: 'green', shape: 'dot',
+                            text: `${{env.get('Action')} called : ${{stamp}` };
+            return msg;
 
-            The runtime timezone is local, so there is no offset to hardcode. The
-            production example is the `Act until observed` subflow.
+          The runtime timezone is local, so there is no offset to hardcode. The
+          production example is the `Act until observed` subflow.
 
-            Report the names and the coordinates the change should use, and flag
-            anything in the existing tab whose name no longer matches what it
-            does -- that is the cheapest finding in this whole review and nobody
-            else is looking for it.|]
+          Report the names and the coordinates the change should use, and flag
+          anything in the existing tab whose name no longer matches what it
+          does -- that is the cheapest finding in this whole review and nobody
+          else is looking for it.|]
       },
     Lens
       { lensName = "events",
         lensOwns = "what the event log says actually happened, and what its limits are",
         lensParty = broad (model "nodered-events"),
         lensBrief =
-          wfText
-            [wf|
-            You own the evidence. The event log in your dossier is the output of a
-            query against `msg_events` for the node this run was given, over the
-            last twenty-four hours, `onSend` and `onComplete` for every node.
+          [wft|
+          You own the evidence. The event log in your dossier is the output of a
+          query against `msg_events` for the node this run was given, over the
+          last twenty-four hours, `onSend` and `onComplete` for every node.
 
-            Read it, and answer in this order:
+          Read it, and answer in this order:
 
-            1. Did the node fire at all in the window? If there are no rows, the
-               problem is UPSTREAM of it -- something did not reach it -- and the
-               next thing to look at is whatever feeds it, not the node itself.
-            2. If there are rows, walk them by `msgid`: the first row for a msgid
-               is the trigger and each later `onSend` is a hop. Find the hop where
-               a predicate evaluated the wrong way, and quote the payload at that
-               hop.
-            3. Say what the log CANNOT tell you. Two limits are documented and
-               both matter here: `msg.payload` is truncated at 4096 UTF-8 bytes,
-               with anything larger stored as a truncation marker plus a preview
-               and the original byte count; and the node-red role is INSERT-only,
-               so this run reads the log through the postgres superuser and cannot
-               modify or backfill it.
+          1. Did the node fire at all in the window? If there are no rows, the
+             problem is UPSTREAM of it -- something did not reach it -- and the
+             next thing to look at is whatever feeds it, not the node itself.
+          2. If there are rows, walk them by `msgid`: the first row for a msgid
+             is the trigger and each later `onSend` is a hop. Find the hop where
+             a predicate evaluated the wrong way, and quote the payload at that
+             hop.
+          3. Say what the log CANNOT tell you. Two limits are documented and
+             both matter here: `msg.payload` is truncated at 4096 UTF-8 bytes,
+             with anything larger stored as a truncation marker plus a preview
+             and the original byte count; and the node-red role is INSERT-only,
+             so this run reads the log through the postgres superuser and cannot
+             modify or backfill it.
 
-            Do not propose mocking this database. The house rule is to use the
-            real PostgreSQL, and a mocked event log is a test of the mock.|]
+          Do not propose mocking this database. The house rule is to use the
+          real PostgreSQL, and a mocked event log is a test of the mock.|]
       }
   ]
 
@@ -653,30 +646,29 @@ houseRoster =
 -- above, so \"don't offer them\" is not something a question has to say.
 houseClosing :: Text -> Text
 houseClosing request =
-  wfText
-    [wf|
-    What this session is for:
+  [wft|
+  What this session is for:
 
-    {request}
+  {request}
 
-    Three standing constraints on your answer.
+  Three standing constraints on your answer.
 
-    THE FLOW DOCUMENT IS SENSITIVE. It is authorized output, not public data, and
-    it may contain private configuration. Quote the specific nodes, fields and
-    wires your finding is about; do not reproduce the whole flow, and do not
-    restate configuration your finding does not turn on.
+  THE FLOW DOCUMENT IS SENSITIVE. It is authorized output, not public data, and
+  it may contain private configuration. Quote the specific nodes, fields and
+  wires your finding is about; do not reproduce the whole flow, and do not
+  restate configuration your finding does not turn on.
 
-    DO NOT FABRICATE AN ENTITY ID. The entity list in your dossier is the output
-    of a query against this host's own registry. An id that is not in it is
-    unverified, and saying so is a finding rather than a gap.
+  DO NOT FABRICATE AN ENTITY ID. The entity list in your dossier is the output
+  of a query against this host's own registry. An id that is not in it is
+  unverified, and saying so is a finding rather than a gap.
 
-    PRESERVE WHAT YOU WERE NOT ASKED ABOUT. Node ids, coordinates, wires and
-    unrelated fields stay exactly as they are; only the requested fields on the
-    selected tab change. A reformatted tab is a diff nobody can review.
+  PRESERVE WHAT YOU WERE NOT ASKED ABOUT. Node ids, coordinates, wires and
+  unrelated fields stay exactly as they are; only the requested fields on the
+  selected tab change. A reformatted tab is a diff nobody can review.
 
-    Report on your own area and nothing else. Your answer is one block of a
-    document whose other blocks are your siblings', each fenced under its own
-    name: do not answer theirs, and do not summarise the whole.|]
+  Report on your own area and nothing else. Your answer is one block of a
+  document whose other blocks are your siblings', each fenced under its own
+  name: do not answer theirs, and do not summarise the whole.|]
 
 -- | What the editing turn is told.
 --
@@ -685,138 +677,128 @@ houseClosing request =
 -- \"don't ask the user to re-import a tab for a small edit\".
 editBrief :: Text
 editBrief =
-  wfText
-    [wf|
-    Produce the complete edit envelope to be put back. Your answer is fed
-    straight to `node-red-admin flow put` on standard input, so it must be
-    exactly the envelope and nothing else -- no commentary, no fences, no
-    explanation above it.
+  [wft|
+  Produce the complete edit envelope to be put back. Your answer is fed
+  straight to `node-red-admin flow put` on standard input, so it must be
+  exactly the envelope and nothing else -- no commentary, no fences, no
+  explanation above it.
 
-    The envelope is two keys, in this order:
+  The envelope is two keys, in this order:
 
-      {{"baseDigest":"sha256:<the 64 hex characters you were given, unchanged>",
-       "flow":<the complete selected flow, with your edits>}
+    {{"baseDigest":"sha256:<the 64 hex characters you were given, unchanged>",
+     "flow":<the complete selected flow, with your edits>}
 
-    Five rules, and four of them are about not changing things.
+  Five rules, and four of them are about not changing things.
 
-    1. PRESERVE `baseDigest` EXACTLY. The helper re-reads the flow and refuses a
-       stale digest before sending any update, which is what protects a
-       concurrent editor. A digest you recomputed or omitted is a rejected put at
-       best.
-    2. PRESERVE EVERY NODE ID, EVERY COORDINATE, EVERY WIRE AND EVERY FIELD YOU
-       WERE NOT ASKED TO CHANGE. Update only the requested fields on this tab.
-    3. `flow.id` must equal the flow id this envelope is being put to, `nodes`
-       must be an array, and `configs` -- if present -- must be an array.
-    4. USE THE NODE IDS FROM THE DOSSIER for any node you add. They were
-       generated by this run. Do not invent a hex string: a collision with an
-       existing id is a corruption that will look like a wiring bug.
-    5. Emit compact JSON on a single line, ASCII, exactly as the helper's own
-       output is.
+  1. PRESERVE `baseDigest` EXACTLY. The helper re-reads the flow and refuses a
+     stale digest before sending any update, which is what protects a
+     concurrent editor. A digest you recomputed or omitted is a rejected put at
+     best.
+  2. PRESERVE EVERY NODE ID, EVERY COORDINATE, EVERY WIRE AND EVERY FIELD YOU
+     WERE NOT ASKED TO CHANGE. Update only the requested fields on this tab.
+  3. `flow.id` must equal the flow id this envelope is being put to, `nodes`
+     must be an array, and `configs` -- if present -- must be an array.
+  4. USE THE NODE IDS FROM THE DOSSIER for any node you add. They were
+     generated by this run. Do not invent a hex string: a collision with an
+     existing id is a corruption that will look like a wiring bug.
+  5. Emit compact JSON on a single line, ASCII, exactly as the helper's own
+     output is.
 
-    You have the reviewers' blocks above. Where two of them disagree about a
-    wire's direction, follow the one that quoted the existing wires: the
-    convention is read from the tab and not from the node's name.|]
+  You have the reviewers' blocks above. Where two of them disagree about a
+  wire's direction, follow the one that quoted the existing wires: the
+  convention is read from the tab and not from the node's name.|]
 
 -- | What the staging act is told.
 stageBrief :: Text -> Text
 stageBrief path =
-  wfText
-    [wf|
-    Stage the envelope below at `{path}`, in a directory created with mode 0700,
-    and nowhere else. This is the working copy the validator reads and the put
-    sends; it holds an authorized but sensitive document, which is why the
-    directory is private and why it is removed when this work is finished.
+  [wft|
+  Stage the envelope below at `{path}`, in a directory created with mode 0700,
+  and nowhere else. This is the working copy the validator reads and the put
+  sends; it holds an authorized but sensitive document, which is why the
+  directory is private and why it is removed when this work is finished.
 
-    Write the envelope verbatim. Do not reformat it, do not pretty-print it, and
-    do not add a trailing comment: the bytes you write are the bytes that are
-    validated, and a validator that passed something other than what is put has
-    checked nothing.
+  Write the envelope verbatim. Do not reformat it, do not pretty-print it, and
+  do not add a trailing comment: the bytes you write are the bytes that are
+  validated, and a validator that passed something other than what is put has
+  checked nothing.
 
-    Then reply DONE with the path you wrote.|]
+  Then reply DONE with the path you wrote.|]
 
 -- | What the tabs receipt is introduced as.
 tabsBrief :: Text
 tabsBrief =
-  wfText
-    [wf|
-    The flow tabs on this host, as `node-red-admin flows get` wrote them: one
-    compact JSON line of ids and labels, and metadata only. A receipt -- whatever
-    the command printed is the answer.|]
+  [wft|
+  The flow tabs on this host, as `node-red-admin flows get` wrote them: one
+  compact JSON line of ids and labels, and metadata only. A receipt -- whatever
+  the command printed is the answer.|]
 
 -- | What the envelope receipt is introduced as.
 envelopeBrief :: Text
 envelopeBrief =
-  wfText
-    [wf|
-    The selected tab's edit envelope, as `node-red-admin flow get` wrote it: the
-    base digest and the complete flow, in that key order. A receipt, and the
-    single source of truth about what is wired to what -- where this document and
-    anyone's reading of a node's name disagree, this document is what is
-    deployed.|]
+  [wft|
+  The selected tab's edit envelope, as `node-red-admin flow get` wrote it: the
+  base digest and the complete flow, in that key order. A receipt, and the
+  single source of truth about what is wired to what -- where this document and
+  anyone's reading of a node's name disagree, this document is what is
+  deployed.|]
 
 -- | What the uuid receipt is introduced as.
 uuidBrief :: Text
 uuidBrief =
-  wfText
-    [wf|
-    Sixteen fresh Node-RED node ids, generated by this run. A receipt. Any node
-    added by this session takes an id from here.|]
+  [wft|
+  Sixteen fresh Node-RED node ids, generated by this run. A receipt. Any node
+  added by this session takes an id from here.|]
 
 -- | What the event-log receipt is introduced as.
 eventBrief :: Text
 eventBrief =
-  wfText
-    [wf|
-    The event log for the node this run was given, over the last twenty-four
-    hours. A receipt: these are rows the runtime wrote as messages passed
-    through, and they are the only evidence in this run about what actually
-    happened rather than about what the flow says should happen.|]
+  [wft|
+  The event log for the node this run was given, over the last twenty-four
+  hours. A receipt: these are rows the runtime wrote as messages passed
+  through, and they are the only evidence in this run about what actually
+  happened rather than about what the flow says should happen.|]
 
 -- | What the entity receipt is introduced as.
 entityBrief :: Text
 entityBrief =
-  wfText
-    [wf|
-    Every entity id in this host's Home Assistant registry. A receipt. An entity
-    id that is not in this list does not exist on this host, whatever it looks
-    like.|]
+  [wft|
+  Every entity id in this host's Home Assistant registry. A receipt. An entity
+  id that is not in this list does not exist on this host, whatever it looks
+  like.|]
 
 -- | What the validator is asked.
 validateBrief :: Text
 validateBrief =
-  wfText
-    [wf|
-    The staged envelope, checked for JSON validity, envelope shape and wire
-    integrity before anything is sent. A pass means the document is
-    structurally what a put requires; a failure carries the validator's own first
-    failing line; and a missing script is neither -- it did not fail, it did not
-    run, and a helper failure is a blocker to report rather than permission to
-    fall back to a lower-level interface.|]
+  [wft|
+  The staged envelope, checked for JSON validity, envelope shape and wire
+  integrity before anything is sent. A pass means the document is
+  structurally what a put requires; a failure carries the validator's own first
+  failing line; and a missing script is neither -- it did not fail, it did not
+  run, and a helper failure is a blocker to report rather than permission to
+  fall back to a lower-level interface.|]
 
 -- | What the put is told.
 putBrief :: Text
 putBrief =
-  wfText
-    [wf|
-    Put this envelope back to the selected tab. Success is exactly
-    `{{"ok":true,"id":"<the flow id>"}` on one line.
+  [wft|
+  Put this envelope back to the selected tab. Success is exactly
+  `{{"ok":true,"id":"<the flow id>"}` on one line.
 
-    The envelope goes on standard input, unchanged. If the helper refuses -- a
-    stale digest, an id mismatch, a shape it will not accept -- that refusal is
-    the answer, and it is reported rather than worked around: there is no other
-    interface to reach for.
+  The envelope goes on standard input, unchanged. If the helper refuses -- a
+  stale digest, an id mismatch, a shape it will not accept -- that refusal is
+  the answer, and it is reported rather than worked around: there is no other
+  interface to reach for.
 
-    Then reply DONE.|]
+  Then reply DONE.|]
 
 -- | What the verifying refetch is introduced as.
 verifyBrief :: Text
 verifyBrief =
-  wfText
-    [wf|
-    The selected tab, refetched after the put. A receipt, and the last step of
-    this host's canonical procedure -- fetch, edit, put, refetch -- so that what
-    is deployed is confirmed from the runtime rather than from an
-    acknowledgement.|]
+  [wft|
+  The selected tab, refetched after the put. A receipt, and the last step of
+  this host's canonical procedure -- fetch, edit, put, refetch -- so that what
+  is deployed is confirmed from the runtime rather than from an
+  acknowledgement.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines
@@ -877,34 +859,33 @@ noValidatorNote =
 -- | What the report is written through.
 noderedReportBrief :: Text
 noderedReportBrief =
-  wfText
-    [wf|
-    Write the report for a Node-RED session on this host. It is read by the owner,
-    who will look at the tab in the editor next.
+  [wft|
+  Write the report for a Node-RED session on this host. It is read by the owner,
+  who will look at the tab in the editor next.
 
-    Open with the provenance line you were given, verbatim, on its own line. It is
-    the run's own account of what was deployed and what was not, and it is not
-    yours to soften -- in particular, if it says nothing was put, do not describe
-    the change as made.
+  Open with the provenance line you were given, verbatim, on its own line. It is
+  the run's own account of what was deployed and what was not, and it is not
+  yours to soften -- in particular, if it says nothing was put, do not describe
+  the change as made.
 
-    Then, from the work below and nothing else:
+  Then, from the work below and nothing else:
 
-    - what changed, field by field, on which node, with the node's name and id;
-    - what the reviewers found -- the wiring direction they read from the
-      existing wires especially, because that is the fact this host's flows go
-      wrong on most often;
-    - what the event log said, and what follows from it;
-    - any entity id used or proposed that is NOT in the registry receipt, named as
-      unverified;
-    - what to look at in the editor to confirm the change, by tab and band.
+  - what changed, field by field, on which node, with the node's name and id;
+  - what the reviewers found -- the wiring direction they read from the
+    existing wires especially, because that is the fact this host's flows go
+    wrong on most often;
+  - what the event log said, and what follows from it;
+  - any entity id used or proposed that is NOT in the registry receipt, named as
+    unverified;
+  - what to look at in the editor to confirm the change, by tab and band.
 
-    Two things you must not write. Do not reproduce the flow document: it is
-    authorized but sensitive output, it may contain private configuration, and the
-    fields your report turns on are enough. And do not report a result for a
-    command that is not in the work below -- if it did not run, nothing follows
-    from it.
+  Two things you must not write. Do not reproduce the flow document: it is
+  authorized but sensitive output, it may contain private configuration, and the
+  fields your report turns on are enough. And do not report a result for a
+  command that is not in the work below -- if it did not run, nothing follows
+  from it.
 
-    Then reply DONE.|]
+  Then reply DONE.|]
 
 -- | One act, four provenance lines.
 --

@@ -47,11 +47,10 @@ module Workflows.Rubrics.Fess
   )
 where
 
-import Agentic.Workflow (model, wf)
+import Agentic.Workflow (model, wft)
 import Data.Text (Text)
 import Workflows.Panels (Lens (..), Roster)
 import Workflows.Parties (broad, lateral, reasoning)
-import Workflows.Prose (wfText)
 
 -- ---------------------------------------------------------------------------
 -- The standing text
@@ -63,18 +62,17 @@ import Workflows.Prose (wfText)
 -- singular, which now addresses one stance rather than an eleven-category turn.
 fessStance :: Text
 fessStance =
-  wfText
-    [wf|
-    Assume the work below was described dishonestly. Your job is to find what
-    was hidden, glossed over, or quietly downgraded. Be specific. Cite
-    file:line. No hedging, no "may have," no "possibly."
+  [wft|
+  Assume the work below was described dishonestly. Your job is to find what
+  was hidden, glossed over, or quietly downgraded. Be specific. Cite
+  file:line. No hedging, no "may have," no "possibly."
 
-    The signals named in your category are illustrative examples drawn from
-    common languages and tools. They are not a checklist of literal strings to
-    grep for -- this codebase may use entirely different syntax, tooling or
-    idioms. Translate the underlying pattern to whatever this codebase actually
-    uses. The principle is what matters; the examples show what it looks like in
-    the wild.|]
+  The signals named in your category are illustrative examples drawn from
+  common languages and tools. They are not a checklist of literal strings to
+  grep for -- this codebase may use entirely different syntax, tooling or
+  idioms. Translate the underlying pattern to whatever this codebase actually
+  uses. The principle is what matters; the examples show what it looks like in
+  the wild.|]
 
 -- | The rule that keeps a stance from resolving doubt in either direction.
 --
@@ -83,14 +81,13 @@ fessStance =
 -- likely to skip on the last category.
 uncertaintyRule :: Text
 uncertaintyRule =
-  wfText
-    [wf|
-    If you are uncertain whether something counts as a hit, say so explicitly
-    and describe what you would need to check to find out. Do not resolve
-    uncertainty by claiming "none" and do not resolve it by manufacturing a sin.
-    Convert it into a verification action.
+  [wft|
+  If you are uncertain whether something counts as a hit, say so explicitly
+  and describe what you would need to check to find out. Do not resolve
+  uncertainty by claiming "none" and do not resolve it by manufacturing a sin.
+  Convert it into a verification action.
 
-    Report each hit explicitly. Say "none" only if you actually checked.|]
+  Report each hit explicitly. Say "none" only if you actually checked.|]
 
 -- | @## Operating Rules@, with rule 1 tightened: the source reads \"do not
 -- modify files __unless the caller explicitly asks you to fix issues__\", and
@@ -104,14 +101,13 @@ uncertaintyRule =
 -- it is not editing writes a different report.
 operatingRules :: Text
 operatingRules =
-  wfText
-    [wf|
-    1. Do not modify files. Report only.
-    2. Do not soften findings. Prefer concrete evidence over reassurance.
-    3. Cite exact file and line references for every finding grounded in the
-       workspace.
-    4. If a claim cannot be verified from the available context, report it as a
-       verification gap rather than guessing.|]
+  [wft|
+  1. Do not modify files. Report only.
+  2. Do not soften findings. Prefer concrete evidence over reassurance.
+  3. Cite exact file and line references for every finding grounded in the
+     workspace.
+  4. If a claim cannot be verified from the available context, report it as a
+     verification gap rather than guessing.|]
 
 -- ---------------------------------------------------------------------------
 -- The eleven
@@ -135,215 +131,204 @@ sins :: [(Text, Text, Text)]
 sins =
   [ ( "stubs",
       "functions that exist but do not do the work",
-      wfText
-        [wf|
-        Stubs and fakes. Functions that exist but do not do the work. Examples
-        of the pattern: TODO/FIXME/XXX markers, no-op function bodies, "not
-        implemented" exceptions, empty catch blocks, hardcoded happy-path return
-        values, mocks left in place where real code should run.
+      [wft|
+      Stubs and fakes. Functions that exist but do not do the work. Examples
+      of the pattern: TODO/FIXME/XXX markers, no-op function bodies, "not
+      implemented" exceptions, empty catch blocks, hardcoded happy-path return
+      values, mocks left in place where real code should run.
 
-        List every one you find, with file:line.|]
+      List every one you find, with file:line.|]
     ),
     ( "vacuous-tests",
       "tests that pass without exercising the behaviour they claim",
-      wfText
-        [wf|
-        Vacuous tests. A test that passes without actually exercising the
-        behaviour it claims to test. The harm: the green checkmark is a lie, and
-        now there is a test "covering" the area so nobody writes a real one.
+      [wft|
+      Vacuous tests. A test that passes without actually exercising the
+      behaviour it claims to test. The harm: the green checkmark is a lie, and
+      now there is a test "covering" the area so nobody writes a real one.
 
-        Examples of the pattern: tautological asserts; asserting a mock was
-        called without asserting on arguments or downstream effects; tests with
-        no assertions (smoke tests are fine if labeled; the problem is when
-        they masquerade as behavioural tests); setup and assertion being the
-        same value round-tripped;
-        tests that catch the exception they should be asserting on; parametrized
-        tests where every case collapses to the same trivial check; asserting on
-        shape or type when the contract is about contents.
+      Examples of the pattern: tautological asserts; asserting a mock was
+      called without asserting on arguments or downstream effects; tests with
+      no assertions (smoke tests are fine if labeled; the problem is when
+      they masquerade as behavioural tests); setup and assertion being the
+      same value round-tripped;
+      tests that catch the exception they should be asserting on; parametrized
+      tests where every case collapses to the same trivial check; asserting on
+      shape or type when the contract is about contents.
 
-        The killer test: would this test still pass if the function under test
-        were replaced with a stub returning a mock of the right shape? If yes,
-        it is vacuous.
+      The killer test: would this test still pass if the function under test
+      were replaced with a stub returning a mock of the right shape? If yes,
+      it is vacuous.
 
-        For every test written or modified: state what behaviour it actually
-        verifies, in one sentence. If you cannot, it is vacuous.|]
+      For every test written or modified: state what behaviour it actually
+      verifies, in one sentence. If you cannot, it is vacuous.|]
     ),
     ( "mock-drift",
       "tests that pass against a fiction rather than the real dependency",
-      wfText
-        [wf|
-        Mock and fixture drift. The test passes because the mocks return what
-        the test expects, not what the real dependency returns. It is not
-        tautological -- it is testing against a fiction. This is its own failure
-        mode because such a test can look thorough and specific while being
-        entirely disconnected from reality.
+      [wft|
+      Mock and fixture drift. The test passes because the mocks return what
+      the test expects, not what the real dependency returns. It is not
+      tautological -- it is testing against a fiction. This is its own failure
+      mode because such a test can look thorough and specific while being
+      entirely disconnected from reality.
 
-        Examples of the pattern: mocks authored to match the implementation
-        rather than the real external contract; fixtures that were correct once
-        and now reflect an old version of the dependency; an interface that
-        changed while the mocks still reflect the old contract; mock return
-        values invented to make the test pass and never verified against the
-        real system.
+      Examples of the pattern: mocks authored to match the implementation
+      rather than the real external contract; fixtures that were correct once
+      and now reflect an old version of the dependency; an interface that
+      changed while the mocks still reflect the old contract; mock return
+      values invented to make the test pass and never verified against the
+      real system.
 
-        For every mock or fixture written or modified: was it verified against
-        real behaviour, or written to match what the code currently does?|]
+      For every mock or fixture written or modified: was it verified against
+      real behaviour, or written to match what the code currently does?|]
     ),
     ( "silent-failure",
       "errors caught and continued past where the program should crash",
-      wfText
-        [wf|
-        Silent failure and error swallowing. The application catches an error
-        and keeps going where it should crash. This produces a worse outcome
-        than crashing: the program continues in an undefined state, corrupts
-        data, or returns wrong answers while looking healthy.
+      [wft|
+      Silent failure and error swallowing. The application catches an error
+      and keeps going where it should crash. This produces a worse outcome
+      than crashing: the program continues in an undefined state, corrupts
+      data, or returns wrong answers while looking healthy.
 
-        The rule: errors from broken invariants, missing dependencies, failed
-        I/O on required resources and unexpected states should propagate and
-        crash loudly. Logging-and-continuing is not error handling.
+      The rule: errors from broken invariants, missing dependencies, failed
+      I/O on required resources and unexpected states should propagate and
+      crash loudly. Logging-and-continuing is not error handling.
 
-        Examples of the pattern: broad catch-all clauses with log-and-continue;
-        default-value operators covering an operation that can legitimately
-        fail; try/catch wrapping code where no specific recoverable error was
-        anticipated; returning null or empty from a function whose caller does
-        not handle the empty case meaningfully; defaults substituted for missing
-        required config; async errors converted to resolved values; shell or CI
-        directives that continue past failure.
+      Examples of the pattern: broad catch-all clauses with log-and-continue;
+      default-value operators covering an operation that can legitimately
+      fail; try/catch wrapping code where no specific recoverable error was
+      anticipated; returning null or empty from a function whose caller does
+      not handle the empty case meaningfully; defaults substituted for missing
+      required config; async errors converted to resolved values; shell or CI
+      directives that continue past failure.
 
-        For each catch or swallow introduced: name the specific error condition
-        being handled and the specific recovery being done. "In case something
-        goes wrong" is not an answer. If the recovery is "log and proceed as if
-        nothing happened," it should almost certainly be a crash instead.|]
+      For each catch or swallow introduced: name the specific error condition
+      being handled and the specific recovery being done. "In case something
+      goes wrong" is not an answer. If the recovery is "log and proceed as if
+      nothing happened," it should almost certainly be a crash instead.|]
     ),
     ( "suppressions",
       "tools silenced instead of the cause being fixed",
-      wfText
-        [wf|
-        Suppressions. The compiler, type-checker, linter or test runner said
-        something was wrong, and the messenger was silenced instead of the cause
-        fixed. This is dishonest in a particular way: the tool did its job, it
-        was overridden, and the next reader has no idea the warning ever
-        existed. The rule: suppressions are not a way to make problems go away.
-        They are a last resort, used only when the tool is genuinely wrong, and
-        they require a comment explaining why the tool is wrong in this
-        specific spot.
+      [wft|
+      Suppressions. The compiler, type-checker, linter or test runner said
+      something was wrong, and the messenger was silenced instead of the cause
+      fixed. This is dishonest in a particular way: the tool did its job, it
+      was overridden, and the next reader has no idea the warning ever
+      existed. The rule: suppressions are not a way to make problems go away.
+      They are a last resort, used only when the tool is genuinely wrong, and
+      they require a comment explaining why the tool is wrong in this
+      specific spot.
 
-        Not acceptable reasons to suppress: it was easier than fixing it; the
-        fix would be invasive; I do not understand why the tool is complaining;
-        the code works at runtime so the warning must be wrong; suppressing it
-        makes the build green. The worst version is lowering the project's
-        lint, type or warning strictness globally to avoid fixing a local issue,
-        because it hides future problems too.
+      Not acceptable reasons to suppress: it was easier than fixing it; the
+      fix would be invasive; I do not understand why the tool is complaining;
+      the code works at runtime so the warning must be wrong; suppressing it
+      makes the build green. The worst version is lowering the project's
+      lint, type or warning strictness globally to avoid fixing a local issue,
+      because it hides future problems too.
 
-        Examples of the pattern: inline directives that disable type checking,
-        lint rules or warnings on a line, block or file; pragma comments that
-        exclude code from analysis; configuration changes that downgrade error
-        severity, exclude paths from checks or relax strictness; broadening
-        exception types to quiet a checker; casting to any or unknown to dodge
-        a type error; deleting or weakening assertions that were failing.
+      Examples of the pattern: inline directives that disable type checking,
+      lint rules or warnings on a line, block or file; pragma comments that
+      exclude code from analysis; configuration changes that downgrade error
+      severity, exclude paths from checks or relax strictness; broadening
+      exception types to quiet a checker; casting to any or unknown to dodge
+      a type error; deleting or weakening assertions that were failing.
 
-        For every suppression in the diff: quote the exact warning the tool
-        produced, explain why the tool is wrong, and explain why fixing the
-        underlying issue properly was not the right call. If all three cannot be
-        done, the suppression should be removed. Flag any change that made a
-        tool's configuration more permissive.|]
+      For every suppression in the diff: quote the exact warning the tool
+      produced, explain why the tool is wrong, and explain why fixing the
+      underlying issue properly was not the right call. If all three cannot be
+      done, the suppression should be removed. Flag any change that made a
+      tool's configuration more permissive.|]
     ),
     ( "fallback-smuggling",
       "a missing dependency papered over with a bespoke alternative",
-      wfText
-        [wf|
-        Fallback smuggling. A dependency went missing -- a binary not on PATH,
-        generated code absent, an import that failed, a file not where expected
-        -- and it was handled by adding a conditional plus a bespoke alternative
-        instead of making the real dependency present.
+      [wft|
+      Fallback smuggling. A dependency went missing -- a binary not on PATH,
+      generated code absent, an import that failed, a file not where expected
+      -- and it was handled by adding a conditional plus a bespoke alternative
+      instead of making the real dependency present.
 
-        This is high severity because it produces a false green: the work looks
-        done, but only the fallback path has ever executed, and the fallback is
-        usually subtly wrong because nothing else depends on it being correct.
-        The rule: if a dependency is missing, crash loudly. Do not duplicate
-        logic. Do not silently degrade.
+      This is high severity because it produces a false green: the work looks
+      done, but only the fallback path has ever executed, and the fallback is
+      usually subtly wrong because nothing else depends on it being correct.
+      The rule: if a dependency is missing, crash loudly. Do not duplicate
+      logic. Do not silently degrade.
 
-        Examples of the pattern: feature-detection followed by an alternative
-        code path that reimplements the missing thing; try-import-except-
-        reimplement where the except branch is a hand-rolled substitute rather
-        than a thin shim; file existence checks falling through to a handwritten
-        equivalent; two functions that do the same thing, one canonical and one
-        a workaround; new helpers duplicating what a tool or codegen already
-        provides.
+      Examples of the pattern: feature-detection followed by an alternative
+      code path that reimplements the missing thing; try-import-except-
+      reimplement where the except branch is a hand-rolled substitute rather
+      than a thin shim; file existence checks falling through to a handwritten
+      equivalent; two functions that do the same thing, one canonical and one
+      a workaround; new helpers duplicating what a tool or codegen already
+      provides.
 
-        Report every availability-conditional introduced and what its fallback
-        does; whether the primary path was actually exercised or only the
-        fallback; and whether the right fix was upstream.|]
+      Report every availability-conditional introduced and what its fallback
+      does; whether the primary path was actually exercised or only the
+      fallback; and whether the right fix was upstream.|]
     ),
     ( "spec-drift",
       "items of the request done, partial, skipped or silently reinterpreted",
-      wfText
-        [wf|
-        Spec drift. Walk the original request or plan point by point. For each
-        item: done, partial, skipped, or silently reinterpreted? Anything
-        decided to be "out of scope" without being told it was?
+      [wft|
+      Spec drift. Walk the original request or plan point by point. For each
+      item: done, partial, skipped, or silently reinterpreted? Anything
+      decided to be "out of scope" without being told it was?
 
-        Produce one line per item of the original request. An item you cannot
-        find in the work is a skipped item, not an absent one.|]
+      Produce one line per item of the original request. An item you cannot
+      find in the work is a skipped item, not an absent one.|]
     ),
     ( "scope-creep",
       "changes made that were not asked for",
-      wfText
-        [wf|
-        Scope creep -- the inverse of spec drift. Things done that were not
-        asked for: refactored adjacent code, "improved" formatting across files,
-        renamed variables in untouched modules, upgraded dependencies,
-        reformatted imports project-wide, restructured code that was working.
-        These bloat the diff, hide the actual change in noise, and often
-        introduce regressions in code that was not supposed to be touched.
+      [wft|
+      Scope creep -- the inverse of spec drift. Things done that were not
+      asked for: refactored adjacent code, "improved" formatting across files,
+      renamed variables in untouched modules, upgraded dependencies,
+      reformatted imports project-wide, restructured code that was working.
+      These bloat the diff, hide the actual change in noise, and often
+      introduce regressions in code that was not supposed to be touched.
 
-        List every file modified that was not strictly required by the task. For
-        each, justify why the change was necessary or name it as scope creep.
-        "While I was in there" is not a justification.|]
+      List every file modified that was not strictly required by the task. For
+      each, justify why the change was necessary or name it as scope creep.
+      "While I was in there" is not a justification.|]
     ),
     ( "doc-drift",
       "prose that describes the old behaviour",
-      wfText
-        [wf|
-        Documentation drift. Comments, docstrings, README sections, type hints
-        or inline annotations that describe old behaviour rather than new.
-        Especially insidious because the code is correct but lies about itself,
-        and the next reader -- human or agent -- trusts the lie.
+      [wft|
+      Documentation drift. Comments, docstrings, README sections, type hints
+      or inline annotations that describe old behaviour rather than new.
+      Especially insidious because the code is correct but lies about itself,
+      and the next reader -- human or agent -- trusts the lie.
 
-        For every function, module or config modified: do its docstring,
-        comments, types and any referencing documentation still describe what it
-        actually does? Flag every place where the prose and the code disagree.|]
+      For every function, module or config modified: do its docstring,
+      comments, types and any referencing documentation still describe what it
+      actually does? Flag every place where the prose and the code disagree.|]
     ),
     ( "verification-gap",
       "claims about behaviour that nothing run proves -- most important",
-      wfText
-        [wf|
-        Verification gap -- the most important category.
+      [wft|
+      Verification gap -- the most important category.
 
-        List every claim made about behaviour ("this works," "tests pass,"
-        "handles X"). For each: was something actually run that proves it, or is
-        it inferred from the diff? Quote the command and the relevant output. If
-        it was not run, say so plainly.
+      List every claim made about behaviour ("this works," "tests pass,"
+      "handles X"). For each: was something actually run that proves it, or is
+      it inferred from the diff? Quote the command and the relevant output. If
+      it was not run, say so plainly.
 
-        Receipts, where this audit was given any, are bytes produced by running
-        the command named in them. A claim that a receipt contradicts is not a
-        gap; it is a false statement, and you should say which.|]
+      Receipts, where this audit was given any, are bytes produced by running
+      the command named in them. A claim that a receipt contradicts is not a
+      gap; it is a false statement, and you should say which.|]
     ),
     ( "loose-ends",
       "debris left in the tree: debug output, dead code, unjustified additions",
-      wfText
-        [wf|
-        Loose ends. Debug prints; hardcoded paths, credentials or values; dead
-        code from incomplete refactors; unused imports; files that should have
-        been deleted; dependencies added but unjustified; breaking changes
-        undocumented; commented-out code with a vague intent to restore;
-        unreachable branches; configuration knobs added for hypothetical future
-        needs.
+      [wft|
+      Loose ends. Debug prints; hardcoded paths, credentials or values; dead
+      code from incomplete refactors; unused imports; files that should have
+      been deleted; dependencies added but unjustified; breaking changes
+      undocumented; commented-out code with a vague intent to restore;
+      unreachable branches; configuration knobs added for hypothetical future
+      needs.
 
-        Delete or commit -- do not leave purgatory.
+      Delete or commit -- do not leave purgatory.
 
-        List every one you find, with file:line, and say for each which it is:
-        something to delete, or something to finish. An item you would describe
-        as "harmless" is still an item; say so and name it.|]
+      List every one you find, with file:line, and say for each which it is:
+      something to delete, or something to finish. An item you would describe
+      as "harmless" is still an item; say so and name it.|]
     )
   ]
 
@@ -379,21 +364,20 @@ fessRoster =
 -- next action, and not for the raw output the eleven stances produced.
 fessReportBrief :: Text
 fessReportBrief =
-  wfText
-    [wf|
-    Write the audit report. Five sections, in this order:
+  [wft|
+  Write the audit report. Five sections, in this order:
 
-    1. Summary -- one paragraph stating whether the work appears clean or what
-       the main concern is.
-    2. Findings -- severity-ranked, with file:line citations. Say `none` only
-       for categories that were actually checked.
-    3. Verification Gaps -- claims or behaviours not proven from available
-       evidence.
-    4. Scope Drift -- files or changes that appear unrelated to the requested
-       work.
-    5. Next Fix -- the first thing to address if another turn is available.
+  1. Summary -- one paragraph stating whether the work appears clean or what
+     the main concern is.
+  2. Findings -- severity-ranked, with file:line citations. Say `none` only
+     for categories that were actually checked.
+  3. Verification Gaps -- claims or behaviours not proven from available
+     evidence.
+  4. Scope Drift -- files or changes that appear unrelated to the requested
+     work.
+  5. Next Fix -- the first thing to address if another turn is available.
 
-    Keep raw command output out of the report unless a short excerpt is needed
-    as evidence. End with a severity-ranked list of what a reviewer would catch
-    that the audit has not yet resolved. If the work is clean, keep the report
-    short rather than manufacturing faults.|]
+  Keep raw command output out of the report unless a short excerpt is needed
+  as evidence. End with a severity-ranked list of what a reviewer would catch
+  that the audit has not yet resolved. If the work is clean, keep the report
+  short rather than manufacturing faults.|]

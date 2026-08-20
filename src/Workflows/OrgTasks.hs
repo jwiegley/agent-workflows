@@ -165,42 +165,41 @@ orgDoc Infer =
 -- decomposition can be checked against it.
 analysisBrief :: Text
 analysisBrief =
-  wfText
-    [wf|
-    Analyse one Org-mode task before anybody decomposes it. Answer with the
-    analysis and nothing else -- no subtasks, no Org-mode.
+  [wft|
+  Analyse one Org-mode task before anybody decomposes it. Answer with the
+  analysis and nothing else -- no subtasks, no Org-mode.
 
-    Work through five dimensions, in this order:
+  Work through five dimensions, in this order:
 
-    1. Understanding. What is the explicit goal? What is implicitly required and
-       not stated? What does "done" look like? What domain knowledge does the
-       title, the tags, the URL, the properties, the body or the context carry?
-    2. Scope and complexity. Is this learning, setup, feature development,
-       research or maintenance? What are its natural phases? What does it depend
-       on -- technically, in knowledge, in resources? What are the common
-       pitfalls in this domain?
-    3. Hidden requirements. What prerequisite knowledge, infrastructure, tools or
-       access are needed? What testing or validation? What documentation? What
-       integration points? What has to be maintained afterwards?
-    4. Ordering. What must happen sequentially and what can be parallel? What are
-       the logical dependencies? Are there waiting periods or external blockers?
-    5. Completeness. If every subtask you can foresee were done, would the parent
-       be fully done? Are research, setup, implementation, testing,
-       documentation and integration all covered? What edge cases are there?
+  1. Understanding. What is the explicit goal? What is implicitly required and
+     not stated? What does "done" look like? What domain knowledge does the
+     title, the tags, the URL, the properties, the body or the context carry?
+  2. Scope and complexity. Is this learning, setup, feature development,
+     research or maintenance? What are its natural phases? What does it depend
+     on -- technically, in knowledge, in resources? What are the common
+     pitfalls in this domain?
+  3. Hidden requirements. What prerequisite knowledge, infrastructure, tools or
+     access are needed? What testing or validation? What documentation? What
+     integration points? What has to be maintained afterwards?
+  4. Ordering. What must happen sequentially and what can be parallel? What are
+     the logical dependencies? Are there waiting periods or external blockers?
+  5. Completeness. If every subtask you can foresee were done, would the parent
+     be fully done? Are research, setup, implementation, testing,
+     documentation and integration all covered? What edge cases are there?
 
-    Then, on the LAST line, one of these and nothing after it:
+  Then, on the LAST line, one of these and nothing after it:
 
-    - `[ATOMIC]` -- the task cannot meaningfully be broken down.
-    - `[AMBIGUOUS: <what clarification is needed>]` -- it cannot confidently be
-      decomposed without an answer from somebody.
-    - `[NO-EXPERTISE]` -- it needs domain expertise you do not have, so any
-      decomposition would be the standard project phases plus research steps to
-      fill the gap.
-    - `[PROCEED]` -- none of the above.
+  - `[ATOMIC]` -- the task cannot meaningfully be broken down.
+  - `[AMBIGUOUS: <what clarification is needed>]` -- it cannot confidently be
+    decomposed without an answer from somebody.
+  - `[NO-EXPERTISE]` -- it needs domain expertise you do not have, so any
+    decomposition would be the standard project phases plus research steps to
+    fill the gap.
+  - `[PROCEED]` -- none of the above.
 
-    Choose exactly one. `[AMBIGUOUS]` and `[NO-EXPERTISE]` are not the same
-    thing: the first needs an answer from a person, the second needs research
-    that is itself work.|]
+  Choose exactly one. `[AMBIGUOUS]` and `[NO-EXPERTISE]` are not the same
+  thing: the first needs an answer from a person, the second needs research
+  that is itself work.|]
 
 -- | @commands\/breakdown.md@'s decomposition principles, subtask categories,
 -- output rules and Org-mode formatting rules.
@@ -215,45 +214,44 @@ analysisBrief =
 -- illustration of the rules above it.
 decomposeBrief :: Text
 decomposeBrief =
-  wfText
-    [wf|
-    Decompose the Org-mode task below into subtasks, using the analysis you are
-    given. Output ONLY the subtasks in valid Org-mode: no analysis, no synopsis,
-    no preamble, no closing text, no code fences. Start at the first subtask and
-    end at the last.
+  [wft|
+  Decompose the Org-mode task below into subtasks, using the analysis you are
+  given. Output ONLY the subtasks in valid Org-mode: no analysis, no synopsis,
+  no preamble, no closing text, no code fences. Start at the first subtask and
+  end at the last.
 
-    Each subtask is:
+  Each subtask is:
 
-    1. Actionable -- a clear action verb and a specific outcome.
-    2. Appropriately sized -- roughly one to four hours of focused work: not so
-       broad as to be ambiguous, not so narrow as to be trivial.
-    3. Specific -- concrete and unambiguous.
-    4. Complete -- together they cover 100% of the parent task.
-    5. Non-overlapping -- each owns a distinct slice of the work.
-    6. Ordered -- arranged in logical execution sequence.
-    7. Measurable -- with clear criteria for being done.
-    8. Independent where possible -- no unnecessary sequential dependency.
+  1. Actionable -- a clear action verb and a specific outcome.
+  2. Appropriately sized -- roughly one to four hours of focused work: not so
+     broad as to be ambiguous, not so narrow as to be trivial.
+  3. Specific -- concrete and unambiguous.
+  4. Complete -- together they cover 100% of the parent task.
+  5. Non-overlapping -- each owns a distinct slice of the work.
+  6. Ordered -- arranged in logical execution sequence.
+  7. Measurable -- with clear criteria for being done.
+  8. Independent where possible -- no unnecessary sequential dependency.
 
-    Aim for three to ten for a typical task; fewer if it is small, more if it
-    spans distinct phases. Cover, where they are relevant: research and
-    learning, prerequisites, core implementation, configuration, integration,
-    testing and validation, documentation, optimisation, and maintenance
-    planning.
+  Aim for three to ten for a typical task; fewer if it is small, more if it
+  spans distinct phases. Cover, where they are relevant: research and
+  learning, prerequisites, core implementation, configuration, integration,
+  testing and validation, documentation, optimisation, and maintenance
+  planning.
 
-    Formatting, and these are hard rules:
+  Formatting, and these are hard rules:
 
-    - Heading depth is exactly one level deeper than the parent: a parent at
-      `* TODO` gets subtasks at `** TODO`, a parent at `*** TODO` gets `**** TODO`.
-    - Every subtask starts in the TODO state.
-    - A title is at most 67 characters. Shorten by removing filler, never by
-      truncating meaning.
-    - Remove articles -- "the", "a", "an" -- and write words in full: "with" not
-      "w/", "and" not "&".
-    - Every title begins with a clear action verb: Set up, Configure, Research,
-      Implement, Write, Review, Test, Deploy.
-    - No blank lines between sibling subtasks.
+  - Heading depth is exactly one level deeper than the parent: a parent at
+    `* TODO` gets subtasks at `** TODO`, a parent at `*** TODO` gets `**** TODO`.
+  - Every subtask starts in the TODO state.
+  - A title is at most 67 characters. Shorten by removing filler, never by
+    truncating meaning.
+  - Remove articles -- "the", "a", "an" -- and write words in full: "with" not
+    "w/", "and" not "&".
+  - Every title begins with a clear action verb: Set up, Configure, Research,
+    Implement, Write, Review, Test, Deploy.
+  - No blank lines between sibling subtasks.
 
-    Do not copy or repeat the input task.|]
+  Do not copy or repeat the input task.|]
 
 -- | The guidance the @[NO-EXPERTISE]@ arm adds.
 --
@@ -262,19 +260,18 @@ decomposeBrief =
 -- including research subtasks to fill in domain-specific details\".
 noExpertiseGuidance :: Text
 noExpertiseGuidance =
-  wfText
-    [wf|
-    The analysis reported that this task needs domain expertise it does not
-    have. So this decomposition is the standard project phases, and its FIRST
-    subtasks are research: find out what the domain actually requires before the
-    later steps assume it.
+  [wft|
+  The analysis reported that this task needs domain expertise it does not
+  have. So this decomposition is the standard project phases, and its FIRST
+  subtasks are research: find out what the domain actually requires before the
+  later steps assume it.
 
-    Open your answer with the line
+  Open your answer with the line
 
-      [NO-EXPERTISE]
+    [NO-EXPERTISE]
 
-    and then give the subtasks. A decomposition made without the domain in hand
-    is worth having and is not worth mistaking for one made with it.|]
+  and then give the subtasks. A decomposition made without the domain in hand
+  is worth having and is not worth mistaking for one made with it.|]
 
 -- | @agents\/task-breakdown.md@'s completeness check, asked of a second party.
 --
@@ -282,19 +279,18 @@ noExpertiseGuidance =
 -- item 4, which are the same demand stated twice in one file.
 completenessBrief :: Text
 completenessBrief =
-  wfText
-    [wf|
-    You are checking a decomposition you did not write.
+  [wft|
+  You are checking a decomposition you did not write.
 
-    One question: if every subtask below were completed, would the parent task be
-    fully done? Answer no if anything the parent needs is missing -- a phase, a
-    prerequisite, a verification, the documentation, an integration point, an
-    edge case the parent's own wording implies. Answer no if two subtasks overlap
-    so badly that one of them is not really a slice of the work. Answer yes only
-    if the set is genuinely exhaustive.
+  One question: if every subtask below were completed, would the parent task be
+  fully done? Answer no if anything the parent needs is missing -- a phase, a
+  prerequisite, a verification, the documentation, an integration point, an
+  edge case the parent's own wording implies. Answer no if two subtasks overlap
+  so badly that one of them is not really a slice of the work. Answer yes only
+  if the set is genuinely exhaustive.
 
-    Do not judge the wording, the ordering or the Org-mode formatting: another
-    rule owns each of those. Answer with nothing but yes or no.|]
+  Do not judge the wording, the ordering or the Org-mode formatting: another
+  rule owns each of those. Answer with nothing but yes or no.|]
 
 -- | @commands\/infer-tasks.md@, whole.
 --
@@ -310,73 +306,72 @@ completenessBrief =
 -- size a program input.
 inferBrief :: Text
 inferBrief =
-  wfText
-    [wf|
-    You are a task extraction specialist for Org-mode. Read the unstructured
-    text below and emit a flat list of Org-mode headlines for the actionable
-    commitments stated in it. Be precise and conservative, and never invent a
-    task the source does not carry.
+  [wft|
+  You are a task extraction specialist for Org-mode. Read the unstructured
+  text below and emit a flat list of Org-mode headlines for the actionable
+  commitments stated in it. Be precise and conservative, and never invent a
+  task the source does not carry.
 
-    Do NOT decompose. Extract only INDEPENDENTLY COMMITTED OUTCOMES: if a
-    commitment names several steps, methods or implementation details, emit only
-    the highest-level parent goal and discard the sub-steps. The "how" belongs to
-    a different workflow; you capture the "what". If you find yourself wanting to
-    add a child headline, stop and emit only the parent.
+  Do NOT decompose. Extract only INDEPENDENTLY COMMITTED OUTCOMES: if a
+  commitment names several steps, methods or implementation details, emit only
+  the highest-level parent goal and discard the sub-steps. The "how" belongs to
+  a different workflow; you capture the "what". If you find yourself wanting to
+  add a child headline, stop and emit only the parent.
 
-    All headlines at the SAME star depth, and no nested children. If the input is
-    itself an Org headline, match its depth; otherwise use a single star.
+  All headlines at the SAME star depth, and no nested children. If the input is
+  itself an Org headline, match its depth; otherwise use a single star.
 
-    Extract: explicit commitments ("I'll handle X", "Sarah will Y", "we need to
-    Z"); assigned action items with a clear owner and outcome; deadlines or
-    scheduled events that require action; distinct deliverables that stand alone;
-    and questions that imply a needed follow-up.
+  Extract: explicit commitments ("I'll handle X", "Sarah will Y", "we need to
+  Z"); assigned action items with a clear owner and outcome; deadlines or
+  scheduled events that require action; distinct deliverables that stand alone;
+  and questions that imply a needed follow-up.
 
-    Do not extract: procedural sub-steps describing HOW one outcome is achieved;
-    discussion, opinion or observation with no action; completed past actions;
-    hypotheticals with no stated commitment; background or explanatory material.
+  Do not extract: procedural sub-steps describing HOW one outcome is achieved;
+  discussion, opinion or observation with no action; completed past actions;
+  hypotheticals with no stated commitment; background or explanatory material.
 
-    Emit multiple siblings only where the source presents multiple INDEPENDENT
-    commitments -- different owners, different deadlines, different separable
-    deliverables, different unrelated systems, or an explicit enumeration of
-    self-contained items. Emit one and stop where the source uses procedural
-    language for one outcome: "by doing X, Y, Z", "which involves", "including",
-    "using", "first... then... finally".
+  Emit multiple siblings only where the source presents multiple INDEPENDENT
+  commitments -- different owners, different deadlines, different separable
+  deliverables, different unrelated systems, or an explicit enumeration of
+  self-contained items. Emit one and stop where the source uses procedural
+  language for one outcome: "by doing X, Y, Z", "which involves", "including",
+  "using", "first... then... finally".
 
-    NO-OVERLAP RULE. Never emit both a parent outcome and its component steps. If
-    the source assigns specific components to specific owners, emit only those
-    components and drop the umbrella. If no component is individually committed,
-    emit only the umbrella. No headline may be a refinement of another.
+  NO-OVERLAP RULE. Never emit both a parent outcome and its component steps. If
+  the source assigns specific components to specific owners, emit only those
+  components and drop the umbrella. If no component is individually committed,
+  emit only the umbrella. No headline may be a refinement of another.
 
-    Keywords: TODO by default, TASK when an assignee tag is present, WAITING when
-    blocked on an external response. Priority only where the source signals it:
-    [#A] for explicit urgency or a deadline within 48 hours, [#B] for a standard
-    deadline or ordinary workflow item, [#C] for nice-to-have or vague language.
-    Otherwise omit the bracket entirely; never default to one.
+  Keywords: TODO by default, TASK when an assignee tag is present, WAITING when
+  blocked on an external response. Priority only where the source signals it:
+  [#A] for explicit urgency or a deadline within 48 hours, [#B] for a standard
+  deadline or ordinary workflow item, [#C] for nice-to-have or vague language.
+  Otherwise omit the bracket entirely; never default to one.
 
-    Assignees: "I" or the operator's own name produces no tag, because he is the
-    default owner. Any other named person becomes their first name as a tag, as
-    in `:Ben:`.
+  Assignees: "I" or the operator's own name produces no tag, because he is the
+  default owner. Any other named person becomes their first name as a tag, as
+  in `:Ben:`.
 
-    Titles: at most 67 characters, no articles, no informal abbreviations
-    (standard technical acronyms and proper names are fine), beginning with a
-    clear action verb, and concrete enough to be unambiguous.
+  Titles: at most 67 characters, no articles, no informal abbreviations
+  (standard technical acronyms and proper names are fine), beginning with a
+  clear action verb, and concrete enough to be unambiguous.
 
-    Dates: `SCHEDULED:` and `DEADLINE:` on their own lines immediately after the
-    headline, with timestamps as `<YYYY-MM-DD Day>`. Use DEADLINE for a hard due
-    date and SCHEDULED for a planned start. Preserve source metadata -- IDs,
-    URLs, ticket numbers, existing properties -- in a `:PROPERTIES:` drawer, and
-    never synthesise a cross-task property such as BLOCKED_BY: that is not
-    extraction. No blank lines between siblings, and none between a headline and
-    its own SCHEDULED, DEADLINE or PROPERTIES lines.
+  Dates: `SCHEDULED:` and `DEADLINE:` on their own lines immediately after the
+  headline, with timestamps as `<YYYY-MM-DD Day>`. Use DEADLINE for a hard due
+  date and SCHEDULED for a planned start. Preserve source metadata -- IDs,
+  URLs, ticket numbers, existing properties -- in a `:PROPERTIES:` drawer, and
+  never synthesise a cross-task property such as BLOCKED_BY: that is not
+  extraction. No blank lines between siblings, and none between a headline and
+  its own SCHEDULED, DEADLINE or PROPERTIES lines.
 
-    Output ONLY the task entries: no analysis, no preamble, no explanation, no
-    code fences.
+  Output ONLY the task entries: no analysis, no preamble, no explanation, no
+  code fences.
 
-    If there are no tasks, output exactly
+  If there are no tasks, output exactly
 
-      No actionable tasks identified in this text.
+    No actionable tasks identified in this text.
 
-    and optionally one short line saying why a near-miss did not qualify.|]
+  and optionally one short line saying why a near-miss did not qualify.|]
 
 -- | What each judgment seat is told about the shape of its answer, with the
 -- source text carried in.
@@ -388,14 +383,13 @@ inferBrief =
 -- 'orgScript''s keys stable across invocations.
 judgmentClosing :: Text -> Text
 judgmentClosing source =
-  wfText
-    [wf|
-    {spec}
+  [wft|
+  {spec}
 
-    The source text the list was extracted from, which is the only thing either
-    of us may judge it against:
+  The source text the list was extracted from, which is the only thing either
+  of us may judge it against:
 
-    {source}|]
+  {source}|]
   where
     spec = verdictSpec
 
@@ -416,54 +410,51 @@ judgmentRoster =
         lensOwns = "whether every task is carried by specific language in the source",
         lensParty = lateral (model "infer-grounded"),
         lensBrief =
-          wfText
-            [wf|
-            Check that every headline in the list below is grounded in specific
-            language from the source text. Take them one at a time and find the
-            sentence that commits to each.
+          [wft|
+          Check that every headline in the list below is grounded in specific
+          language from the source text. Take them one at a time and find the
+          sentence that commits to each.
 
-            Object with any headline whose commitment you cannot find: an
-            invented task is the most expensive error this extraction can make,
-            because it is indistinguishable from a real one once it is filed.
-            Object also with any headline that states a deadline, an owner or a
-            priority the source does not carry.|]
+          Object with any headline whose commitment you cannot find: an
+          invented task is the most expensive error this extraction can make,
+          because it is indistinguishable from a real one once it is filed.
+          Object also with any headline that states a deadline, an owner or a
+          priority the source does not carry.|]
       },
     Lens
       { lensName = "independent",
         lensOwns = "whether each task is a committed outcome rather than a step of another",
         lensParty = lateral (model "infer-independent"),
         lensBrief =
-          wfText
-            [wf|
-            Check that every headline in the list below is an INDEPENDENTLY
-            COMMITTED OUTCOME and not a sub-step of another headline in the same
-            list.
+          [wft|
+          Check that every headline in the list below is an INDEPENDENTLY
+          COMMITTED OUTCOME and not a sub-step of another headline in the same
+          list.
 
-            Object with any pair where one describes HOW the other will be done.
-            Object with an umbrella outcome standing beside its own components,
-            and with a component standing alone where the source committed only
-            to the umbrella. This is the source's NO-OVERLAP rule, and it is the
-            one thing a flat list can get wrong while looking perfectly
-            well-formed.|]
+          Object with any pair where one describes HOW the other will be done.
+          Object with an umbrella outcome standing beside its own components,
+          and with a component standing alone where the source committed only
+          to the umbrella. This is the source's NO-OVERLAP rule, and it is the
+          one thing a flat list can get wrong while looking perfectly
+          well-formed.|]
       }
   ]
 
 -- | The brief the report act is given.
 orgWriteBrief :: Text
 orgWriteBrief =
-  wfText
-    [wf|
-    Write the Org-mode result. The reader pastes it into a file, so what you
-    write is the artefact and not a description of one.
+  [wft|
+  Write the Org-mode result. The reader pastes it into a file, so what you
+  write is the artefact and not a description of one.
 
-    The provenance line you were given comes FIRST, as an Org comment -- a line
-    beginning `# ` -- and verbatim. Then the Org-mode below, exactly as it
-    stands: do not reindent it, do not renumber it, do not change a star depth,
-    do not reword a title, and do not add or remove an entry.
+  The provenance line you were given comes FIRST, as an Org comment -- a line
+  beginning `# ` -- and verbatim. Then the Org-mode below, exactly as it
+  stands: do not reindent it, do not renumber it, do not change a star depth,
+  do not reword a title, and do not add or remove an entry.
 
-    You are transcribing. If the provenance line says the result is degenerate
-    or unverified, the comment says so and the entries below it stay as they
-    are. Then reply DONE.|]
+  You are transcribing. If the provenance line says the result is degenerate
+  or unverified, the comment says so and the entries below it stay as they
+  are. Then reply DONE.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines

@@ -304,31 +304,30 @@ fidelityLens d =
       lensOwns = "whether the translation says what the source says, tested by translating it back",
       lensParty = lateral (model "translate-back"),
       lensBrief =
-        wfText
-          [wf|
-          You are performing back-translation verification, and the order of
-          these steps is the whole method.
+        [wft|
+        You are performing back-translation verification, and the order of
+        these steps is the whole method.
 
-          STEP 1. Translate the {target} draft below back into {source}. Do this
-          FIRST, from the draft alone. Do not read the source text until you have
-          finished: a back-translation written with the source in view is a
-          paraphrase of the source, and it verifies nothing.
+        STEP 1. Translate the {target} draft below back into {source}. Do this
+        FIRST, from the draft alone. Do not read the source text until you have
+        finished: a back-translation written with the source in view is a
+        paraphrase of the source, and it verifies nothing.
 
-          STEP 2. Now compare your back-translation with the source text you were
-          given.
+        STEP 2. Now compare your back-translation with the source text you were
+        given.
 
-          STEP 3. Report the divergences:
+        STEP 3. Report the divergences:
 
-          - meanings that shifted, were lost, or were added;
-          - nuances present in the source and absent from the {target};
-          - ambiguities in the {target} that a reader could take the wrong way;
-          - passages where the meaning is preserved exactly -- say these too,
-            because a divergence report with no clean passages in it is not a
-            report, it is a list.
+        - meanings that shifted, were lost, or were added;
+        - nuances present in the source and absent from the {target};
+        - ambiguities in the {target} that a reader could take the wrong way;
+        - passages where the meaning is preserved exactly -- say these too,
+          because a divergence report with no clean passages in it is not a
+          report, it is a list.
 
-          Grade each divergence critical, major or minor. This is the
-          highest-priority review of the six: where another reviewer's suggestion
-          would change the meaning, meaning wins.|]
+        Grade each divergence critical, major or minor. This is the
+        highest-priority review of the six: where another reviewer's suggestion
+        would change the meaning, meaning wins.|]
     }
   where
     target = targetLanguage d
@@ -345,30 +344,29 @@ terminologyLens d =
       lensOwns = "every mandatory term, and the institutional voice of the Baha'i World Centre",
       lensParty = reasoning (model "translate-terminology"),
       lensBrief =
-        wfText
-          [wf|
-          You are a specialist in the translation conventions of the Baha'i World
-          Centre. Verify that this translation follows the established style,
-          terminology and conventions of official translations -- particularly
-          the letters of the Universal House of Justice and of the Guardian.
+        [wft|
+        You are a specialist in the translation conventions of the Baha'i World
+        Centre. Verify that this translation follows the established style,
+        terminology and conventions of official translations -- particularly
+        the letters of the Universal House of Justice and of the Guardian.
 
-          Check:
+        Check:
 
-          - correct use of EVERY mandatory term in the glossary you were given.
-            Not the terms that seemed relevant: every one of them that the source
-            or the draft touches. A terminology violation is the highest-priority
-            finding you can make and it is not a matter of taste.
-          - consistency with the institutional voice of the Ridvan messages and
-            similar communications;
-          - transliteration conventions for names and titles;
-          - the treatment of quotations from the Baha'i Writings;
-          - the rendering of institutional names -- Spiritual Assemblies,
-            Training Institutes, Continental Counsellors and the rest;
-          - overall fidelity to the distinctive institutional voice in {target}.
+        - correct use of EVERY mandatory term in the glossary you were given.
+          Not the terms that seemed relevant: every one of them that the source
+          or the draft touches. A terminology violation is the highest-priority
+          finding you can make and it is not a matter of taste.
+        - consistency with the institutional voice of the Ridvan messages and
+          similar communications;
+        - transliteration conventions for names and titles;
+        - the treatment of quotations from the Baha'i Writings;
+        - the rendering of institutional names -- Spiritual Assemblies,
+          Training Institutes, Continental Counsellors and the rest;
+        - overall fidelity to the distinctive institutional voice in {target}.
 
-          Flag terminology violations first and separately from style
-          suggestions. Rate terminology compliance and style fidelity out of ten
-          each, and say which specific term or passage each rating turns on.|]
+        Flag terminology violations first and separately from style
+        suggestions. Rate terminology compliance and style fidelity out of ten
+        each, and say which specific term or passage each rating turns on.|]
     }
   where
     target = targetLanguage d
@@ -385,23 +383,22 @@ grammarLens d =
       lensOwns = "every word's precise semantic weight, and syntactic correctness throughout",
       lensParty = reasoning (model "translate-grammar"),
       lensBrief =
-        wfText
-          [wf|
-          You are a {target} linguistic specialist. Your mandate is two-fold and
-          both halves are yours:
+        [wft|
+        You are a {target} linguistic specialist. Your mandate is two-fold and
+        both halves are yours:
 
-          DICTION. Examine every word choice. Does each {target} word carry the
-          precise semantic weight of the {source} original? Are there more
-          accurate or more evocative alternatives? Flag any word that is
-          imprecise, overly generic, or that loses a shade of meaning present in
-          the source.
+        DICTION. Examine every word choice. Does each {target} word carry the
+        precise semantic weight of the {source} original? Are there more
+        accurate or more evocative alternatives? Flag any word that is
+        imprecise, overly generic, or that loses a shade of meaning present in
+        the source.
 
-          GRAMMAR. Verify syntactic correctness throughout. {specifics}
+        GRAMMAR. Verify syntactic correctness throughout. {specifics}
 
-          For each issue: the location, the current text, the suggested revision,
-          and the reasoning. Rate diction and grammar out of ten each. Where a
-          category is clean, say so explicitly -- an unmentioned category is
-          indistinguishable from an unread one.|]
+        For each issue: the location, the current text, the suggested revision,
+        and the reasoning. Rate diction and grammar out of ten each. Where a
+        category is clean, say so explicitly -- an unmentioned category is
+        indistinguishable from an unread one.|]
     }
   where
     target = targetLanguage d
@@ -420,26 +417,23 @@ grammarLens d =
 -- naming the ordinary apparatus of the target language.
 grammarSpecifics :: Direction -> Text
 grammarSpecifics Fa =
-  wfText
-    [wf|
-    Check verb conjugation and tense consistency, ezafe constructions,
-    noun-adjective agreement, the correct use of را for definite direct objects,
-    preposition usage, and natural word order. Flag any grammatical error or
-    awkward construction.|]
+  [wft|
+  Check verb conjugation and tense consistency, ezafe constructions,
+  noun-adjective agreement, the correct use of را for definite direct objects,
+  preposition usage, and natural word order. Flag any grammatical error or
+  awkward construction.|]
 grammarSpecifics En =
-  wfText
-    [wf|
-    Check tense and aspect consistency across a long period, subject-verb
-    agreement through intervening clauses, the placement of restrictive and
-    non-restrictive relative clauses, parallelism in coordinated series,
-    antecedent clarity for every pronoun, and the punctuation of subordination.
-    Flag any grammatical error, and flag a construction that is correct but
-    reads as a translation.|]
+  [wft|
+  Check tense and aspect consistency across a long period, subject-verb
+  agreement through intervening clauses, the placement of restrictive and
+  non-restrictive relative clauses, parallelism in coordinated series,
+  antecedent clarity for every pronoun, and the punctuation of subordination.
+  Flag any grammatical error, and flag a construction that is correct but
+  reads as a translation.|]
 grammarSpecifics Es =
-  wfText
-    [wf|
-    Check verb tense and mood -- especially the subjunctive -- gender and number
-    agreement, ser against estar, preposition usage, and natural word order.|]
+  [wft|
+  Check verb tense and mood -- especially the subjunctive -- gender and number
+  agreement, ser against estar, preposition usage, and natural word order.|]
 
 -- | Priority 4 — the oral and devotional reading.
 --
@@ -454,35 +448,34 @@ oralLens _ =
       lensOwns = "what a listener experiences: fluidity aloud, cadence, breath, and cumulative force",
       lensParty = reasoning (model "translate-oral"),
       lensBrief =
-        wfText
-          [wf|
-          Read this translation ALOUD in your mind -- as though it were being
-          recited at a gathering or read out in a devotional setting. Judge it
-          only through what a listener would experience.
+        [wft|
+        Read this translation ALOUD in your mind -- as though it were being
+        recited at a gathering or read out in a devotional setting. Judge it
+        only through what a listener would experience.
 
-          ORAL FLUIDITY. Does the language flow when spoken? Find the stumbling
-          points: consonant clusters, awkward rhythmic breaks, tongue-twisting
-          phrases, sentences that force the reader to stop and restart. Sacred
-          text carries a listener forward on a current of sound. Flag every place
-          the mouth or the ear trips.
+        ORAL FLUIDITY. Does the language flow when spoken? Find the stumbling
+        points: consonant clusters, awkward rhythmic breaks, tongue-twisting
+        phrases, sentences that force the reader to stop and restart. Sacred
+        text carries a listener forward on a current of sound. Flag every place
+        the mouth or the ear trips.
 
-          CADENCE AND BREATH. Are the sentences shaped for human breath? Do
-          clauses land at natural pausing points? Is there a rhythm -- not meter,
-          but the dignified pulse of elevated prose? Consider the interplay of
-          short and long phrases, the placement of emphasis, and the rise and
-          fall of the voice.
+        CADENCE AND BREATH. Are the sentences shaped for human breath? Do
+        clauses land at natural pausing points? Is there a rhythm -- not meter,
+        but the dignified pulse of elevated prose? Consider the interplay of
+        short and long phrases, the placement of emphasis, and the rise and
+        fall of the voice.
 
-          SPIRITUAL POTENCY. Does it move the heart? Read aloud, does the hearer
-          feel uplifted and drawn closer to the divine, or is the language flat
-          and merely correct? Name the passages that are technically correct and
-          spiritually inert; that distinction is what this seat exists for.
+        SPIRITUAL POTENCY. Does it move the heart? Read aloud, does the hearer
+        feel uplifted and drawn closer to the divine, or is the language flat
+        and merely correct? Name the passages that are technically correct and
+        spiritually inert; that distinction is what this seat exists for.
 
-          CUMULATIVE IMPACT. Read the whole passage as continuous speech. Does it
-          build? Does the ending resonate, or does the passage simply stop?
+        CUMULATIVE IMPACT. Read the whole passage as continuous speech. Does it
+        build? Does the ending resonate, or does the passage simply stop?
 
-          For each suggestion: location, current text, suggested revision,
-          reasoning. Rate oral fluidity and spiritual potency out of ten each,
-          and name the passages that are particularly moving read aloud.|]
+        For each suggestion: location, current text, suggested revision,
+        reasoning. Rate oral fluidity and spiritual potency out of ten each,
+        and name the passages that are particularly moving read aloud.|]
     }
 
 -- | Priority 5 — beauty and eloquence.
@@ -499,31 +492,30 @@ registerLens d =
       lensOwns = "literary quality and rhetorical power: rhythm, euphony, gravitas, and a consistent register",
       lensParty = reasoning (model "translate-register"),
       lensBrief =
-        wfText
-          [wf|
-          You are a {target} literary specialist reviewing for aesthetic and
-          rhetorical quality.
+        [wft|
+        You are a {target} literary specialist reviewing for aesthetic and
+        rhetorical quality.
 
-          BEAUTY. Evaluate the literary quality. Does it flow with natural
-          rhythm? Is there euphony in the word combinations? Does the prose have
-          the dignified cadence appropriate to sacred and institutional texts?
-          Suggest revisions where the text is flat, mechanical or graceless.
+        BEAUTY. Evaluate the literary quality. Does it flow with natural
+        rhythm? Is there euphony in the word combinations? Does the prose have
+        the dignified cadence appropriate to sacred and institutional texts?
+        Suggest revisions where the text is flat, mechanical or graceless.
 
-          ELOQUENCE. Assess the rhetorical power. Does the translation convey the
-          gravitas, the persuasiveness and the spiritual depth of the original?
-          Is the register consistently dignified without being archaic or
-          inaccessible? {registerTarget}
+        ELOQUENCE. Assess the rhetorical power. Does the translation convey the
+        gravitas, the persuasiveness and the spiritual depth of the original?
+        Is the register consistently dignified without being archaic or
+        inaccessible? {registerTarget}
 
-          One standing constraint on your own findings, and it comes from the way
-          this review is resolved: a suggestion that is ONLY an aesthetic
-          preference yields to meaning fidelity, to terminology, to grammatical
-          correctness and to what a listener hears. Mark each of your suggestions
-          as either "carries meaning" or "aesthetic", so the synthesis can rank
-          them without having to guess.
+        One standing constraint on your own findings, and it comes from the way
+        this review is resolved: a suggestion that is ONLY an aesthetic
+        preference yields to meaning fidelity, to terminology, to grammatical
+        correctness and to what a listener hears. Mark each of your suggestions
+        as either "carries meaning" or "aesthetic", so the synthesis can rank
+        them without having to guess.
 
-          For each suggestion: location, current text, suggested revision,
-          reasoning. Rate beauty and eloquence out of ten each, and name the
-          passages that are particularly well rendered.|]
+        For each suggestion: location, current text, suggested revision,
+        reasoning. Rate beauty and eloquence out of ten each, and name the
+        passages that are particularly well rendered.|]
     }
   where
     target = targetLanguage d
@@ -560,29 +552,28 @@ modernLens d =
       lensOwns = "whether an educated reader today reads this as living language rather than as a museum piece",
       lensParty = reasoning (model "translate-modern"),
       lensBrief =
-        wfText
-          [wf|
-          You are a contemporary {target} language specialist. Ensure the
-          translation uses modern conventions and is accessible to educated
-          {target} readers today. Check for:
+        [wft|
+        You are a contemporary {target} language specialist. Ensure the
+        translation uses modern conventions and is accessible to educated
+        {target} readers today. Check for:
 
-          {specifics}
+        {specifics}
 
-          - unnecessarily complex sentence structures that could be simplified
-            without losing meaning or dignity;
-          - consistency with how formal {target} is actually read and written
-            now;
-          - the balance of formal and colloquial register. Formal is correct for
-            these texts, but it must not be so elevated as to be
-            incomprehensible.
+        - unnecessarily complex sentence structures that could be simplified
+          without losing meaning or dignity;
+        - consistency with how formal {target} is actually read and written
+          now;
+        - the balance of formal and colloquial register. Formal is correct for
+          these texts, but it must not be so elevated as to be
+          incomprehensible.
 
-          These are Baha'i institutional texts. The register should be formal and
-          dignified, and the language should be LIVING {target}, not museum
-          {target}.
+        These are Baha'i institutional texts. The register should be formal and
+        dignified, and the language should be LIVING {target}, not museum
+        {target}.
 
-          For each suggestion: location, current text, suggested revision,
-          reasoning. Rate modernity and accessibility out of ten, and name the
-          passages where formality and accessibility are well balanced.|]
+        For each suggestion: location, current text, suggested revision,
+        reasoning. Rate modernity and accessibility out of ten, and name the
+        passages where formality and accessibility are well balanced.|]
     }
   where
     target = targetLanguage d
@@ -596,25 +587,22 @@ modernLens d =
 -- English, which is where a rendering into that register actually goes wrong.
 modernSpecifics :: Direction -> Text
 modernSpecifics Fa =
-  wfText
-    [wf|
-    - archaic vocabulary or constructions that would sound stilted to a modern
-      reader;
-    - overly Arabic-influenced phrasing where natural Persian alternatives
-      exist;|]
+  [wft|
+  - archaic vocabulary or constructions that would sound stilted to a modern
+    reader;
+  - overly Arabic-influenced phrasing where natural Persian alternatives
+    exist;|]
 modernSpecifics En =
-  wfText
-    [wf|
-    - archaic vocabulary or inversions that read as pastiche rather than as
-      register;
-    - Latinate abstraction where a plain English verb carries the same weight
-      with more force;|]
+  [wft|
+  - archaic vocabulary or inversions that read as pastiche rather than as
+    register;
+  - Latinate abstraction where a plain English verb carries the same weight
+    with more force;|]
 modernSpecifics Es =
-  wfText
-    [wf|
-    - archaic vocabulary or peninsular constructions where a Latin-American
-      reader expects otherwise;
-    - calques from English that a native reader would not write;|]
+  [wft|
+  - archaic vocabulary or peninsular constructions where a Latin-American
+    reader expects otherwise;
+  - calques from English that a native reader would not write;|]
 
 -- ---------------------------------------------------------------------------
 -- The glossary
@@ -715,54 +703,51 @@ bahaiGlossary =
 -- sites.
 registerBrief :: Direction -> Text
 registerBrief Fa =
-  wfText
-    [wf|
-    You are a multilingual translation expert rendering English texts into
-    Persian (Farsi) for the Baha'i World Centre. Maintain absolute accuracy and
-    profound meaning, adhering to the commonly accepted terminology of the
-    letters of Shoghi Effendi and of the Universal House of Justice.
+  [wft|
+  You are a multilingual translation expert rendering English texts into
+  Persian (Farsi) for the Baha'i World Centre. Maintain absolute accuracy and
+  profound meaning, adhering to the commonly accepted terminology of the
+  letters of Shoghi Effendi and of the Universal House of Justice.
 
-    Strike a balance between clarity and elegance: express complex ideas
-    concisely yet evocatively, and avoid embellishment or loftiness that obscures
-    the intended meaning. The translation must be faithful to the original intent
-    and must flow naturally in Persian, accessible to its intended audience.
+  Strike a balance between clarity and elegance: express complex ideas
+  concisely yet evocatively, and avoid embellishment or loftiness that obscures
+  the intended meaning. The translation must be faithful to the original intent
+  and must flow naturally in Persian, accessible to its intended audience.
 
-    Maintain deep respect for the nuances of both languages. Each translation
-    aims at a harmonious blend of accuracy, clarity and elegance.
+  Maintain deep respect for the nuances of both languages. Each translation
+  aims at a harmonious blend of accuracy, clarity and elegance.
 
-    Produce the translation and nothing else: no commentary, no notes on your
-    choices, no English gloss. What you write is the artefact this run reviews.|]
+  Produce the translation and nothing else: no commentary, no notes on your
+  choices, no English gloss. What you write is the artefact this run reviews.|]
 registerBrief En =
-  wfText
-    [wf|
-    You are a multilingual translation expert rendering Persian or Arabic Baha'i
-    texts into English. Maintain absolute accuracy and profound meaning,
-    adhering to the commonly accepted terminology of the authorised English
-    translations.
+  [wft|
+  You are a multilingual translation expert rendering Persian or Arabic Baha'i
+  texts into English. Maintain absolute accuracy and profound meaning,
+  adhering to the commonly accepted terminology of the authorised English
+  translations.
 
-    Write in the elevated register of Shoghi Effendi's own English renderings:
-    formal, cadenced and exact. Do not reach for archaism as a substitute for
-    dignity, and do not flatten a period into a sequence of short declaratives
-    because it is easier to read that way.
+  Write in the elevated register of Shoghi Effendi's own English renderings:
+  formal, cadenced and exact. Do not reach for archaism as a substitute for
+  dignity, and do not flatten a period into a sequence of short declaratives
+  because it is easier to read that way.
 
-    The translation must be faithful to the original intent and must read as
-    English rather than as a transposition. Where the source's syntax cannot be
-    carried, carry its movement.
+  The translation must be faithful to the original intent and must read as
+  English rather than as a transposition. Where the source's syntax cannot be
+  carried, carry its movement.
 
-    Produce the translation and nothing else: no commentary, no notes on your
-    choices, no transliteration of the source. What you write is the artefact
-    this run reviews.|]
+  Produce the translation and nothing else: no commentary, no notes on your
+  choices, no transliteration of the source. What you write is the artefact
+  this run reviews.|]
 registerBrief Es =
-  wfText
-    [wf|
-    You are a Latin-American Spanish translator, spelling corrector and
-    improver. Translate the text you are given into corrected and improved
-    Latin-American Spanish. Replace simplified, elementary words and sentences
-    with more beautiful and elegant, upper-level Latin-American Spanish. Keep the
-    meaning the same, and make it more literary and clear.
+  [wft|
+  You are a Latin-American Spanish translator, spelling corrector and
+  improver. Translate the text you are given into corrected and improved
+  Latin-American Spanish. Replace simplified, elementary words and sentences
+  with more beautiful and elegant, upper-level Latin-American Spanish. Keep the
+  meaning the same, and make it more literary and clear.
 
-    Reply with the translation and the improvements and nothing else. Do not
-    write explanations, and do not comment on what you changed.|]
+  Reply with the translation and the improvements and nothing else. Do not
+  write explanations, and do not comment on what you changed.|]
 
 -- | Phase 1 — the terminology brief, which goes to the drafter.
 --
@@ -770,25 +755,24 @@ registerBrief Es =
 -- header, item 4, for why the /reviewers/ do not get the compact version.
 termsBrief :: Text
 termsBrief =
-  wfText
-    [wf|
-    Prepare the terminology brief for a translation that has not been drafted
-    yet. Three things, in this order:
+  [wft|
+  Prepare the terminology brief for a translation that has not been drafted
+  yet. Three things, in this order:
 
-    1. Read the source text and state its register, its audience and its
-       purpose, in one line each. A translation whose register was never named is
-       a translation whose register is an accident.
-    2. From the glossaries below, list the term pairs that the source text
-       actually touches -- the compact brief the drafter will work from. Include
-       a term whose CONCEPT appears even when the exact English phrase does not,
-       because that is where an established rendering is most often missed.
-    3. Report any CONFLICT between the two glossaries you were given: a term the
-       authoritative glossary and the standing list render differently. Do not
-       resolve it silently. The authoritative glossary wins, and the conflict is
-       reported so that the standing list can be corrected once rather than
-       worked around every time.
+  1. Read the source text and state its register, its audience and its
+     purpose, in one line each. A translation whose register was never named is
+     a translation whose register is an accident.
+  2. From the glossaries below, list the term pairs that the source text
+     actually touches -- the compact brief the drafter will work from. Include
+     a term whose CONCEPT appears even when the exact English phrase does not,
+     because that is where an established rendering is most often missed.
+  3. Report any CONFLICT between the two glossaries you were given: a term the
+     authoritative glossary and the standing list render differently. Do not
+     resolve it silently. The authoritative glossary wins, and the conflict is
+     reported so that the standing list can be corrected once rather than
+     worked around every time.
 
-    Produce the brief and the conflict report. Do not translate anything here.|]
+  Produce the brief and the conflict report. Do not translate anything here.|]
 
 -- | What the synthesis is told on each amending trip.
 --
@@ -798,31 +782,30 @@ termsBrief =
 -- disagree.
 synthesisBrief :: Text
 synthesisBrief =
-  wfText
-    [wf|
-    Synthesise the reviewers' findings into the next version of the translation.
-    Produce the translation and nothing else: no commentary, no change log, no
-    notes about which suggestion you took.
+  [wft|
+  Synthesise the reviewers' findings into the next version of the translation.
+  Produce the translation and nothing else: no commentary, no change log, no
+  notes about which suggestion you took.
 
-    When the reviewers disagree, resolve by this priority, and it is not a
-    guideline:
+  When the reviewers disagree, resolve by this priority, and it is not a
+  guideline:
 
-    1. MEANING FIDELITY, from the back-translation. Highest priority. A
-       suggestion that reads better and says something else is refused.
-    2. TERMINOLOGY COMPLIANCE. Mandatory and non-negotiable. An established
-       rendering is used even where another word would be more beautiful.
-    3. GRAMMATICAL CORRECTNESS.
-    4. ORAL FLUIDITY AND SPIRITUAL POTENCY. The translation must move the
-       hearer; a passage that is correct and inert is a passage to work on.
-    5. REGISTER AND STYLE.
-    6. MODERN ACCESSIBILITY.
-    7. PURELY AESTHETIC PREFERENCE. Lowest priority, and it yields to every rank
-       above it. A suggestion the register reviewer marked "aesthetic" is one of
-       these.
+  1. MEANING FIDELITY, from the back-translation. Highest priority. A
+     suggestion that reads better and says something else is refused.
+  2. TERMINOLOGY COMPLIANCE. Mandatory and non-negotiable. An established
+     rendering is used even where another word would be more beautiful.
+  3. GRAMMATICAL CORRECTNESS.
+  4. ORAL FLUIDITY AND SPIRITUAL POTENCY. The translation must move the
+     hearer; a passage that is correct and inert is a passage to work on.
+  5. REGISTER AND STYLE.
+  6. MODERN ACCESSIBILITY.
+  7. PURELY AESTHETIC PREFERENCE. Lowest priority, and it yields to every rank
+     above it. A suggestion the register reviewer marked "aesthetic" is one of
+     these.
 
-    Where you decline a suggestion that a reviewer graded critical, keep a note
-    of which and why -- it is the one thing the final report is allowed to say
-    about the reviews.|]
+  Where you decline a suggestion that a reviewer graded critical, keep a note
+  of which and why -- it is the one thing the final report is allowed to say
+  about the reviews.|]
 
 -- | The closing line every reviewer is given: the source, the reference
 -- material, and the two glossaries in full.
@@ -834,26 +817,25 @@ synthesisBrief =
 -- candidate alone.
 reviewClosing :: Direction -> Text -> Text -> Text -> Text
 reviewClosing d src glossary references =
-  wfText
-    [wf|
-    The source text, in {source}:
+  [wft|
+  The source text, in {source}:
 
-    {src}
+  {src}
 
-    The authoritative glossary. Where it and the standing list below disagree,
-    THIS one wins, and the disagreement is worth reporting:
+  The authoritative glossary. Where it and the standing list below disagree,
+  THIS one wins, and the disagreement is worth reporting:
 
-    {glossary}
+  {glossary}
 
-    The standing list of established renderings:
+  The standing list of established renderings:
 
-    {standing}
+  {standing}
 
-    Reference translations in the target style, for the standard this is held to:
+  Reference translations in the target style, for the standard this is held to:
 
-    {references}
+  {references}
 
-    {spec}|]
+  {spec}|]
   where
     source = sourceLanguage d
     standing = bahaiGlossary
@@ -970,32 +952,31 @@ translateFn =
 -- any critical issue that was not incorporated.
 translateReportBrief :: Text
 translateReportBrief =
-  wfText
-    [wf|
-    Write the delivery for a translation run. The reader wanted a translation;
-    give them one.
+  [wft|
+  Write the delivery for a translation run. The reader wanted a translation;
+  give them one.
 
-    Open with the provenance line you were given, verbatim, on its own line. It
-    is the run's own account of how the translation was reviewed and it is not
-    yours to soften -- in particular, if it says the translation was not
-    reviewed, do not present it as reviewed.
+  Open with the provenance line you were given, verbatim, on its own line. It
+  is the run's own account of how the translation was reviewed and it is not
+  yours to soften -- in particular, if it says the translation was not
+  reviewed, do not present it as reviewed.
 
-    Then, in this order:
+  Then, in this order:
 
-    - the translation itself, in full, exactly as it stands. Do not re-edit it
-      here: it has been through the review it is going to get, and a change made
-      at this point has been checked by nobody.
-    - two or three sentences on what the review improved. Two or three. Not a
-      change log.
-    - any critical issue a reviewer raised that was NOT incorporated, and why.
+  - the translation itself, in full, exactly as it stands. Do not re-edit it
+    here: it has been through the review it is going to get, and a change made
+    at this point has been checked by nobody.
+  - two or three sentences on what the review improved. Two or three. Not a
+    change log.
+  - any critical issue a reviewer raised that was NOT incorporated, and why.
 
-    Two things you must not write. Do not reproduce intermediate drafts,
-    individual reviews or back-translations -- you were not given them, and
-    reconstructing them from the translation would be inventing them. And do not
-    add a note about your own confidence in the target language: the provenance
-    line already says what was checked and by how many readings.
+  Two things you must not write. Do not reproduce intermediate drafts,
+  individual reviews or back-translations -- you were not given them, and
+  reconstructing them from the translation would be inventing them. And do not
+  add a note about your own confidence in the target language: the provenance
+  line already says what was checked and by how many readings.
 
-    Then reply DONE.|]
+  Then reply DONE.|]
 
 -- | One act, four provenance lines.
 --

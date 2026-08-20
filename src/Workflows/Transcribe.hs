@@ -201,11 +201,10 @@ pathManifest = numbered
 -- "Workflows.Gates"' reason.
 inventoryBrief :: Text
 inventoryBrief =
-  wfText
-    [wf|
-    The image files this run was given. This receipt is what establishes that
-    they exist and which they are: nothing else in this run can see them, and a
-    path that is not here is a path nothing was transcribed from.|]
+  [wft|
+  The image files this run was given. This receipt is what establishes that
+  they exist and which they are: nothing else in this run can see them, and a
+  path that is not here is a path nothing was transcribed from.|]
 
 -- | @commands\/transcribe-image.md@ line 1, whole.
 --
@@ -215,46 +214,45 @@ inventoryBrief =
 -- the standing rule that the transcription is not an edit.
 transcribeBrief :: Text
 transcribeBrief =
-  wfText
-    [wf|
-    Transcribe the handwriting in the image files listed below, and compile the
-    text into paragraph form.
+  [wft|
+  Transcribe the handwriting in the image files listed below, and compile the
+  text into paragraph form.
 
-    Open every file in the list. Read them in the order given; that is the order
-    the pages were in.
+  Open every file in the list. Read them in the order given; that is the order
+  the pages were in.
 
-    You are transcribing, not editing. Write what is on the page:
+  You are transcribing, not editing. Write what is on the page:
 
-    - keep the writer's words, his word order and his terminology, including
-      terminology you think is wrong;
-    - keep his emphasis where the page shows it -- underlining becomes italics,
-      a boxed or double-underlined phrase becomes bold;
-    - join the lines of a paragraph into a paragraph. Handwriting breaks lines
-      where the page ends, and those breaks carry no meaning; a blank line, an
-      indent, or a new thought is a paragraph break and does carry meaning;
-    - keep his lists as lists and his headings as headings;
-    - where a marginal note or an arrow attaches to a passage, put it where it
-      attaches and say in square brackets that it was a margin note.
+  - keep the writer's words, his word order and his terminology, including
+    terminology you think is wrong;
+  - keep his emphasis where the page shows it -- underlining becomes italics,
+    a boxed or double-underlined phrase becomes bold;
+  - join the lines of a paragraph into a paragraph. Handwriting breaks lines
+    where the page ends, and those breaks carry no meaning; a blank line, an
+    indent, or a new thought is a paragraph break and does carry meaning;
+  - keep his lists as lists and his headings as headings;
+  - where a marginal note or an arrow attaches to a passage, put it where it
+    attaches and say in square brackets that it was a margin note.
 
-    Where you cannot read something, say so rather than choosing:
+  Where you cannot read something, say so rather than choosing:
 
-    - a word you are fairly sure of but not certain: write it as [?word];
-    - a word or phrase you cannot read at all: write [illegible];
-    - a passage that is crossed out: leave it out, unless it is legible and
-      replaced by something, in which case write [struck: …] before the
-      replacement.
+  - a word you are fairly sure of but not certain: write it as [?word];
+  - a word or phrase you cannot read at all: write [illegible];
+  - a passage that is crossed out: leave it out, unless it is legible and
+    replaced by something, in which case write [struck: …] before the
+    replacement.
 
-    Then, after the transcription, one trailer line per gap:
+  Then, after the transcription, one trailer line per gap:
 
-      UNREADABLE: image <n> -- <what you could not read, and what surrounds it>
+    UNREADABLE: image <n> -- <what you could not read, and what surrounds it>
 
-    and if there are none, exactly one line reading
+  and if there are none, exactly one line reading
 
-      NOTHING UNREADABLE
+    NOTHING UNREADABLE
 
-    A plausible word invented to fill a gap is the one failure here that a reader
-    cannot detect, because it reads better than the truth. The trailer is what
-    makes it detectable.|]
+  A plausible word invented to fill a gap is the one failure here that a reader
+  cannot detect, because it reads better than the truth. The trailer is what
+  makes it detectable.|]
 
 -- | What the reviewer is told, above 'Workflows.Escalation.endingSpec'.
 --
@@ -264,65 +262,63 @@ transcribeBrief =
 -- implies and split into its two halves, because they pull in opposite directions.
 reviewBrief :: Text
 reviewBrief =
-  wfText
-    [wf|
-    Re-review a transcription of handwritten notes. You did not produce it. Open
-    the same image files and read them yourself: this is a second reading, not a
-    proofread of somebody's output.
+  [wft|
+  Re-review a transcription of handwritten notes. You did not produce it. Open
+  the same image files and read them yourself: this is a second reading, not a
+  proofread of somebody's output.
 
-    Two questions, and the first outranks the second whenever they conflict.
+  Two questions, and the first outranks the second whenever they conflict.
 
-    1. Fidelity. Does the transcription say what the page says? Look hardest at
-       the places a misreading is invisible in the result: a number (7 against 1,
-       3 against 8, a decimal point), a proper noun, a negation, a technical term
-       that has a near neighbour, a line that was continued in the margin, an
-       ordering that the page shows and prose does not. Every one of these is an
-       objection when it is wrong, and the objection names the image and the
-       passage.
+  1. Fidelity. Does the transcription say what the page says? Look hardest at
+     the places a misreading is invisible in the result: a number (7 against 1,
+     3 against 8, a decimal point), a proper noun, a negation, a technical term
+     that has a near neighbour, a line that was continued in the margin, an
+     ordering that the page shows and prose does not. Every one of these is an
+     objection when it is wrong, and the objection names the image and the
+     passage.
 
-    2. English. Is the compiled text readable as English -- punctuation, sentence
-       boundaries, paragraph breaks, the spelling of words the writer clearly
-       intended?
+  2. English. Is the compiled text readable as English -- punctuation, sentence
+     boundaries, paragraph breaks, the spelling of words the writer clearly
+     intended?
 
-    The two conflict constantly and the rule is this: an ungrammatical sentence
-    the writer actually wrote stays ungrammatical. Do not object to his grammar,
-    his register, his abbreviations or his terminology. Object to the
-    transcriber's -- a sentence boundary put in the wrong place, a comma that
-    changes the meaning, a word spelled as a different word.
+  The two conflict constantly and the rule is this: an ungrammatical sentence
+  the writer actually wrote stays ungrammatical. Do not object to his grammar,
+  his register, his abbreviations or his terminology. Object to the
+  transcriber's -- a sentence boundary put in the wrong place, a comma that
+  changes the meaning, a word spelled as a different word.
 
-    Two more checks, and both are cheap:
+  Two more checks, and both are cheap:
 
-    - every image in the manifest must be accounted for in the transcription. An
-      image nothing came from is either blank -- and the transcription should say
-      so -- or was not read.
-    - the gap trailers must be honest. A passage transcribed with confident,
-      fluent text where the page is genuinely hard to read is worse than an
-      [illegible], and it is the specific failure a second reader exists to
-      catch. If you find one, that is an objection.
+  - every image in the manifest must be accounted for in the transcription. An
+    image nothing came from is either blank -- and the transcription should say
+    so -- or was not read.
+  - the gap trailers must be honest. A passage transcribed with confident,
+    fluent text where the page is genuinely hard to read is worse than an
+    [illegible], and it is the specific failure a second reader exists to
+    catch. If you find one, that is an objection.
 
-    A transcription that is faithful, accounts for every image and marks its gaps
-    honestly is an approval, and an approval is the single word APPROVE and
-    nothing else -- anything you add beside it is read as an objection by the
-    program that consumes your verdict. What you re-read and what you checked
-    hardest belongs in an objection line or nowhere.|]
+  A transcription that is faithful, accounts for every image and marks its gaps
+  honestly is an approval, and an approval is the single word APPROVE and
+  nothing else -- anything you add beside it is read as an objection by the
+  program that consumes your verdict. What you re-read and what you checked
+  hardest belongs in an objection line or nowhere.|]
 
 -- | What the transcriber is told on a repair trip.
 reviseBrief :: Text
 reviseBrief =
-  wfText
-    [wf|
-    A second reader re-read the images and objected. Produce the next version of
-    the transcription and nothing else -- the same shape as before, including the
-    gap trailers, and no commentary about what you changed.
+  [wft|
+  A second reader re-read the images and objected. Produce the next version of
+  the transcription and nothing else -- the same shape as before, including the
+  gap trailers, and no commentary about what you changed.
 
-    Go back to the image the objection names and look again. Where the reader is
-    right, take his reading. Where you still cannot tell, that is what [?word]
-    and [illegible] are for: an honest gap is a better answer than either of two
-    guesses, and the trailer line says which.
+  Go back to the image the objection names and look again. Where the reader is
+  right, take his reading. Where you still cannot tell, that is what [?word]
+  and [illegible] are for: an honest gap is a better answer than either of two
+  guesses, and the trailer line says which.
 
-    Where the objection is about English rather than about the page, remember
-    which way the rule runs: the writer's own words stay, and only the
-    transcriber's punctuation and sentence boundaries are yours to fix.|]
+  Where the objection is about English rather than about the page, remember
+  which way the rule runs: the writer's own words stay, and only the
+  transcriber's punctuation and sentence boundaries are yours to fix.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines
@@ -371,30 +367,29 @@ declinedNote =
 -- closing turn writes one rather than reporting about one.
 transcribeReportBrief :: Text
 transcribeReportBrief =
-  wfText
-    [wf|
-    Write the transcription to a Markdown file. The file is the point of this run:
-    somebody will read it instead of the notebook.
+  [wft|
+  Write the transcription to a Markdown file. The file is the point of this run:
+  somebody will read it instead of the notebook.
 
-    The file, in this order:
+  The file, in this order:
 
-    - a title naming what these notes are, and a line naming the image files it
-      came from, in order;
-    - the provenance line you were given, verbatim, as a blockquote. It is the
-      run's own account of how the transcription was checked and it is not yours
-      to soften;
-    - the transcription itself, in paragraph form, exactly as it stands. Do not
-      re-edit it here: it has been through the reviews it is going to get, and a
-      change made at this point has been checked by nobody;
-    - a closing section headed "Gaps and uncertainties", listing every [?word],
-      every [illegible] and every trailer line -- or the sentence "Nothing in
-      these pages was unreadable" if there were none.
+  - a title naming what these notes are, and a line naming the image files it
+    came from, in order;
+  - the provenance line you were given, verbatim, as a blockquote. It is the
+    run's own account of how the transcription was checked and it is not yours
+    to soften;
+  - the transcription itself, in paragraph form, exactly as it stands. Do not
+    re-edit it here: it has been through the reviews it is going to get, and a
+    change made at this point has been checked by nobody;
+  - a closing section headed "Gaps and uncertainties", listing every [?word],
+    every [illegible] and every trailer line -- or the sentence "Nothing in
+    these pages was unreadable" if there were none.
 
-    Then reply DONE with the path you wrote.
+  Then reply DONE with the path you wrote.
 
-    One thing you must not do: do not remove the square-bracket markers from the
-    body. They are what tells a reader which words are the writer's and which are
-    a best guess, and a file without them reads as though every word were certain.|]
+  One thing you must not do: do not remove the square-bracket markers from the
+  body. They are what tells a reader which words are the writer's and which are
+  a best guess, and a file without them reads as though every word were certain.|]
 
 -- | One act, three provenance lines.
 --

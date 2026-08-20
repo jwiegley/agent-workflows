@@ -373,23 +373,22 @@ stageRoster =
 -- answering about somebody else's pass.
 pipelineNote :: Text
 pipelineNote =
-  wfText
-    [wf|
-    This is the ingest pipeline that turns a Torch Fx trace into a C++ Tron
-    plugin. The stages, in order:
+  [wft|
+  This is the ingest pipeline that turns a Torch Fx trace into a C++ Tron
+  plugin. The stages, in order:
 
-      Torch Fx  ->  Bulk  ->  Loopy  ->  Tron  ->  C++ plugin
+    Torch Fx  ->  Bulk  ->  Loopy  ->  Tron  ->  C++ plugin
 
-    The Note in `src/Fx.hs` documents the Torch -> Bulk half and is included in
-    the dossier below, because that half is where an assumption about the traced
-    graph gets baked in.
+  The Note in `src/Fx.hs` documents the Torch -> Bulk half and is included in
+  the dossier below, because that half is where an assumption about the traced
+  graph gets baked in.
 
-    A run with `--dump-all` writes one file per intermediate representation --
-    `model.bulk`, `model.loopy`, `model.tron` -- and the plugin itself into the
-    plugin output directory. The three dumps are in the dossier below, fenced
-    under those names, and they are the primary evidence: they are bytes the
-    pipeline wrote, and where a dump and a reading of the source disagree, the
-    dump is what happened.|]
+  A run with `--dump-all` writes one file per intermediate representation --
+  `model.bulk`, `model.loopy`, `model.tron` -- and the plugin itself into the
+  plugin output directory. The three dumps are in the dossier below, fenced
+  under those names, and they are the primary evidence: they are bytes the
+  pipeline wrote, and where a dump and a reading of the source disagree, the
+  dump is what happened.|]
 
 -- | What each stage lens is told about its own boundary.
 --
@@ -399,32 +398,31 @@ pipelineNote =
 -- 'Workflows.Panels.refusingSynthesis''s arrangement.
 stageBrief :: Text -> Text -> Text
 stageBrief n owns =
-  wfText
-    [wf|
-    You own one translation in a compiler pipeline: {owns}
+  [wft|
+  You own one translation in a compiler pipeline: {owns}
 
-    Your block is named `{n}`. Answer about your own boundary and nothing else.
+  Your block is named `{n}`. Answer about your own boundary and nothing else.
 
-    Work from the dumps, not from the source alone. For your boundary:
+  Work from the dumps, not from the source alone. For your boundary:
 
-    1. State what your pass was given and what it produced, in the terms of the
-       two dumps that bracket it. Where your input is the Torch trace or your
-       output is the emitted plugin, say which of those you can and cannot see
-       from the dossier.
-    2. Find the specific place the symptom could originate at this boundary --
-       an operation that changed meaning, a shape or dtype that was decided
-       rather than carried, an ordering that was imposed, a case the pass does
-       not handle and silently passes through.
-    3. For each candidate, say what in the dossier would confirm or refute it,
-       and say plainly whether the dossier contains that or not. "I would need
-       the Loopy dump for the sglang path to be sure" is a complete and useful
-       answer; a confident diagnosis that the dossier cannot support is not.
-    4. If your boundary is clean -- your output is a faithful translation of your
-       input and the symptom cannot originate here -- say so, and say what makes
-       you sure. A clean boundary stated is how a pipeline bug gets localised;
-       a boundary nobody spoke about is not.
+  1. State what your pass was given and what it produced, in the terms of the
+     two dumps that bracket it. Where your input is the Torch trace or your
+     output is the emitted plugin, say which of those you can and cannot see
+     from the dossier.
+  2. Find the specific place the symptom could originate at this boundary --
+     an operation that changed meaning, a shape or dtype that was decided
+     rather than carried, an ordering that was imposed, a case the pass does
+     not handle and silently passes through.
+  3. For each candidate, say what in the dossier would confirm or refute it,
+     and say plainly whether the dossier contains that or not. "I would need
+     the Loopy dump for the sglang path to be sure" is a complete and useful
+     answer; a confident diagnosis that the dossier cannot support is not.
+  4. If your boundary is clean -- your output is a faithful translation of your
+     input and the symptom cannot originate here -- say so, and say what makes
+     you sure. A clean boundary stated is how a pipeline bug gets localised;
+     a boundary nobody spoke about is not.
 
-    Do not propose a fix. Do not rewrite anything. This run reads.|]
+  Do not propose a fix. Do not rewrite anything. This run reads.|]
 
 -- | What the differential synthesis is told.
 --
@@ -439,40 +437,38 @@ stageBrief n owns =
 -- command receipts, and it is asked to choose.
 synthesisBrief :: Roster -> Text
 synthesisBrief r =
-  wfText
-    [wf|
-    {refusing}
+  [wft|
+  {refusing}
 
-    Then, and this is what the run is for, answer the differential question. The
-    same ingest binary produced a working plugin for the sglang frontend and the
-    plugin under test for the Torch Fx frontend. So:
+  Then, and this is what the run is for, answer the differential question. The
+  same ingest binary produced a working plugin for the sglang frontend and the
+  plugin under test for the Torch Fx frontend. So:
 
-    - Is the fault in the BACKEND -- a pass that is wrong for both frontends and
-      that the sglang path happens not to exercise? Then say which pass, and say
-      what the sglang path does differently that avoids it.
-    - Or is it in the FRONTEND -- the Torch -> Bulk translation producing a Bulk
-      program that is legal but is not what the sglang path produces? Then say
-      what differs, and say which of the two is the intended shape.
+  - Is the fault in the BACKEND -- a pass that is wrong for both frontends and
+    that the sglang path happens not to exercise? Then say which pass, and say
+    what the sglang path does differently that avoids it.
+  - Or is it in the FRONTEND -- the Torch -> Bulk translation producing a Bulk
+    program that is legal but is not what the sglang path produces? Then say
+    what differs, and say which of the two is the intended shape.
 
-    Answer with one of those two, or with "not yet determined" and the single
-    piece of evidence that would decide it. Those are the three honest answers.
-    A diagnosis that names a pass without saying why the control path survives it
-    has not used the control, and the control is the only thing in this run that
-    separates a bug from a design decision.
+  Answer with one of those two, or with "not yet determined" and the single
+  piece of evidence that would decide it. Those are the three honest answers.
+  A diagnosis that names a pass without saying why the control path survives it
+  has not used the control, and the control is the only thing in this run that
+  separates a bug from a design decision.
 
-    Close with the smallest experiment that would confirm the answer -- one
-    command, one dump to look at, or one line to change and re-ingest.|]
+  Close with the smallest experiment that would confirm the answer -- one
+  command, one dump to look at, or one line to change and re-ingest.|]
   where
     refusing = refusingSynthesis r
 
 -- | What each dump receipt is introduced as.
 dumpBrief :: Text
 dumpBrief =
-  wfText
-    [wf|
-    An intermediate representation dumped by the ingest run that just happened.
-    This is a receipt: whatever the file holds is the answer, and nothing is
-    added to it.|]
+  [wft|
+  An intermediate representation dumped by the ingest run that just happened.
+  This is a receipt: whatever the file holds is the answer, and nothing is
+  added to it.|]
 
 -- | What the @Fx.hs@ receipt is introduced as.
 --
@@ -480,50 +476,45 @@ dumpBrief =
 -- for details on the Torch -> Bulk pipeline\".
 noteBrief :: Text
 noteBrief =
-  wfText
-    [wf|
-    The source of the Torch -> Bulk half of the pipeline, whose Note documents
-    the translation. A receipt: what the file says is the answer.|]
+  [wft|
+  The source of the Torch -> Bulk half of the pipeline, whose Note documents
+  the translation. A receipt: what the file says is the answer.|]
 
 -- | What the control receipt is asked.
 controlBrief :: Text
 controlBrief =
-  wfText
-    [wf|
-    The status quo: the same ingest binary over the existing sglang frontend for
-    the same model. A pass here means the control of this differential is intact
-    and a comparison is available. A failure means it is not, and this run has
-    nothing to compare the Torch Fx path against.|]
+  [wft|
+  The status quo: the same ingest binary over the existing sglang frontend for
+  the same model. A pass here means the control of this differential is intact
+  and a comparison is available. A failure means it is not, and this run has
+  nothing to compare the Torch Fx path against.|]
 
 -- | What the ingest receipt is asked.
 ingestBrief :: Text
 ingestBrief =
-  wfText
-    [wf|
-    The Torch Fx ingest under test, with every intermediate representation
-    dumped. A pass means the pipeline ran to completion and wrote the dumps and
-    the plugin; a failure carries the pipeline's own first failing line, which is
-    then the subject of the diagnosis rather than a paraphrase of it.|]
+  [wft|
+  The Torch Fx ingest under test, with every intermediate representation
+  dumped. A pass means the pipeline ran to completion and wrote the dumps and
+  the plugin; a failure carries the pipeline's own first failing line, which is
+  then the subject of the diagnosis rather than a paraphrase of it.|]
 
 -- | What the compile receipt is asked.
 makeBrief :: Text
 makeBrief =
-  wfText
-    [wf|
-    The build of the C++ Tron plugin the ingest just emitted. This asks whether
-    the generated code compiles, which is a different and cheaper question than
-    whether it is correct -- and a failure here localises the fault to the
-    emitter before anything else is asked.|]
+  [wft|
+  The build of the C++ Tron plugin the ingest just emitted. This asks whether
+  the generated code compiles, which is a different and cheaper question than
+  whether it is correct -- and a failure here localises the fault to the
+  emitter before anything else is asked.|]
 
 -- | What the runtime receipt is asked.
 runBrief :: Text
 runBrief =
-  wfText
-    [wf|
-    The model, run through the plugin that was just built. A pass means it
-    generated without failing; a failure carries the runtime's own first failing
-    line; and a missing binary or a hung run is neither -- it is a gap, and this
-    run says so rather than treating it as a failure of the model.|]
+  [wft|
+  The model, run through the plugin that was just built. A pass means it
+  generated without failing; a failure carries the runtime's own first failing
+  line; and a missing binary or a hung run is neither -- it is a gap, and this
+  run says so rather than treating it as a failure of the model.|]
 
 -- | What each lens is told about the fan-out it is one of, and what this run is
 -- looking for.
@@ -536,18 +527,17 @@ runBrief =
 -- stay fixed.
 stageClosing :: Text -> Text
 stageClosing problem =
-  wfText
-    [wf|
-    The problem this run is diagnosing:
+  [wft|
+  The problem this run is diagnosing:
 
-    {problem}
+  {problem}
 
-    Report on your own boundary and nothing else. Your answer is one block of a
-    document whose other blocks are the other boundaries', each fenced under its
-    own name: do not diagnose theirs, and do not summarise the whole. The
-    synthesis that reads this document is told to account for every block, so a
-    block that says "clean, and here is why" is worth as much as one that names a
-    fault.|]
+  Report on your own boundary and nothing else. Your answer is one block of a
+  document whose other blocks are the other boundaries', each fenced under its
+  own name: do not diagnose theirs, and do not summarise the whole. The
+  synthesis that reads this document is told to account for every block, so a
+  block that says "clean, and here is why" is worth as much as one that names a
+  fault.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines
@@ -646,33 +636,32 @@ diagnosedNote =
 -- | What the report is written through.
 tronReportBrief :: Text
 tronReportBrief =
-  wfText
-    [wf|
-    Write the report for a debugging run over the Torch Fx ingest pipeline. It is
-    read by the person who will make the next change to that pipeline.
+  [wft|
+  Write the report for a debugging run over the Torch Fx ingest pipeline. It is
+  read by the person who will make the next change to that pipeline.
 
-    Open with the provenance line you were given, verbatim, on its own line. It is
-    the run's own account of what ran and what did not, and it is not yours to
-    soften: in particular, if it says nothing was diagnosed, do not diagnose.
+  Open with the provenance line you were given, verbatim, on its own line. It is
+  the run's own account of what ran and what did not, and it is not yours to
+  soften: in particular, if it says nothing was diagnosed, do not diagnose.
 
-    Then, from the work below and nothing else:
+  Then, from the work below and nothing else:
 
-    - what was run, as argv, and what each command answered -- pass, its own
-      failing line, or did not run. Every claim further down rests on this list,
-      so it goes first;
-    - the diagnosis, if there is one: the boundary it localises to, whether the
-      fault is in the frontend or the backend, and why the sglang control path
-      survives it;
-    - the evidence, by dump and by line, so a reader can check the diagnosis
-      against the same bytes;
-    - what is NOT established, and what would establish it;
-    - the smallest next experiment.
+  - what was run, as argv, and what each command answered -- pass, its own
+    failing line, or did not run. Every claim further down rests on this list,
+    so it goes first;
+  - the diagnosis, if there is one: the boundary it localises to, whether the
+    fault is in the frontend or the backend, and why the sglang control path
+    survives it;
+  - the evidence, by dump and by line, so a reader can check the diagnosis
+    against the same bytes;
+  - what is NOT established, and what would establish it;
+  - the smallest next experiment.
 
-    Two things you must not write. Do not describe a command's result that is not
-    in the list above -- if it did not run, nothing follows from it. And do not
-    turn "not yet determined" into a leaning: a differential that did not resolve
-    is a real answer, and dressing it as a probable cause is how the next person
-    spends a day in the wrong pass.|]
+  Two things you must not write. Do not describe a command's result that is not
+  in the list above -- if it did not run, nothing follows from it. And do not
+  turn "not yet determined" into a leaning: a differential that did not resolve
+  is a real answer, and dressing it as a probable cause is how the next person
+  spends a day in the wrong pass.|]
 
 -- | One act, seven provenance lines.
 --

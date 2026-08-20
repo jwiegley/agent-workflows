@@ -28,7 +28,7 @@
 --
 -- __This module re-exports; it defines nothing.__ Everything in it is somewhere
 -- else, and the haddock that says where a rubric came from is on the binding and
--- not here. The mechanics — @wfText@, @bullets@, @tshow@ — are
+-- not here. The mechanics — @bullets@, @tshow@ — are
 -- "Workflows.Prose", which the foundation modules import directly, because a
 -- module this one re-exports cannot import it.
 module Workflows.Prelude

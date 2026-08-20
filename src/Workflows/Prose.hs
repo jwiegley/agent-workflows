@@ -2,24 +2,43 @@
 -- Module      : Workflows.Prose
 -- Description : The four mechanics every rubric module needs, promoted.
 --
--- "Example.Isaac" defines @wfText@, @bullets@ and @tshow@ privately, and every
--- module in this tree would otherwise redefine them. They are here, once, with
--- Isaac's own arguments for each — this module is the bottom of the dependency
--- order, imported by every other and importing none of them.
+-- "Example.Isaac" defines @bullets@ and @tshow@ privately, and every module in
+-- this tree would otherwise redefine them. They are here, once, with Isaac's own
+-- arguments for each — this module is the bottom of the dependency order,
+-- imported by every other and importing none of them.
+--
+-- __A fifth mechanic used to live here and no longer does.__ Isaac's @wfText@ —
+-- @'Agentic.Builder.wordsClosed'@ of a @[wf|…|]@, which is how a define written
+-- as a fence became the 'Text' it says — was promoted with the rest, and every
+-- define in the tree opened with it. It is now @[wft|…|]@ (@Agentic.WF.wft@, and
+-- "Workflows.Prelude" re-exports it): the same fence, the same layout rule and
+-- the same hole scan, saying its text directly. The conversion is written once,
+-- in the quoter, instead of once in front of each of the 412 defines that used
+-- it — which is the whole of the change, and why it could not move a byte.
+--
+-- __Why a define is 'Text' and not the 'Words' a prompt is__ — the argument that
+-- travelled with @wfText@, and which the four fragments below now carry, because
+-- each of them is a define computed rather than written:
+--
+--   * A scripted table keys its canned replies on the defines themselves, and a
+--     key is a 'Text' matched as a prefix of a /rendered/ prompt. Defines typed
+--     as @Words@ would have to be rendered at every row instead.
+--   * __Chunking is normative.__ @plan --raw@ prints the chunk list, so a define
+--     that splices as /two/ chunks where it spliced as one is a visible change
+--     even when the prompt's bytes are identical. Every derived brief in this
+--     tree holes a computed count or a roster table; as @Words@ each of those
+--     holes would carry a chunk boundary into every prompt that splices them,
+--     and as 'Text' they carry the one @lit@ they always did.
 --
 -- __Why this is not @Workflows.Prelude@.__ 'Workflows.Prelude' re-exports the
 -- whole foundation, so nothing the foundation is made of can import it. The two
 -- names are the split: the /mechanics/ are here and every foundation module
 -- imports them directly; the /one import an author writes/ is
 -- "Workflows.Prelude", and only the programs use it.
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Workflows.Prose
-  ( -- * A define's text
-    wfText,
-
-    -- * Derived prompt fragments
+  ( -- * Derived prompt fragments
     bullets,
     numbered,
     fenceOf,
@@ -27,37 +46,8 @@ module Workflows.Prose
   )
 where
 
-import Agentic.Builder (wordsClosed)
-import Agentic.Workflow (Words)
-import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
-
--- | The text a @[wf|…|]@ define says.
---
--- Every rubric in this tree that runs to more than one line is written as a
--- fence, so that the text a question sends is read in the source at the width
--- it is sent at, under the same layout rule as the prompts that hole it — and
--- so that the one place a prompt's shape is decided is the quoter.
---
--- __Why these are 'Text' and not the 'Words' the quoter yields.__ Isaac's two
--- reasons, and both still hold here:
---
---   * A scripted table keys its canned replies on the defines themselves, and a
---     key is a 'Text' matched as a prefix of a /rendered/ prompt. Defines typed
---     as 'Words' would have to be rendered at every row instead.
---   * __Chunking is normative.__ @plan --raw@ prints the chunk list, so a
---     define that splices as /two/ chunks where it spliced as one is a visible
---     change even when the prompt's bytes are identical. Every derived brief
---     below holes a computed count or a roster table; as 'Words' each of those
---     holes would carry a chunk boundary into every prompt that splices them,
---     and as 'Text' they carry the one @lit@ they always did.
---
--- 'Agentic.Builder.wordsClosed' cannot fail on a define: the scope is empty, so
--- no piece of one can be an @interp@. The @""@ is unreachable, and is written
--- rather than an @error@ so that a define is a value and not a bottom.
-wfText :: Words '[] -> Text
-wfText = fromMaybe "" . wordsClosed
 
 -- | A roster as the bullet table a derived brief holes, one row per entry.
 --

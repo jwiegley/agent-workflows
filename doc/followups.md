@@ -86,3 +86,31 @@ lightly compressed — each is a decision, not just a chore:
    agent-cat `doc/research/pal-subsumption/confer-design.md`.
 2. Engine `--route` (agent-cat side, `acat-engine-party-routing-hcx`) makes
    confer's roster span backends with the program text unchanged.
+
+## From the waves 3–5 landing verification (2026-08-20)
+
+- **`green-web` deferred, now recorded** (was the tranche's one Medium):
+  design §8's amendment and `Fix/Green.hs`'s header carry the reason. Building
+  it means a Playwright `running` party in `Workflows.Evidence` and one more
+  green rung — do it when a web project actually wants the gate.
+- **§7.4's `git-surgeon` cell is unaddressed as an argv promise.**
+  `Wiggum.hs` records why the *policy* (git-surgeon over plain git) stays with
+  the skill; the design cell also promised hunk-level staging argv as parties
+  in `Workflows.Evidence`, and none exists. Either build the argv when a
+  caller wants hunk-level staging, or amend §7.4's cell.
+- **K=2 is wiggum's honest ceiling, and the mechanism gap is agent-cat's.**
+  A bounded revision's body reviews and amends and holds no other statement
+  (`Step (Calling s) ('Review c s)` refuses a call there), so the work
+  cannot loop inside a `revisingOn`; `wiggum` therefore unrolls its rounds
+  at the program level, and the count — two — is a recorded design decision
+  ("a third round would be a design decision and would show here",
+  ci/workflows.sh). A long session is several priced invocations. If
+  continuation-with-a-price is ever wanted in one run, the request is an
+  agent-cat surface feature (a bounded round-count former whose body admits
+  statements — `revisingOn`'s sibling), not a toolbox workaround.
+- **The verifier's usage ratio, kept where the roadmap can see it:** of the
+  50 tranche rows, roughly 10 look weekly, 15 occasional, 25 priced-but-
+  shelf-ware. §7.5's goal was to price the corpus, so a never-run priced row
+  still answers "what would this cost" — but future waves should weight
+  toward rows that get typed, and `translate-es` (a unit test wearing a row's
+  clothes) is the marker for where to stop.

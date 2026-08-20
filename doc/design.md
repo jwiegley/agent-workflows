@@ -964,6 +964,69 @@ mostly `call_` waves 1–2.
 reports a finite worst case — the one number an autonomous loop must have before
 it starts, and does not have today.
 
+**Amendment, 2026-08-20 — wave 5 is complete, and so is the roadmap, save one
+recorded deferral.** §6.2 names a fourth green row, `green-web` (§7.2 row 66's
+`webfix` rework, "use the oracle"); it was not built in any wave: no
+Playwright argv is carried in `Workflows.Evidence`, and no row prices it. It
+is deferred, not dropped — a browser-driving gate is a real `running` party
+the day it is wanted, and `Fix/Green.hs`'s header now records the deferral
+where a reader of the family will find it. Everything else in §8 landed:
+`Workflows.Wiggum` is the table's last row, and the wave's gate is paid:
+
+```
+wf cost wiggum
+  minFold 2, maxFold 44, over 34 paths
+```
+
+`ci/workflows.sh` pins it at `branch, 34 paths, ceiling 44` and reports **71
+workflows pinned, 0 failed**; every earlier row's numbers are unmoved. Five things
+about that row are amendments to what this section and §7.2/§7.4 predicted, and
+each is recorded rather than absorbed:
+
+1. **44 is the widest ceiling in the table**, past `retest-categorical`'s 37. That
+   is §7.4 row 1's "it calls almost everything" showing up as arithmetic: five of
+   the row's seven declared callees are other rows' functions (`commitFn`,
+   `resolveFn`, `cleanupRoundFn`, `fessReportFn`, and the eleven `fess` stances by
+   way of `Rubrics.Fess`), so what the top of the loop costs is what the toolbox
+   under it costs. The `minFold` of 2 is the refusal to start.
+2. **§7.4 row 1's structure was right and its `revisingOn` sits in one place.** The
+   row is K unrolled rounds (K = 2), each `call_ roundFn`, the second entered
+   behind `decide saysComplete` over the first round's own last line — exactly as
+   that cell says, and *not* a five-`call_` revision body. What the bounded
+   `revisingOn` turned out to bound is the **done-criteria verdict** over the
+   handoff, at `atMost 2`, with `Workflows.Escalation`'s three arms as the three
+   endings. The work itself cannot live in an amendment: `Step (Loop c s) ('Body
+   r s)` is a `TypeError` and `ifThenElse` exists only at `'Open s`, so a round's
+   pipeline is unrolled at the program level and the amendment revises the
+   *handoff* rather than the tree. The module header says so plainly. The
+   unroll count itself — two — is a design decision rather than a
+   construction, and the gate records it in its own words: "a third round
+   would be a design decision and would show here."
+3. **§7.2 row 59's rework is `stageWaves`.** `run-orchestrator`'s steps 5 and 6
+   are a layered topological sort over a `[(Text, [Text])]`, done before the
+   `Program` exists — zero questions, zero paths — and its widest wave *is* the
+   round's fan-out, which is `skills/parallelize`'s guessed "3–5" computed. The
+   remaining six steps are the table's rows; the two that were questions are the
+   sort.
+4. **One deviation from §7.2 row 67 and `references/fess-audit.md`, deliberate:
+   the audit runs once per run and not once per commit.** That reference file
+   carves the fix commits and `partner-cleanup`'s own commit out of the per-commit
+   rule and then states the obligation this row keeps — "before declaring the work
+   done, run one final audit over the last work commit". One eleven-stance fan-out
+   immediately before the verdict is that sentence; K of them would be K fan-outs
+   for a Definition-of-Done clause stated once, and the per-commit audit is a row
+   that already exists (`wf run fess`).
+5. **What could not be a program is in the module header, named.** Six items: the
+   refresh-after-compaction re-read (a compaction is invisible to a program; what
+   it demands — the baseline verification — is the flag at the top of the run),
+   the durable *files*, the working policies (`CARGO_TARGET_DIR`, `~/Products`,
+   `direnv exec .`, `git-surgeon` — unexpressible, since `Agentic.Shell` runs an
+   argv with `proc` and never a shell), "do not enter this mode on your own", the
+   four-hour clock, and conferring through PAL. The prohibition that *did* become
+   structural is the important one: there is no push argv anywhere in
+   `Workflows.Wiggum`, so "do NOT submit or push the stack" is a command that does
+   not exist.
+
 **Do the seven REWORKs before wave 3.** They are rethinks, not transcriptions,
 and each is one decision answerable in a sitting: `fix-alert` (drop `caveman`
 from the diagnostic path), `initialize` (split the two output kinds), `narrative`

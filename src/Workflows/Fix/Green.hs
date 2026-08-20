@@ -3,6 +3,13 @@
 -- Description : The gated fix loop — check, repair, recheck, with the exit code
 --               as the review clause.
 --
+-- __The fourth row the design names is deferred.__ Design §6.2 lists
+-- @green-web@ (@commands\/webfix.md@, §7.2 row 66's rework) beside the three
+-- rows below; it is not built: a browser-driving gate needs a Playwright argv
+-- in "Workflows.Evidence" that nothing else wants yet, and a deferred row
+-- recorded here is honest where a silently missing one is not. The design §8
+-- completion amendment carries the same note.
+--
 -- == The map: old Markdown -> new program
 --
 -- +-------------------------------------------+---------------------------------------------------------------+

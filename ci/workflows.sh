@@ -90,6 +90,137 @@ inputsFor() {
     stack | stack-*)
       ins=(--input-arg trunk= --input-arg tip= --input-arg agents= --input-arg pr=)
       ;;
+    # Wave 2's residue. `checklist` and `notes` name a FILE, and `""` is given a
+    # meaning in Haskell rather than left to `cat`: an absent path becomes a name
+    # no file has, so `wf plan --raw` prints the omission and this gate's own
+    # `--scripted` run never reaches a command at all.
+    checklist) ins=(--input-arg checklist= --input-arg scope=) ;;
+    teams) ins=(--input-arg problem= --input-arg context=) ;;
+    notes) ins=(--input-arg notes=) ;;
+    # The effort ladder. `worktree=` empty is NOT under a Positron directory, so
+    # the numbers below are the non-Positron shape of `effort-heavy` — which is
+    # tier 1 and therefore changes a define rather than a path, so the pinned
+    # `paths` holds either way.
+    effort-*) ins=(--input-arg task= --input-arg worktree=) ;;
+    # Wave 3, the daily drivers. Five of the nineteen take a roster-shaping
+    # `paths=`, and WR-1 is what those rows are priced with empty: at
+    # `pr-threads-assess` the empty file list is ONE general seat, and at
+    # `partner-collaborator` it is `deep-review`'s four required lenses plus the
+    # performance pass — never zero members, because `panel []` is an `error` on
+    # a CAF and would take this binary down here.
+    pr-threads | pr-threads-assess) ins=(--input-arg pr= --input-arg paths=) ;;
+    issue | issue-worktree) ins=(--input-arg issue= --input-arg paths=) ;;
+    account-*) ins=(--input-arg scope= --input-arg journal=) ;;
+    partner-*)
+      ins=(--input-arg commit= --input-arg observations= --input-arg paths=)
+      ;;
+    # The two Org rows take DIFFERENT inputs, which is what a rung may do: one
+    # decomposes a named task, the other extracts from unstructured text. A row's
+    # inputs are its own, and `wf plan` prints them.
+    org-tasks-breakdown) ins=(--input-arg task= --input-arg context=) ;;
+    org-tasks-infer) ins=(--input-arg text=) ;;
+    claude-md | claude-md-advise) ins=(--input-arg scope= --input-arg agents=) ;;
+    # Same again across the prose dial: the scope of a project-wide proofread,
+    # one passage, a file plus its reference tables, or one passage again.
+    prose-proofread) ins=(--input-arg scope=) ;;
+    prose-smooth | prose-compress) ins=(--input-arg text=) ;;
+    prose-transcript) ins=(--input-arg transcript= --input-arg vocabulary=) ;;
+    # Wave 4, the audits and the specialists. `dead-code` is the one row in the
+    # table whose PRICE depends on an input: `cap=` empty is `capBound ""`, which
+    # is two repair trips, and `--input-arg cap=4` would price four. That is
+    # `doc/design.md` §10's third risk showing on purpose, and it is why the
+    # ceiling below is pinned at the shape this line runs.
+    dead-code) ins=(--input-arg scope= --input-arg paths= --input-arg cap=) ;;
+    # `extractor=` empty is a name no file has, so `wf plan --raw` prints
+    # `python3 <no extractor given> inventory` and this gate's `--scripted` run
+    # never reaches a command at all. Same rule as `checklist` and `notes`.
+    comments) ins=(--input-arg extractor= --input-arg base=) ;;
+    bundles) ins=(--input-arg focus= --input-arg candidates= --input-arg profile=) ;;
+    # Both productize rows take a roster-shaping `paths=`, and WR-1 is what makes
+    # the empty one safe: the twenty-one deliverables are a FIXED list, and the
+    # per-language tool seats collapse to ONE general seat rather than to zero
+    # members — `panel []` is an `error` on a CAF and would take this binary down
+    # here.
+    productize | productize-lefthook) ins=(--input-arg paths= --input-arg scope=) ;;
+    # The three nix rows share one invocation shape, which is what makes them one
+    # family. `host=` empty is the unconstrained default, so the numbers below are
+    # the non-VPS shape — and that is tier 1, which changes an argv and a define
+    # rather than a path, so the pinned `paths` holds either way.
+    nix-*) ins=(--input-arg subject= --input-arg output= --input-arg host=) ;;
+    # `service=` empty names the consent file `.consent/service-unnamed`, which is
+    # exactly what a plan should print for an operator who forgot the flag.
+    service-*) ins=(--input-arg service= --input-arg domain= --input-arg host=) ;;
+    # Wave 4's second half. Three of the five name a FILE or a directory, and `""`
+    # is given a meaning in Haskell rather than left to the command: an absent path
+    # becomes a name nothing has, so `wf plan --raw` prints the omission and this
+    # gate's own `--scripted` run never reaches a command at all. Same rule as
+    # `checklist`, `notes` and `comments`.
+    query) ins=(--input-arg question= --input-arg schema= --input-arg dialect=) ;;
+    expense) ins=(--input-arg receipts= --input-arg trip= --input-arg script=) ;;
+    # `decisions=` and `images=` are the two roster-shaping inputs in this half, and
+    # WR-1 is what makes the empty ones safe: `decisionsOf ""` is ONE placeholder
+    # decision and `imagePaths ""` is ONE placeholder path, never the empty list --
+    # an empty agenda would ask the owner to walk through nothing, and an empty
+    # image list would make the argv `ls -1` with no operand, which lists the
+    # working directory and exits 0.
+    qanda) ins=(--input-arg decisions= --input-arg context=) ;;
+    transcribe) ins=(--input-arg images= --input-arg subject=) ;;
+    # `model=` empty is the corpus's own `llama_3p1_8b_torch`, and the control's
+    # name is COMPUTED from it, so one flag names both sides of the differential.
+    # That is tier 1: it changes an argv, never a question and never a path.
+    tron) ins=(--input-arg problem= --input-arg model= --input-arg trace=) ;;
+    # Wave 5, the long ones. `retest`'s `models=` is the one roster-shaping input
+    # in this wave, and WR-1 is what makes the empty one safe: `modelsOf ""` is
+    # ONE model -- the spec's own `llama_3p1_8b` -- and never the empty list,
+    # because `panel []` is an `error` on a CAF and a battery with no model in it
+    # would take this binary down here. At `retest-categorical` the input is
+    # IGNORED by that file's own ruling ("the ship gate is always all supported
+    # models"), so the roster is the fixed eight whatever this line says -- which
+    # is why the two ceilings below differ by twenty-one.
+    retest | retest-categorical)
+      ins=(--input-arg spec= --input-arg base= --input-arg models= --input-arg paths=)
+      ;;
+    # `denote`'s four inputs shape no roster: `prover=` empty is Lean 4 and
+    # `realization=` empty is a design where phase 10 does not exist, both of
+    # which are DEFINES rather than members, so WR-1 has nothing to say here.
+    denote) ins=(--input-arg subject= --input-arg method= --input-arg prover= --input-arg realization=) ;;
+    # The two directions that carry a review team take three inputs; the one that
+    # does not takes one, because `prompts/spanish.md` names no glossary and no
+    # reference corpus and the row does not pretend to. `text=` empty is the OTHER
+    # roster-shaping input in this wave, and WR-1 again: `shortSource ""` is FALSE,
+    # so the empty invocation is the full six-seat team and never one seat -- an
+    # absent text is unknown, not short, and the price pinned below is the price of
+    # the shape this line runs.
+    translate | translate-en)
+      ins=(--input-arg text= --input-arg glossary= --input-arg references=)
+      ;;
+    translate-es) ins=(--input-arg text=) ;;
+    # The two PRD rows take different inputs, which is what the split bought: one
+    # writes a document and needs the goals and the format authority, the other
+    # reads one and needs only its path. `prd=` empty is §6's own default,
+    # `.taskmaster/docs/prd.txt`, in the printed argv either way.
+    prd-draft) ins=(--input-arg goals= --input-arg template= --input-arg prd=) ;;
+    prd-critique) ins=(--input-arg prd=) ;;
+    # `nodered` names TWO identifiers and a scripts directory, and all three are
+    # validated or defaulted in Haskell: `flow=` and `node=` empty fail the skill's
+    # own FLOW_ID regex, so `wf plan --raw` prints
+    # `node-red-admin flow get <no valid flow id given>` and this gate's own
+    # `--scripted` run never reaches a command at all. Same rule as `checklist`,
+    # `notes` and `comments`, applied to an identifier rather than to a path.
+    nodered)
+      ins=(--input-arg request= --input-arg flow= --input-arg node= --input-arg scripts= --input-arg references=)
+      ;;
+    # The top of the loop. NONE of its four inputs shapes a roster, so WR-1 has
+    # nothing to say here and every empty one is given a meaning in Haskell
+    # instead: `base=` empty is `main` (an argv), `observations=` empty is
+    # `doc/observations` (an argv), `parity=` empty is the OTHER half of the
+    # definition of done's last conjunct rather than a missing conjunct, and
+    # `plan=` empty is the sentence a run with no frozen done-criteria earns --
+    # which `wf plan wiggum --raw` prints, so an operator who forgot the flag
+    # learns it from the plan and not from a report.
+    wiggum)
+      ins=(--input-arg plan= --input-arg base= --input-arg observations= --input-arg parity=)
+      ;;
     *) ins=() ;;
   esac
 }
@@ -116,10 +247,14 @@ pin() {
 # into a document, one report call: no branch and no loop, so its price is exact
 # and the ceiling is the price.
 #
-# SIX of the twenty-one rows price exactly — minFold equals maxFold, so
+# TWENTY of the seventy-one rows price exactly — minFold equals maxFold, so
 # `wf cost` answers with a number and not a range — and they are `hello`,
-# `fess`, `confer`, `confer-bare`, `debate` and `second-opinion`. The list is
-# stated here, once, and the fess and confer blocks below point back at it.
+# `fess`, `confer`, `confer-bare`, `debate`, `second-opinion`, `teams`,
+# `notes`, `issue-worktree`, `account-halt`, `account-sitrep`,
+# `account-report`, `account-narrative`, `partner-reviewer`,
+# `partner-collaborator`, `claude-md-advise`, `prose-proofread`,
+# `prose-transcript`, `prose-compress` and `translate-es`. The list is stated
+# here, once, and the blocks below point back at it.
 #
 # It exists to prove the wiring — the registry,
 # the shared CLI, the roster, the panel fold, `defining`'s table — rather than to
@@ -190,6 +325,401 @@ pin confer              pipeline      1       5
 pin confer-bare         pipeline      1       4
 pin debate              pipeline      1       4
 pin second-opinion      pipeline      1       2
+
+# The wave-1 warm-up (`Workflows.Checklist`), landed with wave 2's residue. Two
+# rounds, each entered behind a `decide` over a `cat` receipt, and four endings:
+# nothing to do (2), cleared after one round (5), and the two after the
+# self-verification round (8 each). The number to watch is `paths`: a third
+# round would be a design decision and would show here as 5.
+pin checklist           branch        4       8
+
+# The two most literal panels in the corpus (`Workflows.Teams`,
+# `Workflows.Notes`). Both price EXACTLY, which is the point of writing them
+# next to each other: nothing in either loops, and the one branch each carries
+# chooses which provenance the artefact opens with rather than how much is
+# asked.
+#
+# `teams` at 13 is `doc/design.md` §7.2 row 63's own number — ten angles, the
+# devil's advocate as a second tier, the review of all the work, and the
+# artefact — and it is the arithmetic that settled that cell's "eleven roster
+# rows" against its price. An eleventh angle moves it to 14.
+#
+# `notes` at 17 is one `cat` receipt, ten sections, five checkpoints and the
+# artefact. The five are on a serving model none of the ten used, which is what
+# makes them an audit; they cost five and they are the five this row exists for.
+pin teams               branch        2      13
+pin notes               branch        3      17
+
+# The effort ladder (`Workflows.Effort`). These three numbers are the reason the
+# row exists: `skills/toolkit/SKILL.md` declares `medium ⊂ heavy ⊂ forge` in
+# three bullets and has no way to say what the containment costs. It costs
+# 7 -> 10 -> 24, and an operator reads that before spending anything.
+#
+# `effort-forge`'s 16 paths are the approval branch times the remediation loop's
+# three endings over its two rounds, and its 24 is `doc/design.md` §7.4 row 10's
+# demo: six phases across four parties, priced before the first token. The
+# remediation bound is `atMost 2`; raising it moves both numbers, which is a
+# design decision, which is what this table is for.
+pin effort-medium       branch        3       7
+pin effort-heavy        branch        3      10
+pin effort-forge        branch       16      24
+
+# ---------------------------------------------------------------------------
+# Wave 3 — the daily drivers (`doc/design.md` §8)
+# ---------------------------------------------------------------------------
+#
+# Nineteen rows, seven programs, and §8's claim about them is testable from this
+# table: "these mostly `call_` waves 1–2". Three of them do, and the numbers say
+# where — `issue` at 14 is the largest of the nineteen precisely because it calls
+# `commitFn` and `botSweepFn`; `account-halt` at 15 is the largest of all because
+# it calls `journalFn` and `commitFn` and then panels seven categories.
+# Everything else in the wave is thin, and four rows price at 5 or under.
+
+# The pull request's open comments (`Workflows.Threads`). Two rungs over ONE
+# ledger, and the free decider over the inventory is what makes the third path:
+# a pull request with nothing open on it costs 3 and asks no specialist.
+#
+# The two ceilings differ by exactly one question, which is the whole of what
+# `assess.md` adds to `respond.md` at the empty file list — one general seat.
+# A real `--input-arg paths=` widens that seat into the language specialists,
+# which moves the ceiling and NOT the path count, because the roster is tier 1.
+pin pr-threads          branch        3       5
+pin pr-threads-assess   branch        3       6
+
+# The issue drivers (`Workflows.Issue`). `issue`'s 14 is the wave's second
+# largest and every part of it is a call: `issueWorkFn`, then `commitFn`, then the
+# push, the pull request and `botSweepFn` over the ledger that now exists. Its
+# minFold of 2 is the gate that matters — an open pull request already mentioning
+# the issue costs one receipt and one report, which is `fix.md`'s own NOTE with a
+# price on it.
+#
+# The four paths are the three cheap gates: already-in-hand, already-addressed,
+# and the confirmation-test flag's two arms. A fifth path would mean a fourth
+# gate, which is a design decision.
+pin issue               branch        4      14
+pin issue-worktree      branch        2       6
+
+# The four accounts (`Workflows.Account`). Two of them are `pipeline` and that is
+# the point of the pair: nothing in a sitrep or a remaining-scope report branches,
+# because there is no judgment about how to END one — so `wf cost` answers with a
+# single number and the ceiling IS the price. The other two branch: `account-halt`
+# on whether the tree really came back clean, `account-narrative` on the three
+# arms of its sourcing verdict.
+#
+# `account-halt` at 15 is the wave's largest: two receipts, `journalFn`,
+# `commitFn`, the push, seven report categories, the closing tree receipt and the
+# artefact. `account-sitrep`'s 13 is four receipts, eight sections and the
+# artefact; `account-report`'s 11 is two receipts, seven categories, the estimate
+# on another engine, and the artefact. An eighth category moves the last two by
+# one each, which is a Tuesday.
+pin account-halt        branch        2      15
+pin account-sitrep      pipeline      1      13
+pin account-report      pipeline      1      11
+pin account-narrative   branch        3       8
+
+# The partnership (`Workflows.Partner`). The two reviewing rows differ by exactly
+# one question, and it is the right one: `partner-reviewer` is `heavy-review`'s
+# seven passes and NOTHING else, because `partner-reviewer.md` has no ideation
+# section; `partner-collaborator` is `deep-review`'s five plus the three draws
+# `doc/design.md` §7.2 row 38 asks for. 7+4 against 5+3+4 is 11 against 12, and
+# `ideas=off` is visible in this table as one fewer consultation. A real
+# `--input-arg paths=` widens the second and leaves the first alone.
+#
+# `partner-cleanup`'s four paths are `checklist`'s shape — nothing to do, drained
+# after one round, drained after two, or still not drained — and its minFold of 2
+# is the arm where the directory was already empty.
+pin partner-reviewer    branch        2      11
+pin partner-collaborator branch       2      12
+pin partner-cleanup     branch        4      12
+
+# The Org-mode rows (`Workflows.OrgTasks`). Five paths each and four questions
+# each, which is the shape of a program whose value is mostly in its ENDINGS:
+# three degenerate cases and a checked one at `breakdown`, two free deciders and
+# a three-armed verdict at `infer`. Both minFold at 2, which is the cheap arm —
+# an atomic task, or a text with no commitments in it — and neither pays for a
+# judgment about nothing.
+pin org-tasks-breakdown branch        5       4
+pin org-tasks-infer     branch        5       4
+
+# The briefing file (`Workflows.ClaudeMd`). `claude-md` is the smallest branching
+# row in the table and is meant to be: one `ls` receipt, one free decider, and two
+# outcomes that cannot be confused — which is the whole of the `initialize.md`
+# rework. Its maxFold of 4 is the critique arm, where the decider has licensed a
+# `cat`; the writing arm is 3.
+pin claude-md           branch        2       4
+pin claude-md-advise    branch        3       5
+
+# The prose dial (`Workflows.Prose.Polish`). Four settings, and the number to look
+# at is `prose-smooth`'s 15 paths: that is `Workflows.Escalation`'s own arithmetic
+# — a three-way `revisingOn` replicates its tail 2n+1 times in the plan, and at
+# `atMost 2` with three report arms that is fifteen. It is the price of an ending
+# for "the reviewer would not judge it", and `smooth.md` has no such ending.
+#
+# `prose-compress` at 2 over 2 paths is the smallest row in the whole table, and
+# it is `compressFn`'s one call site: one question inside the callee, one report,
+# and a free decider between them for the refusal.
+pin prose-proofread     branch        3       4
+pin prose-smooth        branch       15       7
+pin prose-transcript    branch        3       5
+pin prose-compress      branch        2       2
+
+# ---------------------------------------------------------------------------
+# Wave 4, first half — the audits and the specialists (`doc/design.md` §8)
+# ---------------------------------------------------------------------------
+#
+# Ten rows, six programs, and the wave's claim is legible from this table: these
+# are the rows that TRANSPLANT A SUBSTANTIAL RUBRIC rather than compose waves 1-3.
+# Only two of the ten call anything (`productize`'s two acting turns and
+# `service-install`'s nine obligations are calls of this wave's own functions), and
+# the ceilings are correspondingly the widest in the table — 31 and 23 — because
+# what a specialist costs is the size of the thing it is specialising in.
+
+# The dead-code pass (`Workflows.DeadCode`). Eleven paths, and every one of them is
+# a place the corpus says "abort" or "stop": a dirty tree, a red baseline, a marker
+# that escaped, a gate that never came back. Two of the eleven cost 2 and 3 -- the
+# two refusals to start -- which is the whole argument for putting them first.
+#
+# The ceiling is the number to watch here for a reason no other row in this table
+# has: `cap=N` is read in Haskell into the ACT gate's bound, so this row's price is
+# a function of an input. 18 is the shape at `cap=` empty, which is two repair
+# trips; `--input-arg cap=4` prices higher and `wf cost` says so before anything is
+# spent. Raising the DEFAULT would be a design decision and would show here.
+pin dead-code           branch       11      18
+
+# The comment audit (`Workflows.Comments`). Seventeen paths is the largest count in
+# the whole table, and it is the false-positive guard's arithmetic:
+# `Workflows.Escalation`'s three-way loop replicates its tail 2n+1 times in the
+# plan, and at `atMost 2` with three endings under two completion gates that is
+# seventeen. It is the price of an ending for "the guard would not judge these
+# verdicts", and `comment-audit/SKILL.md` has no such ending -- its guardrails are
+# a checklist, and a checklist has no outcome.
+pin comments            branch       17      13
+
+# External bundles (`Workflows.Bundles`). Three paths and a ceiling of 12, and the
+# gap between minFold 3 and maxFold 12 is the row's entire point: the six hard
+# rejection conditions are read by a free decider BEFORE the seven weighted seats,
+# so a batch where nothing survives screening costs three questions instead of
+# twelve. `doc/design.md` §7.2 row 12 asks for exactly that saving and this is it,
+# as two numbers.
+pin bundles             branch        3      12
+
+# Productization (`Workflows.Productize`). 31 is the widest ceiling in the table and
+# it is meant to be: twenty-one deliverables, one tool seat, two acting turns, a
+# gate with two repair trips and a report. `productize.md` is a bullet list with no
+# number anywhere in it, and this row is that list PRICED -- which is §7.2 row 42's
+# whole claim.
+#
+# The pair is what makes `lefthook.md` a row rather than a prose reference: same
+# body, same `lefthookFn`, seven of the twenty-one deliverables, and half the
+# ceiling. A deliverable added to the pre-commit slice moves the second number and
+# not the first, and that is visible here in one line.
+pin productize          branch        6      31
+pin productize-lefthook branch        6      15
+
+# The NixOS host (`Workflows.Nix`). THREE IDENTICAL TRIPLES, and that is the row
+# family's strongest evidence: `nix-rebuild`, `nix-alert` and `nix-integration`
+# differ only in what their symptom IS -- a receipt, an alert payload plus its
+# routing, or a pasted error with the corpus's own sample as its default -- and all
+# three of those are tier 1. A difference decided in ordinary Haskell over an input
+# changes a define and an argv, never a question and never a path, so three of the
+# owner's commands price the same to the digit.
+#
+# Eight paths each: the first build's verdict has three arms, and one of those arms
+# carries a two-trip gate with two endings. The `fix-alert` rework shows up here as
+# an ABSENCE -- there is no compression question on any path, which is why the
+# ceiling is 9 and not 10.
+pin nix-rebuild         branch        8       9
+pin nix-alert           branch        8       9
+pin nix-integration     branch        8       9
+
+# Services on the host (`Workflows.Service`). `service-install`'s minFold of 2 is
+# the number worth reading first: the consent file is absent, so the run asks the
+# owner for the certificate and the secrets and ends, having changed nothing. Its
+# 23 is the other end of the same branch -- nine obligations at two questions each,
+# the shape question, two health receipts and the report.
+#
+# `service-remove` is the tree's exemplar of structural read-only, and its numbers
+# say so: twelve of its fifteen minimum consultations are questions asked at `text`,
+# which have no write authority at all, and the single node in the program that can
+# write anything writes a script it does not run.
+pin service-install     branch        4      23
+pin service-remove      branch        6      19
+
+# ---------------------------------------------------------------------------
+# Wave 4, second half — the specialists (`doc/design.md` §8)
+# ---------------------------------------------------------------------------
+#
+# Five rows, five programs, no rungs, and what they have in common is the wave's
+# closing claim: each one's READ-ONLY OR HUMAN-GATED CHARACTER IS A TYPE. `query`
+# contains no `act` at all, so `wf plan query --raw` is the evidence that it
+# cannot run the query it wrote; `transcribe` and `tron` contain exactly one, and
+# it writes the artefact; `expense` and `qanda` put the owner in binding position,
+# so their expensive arms are unreachable without his answer.
+#
+# Three of the five carry a three-way loop, and that is where their paths come
+# from: `Workflows.Escalation`'s arithmetic replicates the tail 2n+1 times in the
+# plan, so at `atMost 2` with three endings the counts are 15 and 16 rather than 3.
+# The number to read is the CEILING, which is small on all three.
+
+# The SQL query builder (`Workflows.Query`). Sixteen paths and a ceiling of 8, and
+# the one path worth naming is the minFold of 3: a draft whose first line begins
+# with a write verb is refused by a free decider before the audit is asked
+# anything. That is `mutatingStatement`, it costs zero questions, and it is the
+# ending `query-builder.md` cannot have because nothing there reads the answer.
+pin query               branch       16       8
+
+# The expense report (`Workflows.Expense`). Seventeen paths, which is the
+# `comments` count exactly and for the same reason -- a three-way loop under a
+# branch -- and the branch is the level-up: the extraction's own `REVIEW` flag,
+# read for nothing, chooses between a bounded revision with the owner in binding
+# position and a single yes/no. Four of its six endings build NOTHING, and the two
+# that build are both behind his answer.
+pin expense             branch       17      10
+
+# The decision walkthrough (`Workflows.QandA`). Fifteen paths, a ceiling of 8, and
+# a minFold of 4 -- the round where he approves the first walkthrough. `qanda.md`
+# is three lines with no named input at all; this row is those three lines with an
+# agenda, a bound, and an ending for a person who walks away.
+pin qanda               branch       15       8
+
+# Handwriting to Markdown (`Workflows.Transcribe`). The same triple as `qanda`, and
+# that is not a coincidence: the two are the same shape -- one preparatory
+# question, then a three-way bounded loop, then one artefact -- over two completely
+# different subjects. A shared shape pricing identically is what the library is
+# for.
+pin transcribe          branch       15       8
+
+# The Torch Fx pipeline (`Workflows.Tron`). The one row in this half whose price
+# is a RANGE worth reading: 2 to 14 over 9 paths. The 2 is the control ingest
+# failing, which refuses to diagnose at all; the 14 is the full differential --
+# four command receipts, four IR dumps and the Fx note, four boundary readings and
+# the synthesis. Seven of the nine paths are "a command did not do what this run
+# needed", and each of those costs 5 or less. That gap IS `doc/design.md` §7.2
+# row 65: a diagnosis is only reachable through the arms in which the commands ran.
+pin tron                branch        9      14
+
+# ---------------------------------------------------------------------------
+# Wave 5 — the long ones (`doc/design.md` §8)
+# ---------------------------------------------------------------------------
+#
+# Nine rows, five programs, and what they share is that each transplants a whole
+# PROCEDURE rather than a rubric. Their paths are dominated by two things: the
+# free deciders that give a procedure its endings, and `Workflows.Escalation`'s
+# 2n+1 replication wherever a phase has a reviewer that may decline.
+
+# The model-support battery (`Workflows.Retest`). ONE BODY, TWO ORACLES, and the
+# gap between the two ceilings is the whole row: 16 against 37. Both have five
+# paths and both have the same shape -- probe, sweep, grade, three free tests,
+# five endings -- and the 21 extra consultations at `retest-categorical` are the
+# fixed eight-model roster, which is eight gate processes and sixteen perf trials
+# (a categorical slug and a legacy slug per model) instead of one and one.
+#
+# THAT NUMBER IS THE POINT OF THE ROW. `doc/design.md` §7.2 row 57 asks for
+# "`costSummary` prices an eight-model FPGA run BEFORE an FPGA is touched", and
+# `wf cost retest-categorical` answers 37 before a card is opened. 37 is now the
+# widest ceiling in this table -- wider than `productize`'s 31 -- and it is
+# honest: what an eight-model byte-identity sweep costs is eight models' worth of
+# processes.
+#
+# The minFold of 2 on both rows is the refusal to start: `make -n <target>`
+# exits nonzero, so the tree is the other rung's, and the run reports that
+# without building, gating or characterising anything.
+pin retest              branch        5      16
+pin retest-categorical  branch        5      37
+
+# Denotational design (`Workflows.Denote`). Seventeen paths and a ceiling of 18,
+# and the two numbers to read together are the minFold of 2 and the path count.
+# The 2 is the admission test answering no -- one flag and one report, for a
+# subject the method should not be applied to, which is the cheapest correct
+# answer this program has and the one `## When to use, and when not` is written
+# to produce. The 3 is a retrofit whose own defect inventory says to start over,
+# which the skill calls a SUCCESSFUL retrofit and which costs one phase.
+#
+# The seventeen are `Workflows.Escalation`'s arithmetic over three report arms
+# (5 x 3 = 15) plus those two early endings. The ceiling is small for a
+# ten-phase design method because the phases are a CHAIN and not ten loops:
+# `doc/design.md` §7.4 row 6 sketches ten `revisingOn` triples, which would be
+# 5^10 paths, and the module header records the departure and what it costs.
+pin denote              branch       17      18
+
+# The translation family (`Workflows.Translate`). THREE ROWS, TWO SHAPES, and the
+# table says which is which: `translate` and `translate-en` are IDENTICAL triples
+# -- one body, the languages swapped, which is `nix`'s argument at another
+# family -- and `translate-es` is `pipeline`, 1 path, 2 consultations, in a
+# three-way tie for the smallest row in the whole table with `second-opinion`
+# (its exact structural match: pipeline, 1 path, 2) and `prose-compress`
+# (branch, 2 paths, 2).
+#
+# The 15 paths are `Workflows.Escalation`'s 2n+1 over three report arms again. The
+# 23 is two rounds of a six-seat review plus the terminology brief, the draft and
+# the delivery; the minFold of 9 is the same run settling on the first round, and
+# the gap between those two numbers is the bound `persian/SKILL.md` states without
+# one ("run Phase 3 again on the synthesis, and then come back here to phase 4").
+#
+# `translate-es` at 2 is the row that keeps the family honest: its source file is
+# an instruction block and a task, it names no reviewer, and its price says so
+# rather than borrowing its siblings' apparatus.
+pin translate           branch       15      23
+pin translate-en        branch       15      23
+pin translate-es        pipeline      1       2
+
+# The requirements pair (`Workflows.Prd`). TWO ROWS BECAUSE ONE FILE WAS TWO
+# AGENTS, and this is the line of the table that shows what `doc/design.md` §7.3's
+# R -> 2xT rework bought: 19 against 11, and 18 paths against 3. The fused file
+# has one number for both, which is no number.
+#
+# `prd-draft`'s minFold of 2 is the refusal to overwrite: a `test -f` says a PRD
+# already stands, and the run reports that and names `prd-critique`. Its 18 paths
+# are three cheap endings -- already there, not confirmed, open questions -- plus
+# `Workflows.Escalation`'s 5x3 over the verification loop's three arms.
+#
+# `prd-critique`'s minFold of 2 is the mirror: nothing at the path, so nothing was
+# asked of anybody, and seven analysis axes over a document that does not exist
+# were not run. Its 3 paths carry no loop at all, which is correct for a row whose
+# whole job is to read: there is nothing to revise, because nothing in the row can
+# write.
+pin prd-draft           branch       18      19
+pin prd-critique        branch        3      11
+
+# Flows on the owner's own host (`Workflows.NodeRed`). Four paths, and the
+# NARROWEST range in this half of the table: 15 to 17. That is what a program
+# looks like when almost nothing in it is a judgment -- four receipts, six seats
+# over one fetched tab, one edit, one staging act, one validator, one put and one
+# refetch -- and the two consultations of spread are the put and the confirming
+# refetch, which only the arm that validated reaches.
+#
+# The four endings are the validator's three tags plus the event log's row count:
+# put with history, put where the node had NEVER fired in twenty-four hours (which
+# this host's own debugging rule reads as an upstream problem, so the report says
+# the change may not be the fix), not put because the envelope did not validate,
+# and not put because the validator did not run. Two of the four write nothing.
+pin nodered             branch        4      17
+
+# ---------------------------------------------------------------------------
+# Wave 5's last row — the top of the loop (`doc/design.md` §8)
+# ---------------------------------------------------------------------------
+#
+# The gate of the whole wave, and it is this line: `wf cost wiggum` reports
+# `minFold 2, maxFold 44, over 34 paths`. A FINITE WORST CASE, printed before the
+# first round — which is the one number an autonomous work loop must have and the
+# one `skills/wiggum/SKILL.md` cannot state. Every bound in that file is a word
+# ("a bounded number of attempts (default 3)", "roughly 3-5 at a time", "every
+# four hours or so"); all three are numbers here, and 44 is what they add up to.
+#
+# 44 IS NOW THE WIDEST CEILING IN THIS TABLE, wider than `retest-categorical`'s
+# 37 and `productize`'s 31, and that is correct rather than alarming: five of the
+# row's seven declared callees belong to other rows, so what it costs is what the
+# toolbox it sits on top of costs. Read it against the minFold of 2, which is the
+# refusal to start — the parent-history sentinel probe did not pass, so no round
+# ran, nothing was committed and nothing was audited. The two cheapest paths in
+# this row (2 and 3) both change the tree not at all.
+#
+# The 34 paths are six endings over the shape: two terminals before any work (an
+# unproven runner, a red baseline), and then, per round-count arm, a conflict
+# terminal plus `Workflows.Escalation`'s 2n+1 replication at `atMost 2` over
+# three report arms — 1 + 15 twice, plus the two early refusals. A third round
+# would be a design decision and would show here.
+pin wiggum              branch       34      44
 
 # ---------------------------------------------------------------------------
 # The binary, resolved once

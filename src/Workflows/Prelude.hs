@@ -47,8 +47,10 @@ module Workflows.Prelude
     module Workflows.Rubrics.Fess,
     module Workflows.Rubrics.Finding,
     module Workflows.Rubrics.Ladder,
+    module Workflows.Rubrics.Personas,
     module Workflows.Rubrics.Reviewers,
     module Workflows.Rubrics.Stances,
+    module Workflows.Rubrics.Voice,
 
     -- * The shapes
     module Workflows.Deciders,
@@ -72,5 +74,7 @@ import Workflows.Rubrics.Discipline
 import Workflows.Rubrics.Fess
 import Workflows.Rubrics.Finding
 import Workflows.Rubrics.Ladder
+import Workflows.Rubrics.Personas
 import Workflows.Rubrics.Reviewers
 import Workflows.Rubrics.Stances
+import Workflows.Rubrics.Voice

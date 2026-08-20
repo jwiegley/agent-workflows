@@ -71,6 +71,7 @@ import Agentic.Workflow
     Party,
     PartyK (IsModel),
     Rhs,
+    Says,
     V,
     ask,
     panel,
@@ -147,10 +148,27 @@ memberNote r l
 -- | One question per member over one artefact, with the closing line the
 -- caller's fold needs.
 --
--- An ordinary Haskell function from a live handle to a list of
--- 'Agentic.Workflow.Ask's, usable at __any__ scope where the handle is live —
--- which is what @KnownIx h s@ says, and which is Isaac's \"a question shares\".
-asksOver :: (KnownIx h s) => Roster -> Text -> V h 'CodeText -> [Ask s]
+-- An ordinary Haskell function from a subject to a list of
+-- 'Agentic.Workflow.Ask's, usable at __any__ scope the subject can be spliced
+-- at, which is Isaac's \"a question shares\".
+--
+-- __The subject is anything a prompt could already have spliced (R1).__ This is
+-- @confer-design.md@ §1.7's __R1__, accepted by @doc\/design.md@ §8.1 and landed
+-- here in wave 2, when a third and a fourth caller wanted it.
+-- @'Agentic.Workflow.Says'@ has exactly the three instances a @{hole}@ may
+-- resolve to — a live @'V' h c@, a 'Data.Text.Text' define, and a @[Piece s]@
+-- fence — so the constraint widens the subject to precisely the set the prompt
+-- inside this function could already accept, and not one value further. Every
+-- caller written against the old signature resolves through the
+-- @Says ('V' h c) s@ instance unchanged, with the @KnownIx@ constraint moved
+-- from here into that instance, where it already lived.
+--
+-- __What it bought.__ A fan-out whose subject is a program /input/ — a define
+-- supplied at run time, which no handle can be — stopped having to copy this
+-- body. @'Workflows.Confer.conferOver'@ carried that copy as a written-down debt
+-- from the day it landed; @teams@ and @effort@ would have been the third and
+-- fourth. The copies are gone and this is the one fan-out.
+asksOver :: (Says a s) => Roster -> Text -> a -> [Ask s]
 asksOver r closing subject =
   [ ask (lensParty l) [wf|
       {brief}

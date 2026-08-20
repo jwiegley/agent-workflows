@@ -69,8 +69,10 @@ library
     Workflows.Rubrics.Fess
     Workflows.Rubrics.Finding
     Workflows.Rubrics.Ladder
+    Workflows.Rubrics.Personas
     Workflows.Rubrics.Reviewers
     Workflows.Rubrics.Stances
+    Workflows.Rubrics.Voice
 
     -- the shapes
     Workflows.Deciders
@@ -80,14 +82,42 @@ library
     Workflows.Report
 
     -- the programs, and the index
+    Workflows.Account
     Workflows.Audit.Fess
+    Workflows.Bundles
+    Workflows.Checklist
+    Workflows.ClaudeMd
+    Workflows.Comments
     Workflows.Confer
+    Workflows.DeadCode
+    Workflows.Denote
+    Workflows.Effort
+    Workflows.Expense
     Workflows.Fix.Green
     Workflows.Git.Commit
     Workflows.Git.Stack
     Workflows.Hello
+    Workflows.Issue
+    Workflows.Nix
+    Workflows.NodeRed
+    Workflows.Notes
+    Workflows.OrgTasks
+    Workflows.Partner
+    Workflows.Prd
+    Workflows.Productize
+    Workflows.Prose.Polish
+    Workflows.QandA
+    Workflows.Query
     Workflows.Registry
+    Workflows.Retest
     Workflows.Review.Ladder
+    Workflows.Service
+    Workflows.Teams
+    Workflows.Threads
+    Workflows.Transcribe
+    Workflows.Translate
+    Workflows.Tron
+    Workflows.Wiggum
 
 -- The owner's entry point. Two lines over `Agentic.Cli`, which agent-cat's
 -- `agentic-run` is also two lines over: one CLI, two registries.

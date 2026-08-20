@@ -139,9 +139,6 @@ module Workflows.Confer
     conferOver,
     conferBareOver,
     secondOpinionOver,
-
-    -- * The fan-out this module owes "Workflows.Panels"
-    stanceAsks,
   )
 where
 
@@ -223,49 +220,22 @@ secondParty = lateral (model "second")
 -- The fan-out
 -- ---------------------------------------------------------------------------
 
--- | One question per seat over a subject that is a __define__.
+-- $fanout
 --
--- __This function is a debt, and it is written down as one.__ It is
--- 'Workflows.Panels.asksOver''s body at a subject the prompt splices as a
--- define rather than as a live handle — the same four chunks, in the same order,
--- with 'Workflows.Panels.memberNote' imported rather than re-derived. It exists
--- because confer's subject is an /input/, an input is a define supplied at run
--- time, and @asksOver@ is typed
--- @('Agentic.Workflow.KnownIx' h s) => 'Roster' -> 'Data.Text.Text' -> 'Agentic.Workflow.V' h \''Agentic.Workflow.CodeText' -> ['Agentic.Workflow.Ask' s]@,
--- which only a binding satisfies.
---
--- The repair is @confer-design.md@ §1.7's __R1__, accepted by @doc\/design.md@
--- §8.1 and owed by "Workflows.Panels":
+-- __The debt this section held is paid.__ It carried @stanceAsks@ — the body of
+-- 'Workflows.Panels.asksOver' copied at a subject the prompt splices as a
+-- /define/ rather than as a live handle, because confer's subject is an input
+-- and @asksOver@ was typed at @'Agentic.Workflow.KnownIx'@, which only a binding
+-- satisfies. Its haddock said the function would be deleted the day
+-- @confer-design.md@ §1.7's __R1__ landed. R1 landed in wave 2, when @teams@ and
+-- @effort@ became the third and fourth callers wanting a define for a subject:
 --
 -- > asksOver :: (Says a s) => Roster -> Text -> a -> [Ask s]
 --
--- @Says@ has exactly the three instances a hole may resolve to — a live
--- @V h c@, a 'Data.Text.Text', and a @[Piece s]@ fence — so R1 widens the
--- subject to precisely the set the prompt could already have spliced, and every
--- existing caller resolves through the @Says (V h c) s@ instance unchanged. The
--- @KnownIx@ constraint moves from the signature into that instance, where it
--- already lives.
---
--- __The day R1 lands, this function is deleted__ and its two call sites read
--- @asksOver roster stanceClosing subject@. It is not landed here because
--- "Workflows.Panels" is another track's module and a one-line signature change
--- to a shared fan-out is not a confer builder's to make unilaterally. The two
--- alternatives were worse and are named so that nobody re-proposes them: opening
--- with a question that asks a tool to read the decision spends a consultation
--- /and/ turns the operator's text into an answer, and the price stops being
--- @askNodes 5@.
-stanceAsks :: Roster -> Text -> Text -> [Ask s]
-stanceAsks r closing subject =
-  [ ask (lensParty l) [wf|
-      {brief}
-
-      {note}{subject}
-
-      {closing}|]
-  | l <- r,
-    let brief = lensBrief l,
-    let note = memberNote r l
-  ]
+-- so the two call sites below now read @asksOver roster stanceClosing subject@,
+-- the copy is gone, and there is one fan-out in the tree again. Confer's four
+-- rows price exactly as they did — the asks are the same four chunks in the same
+-- order — which is what @ci\/workflows.sh@'s unmoved ceilings say.
 
 -- ---------------------------------------------------------------------------
 -- The programs
@@ -299,7 +269,7 @@ stanceAsks r closing subject =
 -- no decider and no gate.
 conferOver :: Roster -> Text -> Text -> Program
 conferOver roster decision context = workflow W.do
-  stances <- panelText (zip (lensNames roster) (stanceAsks roster stanceClosing subject))
+  stances <- panelText (zip (lensNames roster) (asksOver roster stanceClosing subject))
 
   recommendation <- ask (reasoning (model "synthesis")) [wf|
       {synthesis}
@@ -337,7 +307,7 @@ conferOver roster decision context = workflow W.do
 -- One statement shorter than 'conferOver', and one question cheaper.
 conferBareOver :: Roster -> Text -> Text -> Program
 conferBareOver roster decision context = workflow W.do
-  stances <- panelText (zip (lensNames roster) (stanceAsks roster stanceClosing subject))
+  stances <- panelText (zip (lensNames roster) (asksOver roster stanceClosing subject))
 
   ask_ reporter [wf|
       {writeBrief}

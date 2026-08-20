@@ -35,6 +35,13 @@ lightly compressed — each is a decision, not just a chore:
   runner plants the sentinel (an agent-cat `Registry` request, alongside
   the recorded `regDefaults` / `--at-most N` requests) or the probe must
   say what it can actually test.
+  **Closed (2026-08-20), the first way.** agent-cat's runner generates one
+  sentinel per run and binds it as the reserved input `run.sentinel`
+  (`Agentic.Workflow.runFacts`); `independenceAttestation` takes it, quotes
+  it last so a scripted table can still key on the constant prefix
+  (`independenceAttestationKey`), and asks whether such a line was in the
+  answerer's context *before* this request. `reviewLadder`, `fessAudit` and
+  `wiggum` all declare the input.
 - **F1-followup — runner-supplied backend count.**
   `Rubrics/Stances.hs`'s `conferProvenance` closes on a conditional —
   "unless the run's header names more than one backend" — whose authority
@@ -54,6 +61,15 @@ lightly compressed — each is a decision, not just a chore:
   session per question" holds under `--engine acp` and is false of a run
   sent to a live agent-deck session, where one durable session serves the
   whole run and the third seat has read the first two.
+  **Closed (2026-08-20), the honest way.** Both facts are now reserved
+  inputs the runner binds — `run.backends` (the roster line the header
+  prints) and `run.engine` (the engine and its session policy) — derived in
+  `Agentic.Cli` from the very fields `sayBackends` prints, so header and
+  paragraph cannot disagree. `conferProvenance` takes them and states them;
+  the two write briefs' forbid now forbids *restating* them and forbids the
+  "I cannot see the header" caveat, which is no longer true. `wiggum`'s seven
+  endings carry the same two facts through one `runProvenance` (the seventh,
+  `sharedSessionNote`, is the shared-conversation refusal itself).
 
 ## Low
 

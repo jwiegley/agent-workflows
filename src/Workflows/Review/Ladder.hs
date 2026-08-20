@@ -34,8 +34,10 @@
 -- | @eliminate-dead-code,abstraction-review,@ | 'abstractionLens', 'validatedLens' — the review-sized slice of |
 -- | @validated-code-review}\/SKILL.md@        | each, beside the roster that selects it                        |
 -- +-------------------------------------------+---------------------------------------------------------------+
--- | @skills\/parallelize\/SKILL.md@           | the independence probe, once, over                             |
--- |                                           | 'Workflows.Rubrics.Discipline.independenceAttestation'         |
+-- | @skills\/parallelize\/SKILL.md@           | the sentinel probe, once, over                                 |
+-- |                                           | 'Workflows.Rubrics.Discipline.independenceAttestation' —       |
+-- |                                           | reported beside @run.engine@, which is what actually settles   |
+-- |                                           | whether the passes were independent ('tierProvenance')         |
 -- +-------------------------------------------+---------------------------------------------------------------+
 --
 -- The Markdown was read as __data__. Nothing in @~\/src\/nix\/config\/ai@ is
@@ -80,6 +82,16 @@
 --      questions, one path — and the failing arm still /reports/, because
 --      @deep-review@'s own rule is \"stop and report the review incomplete\",
 --      which is a branch and not an abort.
+--
+--      __What the probe establishes is narrower than either file assumes__, and
+--      'tierProvenance' now says so rather than printing \"the no-history
+--      attestation verified\" over it: the probe can only find context /this
+--      runner/ planted, so a session already carrying the work passes it
+--      truthfully. The fact that settles independence is @run.engine@, which the
+--      runner binds and this row reports beside the probe's answer. It is
+--      reported and not gated on, because a rung here writes a review and a
+--      reader can weigh it; the row that refuses to start on the same fact is
+--      @wiggum@, where the separation is a clause of a definition of done.
 --
 --   6. __The refusal is a branch the program takes.__ @deep-review.md@ Step 5
 --      says \"confirm that all four required skill-perspective passes completed
@@ -357,14 +369,40 @@ synthesisBrief r =
 -- @heavy-review.md@'s \"include a clean-pass statement for each pass\". The
 -- roster is derived from the very list the panel was built from, so this line
 -- cannot name a reviewer that did not run.
-tierProvenance :: Tier -> Roster -> Text
-tierProvenance t r =
+--
+-- __It used to close \"with the no-history attestation verified\", and that was
+-- more than the probe establishes.__ The probe asks whether a line /this runner/
+-- planted was already in the answerer's context, so it finds the contamination
+-- this toolbox could cause and no other: a session already carrying the work
+-- answers @PARENT_HISTORY_ABSENT@ truthfully, because there is no planted line in
+-- it to report (see
+-- 'Workflows.Rubrics.Discipline.independenceAttestation'). Under a runner that
+-- shares one conversation, \"seven independent passes\" would then have been
+-- printed over seven turns of one transcript.
+--
+-- So the line states __both__ facts and lets the reader draw the conclusion: the
+-- probe's answer, and @run.engine@ — the engine and its session policy, from the
+-- runner and from nobody asked. It is quoted rather than judged, because a rung
+-- here reports and does not refuse; the row that turns the same fact into a
+-- refusal is @wiggum@, where a separate evaluator is a clause of a definition of
+-- done rather than a quality of a report.
+tierProvenance :: Tier -> Roster -> Text -> Text
+tierProvenance t r engine =
   "rung `"
     <> tierName t
-    <> "`, over a frozen scope snapshot, with the no-history attestation \
-       \verified. The reviewers, and what each owns:\n"
+    <> "`, over a frozen scope snapshot. This run's engine and its session \
+       \policy, from the runner: "
+    <> engine
+    <> ". The reviewers, and what each owns:\n"
     <> rosterTable r
-    <> "\nEvery reviewer read the same snapshot and the same command receipts."
+    <> "\nEvery reviewer read the same snapshot and the same command receipts. \
+       \The parent-history sentinel probe passed, which establishes that no line \
+       \this run planted was already in an answerer's context -- it cannot see \
+       \any other prior context, so whether these passes were reached \
+       \independently of each other and of the work is settled by the engine \
+       \fact above and not by the probe. Under a new session per question they \
+       \were; under one shared session they were not, however clean each block \
+       \reads."
 
 -- | The provenance line the failed-attestation arm carries.
 --
@@ -378,11 +416,11 @@ tierProvenance t r =
 -- that ends silently is a run whose operator learns nothing.
 notIndependentNote :: Text
 notIndependentNote =
-  "Outcome: NO REVIEW WAS RUN. The parent-history sentinel probe did not \
-  \answer PARENT_HISTORY_ABSENT, so this runner could not be shown to \
-  \dispatch without inheriting the parent transcript. No reviewer was asked. \
-  \Report exactly that, name the scope below as un-reviewed, and do not \
-  \characterise the code."
+  "Outcome: NO REVIEW WAS RUN. The parent-history sentinel probe did not answer \
+  \PARENT_HISTORY_ABSENT: a line this run generated for itself and put in no \
+  \other place came back, so context this runner planted was already in front of \
+  \the answerer. No reviewer was asked. Report exactly that, name the scope below \
+  \as un-reviewed, and do not characterise the code."
 
 -- | The provenance line the short-fan-out arm carries.
 --
@@ -789,10 +827,18 @@ heavyDeepLens =
 
 -- | One ladder builder, four rungs.
 --
--- Two inputs. @scope@ is @deep-review.md@ Step 1's @$ARGUMENTS@ — a git ref, a
--- range, or empty for the uncommitted changes — and it becomes the /argv/ of the
--- snapshot command rather than a string a model interprets; @paths@ is the file
--- list, one per line, and it selects the roster and the linters in Haskell.
+-- Two inputs the operator gives. @scope@ is @deep-review.md@ Step 1's
+-- @$ARGUMENTS@ — a git ref, a range, or empty for the uncommitted changes — and
+-- it becomes the /argv/ of the snapshot command rather than a string a model
+-- interprets; @paths@ is the file list, one per line, and it selects the roster
+-- and the linters in Haskell.
+--
+-- And two the __runner__ gives: @run.engine@ and @run.sentinel@
+-- ('Agentic.Workflow.runFactSentinel'), which is what the probe below now rests
+-- on. It stops a whole review when it fails, so the premise it tests had better
+-- be one somebody established: before the runner generated a line per run,
+-- nothing did, and the probe answered the same on an inheriting runner as on a
+-- clean one.
 --
 -- The shape, top to bottom: freeze one snapshot; probe for parent history and
 -- decide it for free; on a verified probe, collect the receipts, fan out over
@@ -806,68 +852,82 @@ heavyDeepLens =
 -- another.
 reviewLadder :: Tier -> Parameterized
 reviewLadder t =
-  taking (input "scope" :> input "paths" :> noInputs) \scopeArg pathsArg ->
-    let files = pathsOf pathsArg
-        revs = T.words scopeArg
-        roster = tierRoster t files
-        dossier = tierDossier t revs files
-        -- Derived from the roster the panel is ACTUALLY built from, and not
-        -- from the default one: `refusingSynthesis` splices both the block
-        -- count and the reviewer table, so a synthesis given the default
-        -- roster would be accounting for blocks a run with
-        -- `--input-arg paths=` never produced — and the free completeness
-        -- decider below would be reading an answer to the wrong question.
-        synthesis = synthesisBrief roster
-     in defining reportTable W.do
-          -- The frozen snapshot: one receipt the world authored, bound once,
-          -- spliced into every member below.
-          snapshot <- ask (gitDiff revs) [wf|{snapshotBrief}|]
+  taking
+    ( input "scope"
+        :> input "paths"
+        :> input "run.engine"
+        :> input "run.sentinel"
+        :> noInputs
+    )
+    \scopeArg pathsArg engine sentinel ->
+      let files = pathsOf pathsArg
+          attestation = independenceAttestation sentinel
+          revs = T.words scopeArg
+          roster = tierRoster t files
+          dossier = tierDossier t revs files
+          -- Derived from the roster the panel is ACTUALLY built from, and not
+          -- from the default one: `refusingSynthesis` splices both the block
+          -- count and the reviewer table, so a synthesis given the default
+          -- roster would be accounting for blocks a run with
+          -- `--input-arg paths=` never produced — and the free completeness
+          -- decider below would be reading an answer to the wrong question.
+          synthesis = synthesisBrief roster
+       in defining reportTable W.do
+            -- The frozen snapshot: one receipt the world authored, bound once,
+            -- spliced into every member below.
+            snapshot <- ask (gitDiff revs) [wf|{snapshotBrief}|]
 
-          -- Independence, once, where three corpus files spell it three ways.
-          -- A receipt, then a free decider, then a total branch.
-          attested <- ask (broad (model "independence")) [wf|{independenceAttestation}|]
-          independent <- tested historyAbsent attested
+            -- Independence, once, where three corpus files spell it three ways.
+            -- A receipt, then a free decider, then a total branch.
+            attested <- ask (broad (model "independence")) [wf|{attestation}|]
+            independent <- tested historyAbsent attested
 
-          if independent
-            then W.do
-              -- The deterministic evidence. Receipts, not claims.
-              facts <- panelText [(label, ask p [wf|{dossierBrief}|]) | (label, p) <- dossier]
+            if independent
+              then W.do
+                -- The deterministic evidence. Receipts, not claims.
+                facts <- panelText [(label, ask p [wf|{dossierBrief}|]) | (label, p) <- dossier]
 
-              -- The panel. One question per roster row; every brief carries the
-              -- derived sibling table, the receipts and the one finding schema.
-              found <- panelText (zip (lensNames roster) (withEvidence roster blockClosing snapshot facts))
+                -- The panel. One question per roster row; every brief carries the
+                -- derived sibling table, the receipts and the one finding schema.
+                found <- panelText (zip (lensNames roster) (withEvidence roster blockClosing snapshot facts))
 
-              -- The consolidation, which must account for every block it was
-              -- promised before it is allowed to rank anything.
-              consolidated <- ask (reasoning (model "synthesis")) [wf|
-                  {synthesis}
+                -- The consolidation, which must account for every block it was
+                -- promised before it is allowed to rank anything.
+                consolidated <- ask (reasoning (model "synthesis")) [wf|
+                    {synthesis}
 
-                  {found}|]
+                    {found}|]
 
-              -- `deep-review` Step 5's completeness check, for zero questions.
-              short <- tested incompleteFanOut consolidated
+                -- `deep-review` Step 5's completeness check, for zero questions.
+                short <- tested incompleteFanOut consolidated
 
-              if short
-                then W.do
-                  call_ reportFn (arg shortFanOutNote :> arg consolidated :> noArgs)
-                  stop
-                else W.do
-                  call_ reportFn (arg (tierProvenance t roster) :> arg consolidated :> noArgs)
-                  stop
-            else W.do
-              -- Stop and report the review incomplete, rather than dispatch or
-              -- claim independent passes.
-              call_ reportFn (arg notIndependentNote :> arg snapshot :> noArgs)
-              stop
+                if short
+                  then W.do
+                    call_ reportFn (arg shortFanOutNote :> arg consolidated :> noArgs)
+                    stop
+                  else W.do
+                    call_ reportFn (arg (tierProvenance t roster engine) :> arg consolidated :> noArgs)
+                    stop
+              else W.do
+                -- Stop and report the review incomplete, rather than dispatch or
+                -- claim independent passes.
+                call_ reportFn (arg notIndependentNote :> arg snapshot :> noArgs)
+                stop
 
 -- | The canned replies a @--scripted@ run of a rung answers from.
 --
 -- __The keys are the defines themselves.__ Every member's question opens with
 -- its own 'Workflows.Panels.lensBrief', the snapshot's with 'snapshotBrief', the
--- probe's with 'Workflows.Rubrics.Discipline.independenceAttestation' and the
+-- probe's with 'Workflows.Rubrics.Discipline.independenceAttestationKey' and the
 -- consolidation's with 'synthesisBrief' — so each key below is a prefix of the
 -- rendered prompt __by construction__ rather than by proofreading. The roster
 -- rows are derived from the very table 'tierRoster' builds the panel from.
+--
+-- The probe's key is the __attestation up to this run's own sentinel line__,
+-- which is the same rule and not an exception to it: the prompt's every byte
+-- before the run fact is constant, the run fact is last, and a scripted table
+-- matches by prefix. A key that included a run-unique value could never match
+-- twice.
 --
 -- The table is built at the empty file list, which is the invocation
 -- @ci\/workflows.sh@ prices and runs. A scripted run given a real
@@ -879,14 +939,16 @@ reviewLadder t =
 -- echo the prompt, which is harmless, and the run still exits 0.
 --
 -- __The probe's row is the load-bearing one.__ Without it the echoed prompt's
--- last line is not the sentinel, the free decider says \"not independent\", and
+-- last non-empty line is this run's sentinel rather than @PARENT_HISTORY_ABSENT@
+-- — which is the honest answer to an echo, and the reason the answer matters at
+-- all — so the free decider says \"not independent\", and
 -- the scripted run exercises the arm that reviews nothing. With it the run walks
 -- the whole pipeline. Both arms exit 0, and that is the point of writing the
 -- failing one.
 reviewScript :: Tier -> [(Text, Text)]
 reviewScript t =
   [ (snapshotBrief, snapshotAnswer),
-    (independenceAttestation, "PARENT_HISTORY_ABSENT"),
+    (independenceAttestationKey, "PARENT_HISTORY_ABSENT"),
     (dossierBrief, dossierAnswer),
     (synthesisBrief roster, consolidatedAnswer)
   ]

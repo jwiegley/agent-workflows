@@ -160,6 +160,20 @@ named; `plan` and `cost` bind `""` for an input nobody gave, so the price above
 is the price of the default roster. `--input-arg NAME=VALUE` for a phrase,
 `--input-file NAME=PATH` for a diff.
 
+**Three input names are the runner's.** `run.backends`, `run.engine` and
+`run.sentinel` are *run facts* — how many answerers this run reached and which,
+whether each question got a session of its own or they all shared one, and a
+line generated for this run and put nowhere else. `run` binds all three from the
+run it is making and a flag naming one is refused, because a command line cannot
+say what a run did: they are not part of the count when a row says how many
+inputs it takes, and `--input FILE` still means the one input that is yours.
+Twelve rows declare one or more of them, and what each does with a fact is its
+own business — `confer` and `partner-reviewer` quote the engine in their provenance
+so a reader can see whether the answerers shared a conversation, while `wiggum`
+*refuses to start* when they did. `plan` and `cost` make no run, so all three
+come out empty there, which is why the numbers pinned in `ci/workflows.sh` are
+the numbers of a run whose engine is not yet known.
+
 ## What replaces what
 
 The seventy-one rows that exist today stand for **eleven more files** of the
@@ -181,7 +195,7 @@ thirty-four.
 | `commands/alexey.md`, `skills/alexey-review` | the `alexey` lens of `review-heavy` | |
 | `agents/*-reviewer.md` (eleven) | `Workflows.Rubrics.Reviewers` | one table; the finding schema's eleven copies end here |
 | `skills/{abstraction-review,validated-code-review,comment-audit,eliminate-dead-code}` | four lenses of `review-deep`/`review-heavy` | the review-sized slice of each |
-| `skills/parallelize` | the independence probe | one spelling where three files carry three |
+| `skills/parallelize` | the parent-history sentinel probe | one spelling where three files carry three — and it is reported for what it tests, which is that no line *this runner planted* was inherited. Whether an answerer had already read the work is `run.engine`'s to say, and the rows that care state it beside the probe or gate on it |
 | `commands/fix-ci.md` | `green-ci` | |
 | `commands/bugbot.md` | `botSweepFn`, called by `green-ci` and `stack-rebase-fix` | a call, not `fix-ci`'s lossy prose copy |
 | `commands/bugbot-stack.md` | `green-ci` per pull request | the stack walk is `stack`'s |
@@ -215,7 +229,7 @@ thirty-four.
 | `commands/report.md` | `account-report` | seven categories as seven panel members, and the estimate as a separate question on a different engine over the fold |
 | `commands/narrative.md` | `account-narrative` | **reworked**: a receipt dossier, a chronology over it, a writer over that, and "distinguish fact from inference" as a sourcing gate on a third engine |
 | `commands/journal.md` | `journalFn` | called by `account-halt`, read as a `cat` receipt by `account-narrative` — a function, not a program (§7.1 row 30) |
-| `commands/partner-reviewer.md` | `partner-reviewer` | `heavy-review`'s seven passes, which is the review command that file names, and the observation count as a `find` receipt. `ideas=off` is one fewer consultation in `ci/workflows.sh` — 11 against 12 — because that file has no ideation section and this row therefore asks no ideation question |
+| `commands/partner-reviewer.md` | `partner-reviewer` | `heavy-review`'s seven passes, which is the review command that file names, and the observation count as a `find` receipt. `ideas=off` is one fewer consultation in `ci/workflows.sh` — 11 against 12 — because that file has no ideation section and this row therefore asks no ideation question. **Run it somewhere else than the work**: `--session <pane>` in an `agent-deck` pane that is not the one doing the work, or an `--engine acp` invocation of its own, which opens a session per question. A partner review put down the same conversation as the work is the work reviewing itself, and `run.engine` in the report says which you did |
 | `commands/partner-collaborator.md` | `partner-collaborator` | `deep-review`'s roster plus "three wild ideas" as `drawing 3` on one lateral party; one contract with the `Idea` category **derived**, ending an enum that had already drifted |
 | `commands/partner-cleanup.md` | `partner-cleanup` | two drain rounds, each behind a free test over a `find` receipt, then exactly one `commitFn` call — and the ending its prose loop cannot have |
 | `commands/breakdown.md`, `agents/task-breakdown.md` | `org-tasks-breakdown` | `[ATOMIC]`, `[AMBIGUOUS]` and `[NO-EXPERTISE]` as three deciders and three arms, and the completeness check asked of somebody else |
@@ -252,7 +266,7 @@ thirty-four.
 | `prompts/spanish.md` | `translate-es` | `call translateFn` and one delivery — `pipeline`, one path, **2**. The family's shared drafting function has three call sites, which is what makes the three rungs provably share a turn |
 | `agents/prd-architect.md` | `prd-draft`, `prd-critique` | **the rework is the split.** One file was two agents selected by an unstated condition; §6's own "if one doesn't already exist" is the condition, and a `test -f` decides it — so the two rows are each other's arms. `prd-draft` puts the owner in binding position and reads `[TODO:` for nothing, sending an incomplete draft back to him rather than to a reviewer; `prd-critique` contains no `act` but the report |
 | `skills/node-red` | `nodered` | the three-signature admin boundary **is** the argv — no `curl`, no HTTP client, no flow-file path, no credential read, so six prohibitions become commands that do not exist. The `FLOW_ID` regex is checked in Haskell before the program exists; "zero rows → upstream issue" is a free decider over `psql`'s own footer; "don't fabricate entity IDs" is a `jq` receipt; and the put is the single node with write authority |
-| `skills/wiggum`, `commands/run-orchestrator.md` | `wiggum` | **the loop's inner step, priced** — two work rounds, one checkpoint audit and a bounded done-criteria verdict at `minFold 2, maxFold 44, over 34 paths`, which is wave 5's gate. It is *not* the skill's unbounded continuation: the rounds are unrolled at the program level (a bounded revision's body reviews and amends and holds no other statement, so the work cannot loop inside one), and the unroll count — two — is a design decision the gate records in its own words: "a third round would be a design decision and would show here." A long session is several `wf run wiggum` invocations, each re-priced — continuation, compaction refresh and the cross-session durable files stay with the skill. What the program wins: the frozen plan is an *input* ("read-only for the purpose of lowering the bar" becomes true rather than requested); the independence probe is the *first* question and gates every path; the evaluator answered none of the work's questions by construction; "Do NOT submit or push" becomes an **absence** — there is no push argv reachable from the module, verified transitively. `run-orchestrator`'s steps 5–6 are a layered topological sort in Haskell, so the fan-out cap is computed where `parallelize` guesses 3–5 |
+| `skills/wiggum`, `commands/run-orchestrator.md` | `wiggum` | **the loop's inner step, priced** — two work rounds, one checkpoint audit and a bounded done-criteria verdict at `minFold 2, maxFold 44, over 34 paths`, which is wave 5's gate. It is *not* the skill's unbounded continuation: the rounds are unrolled at the program level (a bounded revision's body reviews and amends and holds no other statement, so the work cannot loop inside one), and the unroll count — two — is a design decision the gate records in its own words: "a third round would be a design decision and would show here." A long session is several `wf run wiggum` invocations, each re-priced — continuation, compaction refresh and the cross-session durable files stay with the skill. What the program wins: the frozen plan is an *input* ("read-only for the purpose of lowering the bar" becomes true rather than requested); the loop will not start at all under an engine whose questions share one conversation — that is `run.engine` read in Haskell, so it costs no question and no path, and it is the gate the sentinel probe could never be, since a session already carrying the work answers `PARENT_HISTORY_ABSENT` truthfully; the probe is then the *first* question and gates every path, over the residual the engine fact cannot see; the evaluator answered none of the work's questions by construction; "Do NOT submit or push" becomes an **absence** — there is no push argv reachable from the module, verified transitively. `run-orchestrator`'s steps 5–6 are a layered topological sort in Haskell, so the fan-out cap is computed where `parallelize` guesses 3–5 |
 
 **The full triage — all 119 files, each marked T (its own program), R (rework
 first), F (folds into a named host) or K (honestly Markdown) — is
@@ -615,9 +629,10 @@ nix flake check
 nix build .#default    # the pinned build: agent-cat at the revision flake.lock names
 ```
 
-> **The pin and the build agree today.** `flake.lock` names an agent-cat
-> revision that carries `Agentic.Cli` — the one thing this repository cannot
-> supply for itself — and `nix build .#default` succeeds against it: the
+> **The pin and the build agree whenever the lock is current.** When
+> `flake.lock` names an agent-cat revision carrying everything this tree
+> consumes — the one thing this repository cannot supply for itself —
+> `nix build .#default` succeeds against it: the
 > closure builds and `result/bin/wf` runs. When agent-cat's working tree runs
 > ahead of the pin (a new module, a changed signature), the pinned build fails
 > in exactly the shape it once did here — `Could not find module ‘Agentic.Cli’`

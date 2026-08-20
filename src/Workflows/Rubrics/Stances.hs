@@ -319,12 +319,13 @@ conferSynthesis r =
 -- What the __program__ asked for is the seats below; what the __run__ did is
 -- the run's header, and the two are different statements. This says so.
 --
--- __Derived from the roster, and only from the roster.__ That is the whole
--- reason it is a function: a routed run moves neither the roster nor this
--- paragraph, because a route names a serving __model__ and the roster's pins
--- are already those keys. What a run changes is its /header/ — how many
--- backends it names, and which engine and session policy it ran under — and
--- the header is the one place a reader is told what actually happened.
+-- __Derived from the roster and from the run's own two facts.__ The roster is
+-- what makes it a function of the /program/: a routed run moves neither the
+-- roster nor this paragraph, because a route names a serving __model__ and the
+-- roster's pins are already those keys. What a run changes — how many backends
+-- it reached, and which engine and session policy it ran under — used to live
+-- only in the header, which is terminal output no prompt sees; the runner now
+-- binds both as inputs, and they arrive here as the second and third arguments.
 --
 -- __One deviation from §1.4, and it is a repair.__ The design's table is
 -- @bullets [(lensName l, lensOwns l) | l <- r]@ — the seats and what each owns
@@ -334,42 +335,56 @@ conferSynthesis r =
 -- be printed as its serving models by any caller. The sentence is corrected to
 -- name the seats, and the pins are described rather than listed.
 --
--- __Two conditionals, neither resolvable from inside the prompt, and the write
--- briefs forbid trying.__ The paragraph turns twice on the run's header — once
--- on how many backends answered, once on whether the seats shared a session —
--- and the header is terminal output the runner prints /around/ the run: no
--- party receives it, and this module has no fact to hole in its place, because
--- the runner supplies neither a backend count nor an engine name a prompt can
--- carry.
+-- __Two conditionals, and the runner now answers both.__ The paragraph turns
+-- twice on how the run was made — on how many backends answered, and on whether
+-- the seats shared a session — and until the runner supplied those two facts
+-- there was nothing to hole in their place: the header is terminal output the
+-- runner prints /around/ the run, no party receives it, and a reporter asked to
+-- decide either @unless@ was being asked to guess about the run in the one
+-- paragraph a reader trusts about the run. Verification caught it guessing both
+-- ways, on a one-backend run (resolved, correctly, by luck) and on a
+-- two-backend one (copied unresolved); guessed the other way round, an artefact
+-- would have asserted single-backend provenance for a two-provider confer,
+-- which is the exact over-trust this paragraph exists to prevent.
 --
---   * __Backends.__ The reporting model has no way to decide the @unless@ and
---     every opportunity to guess it — and verification caught it doing both, on
---     a one-backend run (resolved, correctly, by luck) and on a two-backend one
---     (copied unresolved). Guessed the other way round, an artefact would have
---     asserted single-backend provenance for a two-provider confer, which is
---     the exact over-trust this paragraph exists to prevent.
---   * __Sessions.__ \"A separate session per question\" is true of
---     @--engine acp@, whose @acpFreshPerQuestion@ opens a @session\/new@ before
---     every question, and __false__ of a run sent to a live agent-deck session
---     (@--session \<id\>@, which @--engine deck@ requires as well): there one
---     durable session serves the whole run, the seats answer in program order,
---     and the third has read the first two. Nothing forbids running a confer that way — @README.md@ only
---     advises against it — so a paragraph that asserted separate sessions
---     unconditionally would be false on a transport the operator can choose.
+-- They are now @run.backends@ and @run.engine@
+-- ('Agentic.Workflow.runFacts'), bound by the runner from the very fields the
+-- header prints, and the two sentences state them:
 --
--- 'conferWriteBrief' and 'conferBareWriteBrief' therefore tell the reporter
--- that this is constant text, that the header is the authority for both
--- conditions and that it cannot see the header; the artefact carries them
--- __unresolved, by design__.
+--   * __Backends.__ The roster line, in the header's own words — and it counts
+--     __transports__, which is not the same as counting answerers. The closing
+--     rule used to read \"names more than one answerer\", and that was a
+--     misreading of the fact it rests on: an @acp:@ backend is one adapter
+--     process, and every seat of a confer goes down it to its /own/ pinned
+--     serving model through its own fail-over ladder — so one backend routinely
+--     serves several answerers. The converse fails too: several backends can end
+--     up serving one, when a ladder spends its primaries and falls through to a
+--     spare a second seat is also using. What names the intended answerers is
+--     the header's @served by@ lines, and what records the answerer of a given
+--     question is that question's scope in the trace, after the fact. Neither is
+--     an input, so neither is in front of the reporter, and the paragraph says so
+--     rather than letting a count of processes be read as a count of minds. The
+--     one direction the fact does settle is the narrow one: a single transport
+--     under a single session is one conversation, and agreement inside it is
+--     agreement with itself.
+--   * __Engine.__ The engine and its session policy. \"A new session per
+--     question\" is @--engine acp@, whose @acpFreshPerQuestion@ opens a
+--     @session\/new@ before every question; a run sent to a live agent-deck
+--     session (@--session \<id\>@, which @--engine deck@ requires as well) is
+--     one durable conversation in which the seats answer in program order and
+--     the third has read the first two. Nothing forbids running a confer that
+--     way — @README.md@ only advises against it — and now nothing has to guess
+--     which was done.
 --
--- That is a repair and not the fix. The fix is for the runner to bind what the
--- run did — the backend count, and the engine and session policy — as facts a
--- prompt can carry, at which point this function can say what happened instead
--- of what cannot be known from inside it. It is filed as
--- @doc\/followups.md@'s @F1-followup@, and it is a request to agent-cat rather
--- than anything this module can do.
-conferProvenance :: Roster -> Text
-conferProvenance r =
+-- What remains a rule rather than a statement is the closing paragraph, and
+-- deliberately: it tells the reporter what to /do/ with two facts that are in
+-- front of it, which is reading rather than guessing.
+-- 'conferWriteBrief' and 'conferBareWriteBrief' say so.
+--
+-- This closes @doc\/followups.md@'s @F1-followup@, which asked for exactly these
+-- two facts and named the runner as the only place they could come from.
+conferProvenance :: Roster -> Text -> Text -> Text
+conferProvenance r backends engine =
   wfText
     [wf|
     Provenance: a confer of {count} parties.
@@ -378,21 +393,31 @@ conferProvenance r =
 
     Those are the seats the program asked, each pinned to its own serving model
     through a fail-over ladder. Two things about how they were answered are
-    properties of the run and not of the program, and the run's header is the
-    authority for both.
+    properties of the run and not of the program, and this run supplied both.
 
-    Backends: unless the header names more than one backend, every block below
-    was produced by the one answerer this run was pointed at.
+    Backends: {backends}. That line counts TRANSPORTS, not answerers, and it is
+    the whole of what this run reached: no block below was produced by anything
+    it does not name.
 
-    Sessions: unless the header says the run went to a live agent-deck session,
-    every block below was produced in a separate session per question, which is
-    independence of context and not independence of judgement. A deck session
-    is one conversation for the whole run: the seats answer in program order,
-    and each has read the blocks above it.
+    Engine: {engine}. Read that line this way: a new session per question is
+    independence of context and not independence of judgement; one session for
+    the whole run is one conversation, in which the seats answer in program
+    order and each has read the blocks above it.
 
     Do not describe agreement between two blocks as independent confirmation
-    unless the header says the two were answered by different backends -- and
-    not then, if the header says they shared one session.|]
+    unless two different parties produced them -- and the Backends line above
+    does not settle that on its own, in either direction. One backend can serve
+    several answerers, because each seat is pinned to its own serving model and
+    reaches it through a fail-over ladder down that one transport; several
+    backends can end up serving one, because a ladder that spends its primaries
+    falls through to a spare the next seat is also using. What names the intended
+    answerers is the run header's `served by` lines, and what records the actual
+    one for each question is that question's scope in the trace. Neither is in
+    front of you here. So: if the Backends line names one transport and the
+    Engine line says one session, say plainly that agreement below is one
+    conversation agreeing with itself. Otherwise say which facts you have and
+    stop there, rather than upgrading a count of transports into a count of
+    minds.|]
   where
     count = tshow (length r)
     table = rosterTable r
@@ -410,12 +435,13 @@ conferProvenance r =
 -- reasoning is inspectable.
 --
 -- __The provenance paragraph is constant text and this brief says so.__ See
--- 'conferProvenance': it turns twice on the run's header — on how many backends
--- answered and on whether the seats shared one session — and no party is given
--- the header, so a reporter that resolved either conditional would be guessing
--- about the run in the one paragraph a reader trusts about the run. The forbid
--- below names both by the word each begins with, so a reporter can check it has
--- carried both.
+-- 'conferProvenance': its two statements about the run — how many backends
+-- answered, and which engine and session policy they answered under — are
+-- __resolved facts the runner supplied__, not conditions to be decided. The
+-- forbid below names both by the word each begins with, so a reporter can check
+-- it has carried both, and forbids the two things it might do to them instead of
+-- reproducing them: restating them in its own words, and hedging them with the
+-- old \"I cannot see the header\" caveat, which is now false.
 conferWriteBrief :: Text
 conferWriteBrief =
   wfText
@@ -426,14 +452,17 @@ conferWriteBrief =
     as one reading of the blocks and not as their sum.
 
     The provenance paragraph is constant text: reproduce it word for word,
-    including both of its conditions -- the sentence beginning "Backends:",
-    about how many backends answered, and the sentence beginning "Sessions:",
-    about whether the seats shared one conversation. Do not resolve either
-    condition in either direction. You cannot know how many backends answered
-    this run or which engine it was pointed at -- the run's header is the
-    authority for both and it is not in front of you -- so deciding either would
-    be a guess about the run, printed where a reader is told what actually
-    happened.
+    including both of its statements about the run -- the sentence beginning
+    "Backends:", naming every answerer this run reached, and the sentence
+    beginning "Engine:", naming the engine and its session policy. Both were
+    supplied by the runner and are already resolved: do not restate them in your
+    own words, do not soften them, and do not add a caveat about not being able
+    to see the run's header. What the header would have told you is in the
+    paragraph.
+
+    Apply the paragraph's closing rule to those two lines rather than to a guess:
+    two blocks are independent confirmation only if more than one answerer is
+    named and the run was not one session.
 
     Change no party's words. The blocks are the evidence; the recommendation is
     an argument about them, and a reader who disagrees with the argument must be
@@ -447,9 +476,9 @@ conferWriteBrief =
 -- decision the owner intends to make personally wants the same thing — the
 -- arguments, with no aggregator standing between them and the reader.
 --
--- It carries 'conferProvenance' too, so it carries the same forbid: neither the
--- backend conditional nor the session one is the reporter's to resolve, for
--- 'conferWriteBrief'\'s reason.
+-- It carries 'conferProvenance' too, so it carries the same forbid: both
+-- statements about the run are the runner's and neither is the reporter's to
+-- restate, for 'conferWriteBrief'\'s reason.
 conferBareWriteBrief :: Text
 conferBareWriteBrief =
   wfText
@@ -459,14 +488,17 @@ conferBareWriteBrief =
     party's block verbatim under its own name, in the order they arrive.
 
     The provenance paragraph is constant text: reproduce it word for word,
-    including both of its conditions -- the sentence beginning "Backends:",
-    about how many backends answered, and the sentence beginning "Sessions:",
-    about whether the seats shared one conversation. Do not resolve either
-    condition in either direction. You cannot know how many backends answered
-    this run or which engine it was pointed at -- the run's header is the
-    authority for both and it is not in front of you -- so deciding either would
-    be a guess about the run, printed where a reader is told what actually
-    happened.
+    including both of its statements about the run -- the sentence beginning
+    "Backends:", naming every answerer this run reached, and the sentence
+    beginning "Engine:", naming the engine and its session policy. Both were
+    supplied by the runner and are already resolved: do not restate them in your
+    own words, do not soften them, and do not add a caveat about not being able
+    to see the run's header. What the header would have told you is in the
+    paragraph.
+
+    Apply the paragraph's closing rule to those two lines rather than to a guess:
+    two blocks are independent confirmation only if more than one answerer is
+    named and the run was not one session.
 
     Reconcile nothing, rank nothing, and add no summary: the independent
     arguments are the artefact, and a reader who wanted them averaged did not

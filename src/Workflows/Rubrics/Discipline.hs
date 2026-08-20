@@ -26,6 +26,7 @@ module Workflows.Rubrics.Discipline
 
     -- * @skills\/parallelize@
     independenceAttestation,
+    independenceAttestationKey,
     unverifiedIndependence,
 
     -- * The standing artefact rule
@@ -136,28 +137,93 @@ definitionOfDone =
 -- and @commands\/heavy-review.md@ — which is three chances for one of them to be
 -- the weak one.
 --
--- __What this is a claim about.__ It is a claim about the /runner/, not about
--- the fan-out: a 'Agentic.Workflow.panel' member is an independent question by
--- construction here, but a live engine may still be a session that inherited a
--- transcript, and that is what the probe tests. The claim is worth stating
--- because the corpus's own reviewers make it constantly and nothing checks it.
-independenceAttestation :: Text
-independenceAttestation =
+-- __What this is a claim about, and what it is not.__ It is a claim about the
+-- /runner/, not about the fan-out: a 'Agentic.Workflow.panel' member is an
+-- independent question by construction here, but a live engine may still be a
+-- session that inherited a transcript. The claim is worth stating because the
+-- corpus's own reviewers make it constantly and nothing checks it.
+--
+-- __It detects planted context and nothing else, and the prompt now says so.__
+-- The only thing an answerer can be asked about is the line the runner planted,
+-- so the only contamination this probe can find is contamination the runner
+-- itself would have caused: a second turn in a session it opened, or a fan-out
+-- that leaked one prompt into another. A session that was already carrying an
+-- unrelated transcript — an @agent-deck@ pane that did the work and is now being
+-- asked to judge it — has no @PARENT_HISTORY_SENTINEL@ line in it, so it answers
+-- @PARENT_HISTORY_ABSENT@ __truthfully__ and the probe passes. That is not a bug
+-- in the answerer and cannot be fixed by rewording the question: the fact that
+-- settles it is the engine's session policy, which the /runner/ knows and states
+-- as @run.engine@ ('Agentic.Workflow.runFacts'), and which
+-- 'Agentic.Workflow.sharesOneSession' reads for free. So a caller that needs a
+-- separate evaluator gates on the engine fact and uses this probe for the
+-- residual; the prompt below names its own limit rather than letting a reader
+-- take a passing probe for independence.
+--
+-- __The premise is now established rather than asserted, and that is the whole
+-- of this change.__ The old text said a sentinel line \"stands in the parent
+-- conversation\" and that \"its value has not been copied into this request\".
+-- Nothing planted one. Both halves were therefore false: a probe whose sentinel
+-- does not exist is answered @PARENT_HISTORY_ABSENT@ by an inheriting runner and
+-- by a clean one alike, which made every downstream gate rest on a reply that
+-- could not distinguish them — @reviewLadder@ stopping a whole review, @fess@
+-- downgrading its provenance, and @wiggum@ refusing to start. The runner now
+-- generates one line per run (@run.sentinel@,
+-- 'Agentic.Workflow.runFactSentinel'), so the argument the probe rests on is one
+-- an answerer can only satisfy by having seen it.
+--
+-- __The value is in the request, and the question is where /else/ it is.__ There
+-- is no way to ask about a line without naming it, and pretending otherwise is
+-- what the old wording did. So the line is quoted, and what is asked is whether
+-- a @PARENT_HISTORY_SENTINEL@ line was in the answerer's context /before/ this
+-- request — a different value, or this one from an earlier turn. Under a runner
+-- that opens a session per question there is nothing earlier to have seen;
+-- under one that shares a conversation there is, and the answerer is the only
+-- party that can say so.
+--
+-- __The sentinel is last on purpose.__ A scripted table matches by prefix
+-- (@Agentic.Exec.scriptedReply@), so a run-unique value anywhere but the end
+-- would make the key unwritable — every run would have a different prompt from
+-- the first differing byte. At the end, everything before it is constant, and
+-- 'independenceAttestationKey' is that constant, derived from this very function
+-- so the two cannot drift.
+independenceAttestation :: Text -> Text
+independenceAttestation sentinel =
   wfText
     [wf|
-    Independence check. A new context window is not necessarily a blank context:
-    some runners inherit the parent transcript by default.
+    Sentinel check. This asks about one line and nothing else, and the answer is
+    not a judgement about whether your context is otherwise clean.
 
-    A random line of the form PARENT_HISTORY_SENTINEL=<at least 16 random
-    characters> stands in the parent conversation, and its value has not been
-    copied into this request. Reply with the inherited sentinel line if you can
-    see one, or with exactly
+    The runner generated one PARENT_HISTORY_SENTINEL line for this run and put it
+    in no place other than this request. If such a line was already in your
+    context before this request -- a different value, or this same one from an
+    earlier turn -- reply with that inherited line and nothing else. If this
+    request is the only place you have seen one, reply with exactly
 
       PARENT_HISTORY_ABSENT
 
-    if you cannot. Reply with that and nothing else.|]
+    and nothing else.
 
--- | What a run says when the attestation is absent or failed.
+    Answer literally. A session carrying other prior context but no
+    PARENT_HISTORY_SENTINEL line answers PARENT_HISTORY_ABSENT, and that is the
+    correct answer: whether this run's questions share a conversation is a fact
+    the runner already holds and does not need you to guess at. Do not qualify,
+    explain or hedge the reply.
+
+    This run's line is:
+
+    {sentinel}|]
+
+-- | The probe's prompt up to the run's own line: the prefix a scripted table
+-- keys the probe on.
+--
+-- It is 'independenceAttestation' at the empty sentinel rather than a second
+-- copy of the words, which is the same rule every canned table in this toolbox
+-- follows — the keys /are/ the defines — extended to a define one input long.
+-- A reworded probe moves this key with it, by construction.
+independenceAttestationKey :: Text
+independenceAttestationKey = independenceAttestation ""
+
+-- | What a run says when the sentinel probe is absent or failed.
 --
 -- /Source:/ @agents\/fess-auditor.md@'s own clause: \"If that attestation is
 -- absent, run the audit but report that its independence was not verified.\"
@@ -166,15 +232,23 @@ independenceAttestation =
 -- arms of one @case@ calling one report function with a different
 -- @{provenance}@ argument, so the report cannot come out claiming an
 -- independence nothing established.
+--
+-- __The engine fact is not in this arm's wording, and does not need to be.__
+-- This is the arm where the probe /failed/, which is already the stronger
+-- statement: planted context was found, so no session policy can make the
+-- answers separate. The arm that has to name the engine is the passing one,
+-- because that is the one a reader would otherwise over-read — see
+-- 'Workflows.Audit.Fess.verifiedIndependence'.
 unverifiedIndependence :: Text
 unverifiedIndependence =
   wfText
     [wf|
-    Provenance: this audit ran, and its independence was NOT verified. The
-    runner offered no explicit no-history mode, or the parent-history sentinel
-    probe did not pass. Do not describe any finding below as an independent
-    confirmation. State this in the summary, in one sentence, before anything
-    else.|]
+    Provenance: this audit ran, and its independence was NOT verified. This
+    run's own parent-history sentinel was put to the answering runner and the
+    reply was not PARENT_HISTORY_ABSENT, so a transcript this audit did not
+    choose was in front of it. Do not describe any finding below as an
+    independent confirmation. State this in the summary, in one sentence, before
+    anything else.|]
 
 -- ---------------------------------------------------------------------------
 -- The standing artefact rule

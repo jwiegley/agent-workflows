@@ -94,6 +94,35 @@
 --      "Workflows.Checklist"'s shape and, as there, the honest reading of a
 --      design cell that sketched a @revisingOn@. See the note below.
 --
+-- == How to invoke it so the review is somebody else's
+--
+-- A partner review is worth having because it is /not/ the party that wrote the
+-- code. Nothing in this module can secure that: the program says which questions
+-- to put and to whom, and where they are put is the invocation's business. So it
+-- is written here, where an operator reading the row will meet it.
+--
+-- Two spellings give a reviewing run a context the work does not share:
+--
+--   * @wf run partner-reviewer --session \<pane\>@ — a live @agent-deck@ pane
+--     __other than the one doing the work__. Every question of the run shares
+--     that one pane, which is fine and is the point: what matters is that the
+--     pane is not the work's. Naming the working pane here is the failure mode,
+--     and it is a quiet one, because the run succeeds and reads like a review.
+--   * @wf run partner-reviewer --engine acp@ — an adapter this run starts, with
+--     @acpFreshPerQuestion@ opening a session before every question. Each seat
+--     then sees its own prompt and nothing else, which is the stronger of the
+--     two.
+--
+-- The same holds of @partner-collaborator@, and of @partner-cleanup@ for a
+-- different reason: the cleanup /edits/, so it wants the working tree, and it is
+-- the one of the three that has no business being put somewhere else.
+--
+-- __Neither spelling is checked here, and the report says which was used.__
+-- @run.engine@ ('Agentic.Workflow.runFacts') reaches this row's report, so a
+-- reader can see whether the run shared one conversation; the row that turns that
+-- fact into a refusal is @wiggum@, because there a separate evaluator is a clause
+-- of a definition of done rather than a quality of a report.
+--
 -- == Two honest notes
 --
 -- __@partner-cleanup@ is not a @revisingOn@, and §7.2 row 37 sketches one.__ That
@@ -479,10 +508,24 @@ publishedBrief =
 --
 -- /Source:/ that fenced @text@ block, verbatim in substance, with its six
 -- numbered steps and its handoff demand. The two clauses about /spawning/ a
--- sub-agent and about parallelising independent batches are not carried: a
--- question here is already an independent context by construction, and the
--- fan-out this program does have is priced
--- ("Workflows.Panels" says where @skills\/parallelize@ dissolves).
+-- sub-agent and about parallelising independent batches are not carried, and the
+-- reason is narrower than \"independent by construction\" — which is what this
+-- said before, and which is false under @--session@.
+--
+-- What holds by construction is that a question here is a __separate question__:
+-- 'Agentic.Workflow.panel' puts each member once, in its own right, and no
+-- member is told what another said. Whether it is put in a separate /context/ is
+-- the engine's business and not the program's. Under @--engine acp@ it is —
+-- @acpFreshPerQuestion@ opens a @session\/new@ before every question — and under
+-- @--session \<pane\>@ it is not: every question of the run lands in one live
+-- @agent-deck@ conversation, in program order, each seat having read the ones
+-- above it. @run.engine@ ('Agentic.Workflow.runFacts') is the authority on which,
+-- and 'Agentic.Workflow.sharesOneSession' is how a program that must not run
+-- that way finds out (@wiggum@ does; this row reports rather than refuses).
+--
+-- So the clauses are dropped because the /mechanism/ they ask for exists here and
+-- is priced ("Workflows.Panels" says where @skills\/parallelize@ dissolves), not
+-- because the context separation they wanted comes free.
 assignmentBrief :: Text
 assignmentBrief =
   wfText
@@ -567,11 +610,21 @@ partnerWriteBrief =
 -- ---------------------------------------------------------------------------
 
 -- | The reviewing arm where files were written.
+--
+-- __\"Each pass answering independently\" is now what the program can promise,
+-- and no more.__ It used to say the passes answered \"independently over the same
+-- bytes\", which reads as a claim about their /contexts/ and is one this module
+-- cannot make: a 'Agentic.Workflow.panel' puts each member once and tells no
+-- member what another said, and that is separateness of /question/. Whether it is
+-- separateness of context is the engine's business — see this module's header for
+-- the two invocations that get it — and 'onThisRun' appends the fact rather than
+-- letting the word carry it.
 publishedNote :: PartnerRole -> Text
 publishedNote role =
   "Provenance: one commit was read as a `git show` receipt and reviewed by "
     <> rosterWord
-    <> ", each pass answering independently over the same bytes"
+    <> ", each pass put as a separate question over the same bytes and told \
+       \nothing of what the others said"
     <> ideaWord
     <> ". The observation files were then published under the standing contract, \
        \and the directory was read back with `find`: the receipt below is the \
@@ -582,8 +635,37 @@ publishedNote role =
       | role == Reviewer = "`heavy-review`'s seven passes"
       | otherwise = "`deep-review`'s roster"
     ideaWord
-      | ideasOn role = ", beside three independently drawn ideation passes"
+      | ideasOn role = ", beside three separately drawn ideation passes"
       | otherwise = ""
+
+-- | The run's own engine, appended to whichever ending was reached.
+--
+-- __Three roles, five endings, one statement about the run.__ Same shape and
+-- same reason as @wiggum@'s: the endings differ in what happened and not in what
+-- this run /was/, so the fact goes on once here instead of five times in five
+-- notes that would then have to be kept in step.
+--
+-- __Why this row owes the reader it.__ A partner review is worth having because
+-- it is not the party that wrote the code, and nothing in this module can secure
+-- that — the invocation decides it (see the module header). @run.engine@
+-- ('Agentic.Workflow.runFacts') is the runner's own statement of which invocation
+-- was made, and without it the report's word \"separate\" would be the only thing
+-- a reader had, which is a word and not a fact.
+--
+-- Free in both folds: an input is a define, so this adds no question and no path.
+onThisRun :: Text -> Text -> Text
+onThisRun engine note =
+  note
+    <> " "
+    <> wfText
+      [wf|
+      This run's engine, from the runner and from no party asked above: {engine}.
+      A new session per question means every question above was put to a party
+      that had seen no other; one session for the run means they all landed in
+      one conversation, in program order, each having read what came before --
+      and if that conversation is also where the reviewed work was done, a review
+      in it is the work reviewing itself. Say which of the two this was, in one
+      sentence, before anything else.|]
 
 -- | The reviewing arm where nothing was written.
 --
@@ -760,140 +842,153 @@ partnerTable =
 -- @paths@ is the file list, one per line, and it widens
 -- @partner-collaborator@'s roster with the language reviewers the commit
 -- touches — tier 1, before the program exists.
+--
+-- And one the __runner__ gives: @run.engine@, which every ending carries through
+-- 'onThisRun'. It is spliced and never branched on, so it moves no fold: this row
+-- reports how the run was made and leaves what to do about it to the operator who
+-- made it.
 partnerProgram :: PartnerRole -> Parameterized
 partnerProgram role =
-  taking (input "commit" :> input "observations" :> input "paths" :> noInputs) \sha obs paths ->
-    let rev = commitRev sha
-        dir = observationsDir obs
-        roster = partnerRoster role (pathsOf paths)
-        contract = observationContract (ideasOn role)
-     in defining partnerTable case role of
-          Cleanup -> W.do
-            -- The batch, as bytes. Every decision below reads a receipt like
-            -- this one, taken fresh.
-            batch <- ask (mdFilesIn dir) [wf|{batchBrief}|]
-            work <- tested (observationsPending dir) batch
+  taking
+    ( input "commit"
+        :> input "observations"
+        :> input "paths"
+        :> input "run.engine"
+        :> noInputs
+    )
+    \sha obs paths engine ->
+      let rev = commitRev sha
+          dir = observationsDir obs
+          roster = partnerRoster role (pathsOf paths)
+          contract = observationContract (ideasOn role)
+          stated = onThisRun engine
+       in defining partnerTable case role of
+            Cleanup -> W.do
+              -- The batch, as bytes. Every decision below reads a receipt like
+              -- this one, taken fresh.
+              batch <- ask (mdFilesIn dir) [wf|{batchBrief}|]
+              work <- tested (observationsPending dir) batch
 
-            if work
-              then W.do
-                -- Round one: the cleanup loop's first trip.
-                first <- call cleanupRoundFn (arg batch :> arg dir :> noArgs)
+              if work
+                then W.do
+                  -- Round one: the cleanup loop's first trip.
+                  first <- call cleanupRoundFn (arg batch :> arg dir :> noArgs)
 
-                after <- ask (mdFilesIn dir) [wf|{afterBrief}|]
-                again <- tested (observationsPending dir) after
+                  after <- ask (mdFilesIn dir) [wf|{afterBrief}|]
+                  again <- tested (observationsPending dir) after
 
-                if again
-                  then W.do
-                    -- Round two: the rescan `partner-cleanup.md` asks for twice.
-                    second <- call cleanupRoundFn (arg after :> arg dir :> noArgs)
+                  if again
+                    then W.do
+                      -- Round two: the rescan `partner-cleanup.md` asks for twice.
+                      second <- call cleanupRoundFn (arg after :> arg dir :> noArgs)
 
-                    final <- ask (mdFilesIn dir) [wf|{finalBrief}|]
-                    left <- tested (observationsPending dir) final
+                      final <- ask (mdFilesIn dir) [wf|{finalBrief}|]
+                      left <- tested (observationsPending dir) final
 
-                    if left
-                      then W.do
-                        call_ partnerReportFn (arg notDrainedNote :> arg final :> arg second :> noArgs)
-                        stop
-                      else W.do
-                        call_ commitFn (arg final :> arg cleanupCommitStyle :> noArgs)
-                        call_ partnerReportFn (arg drainedNote :> arg final :> arg second :> noArgs)
-                        stop
-                  else W.do
-                    call_ commitFn (arg after :> arg cleanupCommitStyle :> noArgs)
-                    call_ partnerReportFn (arg drainedNote :> arg after :> arg first :> noArgs)
-                    stop
-              else W.do
-                call_ partnerReportFn (arg nothingToDrainNote :> arg batch :> arg noRoundRan :> noArgs)
-                stop
-          Reviewer -> W.do
-            -- One commit, bound once, and every pass below reads these bytes.
-            commit <- ask (gitShowCommit rev) [wf|{commitBrief}|]
+                      if left
+                        then W.do
+                          call_ partnerReportFn (arg (stated notDrainedNote) :> arg final :> arg second :> noArgs)
+                          stop
+                        else W.do
+                          call_ commitFn (arg final :> arg cleanupCommitStyle :> noArgs)
+                          call_ partnerReportFn (arg (stated drainedNote) :> arg final :> arg second :> noArgs)
+                          stop
+                    else W.do
+                      call_ commitFn (arg after :> arg cleanupCommitStyle :> noArgs)
+                      call_ partnerReportFn (arg (stated drainedNote) :> arg after :> arg first :> noArgs)
+                      stop
+                else W.do
+                  call_ partnerReportFn (arg (stated nothingToDrainNote) :> arg batch :> arg noRoundRan :> noArgs)
+                  stop
+            Reviewer -> W.do
+              -- One commit, bound once, and every pass below reads these bytes.
+              commit <- ask (gitShowCommit rev) [wf|{commitBrief}|]
 
-            defects <- panelText (zip (lensNames roster) (asksOver roster defectClosing commit))
+              defects <- panelText (zip (lensNames roster) (asksOver roster defectClosing commit))
 
-            -- No ideation pass, and that is the whole of `ideas=off`:
-            -- `partner-reviewer.md` has no ideation section, so this role does
-            -- not ask for one. The two reviewing arms are two blocks for the
-            -- reason "Workflows.Threads"' two rungs are: a bind is a statement,
-            -- not a value, so a statement one role does not have cannot be a
-            -- conditional argument. Every brief, the contract, the receipt, the
-            -- decider and the report function are shared.
-            act (tool "observations") [wf|
-                {publishBrief}
+              -- No ideation pass, and that is the whole of `ideas=off`:
+              -- `partner-reviewer.md` has no ideation section, so this role does
+              -- not ask for one. The two reviewing arms are two blocks for the
+              -- reason "Workflows.Threads"' two rungs are: a bind is a statement,
+              -- not a value, so a statement one role does not have cannot be a
+              -- conditional argument. Every brief, the contract, the receipt, the
+              -- decider and the report function are shared.
+              act (tool "observations") [wf|
+                  {publishBrief}
 
-                {contract}
+                  {contract}
 
-                The observations directory:
+                  The observations directory:
 
-                {dir}
+                  {dir}
 
-                The commit these findings are about:
+                  The commit these findings are about:
 
-                {commit}
+                  {commit}
 
-                The defect passes:
+                  The defect passes:
 
-                {defects}|]
+                  {defects}|]
 
-            written <- ask (mdFilesIn dir) [wf|{publishedBrief}|]
-            wrote <- tested (observationsPending dir) written
+              written <- ask (mdFilesIn dir) [wf|{publishedBrief}|]
+              wrote <- tested (observationsPending dir) written
 
-            if wrote
-              then W.do
-                call_ partnerReportFn (arg (publishedNote role) :> arg written :> arg defects :> noArgs)
-                stop
-              else W.do
-                call_ partnerReportFn (arg nothingPublishedNote :> arg written :> arg defects :> noArgs)
-                stop
-          Collaborator -> W.do
-            commit <- ask (gitShowCommit rev) [wf|{commitBrief}|]
+              if wrote
+                then W.do
+                  call_ partnerReportFn (arg (stated (publishedNote role)) :> arg written :> arg defects :> noArgs)
+                  stop
+                else W.do
+                  call_ partnerReportFn (arg (stated nothingPublishedNote) :> arg written :> arg defects :> noArgs)
+                  stop
+            Collaborator -> W.do
+              commit <- ask (gitShowCommit rev) [wf|{commitBrief}|]
 
-            defects <- panelText (zip (lensNames roster) (asksOver roster defectClosing commit))
+              defects <- panelText (zip (lensNames roster) (asksOver roster defectClosing commit))
 
-            -- `drawing 3` on one lateral party: three independent answers, not
-            -- three items in one. This is the whole of `ideas=on`.
-            ideas <-
-              panelText
-                [ ("idea-" <> tshow i, ask (lateral (model "ideation") `drawing` toInteger i) [wf|
-                      {ideationBrief}
+              -- `drawing 3` on one lateral party: three independent answers, not
+              -- three items in one. This is the whole of `ideas=on`.
+              ideas <-
+                panelText
+                  [ ("idea-" <> tshow i, ask (lateral (model "ideation") `drawing` toInteger i) [wf|
+                        {ideationBrief}
 
-                      The commit:
+                        The commit:
 
-                      {commit}|])
-                | i <- [1 :: Int, 2, 3]
-                ]
+                        {commit}|])
+                  | i <- [1 :: Int, 2, 3]
+                  ]
 
-            act (tool "observations") [wf|
-                {publishBrief}
+              act (tool "observations") [wf|
+                  {publishBrief}
 
-                {contract}
+                  {contract}
 
-                The observations directory:
+                  The observations directory:
 
-                {dir}
+                  {dir}
 
-                The commit these findings are about:
+                  The commit these findings are about:
 
-                {commit}
+                  {commit}
 
-                The defect passes:
+                  The defect passes:
 
-                {defects}
+                  {defects}
 
-                The ideation passes:
+                  The ideation passes:
 
-                {ideas}|]
+                  {ideas}|]
 
-            written <- ask (mdFilesIn dir) [wf|{publishedBrief}|]
-            wrote <- tested (observationsPending dir) written
+              written <- ask (mdFilesIn dir) [wf|{publishedBrief}|]
+              wrote <- tested (observationsPending dir) written
 
-            if wrote
-              then W.do
-                call_ partnerReportFn (arg (publishedNote role) :> arg written :> arg defects :> noArgs)
-                stop
-              else W.do
-                call_ partnerReportFn (arg nothingPublishedNote :> arg written :> arg defects :> noArgs)
-                stop
+              if wrote
+                then W.do
+                  call_ partnerReportFn (arg (stated (publishedNote role)) :> arg written :> arg defects :> noArgs)
+                  stop
+                else W.do
+                  call_ partnerReportFn (arg (stated nothingPublishedNote) :> arg written :> arg defects :> noArgs)
+                  stop
 
 -- | What the report is told when no round ran.
 --

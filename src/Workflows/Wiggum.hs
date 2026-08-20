@@ -31,7 +31,9 @@
 -- |                                            | @call_ 'Workflows.Audit.Fess.fessReportFn'@                   |
 -- +--------------------------------------------+--------------------------------------------------------------+
 -- | @skills\/parallelize\/SKILL.md@             | the sentinel probe, once, as this run's own precondition —    |
--- |                                            | plus the fan-out cap, /computed/ by 'stageWaves'              |
+-- |                                            | under a free gate on @run.engine@ that is the /real/ test of  |
+-- |                                            | a separate evaluator ('sharedSessionNote') — plus the fan-out |
+-- |                                            | cap, /computed/ by 'stageWaves'                               |
 -- +--------------------------------------------+--------------------------------------------------------------+
 -- | @skills\/fix-all\/SKILL.md@                 | "Workflows.Rubrics.Discipline", spliced into the working act  |
 -- +--------------------------------------------+--------------------------------------------------------------+
@@ -89,13 +91,21 @@
 --      __absence__ rather than a rule a tired runner is trusted with. Grep this
 --      file for @push@ and the answer is this paragraph.
 --
---   5. __The verifier is not the worker, and that is a type.__ \"Verification
---      comes from a separate evaluator, not from grading your own work\" is the
---      skill's sharpest sentence and it has no mechanism. Here the round's
---      account is written over @git log@'s bytes, the suite's verdict is the
---      suite's own exit code, the audit is eleven independent stances on three
---      serving rungs, and the done-criteria judge is a party that answered none
---      of them.
+--   5. __The verifier is not the worker, and most of that is a type.__
+--      \"Verification comes from a separate evaluator, not from grading your own
+--      work\" is the skill's sharpest sentence and it has no mechanism. Here the
+--      round's account is written over @git log@'s bytes, the suite's verdict is
+--      the suite's own exit code, the audit is eleven independent stances on
+--      three serving rungs, and the done-criteria judge is a party that answered
+--      none of them.
+--
+--      __The part that is /not/ a type is the one the sentence is really
+--      about__, and it is a fact rather than a shape: a party can be a different
+--      /addressee/ and still be the same conversation. That is the engine's
+--      doing, not the program's, and the program can only refuse to start — which
+--      is 'sharedSessionNote', taken in Haskell over @run.engine@ before anything
+--      is spent. Read that note for why the sentinel probe underneath it cannot
+--      do this job.
 --
 --   6. __Steps 5 and 6 of @run-orchestrator.md@ stop being questions.__ \"Check
 --      task dependencies\" and \"identify tasks that can run in parallel\" are,
@@ -820,30 +830,132 @@ continuationBrief =
 -- The provenance lines the endings differ in
 -- ---------------------------------------------------------------------------
 
--- | The arm where the independence probe did not pass.
+-- | The arm the __engine fact__ closes, before a question is put.
 --
 -- /Source:/ @skills\/wiggum\/SKILL.md@'s \"verification comes from a separate
--- evaluator, not from grading your own work\", read together with
--- @skills\/parallelize\/SKILL.md@'s \"a separate context window alone is not
--- evidence of independence\" and
+-- evaluator, not from grading your own work\", which is the clause this gate
+-- actually enforces — and which the sentinel probe below it never could.
+--
+-- __Why this gate exists at all, which is the whole of the finding it closes.__
+-- The probe asks whether a line /this runner planted/ was already in the
+-- answerer's context. An ordinary used @agent-deck@ pane — one that did the work
+-- and is now being asked to judge it — has no such line in it, so it answers
+-- @PARENT_HISTORY_ABSENT@ truthfully and the probe passes. The loop would then
+-- have started, run its rounds, and had its Definition of Done judged by the
+-- party that wrote the work, with a report saying independence was verified. The
+-- probe was detecting only the contamination the toolbox itself could cause.
+--
+-- __The fact that settles it is the runner's, and it is free.__ @run.engine@
+-- ('Agentic.Workflow.runFacts') says whether every question of the run lands in
+-- one conversation, and 'Agentic.Workflow.sharesOneSession' reads it — in
+-- ordinary Haskell, before the 'Agentic.Builder.Program' exists. That is
+-- "Workflows.Deciders"' __tier 1__: zero questions and zero paths, because the
+-- arm not taken is not in the term. A 'Agentic.Workflow.decide' could not have
+-- done it — a decider reads a @V h 'CodeText'@, a name bound in scope, and an
+-- input is a define — and it would have been the more expensive answer anyway.
+--
+-- __Where the probe still earns its question.__ On the residual this fact cannot
+-- see: an adapter that resumes a conversation behind the client's back, or a
+-- fan-out that leaks one prompt into another. So the order is the honest one —
+-- the engine first, for nothing, and the probe only for the runs the engine
+-- cleared.
+sharedSessionNote :: Text
+sharedSessionNote =
+  "Outcome: WORK BLOCKED, AND NOTHING WAS STARTED. This run's engine puts every \
+  \question of the run into one shared conversation -- the fact is quoted below \
+  \and it came from the runner, not from anybody asked -- so the party that would \
+  \have judged the work is the party that would have done it. No question was \
+  \put: no round ran, no commit was made, no gate was run and no audit was asked \
+  \for. Every clause of this loop's definition of done is a claim checked by an \
+  \evaluator that must not be the runner, and under one shared session there is \
+  \no such evaluator to reach. Report that, quote the engine fact, and say what \
+  \would fix it: run this loop under an engine that opens a new session per \
+  \question (`--engine acp`), which is the one transport here that can put a \
+  \question to a party that has not read the answer."
+
+-- | The whole of a refused run's material, which is the fact that refused it.
+--
+-- 'wiggumReportFn' is handed a provenance line and a state, and asks the reporter
+-- for what the run has to show. A run stopped by 'sharedSessionNote' has shown
+-- nothing, and the honest state is a sentence saying so with the read fact
+-- quoted under it — rather than the engine text alone, which a reporter would
+-- have to guess the meaning of, or a handle, of which there is none: no question
+-- was put, so there is no receipt to pass.
+sharedSessionState :: Text -> Text
+sharedSessionState engine =
+  wfText
+    [wf|
+    Nothing ran, so there is no receipt, no commit, no gate output and no audit
+    to account for -- and any of those in a report would be invented. The whole
+    of this run's material is the one fact the gate read, which is this run's
+    engine and its session policy:
+
+    {engine}|]
+
+-- | The arm where the sentinel probe did not pass.
+--
+-- /Source:/ @skills\/parallelize\/SKILL.md@'s \"a separate context window alone
+-- is not evidence of independence\" and
 -- 'Workflows.Rubrics.Discipline.unverifiedIndependence'.
 --
 -- __Why this is a terminal here and a downgrade in @fess@.__ The audit can
--- honestly run without a verified attestation and report that it did — that is
+-- honestly run without a passing probe and report that it did — that is
 -- @agents\/fess-auditor.md@'s own sentence, and 'Workflows.Audit.Fess' keeps it.
 -- An autonomous loop cannot: every clause of its Definition of Done is a claim
 -- checked by somebody who must not be the runner, so a loop that cannot show its
 -- evaluator is separate has no way to finish and should not start spending.
+--
+-- __What it claims is now what it tested.__ It used to say the runner \"could not
+-- be shown to dispatch without inheriting the parent transcript\", which is more
+-- than a failing probe establishes and, worse, implied that a /passing/ one
+-- established the converse. Reaching this arm means a line this run planted came
+-- back — planted context, found — and that is what the sentence says.
+-- 'sharedSessionNote' is the gate for the other half.
 notIndependentNote :: Text
 notIndependentNote =
   "Outcome: WORK BLOCKED, AND NOTHING WAS STARTED. The parent-history sentinel \
-  \probe did not answer PARENT_HISTORY_ABSENT, so this runner could not be shown \
-  \to dispatch without inheriting the parent transcript. No round ran, no commit \
-  \was made and no audit was asked for. Every clause of this loop's definition \
-  \of done is a claim checked by an evaluator that must not be the runner, and \
-  \that separation is exactly what could not be established. Report that, name \
-  \the probe's answer below, and say that the loop needs an explicit no-history \
-  \mode before it can be run unattended."
+  \probe did not answer PARENT_HISTORY_ABSENT: a line this run generated for \
+  \itself and put in no other place came back, so context this runner planted was \
+  \already in front of the answerer. No round ran, no commit was made and no \
+  \audit was asked for. Every clause of this loop's definition of done is a claim \
+  \checked by an evaluator that must not be the runner, and an answerer that has \
+  \read another of this run's prompts is not one. Report that, name the probe's \
+  \answer below, and say that the loop needs an engine that puts each question to \
+  \a party that has seen no other before it can be run unattended."
+
+-- | The run's own transport, appended to whichever ending was reached.
+--
+-- __Seven endings, seven lines, one statement about the run.__ The endings differ
+-- in /what happened/; they do not differ in /what this run was/, so the two facts
+-- go on once, here, rather than seven times in seven notes that would then have
+-- to be kept in step.
+--
+-- __Why an autonomous loop owes the reader this.__ Every clause of this loop's
+-- definition of done is a claim checked by somebody who must not be the runner
+-- ('notIndependentNote' says so, and makes it a terminal). The engine is what
+-- decides whether \"somebody else\" is even possible: under a new session per
+-- question the evaluator's context is its own, and under one session for the
+-- whole run it has read the work it is judging. That was previously invisible —
+-- the run's header is terminal output and no party receives it — and it is now
+-- @run.engine@ ('Agentic.Workflow.runFacts'), bound by the runner from the very
+-- field the header prints.
+--
+-- The sentence is added and the ending's own words are untouched, because a
+-- report opens with this line verbatim ('wiggumReportBrief') and a note reworded
+-- to accommodate a fact would be a note that says something new about the work.
+runProvenance :: Text -> Text -> Text -> Text
+runProvenance backends engine note =
+  note
+    <> " "
+    <> wfText
+      [wf|
+      This run's answerers: {backends}. Its engine: {engine}. Both facts came
+      from the runner and from no party asked below, and the second one is what
+      this loop gates on before it spends anything: an evaluator that shared one
+      conversation with the work it was judging is not the separate evaluator the
+      definition of done requires, so a run whose engine says it would have is
+      refused rather than reported on. Quote both facts and let the reader check
+      the ending above against them.|]
 
 -- | The arm where the baseline was already red.
 --
@@ -1042,13 +1154,19 @@ wiggumRoundFn trunk =
 -- 'wiggumRoundFn''s reason: two of the three are argv and the third is folded in
 -- ordinary Haskell before the 'Agentic.Builder.Program' exists.
 --
--- __The audit's provenance is 'Workflows.Audit.Fess.verifiedIndependence' and
--- not a choice.__ It can be, and this is the only place in the tree where that
--- is true: the probe is this program's precondition rather than a step inside
--- it, so by the time this function is reachable the attestation has already
--- passed. The arm where it did not is a terminal that never gets here.
-wiggumCheckpointFn :: Text -> Text -> Roster -> Fn '[ 'CodeText] 'CodeText
-wiggumCheckpointFn trunk dir roster =
+-- __The audit's provenance is the passing one and not a choice.__ It can be, and
+-- this is the only place in the tree where that is true: both gates are this
+-- program's preconditions rather than steps inside it, so by the time this
+-- function is reachable the engine has been read and the sentinel probe has
+-- passed. The arms where either did not are terminals that never get here.
+--
+-- @provenance@ is therefore a Haskell parameter and not a constant:
+-- 'Workflows.Audit.Fess.verifiedIndependence' states the engine fact as well as
+-- the probe's answer, and that fact belongs to the run rather than to this
+-- function. Folded in before the 'Agentic.Builder.Program' exists, like the
+-- trunk and the roster beside it, so it costs the same nothing they do.
+wiggumCheckpointFn :: Text -> Text -> Roster -> Text -> Fn '[ 'CodeText] 'CodeText
+wiggumCheckpointFn trunk dir roster provenance =
   function
     "wiggum.checkpoint"
     (takes @"standing" Text $ noParams)
@@ -1074,7 +1192,7 @@ wiggumCheckpointFn trunk dir roster =
       -- `references/fess-audit.md`'s standing obligation. Eleven stances, three
       -- serving rungs, one fenced document.
       findings <- panelText (zip (lensNames roster) (withEvidence roster fessClosing changes evidence))
-      call_ fessReportFn (arg findings :> arg evidence :> arg verifiedIndependence :> noArgs)
+      call_ fessReportFn (arg findings :> arg evidence :> arg provenance :> noArgs)
 
       handoff <- ask (reasoning (model "handoff")) [wf|
           {handoffBrief}
@@ -1103,10 +1221,14 @@ wiggumCheckpointFn trunk dir roster =
 -- | The report every ending calls.
 --
 -- Two parameters, provenance first, for 'Workflows.Report.reportFn''s reason: it
--- is the thing a report must not omit, and it is the one argument the six arms
--- differ in. Six endings, six provenance lines, __one__ report — so no ending can
--- quietly describe itself as another, and in particular a blocked run cannot come
--- out reading like a finished one.
+-- is the thing a report must not omit, and it is the one argument the seven arms
+-- differ in. Seven endings, seven provenance lines, __one__ report — so no ending
+-- can quietly describe itself as another, and in particular a blocked run cannot
+-- come out reading like a finished one.
+--
+-- It is the only entry in 'wiggumRefusalTable' as well as the last in
+-- 'wiggumTable', because the ending the engine fact closes is a program of its
+-- own and still owes its operator an account.
 wiggumReportFn :: Fn '[ 'CodeText, 'CodeText] 'CodeAck
 wiggumReportFn =
   function
@@ -1140,16 +1262,32 @@ wiggumReportFn =
 -- @resolveFn@ is called from the program rather than from a body, so its
 -- position is free; it sits with the other borrowed callees because that is
 -- where a reader looks for them.
-wiggumTable :: Text -> Text -> Roster -> [SomeFn]
-wiggumTable trunk dir roster =
+wiggumTable :: Text -> Text -> Roster -> Text -> [SomeFn]
+wiggumTable trunk dir roster provenance =
   [ SomeFn commitFn,
     SomeFn cleanupRoundFn,
     SomeFn fessReportFn,
     SomeFn resolveFn,
     SomeFn (wiggumRoundFn trunk),
-    SomeFn (wiggumCheckpointFn trunk dir roster),
+    SomeFn (wiggumCheckpointFn trunk dir roster provenance),
     SomeFn wiggumReportFn
   ]
+
+-- | The table the __refused program__ hands @'Agentic.Workflow.defining'@: one
+-- entry.
+--
+-- 'sharedSessionNote''s arm is a different program and not a different path — it
+-- is chosen in Haskell, before there is anything to fold — and the only function
+-- it can reach is the report. Declaring the other six would print six function
+-- bodies, and therefore six prompts, into a program that cannot call one of
+-- them: @wf plan@ would show them, Lean would check them, and @wf cost@ would
+-- price a loop this program has already refused to start. A refusal should be
+-- the size of a refusal.
+--
+-- The three terminals /inside/ the loop keep 'wiggumTable', because they are
+-- arms of that program and reached over the very functions it declares.
+wiggumRefusalTable :: [SomeFn]
+wiggumRefusalTable = [SomeFn wiggumReportFn]
 
 -- ---------------------------------------------------------------------------
 -- The program
@@ -1167,24 +1305,37 @@ wiggumTable trunk dir roster =
 verdictTrips :: Bound
 verdictTrips = atMost 2
 
--- | The loop: probe, baseline, two rounds, one currency step, one checkpoint,
--- one bounded verdict, six endings.
+-- | The loop: one free gate, a probe, a baseline, two rounds, one currency step,
+-- one checkpoint, one bounded verdict, seven endings.
 --
--- Four inputs. @plan@ is the frozen plan and its done-criteria — read-only by
+-- Four inputs the operator gives, and three the runner gives
+-- (@run.backends@, @run.engine@, @run.sentinel@).
+-- @plan@ is the frozen plan and its done-criteria — read-only by
 -- construction, since it is an input; @base@ is what the branch is measured
 -- against and brought up to date with (@main@ when absent); @observations@ is
 -- the partner directory (@doc\/observations@ when absent); @parity@ is the
 -- reference target, and an absent one is a different last conjunct rather than a
 -- missing one ('parityClause').
 --
+-- __The first gate is not a step and costs nothing.__ 'sharedSessionNote' is
+-- taken in ordinary Haskell, over the @run.engine@ input, before this function
+-- has built a 'Agentic.Builder.Program' at all — so it is not a path through the
+-- loop, it is a different and much smaller program. Read that note for why the
+-- loop needs it and why the probe underneath cannot do its job. The consequence
+-- for the numbers is that there are two programs here and @wf plan@ prints
+-- whichever the given engine selects; with the fact unbound, which is every
+-- @plan@ and every @cost@, the answer is the loop — the shape a run with an
+-- unknown engine takes, and the shape that keeps every check.
+--
 -- __Where the price comes from, top to bottom.__ One probe and one baseline
 -- flag; then one or two rounds, each an act, a called commit discipline, a
 -- receipt and an account; then a currency act, a called resolution doctrine and
 -- a free exit code; then the checkpoint's drain, commit, gate, three receipts,
 -- eleven stances and report; then a bounded three-way verdict over the handoff;
--- then one report. Three of the six endings ask for nothing beyond the point
--- they are reached at, and the two cheapest of them — an unproven runner and a
--- red baseline — spend two consultations between them and change nothing.
+-- then one report. Four of the seven endings ask for nothing beyond the point
+-- they are reached at, the shared-session one asks for nothing at all, and the
+-- two cheapest of the rest — an inherited sentinel and a red baseline — spend two
+-- consultations between them and change nothing.
 --
 -- __Why the tail is written twice.__ The second round is entered behind a free
 -- test over the first round's own last line, and a bind is a statement rather
@@ -1198,125 +1349,161 @@ verdictTrips = atMost 2
 wiggumProgram :: Parameterized
 wiggumProgram =
   taking
-    (input "plan" :> input "base" :> input "observations" :> input "parity" :> noInputs)
-    \plan base obs parity ->
-      -- Tier 1, all four of them: the argv, the directory, the roster the audit
-      -- fans out over with the frozen plan folded in, and the last conjunct of
-      -- the definition of done. Ordinary Haskell, before the `Program` exists,
-      -- so none of them costs a question or a path.
+    ( input "plan"
+        :> input "base"
+        :> input "observations"
+        :> input "parity"
+        :> input "run.backends"
+        :> input "run.engine"
+        :> input "run.sentinel"
+        :> noInputs
+    )
+    \plan base obs parity backends engine sentinel ->
+      -- Tier 1, all of them: the argv, the directory, the roster the audit
+      -- fans out over with the frozen plan folded in, the last conjunct of
+      -- the definition of done, the probe's prompt at this run's own sentinel,
+      -- and the provenance every ending is stated on. Ordinary Haskell, before
+      -- the `Program` exists, so none of them costs a question or a path.
       let trunk = trunkOf base
           dir = observationsDir obs
           roster = requesting plan fessRoster
           criteria = doneCriteriaBrief plan (parityClause parity)
           doctrine = rungSpecialists Restack ""
-       in defining (wiggumTable trunk dir roster) W.do
-            -- The precondition. An autonomous loop whose evaluator cannot be
-            -- shown to be separate has no way to finish; see `notIndependentNote`
-            -- for why this is a terminal here and a downgrade in `fess`.
-            probe <- ask (broad (model "independence")) [wf|{independenceAttestation}|]
-            attested <- tested historyAbsent probe
+          attestation = independenceAttestation sentinel
+          onThisRun = runProvenance backends engine
+          -- Tier 1 as well, and the one that decides which program this is: the
+          -- two facts the checkpoint's audit states about itself.
+          provenance = verifiedIndependence engine
+       in -- The first gate, and it asks nobody. `run.engine` says whether every
+          -- question of this run lands in one conversation, which is the fact
+          -- that decides whether a separate evaluator is reachable at all --
+          -- and it is read here, in Haskell, so the refusing arm is a program
+          -- with one function in it rather than a path with a cost.
+          -- `sharedSessionNote` is why the probe below cannot answer this.
+          --
+          -- A `case` and not an `if`, because under `RebindableSyntax` an `if`
+          -- in this module is `Agentic.Workflow.ifThenElse` and takes a flag
+          -- bound in a program. This choice is between two *programs*, and
+          -- there is no program yet for a flag to live in.
+          case sharesOneSession engine of
+            True -> defining wiggumRefusalTable W.do
+              call_
+                wiggumReportFn
+                ( arg (onThisRun sharedSessionNote)
+                    :> arg (sharedSessionState engine)
+                    :> noArgs
+                )
+              stop
+            False -> defining (wiggumTable trunk dir roster provenance) W.do
+              -- The second precondition, over the residual the engine fact
+              -- cannot see: an adapter that resumed a conversation behind the
+              -- client's back, or a fan-out that leaked one prompt into
+              -- another. See `notIndependentNote` for why this is a terminal
+              -- here and a downgrade in `fess`.
+              probe <- ask (broad (model "independence")) [wf|{attestation}|]
+              attested <- tested historyAbsent probe
 
-            if attested
-              then W.do
-                -- `Refresh after compaction`'s baseline, asked of the gate
-                -- rather than of whoever is about to start work.
-                ready <- passes nixFlakeCheck [wf|{baselineBrief}|]
+              if attested
+                then W.do
+                  -- `Refresh after compaction`'s baseline, asked of the gate
+                  -- rather than of whoever is about to start work.
+                  ready <- passes nixFlakeCheck [wf|{baselineBrief}|]
 
-                if ready
-                  then W.do
-                    -- Round one. The orchestration it is handed is the sorted
-                    -- obligation graph -- tier 1, and `run-orchestrator`'s
-                    -- steps 5 and 6 already answered.
-                    first <- call (wiggumRoundFn trunk) (arg plan :> arg orchestration :> noArgs)
+                  if ready
+                    then W.do
+                      -- Round one. The orchestration it is handed is the sorted
+                      -- obligation graph -- tier 1, and `run-orchestrator`'s
+                      -- steps 5 and 6 already answered.
+                      first <- call (wiggumRoundFn trunk) (arg plan :> arg orchestration :> noArgs)
 
-                    -- The loop's own condition, for zero questions: the round's
-                    -- last line, which `roundAccountBrief` demanded.
-                    complete <- tested saysComplete first
+                      -- The loop's own condition, for zero questions: the round's
+                      -- last line, which `roundAccountBrief` demanded.
+                      complete <- tested saysComplete first
 
-                    if complete
-                      then W.do
-                        -- One round was enough. The cadence step still runs:
-                        -- "the branch is rebased or restacked cleanly onto its
-                        -- base" is a conjunct, not an optimisation.
-                        act restacker [wf|
-                            {currencyBrief}
+                      if complete
+                        then W.do
+                          -- One round was enough. The cadence step still runs:
+                          -- "the branch is rebased or restacked cleanly onto its
+                          -- base" is a conjunct, not an optimisation.
+                          act restacker [wf|
+                              {currencyBrief}
 
-                            {first}|]
+                              {first}|]
 
-                        resolved <- call resolveFn (arg doctrine :> noArgs)
-                        clean <- passes gitDiffCheck [wf|{markersBrief}|]
+                          resolved <- call resolveFn (arg doctrine :> noArgs)
+                          clean <- passes gitDiffCheck [wf|{markersBrief}|]
 
-                        if clean
-                          then W.do
-                            handoff <- call (wiggumCheckpointFn trunk dir roster) (arg first :> noArgs)
+                          if clean
+                            then W.do
+                              handoff <- call (wiggumCheckpointFn trunk dir roster provenance) (arg first :> noArgs)
 
-                            judged <-
-                              escalating
-                                (reasoning (model "done-criteria"))
-                                criteria
-                                (reasoning (model "continuation"))
-                                continuationBrief
-                                handoff
-                                verdictTrips
+                              judged <-
+                                escalating
+                                  (reasoning (model "done-criteria"))
+                                  criteria
+                                  (reasoning (model "continuation"))
+                                  continuationBrief
+                                  handoff
+                                  verdictTrips
 
-                            case judged of
-                              SettledOn final -> W.do
-                                call_ wiggumReportFn (arg doneNote :> arg final :> noArgs)
-                                stop
-                              UnsettledOn final -> W.do
-                                call_ wiggumReportFn (arg stillRemainsNote :> arg final :> noArgs)
-                                stop
-                              AbandonedOn final -> W.do
-                                call_ wiggumReportFn (arg cannotJudgeNote :> arg final :> noArgs)
-                                stop
-                          else W.do
-                            call_ wiggumReportFn (arg conflictNote :> arg resolved :> noArgs)
-                            stop
-                      else W.do
-                        -- Round two, entered because the first round's own last
-                        -- line said the work remains.
-                        second <- call (wiggumRoundFn trunk) (arg plan :> arg first :> noArgs)
+                              case judged of
+                                SettledOn final -> W.do
+                                  call_ wiggumReportFn (arg (onThisRun doneNote) :> arg final :> noArgs)
+                                  stop
+                                UnsettledOn final -> W.do
+                                  call_ wiggumReportFn (arg (onThisRun stillRemainsNote) :> arg final :> noArgs)
+                                  stop
+                                AbandonedOn final -> W.do
+                                  call_ wiggumReportFn (arg (onThisRun cannotJudgeNote) :> arg final :> noArgs)
+                                  stop
+                            else W.do
+                              call_ wiggumReportFn (arg (onThisRun conflictNote) :> arg resolved :> noArgs)
+                              stop
+                        else W.do
+                          -- Round two, entered because the first round's own last
+                          -- line said the work remains.
+                          second <- call (wiggumRoundFn trunk) (arg plan :> arg first :> noArgs)
 
-                        act restacker [wf|
-                            {currencyBrief}
+                          act restacker [wf|
+                              {currencyBrief}
 
-                            {second}|]
+                              {second}|]
 
-                        resolved <- call resolveFn (arg doctrine :> noArgs)
-                        clean <- passes gitDiffCheck [wf|{markersBrief}|]
+                          resolved <- call resolveFn (arg doctrine :> noArgs)
+                          clean <- passes gitDiffCheck [wf|{markersBrief}|]
 
-                        if clean
-                          then W.do
-                            handoff <- call (wiggumCheckpointFn trunk dir roster) (arg second :> noArgs)
+                          if clean
+                            then W.do
+                              handoff <- call (wiggumCheckpointFn trunk dir roster provenance) (arg second :> noArgs)
 
-                            judged <-
-                              escalating
-                                (reasoning (model "done-criteria"))
-                                criteria
-                                (reasoning (model "continuation"))
-                                continuationBrief
-                                handoff
-                                verdictTrips
+                              judged <-
+                                escalating
+                                  (reasoning (model "done-criteria"))
+                                  criteria
+                                  (reasoning (model "continuation"))
+                                  continuationBrief
+                                  handoff
+                                  verdictTrips
 
-                            case judged of
-                              SettledOn final -> W.do
-                                call_ wiggumReportFn (arg doneNote :> arg final :> noArgs)
-                                stop
-                              UnsettledOn final -> W.do
-                                call_ wiggumReportFn (arg stillRemainsNote :> arg final :> noArgs)
-                                stop
-                              AbandonedOn final -> W.do
-                                call_ wiggumReportFn (arg cannotJudgeNote :> arg final :> noArgs)
-                                stop
-                          else W.do
-                            call_ wiggumReportFn (arg conflictNote :> arg resolved :> noArgs)
-                            stop
-                  else W.do
-                    call_ wiggumReportFn (arg brokenBaseNote :> arg probe :> noArgs)
-                    stop
-              else W.do
-                call_ wiggumReportFn (arg notIndependentNote :> arg probe :> noArgs)
-                stop
+                              case judged of
+                                SettledOn final -> W.do
+                                  call_ wiggumReportFn (arg (onThisRun doneNote) :> arg final :> noArgs)
+                                  stop
+                                UnsettledOn final -> W.do
+                                  call_ wiggumReportFn (arg (onThisRun stillRemainsNote) :> arg final :> noArgs)
+                                  stop
+                                AbandonedOn final -> W.do
+                                  call_ wiggumReportFn (arg (onThisRun cannotJudgeNote) :> arg final :> noArgs)
+                                  stop
+                            else W.do
+                              call_ wiggumReportFn (arg (onThisRun conflictNote) :> arg resolved :> noArgs)
+                              stop
+                    else W.do
+                      call_ wiggumReportFn (arg (onThisRun brokenBaseNote) :> arg probe :> noArgs)
+                      stop
+                else W.do
+                  call_ wiggumReportFn (arg (onThisRun notIndependentNote) :> arg probe :> noArgs)
+                  stop
 
 -- ---------------------------------------------------------------------------
 -- The registry's two other columns
@@ -1360,9 +1547,18 @@ wiggumDoc =
 --
 -- The three arms nobody reaches by default are reached by one edit each, and
 -- that is the point of writing them: delete @fessScript@'s probe row and the run
--- takes the unproven-runner terminal; add @(baselineBrief, \"no\")@ and it takes
--- the broken-base terminal; add @(markersBrief, \"no\")@ and it takes the
+-- takes the inherited-sentinel terminal; add @(baselineBrief, \"no\")@ and it
+-- takes the broken-base terminal; add @(markersBrief, \"no\")@ and it takes the
 -- conflict terminal. All of them exit 0.
+--
+-- __The fourth arm is not reachable from this table at all__, and that is the
+-- shape of the gate rather than a gap in the rehearsal. 'sharedSessionNote' is
+-- chosen from @run.engine@ in Haskell, so a @--scripted@ run cannot be steered
+-- into it by canning an answer: the scripted engine reaches no session, states
+-- exactly that, and takes the loop. What reaches it is a command line —
+-- @wf run wiggum --session \<pane\>@, whose engine says every question shares one
+-- @agent-deck@ conversation — and the run then puts no question at all, which is
+-- the one outcome no canned table can rehearse because there is nothing to can.
 wiggumScript :: [(Text, Text)]
 wiggumScript =
   [ (roundSeriesBrief, series),

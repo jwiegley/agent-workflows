@@ -105,8 +105,9 @@
 -- agent-deck session it is neither: one conversation serves the whole run and
 -- the third seat has read the first two.
 -- 'Workflows.Rubrics.Stances.conferProvenance' is derived from the roster and
--- says all three, conditioned on the run's header, inside the artefact where a
--- reader will actually be.
+-- from the run's own two facts — @run.backends@ and @run.engine@, bound by the
+-- runner ('Agentic.Workflow.runFacts') — and says all three /resolved/, inside
+-- the artefact where a reader will actually be.
 --
 -- == Four rows, one shape
 --
@@ -267,8 +268,8 @@ secondParty = lateral (model "second")
 -- does not iterate to approval, and it does not branch. That is what keeps it
 -- @level pipeline@ with one path and one price, and it is why this module needs
 -- no decider and no gate.
-conferOver :: Roster -> Text -> Text -> Program
-conferOver roster decision context = workflow W.do
+conferOver :: Roster -> Text -> Text -> Text -> Text -> Program
+conferOver roster decision context backends engine = workflow W.do
   stances <- panelText (zip (lensNames roster) (asksOver roster stanceClosing subject))
 
   recommendation <- ask (reasoning (model "synthesis")) [wf|
@@ -291,7 +292,7 @@ conferOver roster decision context = workflow W.do
   where
     subject = conferSubject decision context
     synthesis = conferSynthesis roster
-    provenance = conferProvenance roster
+    provenance = conferProvenance roster backends engine
     writeBrief = conferWriteBrief
 
 -- | Confer with no synthesis: the parties' blocks, written down and not
@@ -305,8 +306,8 @@ conferOver roster decision context = workflow W.do
 -- reader.
 --
 -- One statement shorter than 'conferOver', and one question cheaper.
-conferBareOver :: Roster -> Text -> Text -> Program
-conferBareOver roster decision context = workflow W.do
+conferBareOver :: Roster -> Text -> Text -> Text -> Text -> Program
+conferBareOver roster decision context backends engine = workflow W.do
   stances <- panelText (zip (lensNames roster) (asksOver roster stanceClosing subject))
 
   ask_ reporter [wf|
@@ -319,7 +320,7 @@ conferBareOver roster decision context = workflow W.do
       {stances}|]
   where
     subject = conferSubject decision context
-    provenance = conferProvenance roster
+    provenance = conferProvenance roster backends engine
     writeBrief = conferBareWriteBrief
 
 -- | The quick second opinion: one party, no stance, no roster, no synthesis.
@@ -392,13 +393,37 @@ conferDoc Bare = "the same three stances, written down and deliberately not reco
 conferDoc Debate = "for and against only: the pair, synthesised, with no middle seat"
 conferDoc Second = "one contrary party under the anti-sycophancy rubric, and an artefact"
 
--- | The inputs every row of the family takes.
+-- | The inputs the three rows with a provenance paragraph take.
 --
--- Two, and the second may be empty: 'Workflows.Rubrics.Stances.conferSubject'
--- says in as many words what an empty context means, so an operator with nothing
--- to attach does not have to invent a placeholder.
-conferInputs :: Ins (Text, (Text, ()))
-conferInputs = input "decision" :> input "context" :> noInputs
+-- Two the operator gives, and the second may be empty:
+-- 'Workflows.Rubrics.Stances.conferSubject' says in as many words what an empty
+-- context means, so an operator with nothing to attach does not have to invent a
+-- placeholder.
+--
+-- Then two the __runner__ gives, and no command line may
+-- ('Agentic.Workflow.runFacts'): @run.backends@ and @run.engine@ are the two
+-- facts 'Workflows.Rubrics.Stances.conferProvenance' used to carry as
+-- conditionals a reporter was forbidden to resolve. They are declared here
+-- because a program declares its inputs; they are bound by @wf run@ and left
+-- unbound by @wf plan@ and @wf cost@, where no run is being made — which costs
+-- the price nothing, because no static fold reads a prompt.
+conferInputs :: Ins (Text, (Text, (Text, (Text, ()))))
+conferInputs =
+  input "decision"
+    :> input "context"
+    :> input "run.backends"
+    :> input "run.engine"
+    :> noInputs
+
+-- | The inputs @second-opinion@ takes.
+--
+-- The operator's two and neither run fact, because there is no provenance line
+-- to carry them: one block cannot be independently confirmed by anything, so the
+-- paragraph has no referent (see 'secondOpinionOver'). A row that declared a
+-- fact nothing holes would be asking the runner for something it then threw
+-- away.
+secondOpinionInputs :: Ins (Text, (Text, ()))
+secondOpinionInputs = input "decision" :> input "context" :> noInputs
 
 -- | The program a row holds.
 --
@@ -409,7 +434,7 @@ conferProgram :: ConferRung -> Parameterized
 conferProgram Confer = taking conferInputs (conferOver conferRoster)
 conferProgram Bare = taking conferInputs (conferBareOver conferRoster)
 conferProgram Debate = taking conferInputs (conferOver debateRoster)
-conferProgram Second = taking conferInputs secondOpinionOver
+conferProgram Second = taking secondOpinionInputs secondOpinionOver
 
 -- | The canned replies a @--scripted@ run of a row answers from, keyed by
 -- prefix.

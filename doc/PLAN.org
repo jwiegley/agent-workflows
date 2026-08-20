@@ -1,0 +1,100 @@
+#+TITLE: Obr Issues
+#+SEQ_TODO: TODO DOING DRAFT WAIT DEFER NOTE | DONE CANCELED
+#+ISSUE_PREFIX: awork-bounded-rounds-former
+
+* TODO [#D] Continuation with a price: a bounded round-count former whose body admits statements (revisingOn's sibling)
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-bounded-rounds-former-emn
+:LABELS:   []
+:ISSUE_TYPE: feature
+:CREATED:  [2026-08-20 Thu 09:32]
+:MODIFIED: [2026-08-20 Thu 09:32]
+:CREATED_BY: johnw
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+wiggum unrolls K=2 rounds because a bounded revision's body reviews and amends and holds no other statement (Step (Calling s) ('Review c s) refuses a call there) — the unroll count is a recorded design decision, and a long session is several priced invocations. If one-run continuation is ever wanted, the mechanism is an agent-cat surface former (rounds as an input, price = K * round cost), not a toolbox workaround. Blocked on wanting it.
+
+* TODO [#D] Built-ahead library: wire or delete Rubrics.Ladder.seeAlso, Workflows.Escalation exports, Report.suggestionsFn
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-dead-library-decisions-dcm
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-08-20 Thu 09:32]
+:MODIFIED: [2026-08-20 Thu 09:32]
+:CREATED_BY: johnw
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+followups.md M3/L3: ~350 lines declared in defining tables or listed in the README but called by nothing. Each is a decision — wire it to the consumer the design promised (§7.2 #32's 'tail of every review rung' for suggestionsFn) or delete it and amend. The README should say 'built ahead' until then.
+
+* TODO [#D] Design-vs-built residue: commitFn call sites (§5 step 8), rubric colocation (69 of 129 wf blocks in flagship modules), conferGate sketch
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-design-conformance-residue-ms6
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-08-20 Thu 09:32]
+:MODIFIED: [2026-08-20 Thu 09:32]
+:CREATED_BY: johnw
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+followups.md M1 + systematic + L: the design promised commitFn four call sites (it has one — Fix/Green ends its Settled arm with reportFn where the sketch said call_ commitFn); §6's rubric-location convention is contradicted by 69 of 129 blocks with only Stack.hs declaring it; conferGate is named in identifier markup but exists only as confer-design §5.4's sketch. Each is amend-the-design or finish-the-wiring; none is urgent; all should stop being drift.
+
+* TODO [#D] Evidence's unit-review claim: move Git/Stack.hs's ten local running parties in, or amend the header
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-evidence-consolidation-1mt
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-08-20 Thu 09:32]
+:MODIFIED: [2026-08-20 Thu 09:32]
+:CREATED_BY: johnw
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+followups.md M4: Evidence.hs's header claims every argv is reviewable in one place; Stack.hs:185-270 defines ten running parties locally and self-declares the debt. §7.4's git-surgeon cell also promised hunk-level staging argv that nothing carries — same decision, same file.
+
+* TODO [#D] green-web: the deferred fourth green rung (webfix), needs a Playwright running party in Evidence
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-green-web-j61
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-08-20 Thu 09:32]
+:MODIFIED: [2026-08-20 Thu 09:32]
+:CREATED_BY: johnw
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+Design §6.2 names it, §7.2 row 66 reworks webfix into it, §8's completion amendment records the deferral, Fix/Green.hs's header carries the note. Build when a web project actually wants the gate: a browser-driving argv in Workflows.Evidence plus one rung beside green-ci/tree/flaky.
+
+* TODO [#C] Runner-supplied facts: backend count, engine/session policy, and the independence sentinel as facts prompts can carry
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-runner-supplied-facts-vcs
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-08-20 Thu 09:32]
+:MODIFIED: [2026-08-20 Thu 09:32]
+:CREATED_BY: johnw
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+The one mechanism that closes three followups at once, all recorded in doc/followups.md. (1) F1-followup: confer's provenance paragraph carries two conditionals (Backends:/Sessions:) as constant text the reporter is forbidden to resolve, because the run header is terminal output no prompt sees — the honest fix is the runner binding backend count and engine policy as inputs. (2) M5: Rubrics/Discipline.hs:144's independence probe asserts a PARENT_HISTORY_SENTINEL the runner never plants — reviewLadder stops a whole review and fessAudit downgrades provenance on a premise nothing establishes; wiggum made the probe its first gating question, raising the stakes. (3) wiggum's provenance line would state what the run did. This is an agent-cat Registry/CLI feature request (alongside the recorded regDefaults and --at-most N requests); the toolbox work is then swapping constants for holes.
+

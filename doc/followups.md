@@ -1,5 +1,9 @@
 # Follow-ups from the landing verification (2026-08-19)
 
+> **Tracking moved to obr (2026-08-20).** The live items below are now issues
+> in this repository's tracker — `obr list` — under `awork-*`; this file stays
+> as the narrative record of what each finding was and why it was deferred.
+
 The landing verification (agent-cat session, workflow `ai-config-workflows`,
 verify pass over both repos) confirmed all gates green and filed findings.
 H1 (the fess sin catalog carried ten of the source's eleven sections), M2

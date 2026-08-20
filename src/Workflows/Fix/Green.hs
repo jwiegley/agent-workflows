@@ -468,7 +468,7 @@ botSweepFn =
 -- happens either side of the loop.
 greenProgram :: Rung -> Parameterized
 greenProgram r =
-  taking (input "target" noInputs) \target ->
+  taking (input "target" :> noInputs) \target ->
     defining (SomeFn botSweepFn : reportTable) case r of
       Ci -> W.do
         -- The ledger, bound ONCE. A comment arriving mid-run has no way in,

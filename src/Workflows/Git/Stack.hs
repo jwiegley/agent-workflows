@@ -898,7 +898,7 @@ buildTrips = atMost 2
 -- because @'Agentic.Workflow.decide'@ asks nobody.
 stackProgram :: StackRung -> Parameterized
 stackProgram rung =
-  taking (input "trunk" (input "tip" (input "agents" (input "pr" noInputs))))
+  taking (input "trunk" :> input "tip" :> input "agents" :> input "pr" :> noInputs)
     \trunk tip agents pr ->
       let trunkV = trunkRef trunk
           tipV = tipRef tip

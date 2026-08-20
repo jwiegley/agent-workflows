@@ -806,7 +806,7 @@ heavyDeepLens =
 -- another.
 reviewLadder :: Tier -> Parameterized
 reviewLadder t =
-  taking (input "scope" (input "paths" noInputs)) \scopeArg pathsArg ->
+  taking (input "scope" :> input "paths" :> noInputs) \scopeArg pathsArg ->
     let files = pathsOf pathsArg
         revs = T.words scopeArg
         roster = tierRoster t files

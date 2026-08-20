@@ -286,7 +286,7 @@ fessTable = [SomeFn fessReportFn]
 -- Markdown file in the corpus can do for an audit that fans out eleven ways.
 fessAudit :: Parameterized
 fessAudit =
-  taking (input "request" (input "base" noInputs)) \request base ->
+  taking (input "request" :> input "base" :> noInputs) \request base ->
     let roster = requesting request fessRoster
      in defining fessTable W.do
           -- The change under audit, as bytes. This is the artefact every stance

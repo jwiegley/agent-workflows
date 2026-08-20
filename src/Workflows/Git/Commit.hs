@@ -486,7 +486,7 @@ commitTail _ history = ask_ (tool "write-report") [wf|
 -- repository\", expressed as a constructor rather than as advice.
 commitProgram :: CommitRung -> Parameterized
 commitProgram rung =
-  taking (input "scope" (input "tree" noInputs)) \scope tree ->
+  taking (input "scope" :> input "tree" :> noInputs) \scope tree ->
     defining commitTable W.do
       -- The discipline, called. Three corpus files say "use the commit skill"
       -- and this is where that sentence ends.

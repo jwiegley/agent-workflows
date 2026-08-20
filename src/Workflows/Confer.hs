@@ -428,7 +428,7 @@ conferDoc Second = "one contrary party under the anti-sycophancy rubric, and an 
 -- says in as many words what an empty context means, so an operator with nothing
 -- to attach does not have to invent a placeholder.
 conferInputs :: Ins (Text, (Text, ()))
-conferInputs = input "decision" (input "context" noInputs)
+conferInputs = input "decision" :> input "context" :> noInputs
 
 -- | The program a row holds.
 --

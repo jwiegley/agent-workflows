@@ -31,6 +31,25 @@ lightly compressed — each is a decision, not just a chore:
   runner plants the sentinel (an agent-cat `Registry` request, alongside
   the recorded `regDefaults` / `--at-most N` requests) or the probe must
   say what it can actually test.
+- **F1-followup — runner-supplied backend count.**
+  `Rubrics/Stances.hs`'s `conferProvenance` closes on a conditional —
+  "unless the run's header names more than one backend" — whose authority
+  is the run's header, terminal output the runner prints around the run
+  and no prompt carries. Stage C verification caught a live one-backend
+  run resolving it by guess (right, that time) and a two-backend run
+  copying it unresolved; resolved the other way, an artefact would have
+  claimed single-backend provenance for a two-provider confer. The write
+  briefs now forbid resolving it, so the artefact carries the conditional
+  as constant text — a repair, not a fix. The honest fix is for the runner
+  to bind the backend count as a fact prompts can carry (an agent-cat
+  `Registry` / CLI request, alongside the recorded `regDefaults` /
+  `--at-most N` requests), at which point provenance can state what the
+  run did. Until then: unresolved by design. **The same runner-supplied
+  fact should carry the run's engine and session policy**, because the
+  paragraph now turns on a second header-only condition: "a separate
+  session per question" holds under `--engine acp` and is false of a run
+  sent to a live agent-deck session, where one durable session serves the
+  whole run and the third seat has read the first two.
 
 ## Low
 
@@ -39,6 +58,12 @@ lightly compressed — each is a decision, not just a chore:
   `Workflows.Escalation` (221 lines), `Rubrics.Ladder.rungNamed`. Roughly
   350 lines ahead of any consumer — fine for the roadmap's later waves, but
   the README should say "built ahead" rather than list them as live.
+- **L10 — the confer gate is unbuilt, and is a design sketch only.**
+  `confer-design.md` §5.4 sketches `conferGate` — three seats folded to a
+  verdict — and nothing in this tree defines it. Three sites named it in
+  identifier markup as though it existed (`Registry.hs`, `Confer.hs`,
+  design §8.1) and now name it as the design's sketch. Build it as a gate
+  in `Workflows.Gates`, or leave it in `confer-design.md`.
 - **L6 — `green-web` is deferred and the deferral unrecorded.** Design §6.2
   names four green rows; `Fix/Green.hs` has three. §7.2 #66 triaged
   `webfix` as REWORK, so deferring is right — record it in §6.2.

@@ -334,9 +334,12 @@ fessDoc =
 -- __The keys are the defines themselves.__ Each stance's prompt opens with its
 -- own 'Workflows.Panels.lensBrief', which is
 -- @'Workflows.Rubrics.Fess.fessStance' \<\> its rubric \<\> the uncertainty
--- rule@ — so the shared opening is a prefix of all eleven and one entry answers
--- the panel. The per-category answers below are keyed on each rubric's own first
--- sentence, which is what distinguishes them.
+-- rule@ — so the shared opening is a prefix of all eleven and __one entry
+-- answers the whole panel__. There are no per-category replies below and none
+-- are needed: a scripted run is evidence about the program's shape, not about
+-- any rubric's judgement, and \"none -- checked\" is a well-formed answer to
+-- every one of the eleven. The other four entries are the three receipts and
+-- the probe.
 --
 -- The probe's entry is the load-bearing one: it is what makes the scripted run
 -- take the __attested__ arm, so a green @wf run fess --scripted@ is evidence

@@ -39,6 +39,7 @@ src/
       Fess.hs           the eleven sins as eleven stances
       Discipline.hs     the standing constraints every fixer splices
       Ladder.hs         the review ladder, as the value five "see also" copies derive from
+      Stances.hs        the three confer stances, and the one anti-sycophancy rule
 
     Panels.hs           Lens/Roster, and the three fan-outs
     Deciders.hs         the free tests — every classification the corpus pays for
@@ -51,6 +52,7 @@ src/
     Git/Commit.hs       the commit pipeline   (commit|-push|-recommit|-bankruptcy)
     Git/Stack.hs        the git family        (stack|-rebase|-rebase-fix|-cleanup)
     Audit/Fess.hs       the audit             (fess)
+    Confer.hs           the confer family     (confer|confer-bare|debate|second-opinion)
     Hello.hs            the smoke row         (hello)
     Registry.hs         the index: name -> program, blurb, canned table
 bin/Main.hs             `wf`, two lines over Agentic.Cli
@@ -131,9 +133,10 @@ is the price of the default roster. `--input-arg NAME=VALUE` for a phrase,
 
 ## What replaces what
 
-The seventeen rows that exist today stand for **forty-three** files of the corpus
-— of 119. Each flagship module's haddock carries its own map in full, with the
-reason for every cell; this is the index across all five.
+The twenty-one rows that exist today stand for **forty-four** files of the corpus
+— of 119 — plus one PAL MCP tool that is not a file at all. Each flagship
+module's haddock carries its own map in full, with the reason for every cell;
+this is the index across all six.
 
 | `~/src/nix/config/ai` | row | note |
 |---|---|---|
@@ -163,11 +166,13 @@ reason for every cell; this is the index across all five.
 | `commands/cleanup.md` | `stack-cleanup` | four obligations behind one real hook gate |
 | `commands/resolve.md` | `resolveFn` | one body every `stack` rung calls |
 | `skills/fix-all` | `Workflows.Rubrics.Discipline` | spliced into every repair prompt |
+| `commands/gravity.md` | the `against` seat of `confer`, and the anti-sycophancy rubric **every** seat stands under — all three confer seats, through `underChallenge`, and `second-opinion`'s single party | the command stays as Markdown for interactive use (§7 row 23, **K**); its second half is harvested into `Workflows.Rubrics.Stances`, compressed and reworded, and its framing sentences are not |
+| *not a corpus file:* PAL MCP's `consensus`, `challenge`, `chat` | `confer`, `confer-bare`, `debate`, `second-opinion` | the workflow-native counterpart: three stances, a fenced document, a synthesis that must account for every block, and an artefact on disk — priced at `askNodes 5` before the first token. **PAL MCP stays configured**; this is an alternative offered, not a replacement mandated |
 
 **The full triage — all 119 files, each marked T (its own program), R (rework
 first), F (folds into a named host) or K (honestly Markdown) — is
 [`doc/design.md` §7](doc/design.md), with §7.5's tally.** Twenty-five programs and
-roughly sixty rows sit behind the corpus; seventeen rows exist today.
+roughly sixty rows sit behind the corpus; twenty-one rows exist today.
 
 ## The roadmap
 
@@ -176,9 +181,9 @@ wave are independent.
 
 | wave | what | gate |
 |---|---|---|
-| **0** | the move: the tree, the package, the flake, the gate | done — `cabal build all` warning-free, `./ci/workflows.sh` green on 17 rows |
+| **0** | the move: the tree, the package, the flake, the gate | done — `cabal build all` warning-free, `./ci/workflows.sh` green on 21 rows |
 | **1** | the flagships finished, plus `checklist` as the warm-up | done for the five; `checklist` outstanding |
-| **2** | **`confer`** (`confer`, `confer-bare`, `debate`, `second-opinion`), then `teams`, `notes`, `effort` (medium/heavy/forge) | `Lens` serves a stance roster without widening |
+| **2** | **`confer`** (`confer`, `confer-bare`, `debate`, `second-opinion`), then `teams`, `notes`, `effort` (medium/heavy/forge) | **`confer` done, 4 rows** — `Lens` served the stance roster with no field added and no signature widened, so §10's first risk did not fire; `teams`, `notes`, `effort` outstanding |
 | **3** | the daily drivers: `pr-threads`, `issue`, `account`, `partner`, `org-tasks`, `claude-md`, `prose` | these mostly `call_` waves 1–2 |
 | **4** | the audits and specialists: `dead-code`, `comments`, `bundles`, `productize`, `nix`, `service`, `query`, `expense`, `qanda`, `transcribe`, `tron` | |
 | **5** | the long ones and the top of the loop: `retest`, `denote`, `translate`, `prd-draft`/`prd-critique`, `nodered`, and finally **`wiggum`** | `wf cost wiggum` reports a finite worst case |
@@ -189,6 +194,29 @@ synthesis. PAL MCP stays configured; confer is an alternative offered, not a
 replacement mandated. Its four decisions are `doc/design.md` §8.1, and the two
 one-line generalizations it asks of `Workflows.Panels` (R1, R2) are recorded
 there.
+
+```sh
+wf cost confer                             # 5, before a word of the decision exists
+wf run confer --require-pinned --engine acp --adapter claude \
+   --input-arg decision='Should the parser be rewritten as a table-driven DFA?' \
+   --input-file context=./doc/parser-notes.md
+```
+
+`minFold 5, maxFold 5, over 1 path`: confer is one of the six rows whose ceiling
+*is* its price — `hello`, `fess` and the four confer rows — because nothing in it
+branches. The three seats are pinned to three **distinct** primaries — `opus`,
+`gemini-3.1-pro-preview`, `fable` — which is what lets `--route` put them on
+three providers **with the roster unchanged**. Routing is live, and it keys on
+the **serving model** and never on the party, so those pins are already the
+keys: `--route 'gemini-3.1-pro-preview=deck:gemini-pane'` moves the `against`
+seat and nothing else.
+
+Unrouted, the three seats are three fresh sessions of one model, which is
+independence of *context* and not of *judgement*. Prefer `--engine acp` for a
+confer either way: the deck engine is one durable session for the whole run, so
+the third seat reads the first two. The provenance paragraph the artefact opens
+with carries both conditions — how many backends answered, and whether the seats
+shared a session — and names the run's header as the authority for each.
 
 **Seven reworks come before wave 3** — `fix-alert`, `initialize`, `narrative`,
 `run-orchestrator`, `webfix`, `johnw`, `prd-architect`. Each is one decision
@@ -202,7 +230,7 @@ Two build paths, and they answer different questions.
 ```sh
 nix develop            # the devShell: GHC, cabal, HLS
 cabal build all        # this package AND ../agent-cat/haskell, from the working tree
-./ci/workflows.sh      # the gate: 17 rows, priced and run
+./ci/workflows.sh      # the gate: 21 rows, priced and run
 ```
 
 ```sh

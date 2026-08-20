@@ -80,6 +80,13 @@ inputsFor() {
     green-*) ins=(--input-arg target=) ;;
     commit | commit-*) ins=(--input-arg scope= --input-arg tree=) ;;
     fess) ins=(--input-arg request= --input-arg base=) ;;
+    # The confer family. Neither input shapes the roster — the roster is in the
+    # source and the inputs are the subject — so WR-1 has nothing to say here
+    # and `""` is simply an empty decision over an empty context. That is the
+    # invocation priced above, and it is the one this gate runs.
+    confer | confer-bare | debate | second-opinion)
+      ins=(--input-arg decision= --input-arg context=)
+      ;;
     stack | stack-*)
       ins=(--input-arg trunk= --input-arg tip= --input-arg agents= --input-arg pr=)
       ;;
@@ -107,7 +114,14 @@ pin() {
 
 # The smoke row (`Workflows.Hello`). One scrap, two cross-cutting lenses folded
 # into a document, one report call: no branch and no loop, so its price is exact
-# and the ceiling is the price. It exists to prove the wiring — the registry,
+# and the ceiling is the price.
+#
+# SIX of the twenty-one rows price exactly — minFold equals maxFold, so
+# `wf cost` answers with a number and not a range — and they are `hello`,
+# `fess`, `confer`, `confer-bare`, `debate` and `second-opinion`. The list is
+# stated here, once, and the fess and confer blocks below point back at it.
+#
+# It exists to prove the wiring — the registry,
 # the shared CLI, the roster, the panel fold, `defining`'s table — rather than to
 # do any of the owner's work, and it is the row this gate should be read against
 # when a change to the foundation breaks something.
@@ -135,10 +149,10 @@ pin commit-push         branch        6       9
 pin commit-recommit     branch       12      12
 pin commit-bankruptcy   branch        9      10
 
-# The audit (`Workflows.Audit.Fess`). Eleven stances over three receipts, and the
-# only row here whose minimum equals its maximum: nothing in it is a loop, and
-# the one branch chooses which provenance the report carries rather than how much
-# is asked.
+# The audit (`Workflows.Audit.Fess`). Eleven stances over three receipts, and one
+# of the six rows whose minimum equals its maximum — the only one of the six that
+# gets there with more than one path: nothing in it is a loop, and the one branch
+# chooses which provenance the report carries rather than how much is asked.
 #
 # The ceiling was 15 until 2026-08-19, when the landing verification found that
 # `Rubrics.Fess.sins` carried ten of `fess-auditor.md`'s ELEVEN bold sections —
@@ -159,6 +173,23 @@ pin stack               branch       40      21
 pin stack-rebase        branch       40      21
 pin stack-rebase-fix    branch      100      28
 pin stack-cleanup       branch       30      19
+
+# The confer family (`Workflows.Confer`). Four rows, and four of the six in this
+# table whose ceiling IS their price (`hello` and `fess` are the other two):
+# nothing in them branches and nothing loops, so `minFold` equals `maxFold` and
+# `paths` is 1 for every one. That is the shape a pre-spend contract is at its
+# sharpest — `wf cost confer` answers "what will this spend" before a word of the
+# decision has been written, and a run that bills anything other than 5 is a run
+# of a different program.
+#
+# The arithmetic is the roster's and is legible at a glance: `askNodes` is
+# |roster| + 2 for the synthesised rows and |roster| + 1 for the bare one. A
+# fourth seat added to `conferRoster` moves `confer` to 6 and `confer-bare` to 5
+# and leaves `debate` where it is, because `debate` filters rather than copies.
+pin confer              pipeline      1       5
+pin confer-bare         pipeline      1       4
+pin debate              pipeline      1       4
+pin second-opinion      pipeline      1       2
 
 # ---------------------------------------------------------------------------
 # The binary, resolved once

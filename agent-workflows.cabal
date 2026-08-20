@@ -70,6 +70,7 @@ library
     Workflows.Rubrics.Finding
     Workflows.Rubrics.Ladder
     Workflows.Rubrics.Reviewers
+    Workflows.Rubrics.Stances
 
     -- the shapes
     Workflows.Deciders
@@ -80,6 +81,7 @@ library
 
     -- the programs, and the index
     Workflows.Audit.Fess
+    Workflows.Confer
     Workflows.Fix.Green
     Workflows.Git.Commit
     Workflows.Git.Stack

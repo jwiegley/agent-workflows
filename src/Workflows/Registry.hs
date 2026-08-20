@@ -45,6 +45,13 @@ module Workflows.Registry (registry) where
 import Agentic.Cli (Registry (..), Row (..))
 import Agentic.Workflow (Example (Fixed, Needs))
 import Workflows.Audit.Fess (fessAudit, fessDoc, fessScript)
+import Workflows.Confer
+  ( ConferRung (Bare, Confer, Debate, Second),
+    conferDoc,
+    conferProgram,
+    conferRungName,
+    conferScript,
+  )
 import Workflows.Fix.Green
   ( Rung (Ci, Flaky, Tree),
     greenDoc,
@@ -119,7 +126,11 @@ registry =
           stackRow Restack,
           stackRow Rebase,
           stackRow RebaseFix,
-          stackRow Cleanup
+          stackRow Cleanup,
+          conferRow Confer,
+          conferRow Bare,
+          conferRow Debate,
+          conferRow Second
         ]
     }
   where
@@ -141,4 +152,13 @@ registry =
     stackRow r =
       ( stackRungName r,
         Row (Needs (stackProgram r)) (stackDoc r) (stackScript r)
+      )
+    -- The confer family. Four rows and not five: the confer-shaped gate
+    -- @confer-design.md@ §5.4 sketches is unbuilt, and when it is built it
+    -- wants a verdict rather than a document, so it belongs with the gates —
+    -- @doc/design.md@ §8.1. The rows sit last because they are the newest wave
+    -- and `wf list` is read top to bottom in landing order.
+    conferRow r =
+      ( conferRungName r,
+        Row (Needs (conferProgram r)) (conferDoc r) (conferScript r)
       )

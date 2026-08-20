@@ -803,7 +803,7 @@ the cell.
 | 20 | `fix` | T | `issue`: three cheap gates decide whether *any* expensive work happens, each feeding an `if` whose false arm is `stop`; then `call_ commitFn`, `call_ botSweepFn` |
 | 21 | `flaky-rust` | F | `green-flaky`: `drawing n`, then a decider over the collected receipts separating flaky from broken *before* a model is consulted. Generalised past Rust — the argv is an input |
 | 22 | `forge` | F | `effort`, rung `forge`. The command is a pure entry point and its no-drift clause is exactly right: as a row over the skill's program there is nowhere to restate |
-| 23 | `gravity` | K | A stance prompt is a stance prompt; machinery adds cost and subtracts candour. **Its text is harvested** as the `against` seat's stance in `confer` and as `secondOpinion`'s challenge rubric (§8), which is the home A was looking for when it folded it into `teams` |
+| 23 | `gravity` | K | A stance prompt is a stance prompt; machinery adds cost and subtracts candour. **Its second half is harvested**, compressed and reworded, into the challenge rubric *every* seat of the family stands under — all three `confer` seats through `underChallenge`, and `second-opinion`'s single party — and its "pull it back to reality" is what the `against` seat's stance is doing (§8). That is the home A was looking for when it folded it into `teams` |
 | 24 | `halt` | F | `account`, kind `halt`: `call_ commitFn`, `call_ journalFn`, the report panel, one act writing to `~/dl`. Its emitted `fess` instruction is a define spliced by one hole — a program authoring a prompt, where the boundary is a hole rather than a hope |
 | 25 | `heavy-review` | F | `review-heavy`. Its four load-bearing guarantees become: one snapshot handle, the sentinel terminal, `servedBy` attestation, a total `case` for completeness |
 | 26 | `heavy` | F | `effort`, rung `heavy`. Its one branch is `anyPathMatches ["*/positron/*","*/pos/*"]` at tier 1 — zero questions where the md spends a turn asking where it is |
@@ -938,7 +938,9 @@ warm-up that costs a page and proves the library — `checklist` (ten md lines,
 call sites and `commitFn` has four; the finding schema exists once; every rung of
 `review` prices differently and the four numbers sit side by side in `wf list`.
 
-**Wave 2 — `confer`, and the panel family.** `confer` (below), then `teams` and
+**Wave 2 — `confer`, and the panel family.** **`confer` is landed** (below;
+`Workflows.Confer` and `Workflows.Rubrics.Stances`, four rows, `ci/workflows.sh`
+at 21 pinned and 0 failed). Then `teams` and
 `notes`, which are the corpus's two most literal panels and fall out in a page
 each without a line of new library. If either needs `Lens` widened, the roster
 type is too general and §10's first risk has fired. Then `effort`
@@ -994,12 +996,16 @@ the same shape.
 
 **The registry rows: four.** `confer` (three seats, synthesised), `confer-bare`
 (the blocks, unreconciled — `review-lite`'s argument that six independent
-opinions are worth more unreconciled than one reconciled one), `debate` (the pair,
-derived by *filtering* the standing roster so a stance edited once reaches both),
-and `second-opinion` (one lateral party under the challenge rubric — PAL's
-`challenge` and `chat` in one program, and the shape the owner reaches for most
-often, which is why it is a row and not a flag). **`conferGate` is not a row**:
-it is a gate, it belongs with the gates, and it is the one place `panel` is right
+opinions are worth more unreconciled than one reconciled one), `debate` (the pair
+**and the synthesis** — the same `conferOver` at a roster derived by *filtering*
+the standing one, so a stance edited once reaches both seats and the fold that
+reads them; what it drops is the middle seat and not the synthesis, which is why
+it prices 4 and not 3), and `second-opinion` (one lateral party under the
+challenge rubric — PAL's `challenge` and `chat` in one program, and the shape the
+owner reaches for most often, which is why it is a row and not a flag). **The
+confer-shaped gate is not a row**: §5.4 of `confer-design.md` sketches one —
+three seats folded to a verdict — and it is a sketch and nothing else; if it is
+ever built it belongs with the gates, and it is the one place `panel` is right
 because a gate wants a verdict and not a document.
 
 **The two requirements on the foundation, accepted.** Both are one-line signature
@@ -1023,15 +1029,18 @@ question about whether another rung will ever produce a confer-shaped artefact.
 None will in waves 2–5. If `account` later wants one, `conferFn` joins the report
 family and the program loses one line.
 
-**The single-backend caveat is in the artefact, not in a footnote.** Both engines
-bind every addressee to one backend per run, so three blocks produced by three
-fresh sessions of one model are independence *of context*, which is real, and not
-independence *of judgement*, which they are not. `conferProvenance` says so, in
-the program, derived from the roster. The day
-`acat-engine-party-routing-hcx` lands, **the roster does not move**: routing keys
-on the serving model, the roster's `servedBy` pins *are* those keys, and the only
-thing that changes is the run's header — at which point the same derived sentence
-stops disclaiming what is no longer true. The three seats are pinned to three
+**The single-backend caveat is in the artefact, not in a footnote.** An unrouted
+run binds every addressee to one backend, so three blocks produced by three fresh
+ACP sessions of one model are independence *of context*, which is real, and not
+independence *of judgement*, which they are not — and a run sent to a live
+agent-deck session is not even that, because one durable session serves the whole
+run and the later seats have read the earlier blocks. `conferProvenance` says
+both, in the program, derived from the roster and conditioned on the run's
+header. `acat-engine-party-routing-hcx` has since landed and **the roster did not
+move**: routing keys on the serving model, the roster's `servedBy` pins *are*
+those keys, and the only thing that changes is the run's header — at which point
+the same derived sentence stops disclaiming what is no longer true. The three
+seats are pinned to three
 distinct primaries (`opus`, `gemini-3.1-pro-preview`, `fable`) for exactly this
 reason: two seats on one model are two seats on one backend however the run is
 routed.
@@ -1043,6 +1052,53 @@ Confer is the one PAL tool that is a *shape* — a roster, a fan-out, a fold, a
 synthesis — which is why it is the one that gets a workflow. PAL's `challenge` is
 a one-line anti-sycophancy rubric and is a shared define, not a program. PAL MCP
 stays configured; confer is an alternative offered, not a replacement mandated.
+
+> **[Amendment, 2026-08-19 — `confer` landed, and one requirement went unpaid.]**
+> `Workflows.Rubrics.Stances` and `Workflows.Confer` are in, with the four rows
+> this section ruled on — `confer`, `confer-bare`, `debate`, `second-opinion` —
+> and the §5.4 gate sketch is not among them, as ruled; it remains a sketch in
+> `confer-design.md` and is defined nowhere here. The numbers are **observed and
+> not derived**: `confer` `pipeline`, `size 6`, `askNodes 5`,
+> `codes text, text, text, text, receipt`, `minFold 5, maxFold 5, over 1 path`;
+> `confer-bare` and `debate` `size 5 / askNodes 4 / 4, 1 path`;
+> `second-opinion` `size 3 / askNodes 2 / 2, 1 path`. Every one matches
+> `confer-design.md` §5's table exactly. `wf plan … --require-pinned` passes for
+> all four, `--scripted` exits 0 for all four at `billFresh = billMemo`, and the
+> three seats receive **three different** canned answers — which is the assertion
+> that proves the shared rubric comes *after* each seat's stance.
+>
+> **R1 was not taken, and confer carries the debt instead.** `asksOver` still
+> reads `(KnownIx h s) => Roster -> Text -> V h 'CodeText -> [Ask s]`, and
+> confer's subject is an input, which is a define. `Workflows.Panels` is another
+> track's module and a signature change to a shared fan-out is not a confer
+> builder's to land unilaterally, so `Workflows.Confer.stanceAsks` writes the
+> four chunks out — the same four, in the same order, importing `memberNote`
+> rather than re-deriving it — under a haddock that names R1, names the two
+> worse alternatives, and says the function is deleted the day R1 lands. **This
+> is the one open item of wave 2's confer row.** R2 costs nothing: the fold is
+> inlined as `confer-design.md` §1.5 writes it, which is what `documentPanelWith`
+> would have spelled.
+>
+> **Two departures from `confer-design.md`, both repairs, neither priced.**
+> (1) §1.4's provenance table is `bullets [(lensName l, lensOwns l) | l <- r]`
+> and its next sentence reads *"Those are the models the program pins"* — which
+> names something the table does not carry and **cannot**: `Agentic.Workflow`
+> exports no accessor for a party's pin, so no caller can print a roster as its
+> serving models. The sentence now names the seats and describes the pins.
+> (2) §1.5's artefact prompt splices the blocks and the recommendation but not
+> the subject, so the written confer would not say what decision it was about;
+> §5.1's and §5.3's write prompts both splice theirs. The subject is spliced in
+> all three. A splice costs nothing a bill counts, so `askNodes` is unmoved.
+>
+> **The routing statement is in the module header**, in `§0.1`'s own words: the
+> **three panel seats** are pinned to three distinct primaries, and it is those
+> three *pins* a `--route` table splits — a route names a serving model and
+> never a party, so what makes the roster splittable is the distinctness of the
+> primaries and nothing about the seat names; the synthesis rides the `for`
+> seat's backend because both are `reasoning`, whose primary is `opus`, and no
+> route table keyed on the serving model can separate them. That is written on
+> the module rather than left in a design document, so a reader routing this
+> program is not surprised.
 
 ---
 
@@ -1141,7 +1197,7 @@ agent-cat has unpushed changes.
 | **B** | `wf prices --write` / `--check` — regenerate a committed `PRICES.md` and diff | Genuinely better ergonomics than a hand-edited table, and rejected for one reason: it makes the *program* the author of its own pin, so a change that moved a price and a change that moved the pin are one commit. The friction of editing a ceiling by hand is the feature. Reconsider if the hand-edited table is ever re-pinned by reflex — that is the signal that B was right |
 | **A** | `Row`'s `rowSample` and `rowCeiling` fields | Already dropped by the foundation, and C's WR-1 is the reason that was sound: a row that must be priceable with no inputs needs no sample, and the ceiling belongs to the gate that promises it, not to the program |
 | **A** | A `mustPass` combinator | It does not typecheck: `unless` takes a body and `stop` is a `Term`. The real shape is `when ok $ W.do …`, whose failing arm the compiler supplies. `Workflows.Gates`' haddock says so rather than shipping a broken helper |
-| **A** | `gravity` folded into `teams`; `fix-integration` as keep-as-md (B) | Two-to-one each way, and in `gravity`'s case the fold found a better home: its stance *is* confer's `against` seat |
+| **A** | `gravity` folded into `teams`; `fix-integration` as keep-as-md (B) | Two-to-one each way, and in `gravity`'s case the fold found a better home: its stance is what confer's `against` seat argues, and its challenge sentences are the rubric all three seats and `second-opinion` stand under |
 | **B** | `forge` as the fifth flagship | A near-literal transplant of a workflow already written as prose: lowest risk, and therefore the least it teaches. It lands in wave 2, where pricing six phases across three models is the demo |
 | **A**, **B** | `add-uint-support` / `at-dispatch-v2` as programs | See above; C's argument is better |
 | — | Mirroring PAL's seven guided investigations as workflows | `pal-note.md` forbids it and gives the reason: they are forms the calling agent fills in, the corpus's own commands already cover those shapes, and a workflow whose *shape* is a form is a prompt that compiles |

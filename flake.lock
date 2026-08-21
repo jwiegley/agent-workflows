@@ -3,11 +3,11 @@
     "agent-cat": {
       "flake": false,
       "locked": {
-        "lastModified": 1787294782,
-        "narHash": "sha256-+EhrCuyUPplLXS6sIUJ0X41Bsfwi/BEMR2HHhUVZMNM=",
+        "lastModified": 1787346525,
+        "narHash": "sha256-RbaJy8GIH7rTtZ+0nucBvTitq3SJmB2g6qyurdsNkpQ=",
         "owner": "jwiegley",
         "repo": "agent-cat",
-        "rev": "8bfea8868cdc1977f0c451ffdc7fa64f0e440e28",
+        "rev": "fc40074649a64bd5967da66c9266cc90f074a33c",
         "type": "github"
       },
       "original": {

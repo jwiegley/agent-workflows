@@ -344,14 +344,15 @@ battery :: Tier -> Battery
 battery Hf =
   Battery
     { batOracle =
-        "the HuggingFace `transformers` reference forward pass: logit \
-        \allclose/TVD, top-1 and top-K overlap, and decoded-token parity",
+        [wft|
+        the HuggingFace `transformers` reference forward pass: logit
+        allclose/TVD, top-1 and top-K overlap, and decoded-token parity|],
       batBoundary =
-        "the boundary set {8, 64, 256, 4096, 16384} is gated against \
-        \HuggingFace top-K inclusion, and the spec records that only some \
-        \binaries register the boundary cells -- an acknowledged coverage gap on \
-        \this path, and a NO-COVERAGE rather than a pass wherever a cell is \
-        \unregistered",
+        [wft|
+        the boundary set {{8, 64, 256, 4096, 16384} is gated against HuggingFace
+        top-K inclusion, and the spec records that only some binaries register
+        the boundary cells -- an acknowledged coverage gap on this path, and a
+        NO-COVERAGE rather than a pass wherever a cell is unregistered|],
       batGateBinary = "gen/t_generate_ingest_1",
       batTarget = "build-ingest",
       batRoster = modelsOf,
@@ -364,13 +365,15 @@ battery Hf =
 battery Categorical =
   Battery
     { batOracle =
-        "the legacy ingest pipeline: bit-exact last-prompt-token logits, \
-        \`require_byte_identical`, 100% -- not HuggingFace",
+        [wft|
+        the legacy ingest pipeline: bit-exact last-prompt-token logits,
+        `require_byte_identical`, 100% -- not HuggingFace|],
       batBoundary =
-        "the same boundary set {8, 64, 256, 4096, 16384} and the same base \
-        \methodology, gated against legacy byte-identity: no top-K slack, every \
-        \in-scope (model, length) cell bit-exact through the page boundaries, \
-        \out-of-scope lengths reported N/A-MAX-POSITION and never as a pass",
+        [wft|
+        the same boundary set {{8, 64, 256, 4096, 16384} and the same base
+        methodology, gated against legacy byte-identity: no top-K slack, every
+        in-scope (model, length) cell bit-exact through the page boundaries,
+        out-of-scope lengths reported N/A-MAX-POSITION and never as a pass|],
       batGateBinary = "gen/t_generate_categorical_fpga_real",
       batTarget = "build-categorical",
       -- The input is ignored, by that file's own ruling: "a tag filter only
@@ -936,29 +939,33 @@ gradingBrief b ms =
 -- blockquote at the top of that file and is enforced by a reader noticing it.
 wrongTreeNote :: Tier -> Text
 wrongTreeNote t =
-  "Outcome: WRONG TREE -- NOTHING WAS BUILT, RUN OR GATED. The make target this \
-  \battery builds does not exist here, so this working tree is not the one the \
-  \`"
+  [wft|
+  Outcome: WRONG TREE -- NOTHING WAS BUILT, RUN OR GATED. The make target this
+  battery builds does not exist here, so this working tree is not the one the `|]
     <> retestName t
-    <> "` rung is written for. Report exactly that, name the target that was \
-       \probed, and name `"
+    <> [wft|
+       ` rung is written for. Report exactly that, name the target that was
+       probed, and name `|]
     <> retestSibling t
-    <> "` as the rung for this tree. Do not characterise the branch, the models \
-       \or the pipeline: nothing was measured."
+    <> [wft|
+       ` as the rung for this tree. Do not characterise the branch, the models
+       or the pipeline: nothing was measured.|]
 
 -- | The arm where the sweep found a regression.
 regressionNote :: Tier -> Text
 regressionNote t =
-  "Outcome: REGRESSION. The sweep completed and the grading found at least one \
-  \divergence, reachability regression, perf regression above the 5% threshold, \
-  \or blocking review finding -- the lines beginning with a verdict word name \
-  \which. This is the `"
+  [wft|
+  Outcome: REGRESSION. The sweep completed and the grading found at least one
+  divergence, reachability regression, perf regression above the 5% threshold,
+  or blocking review finding -- the lines beginning with a verdict word name
+  which. This is the `|]
     <> retestName t
-    <> "` verdict that blocks: report the failing cells first, bind every \
-       \correctness claim to its oracle and its codepath, and root-cause what \
-       \diverged at file:line. Do not describe a real divergence as flaky. A \
-       \quarantine needs an issue link and a removal condition, and this run has \
-       \neither."
+    <> [wft|
+       ` verdict that blocks: report the failing cells first, bind every
+       correctness claim to its oracle and its codepath, and root-cause what
+       diverged at file:line. Do not describe a real divergence as flaky. A
+       quarantine needs an issue link and a removal condition, and this run has
+       neither.|]
 
 -- | The arm where the run gated no model at all.
 --
@@ -968,45 +975,50 @@ regressionNote t =
 -- makes it structural.
 noModelsNote :: Tier -> Text
 noModelsNote t =
-  "Outcome: INCOMPLETE -- NO MODEL-AFFECTING CHANGES. The audit of this run's \
-  \model set answered that the branch diff implies no model at all, so whatever \
-  \the sweep's commands returned, this run gated nothing. That is INCOMPLETE and \
-  \never a success, and it is decided here from the audit's own first line rather \
-  \than from any grader's summary. Report the build and the unit layers, which are \
-  \real results; report the gate, the semantic check and the perf trials as having \
-  \run against a set the diff does not support; and say plainly that `"
+  [wft|
+  Outcome: INCOMPLETE -- NO MODEL-AFFECTING CHANGES. The audit of this run's
+  model set answered that the branch diff implies no model at all, so whatever
+  the sweep's commands returned, this run gated nothing. That is INCOMPLETE and
+  never a success, and it is decided here from the audit's own first line rather
+  than from any grader's summary. Report the build and the unit layers, which
+  are real results; report the gate, the semantic check and the perf trials as
+  having run against a set the diff does not support; and say plainly that `|]
     <> retestName t
-    <> "` establishes nothing about correctness on this branch. If the branch \
-       \really does advance a model, the model set in the argv is wrong and the \
-       \report should say which files led the audit to that conclusion."
+    <> [wft|
+       ` establishes nothing about correctness on this branch. If the branch
+       really does advance a model, the model set in the argv is wrong and the
+       report should say which files led the audit to that conclusion.|]
 
 -- | The arm where the grading came back incomplete.
 incompleteNote :: Tier -> Text
 incompleteNote t =
-  "Outcome: INCOMPLETE. The sweep completed and at least one in-scope cell came \
-  \back NO-COVERAGE, SKIPPED, WEIGHTS-MISSING, TIMEOUT, NO-MATCH or unresolved \
-  \LOCK-CONTENTION -- the lines beginning with those words name which. `"
+  [wft|
+  Outcome: INCOMPLETE. The sweep completed and at least one in-scope cell came
+  back NO-COVERAGE, SKIPPED, WEIGHTS-MISSING, TIMEOUT, NO-MATCH or unresolved
+  LOCK-CONTENTION -- the lines beginning with those words name which. `|]
     <> retestName t
-    <> "` does not pass on this branch, and it did not fail either: it did not \
-       \finish. Report every incomplete cell with the reason, say what would make \
-       \it runnable -- a registered test case and a golden, provisioned weights, a \
-       \free card, a pre-warmed cache -- and do NOT present the cells that did \
-       \pass as a result. A partial matrix folded into a pass rate is exactly the \
-       \collapse the claim discipline forbids."
+    <> [wft|
+       ` does not pass on this branch, and it did not fail either: it did not
+       finish. Report every incomplete cell with the reason, say what would make
+       it runnable -- a registered test case and a golden, provisioned weights,
+       a free card, a pre-warmed cache -- and do NOT present the cells that did
+       pass as a result. A partial matrix folded into a pass rate is exactly the
+       collapse the claim discipline forbids.|]
 
 -- | The arm where everything ran and everything held.
 correctNote :: Tier -> Text
 correctNote t =
   "Outcome: "
     <> batVerdict (battery t)
-    <> ". Every command in this battery ran, the sweep was exhaustive -- no phase \
-       \stopped at the first failure, because none of them can -- and the grading \
-       \found no divergence, no incompleteness and no regression above threshold. \
-       \Report the verdict WITH ITS BOUND: name the oracle, the codepath the gate \
-       \exercised, the prompt set, and the tolerance or identity criterion. A \
-       \verdict quoted without those four is a stronger claim than this run \
-       \supports. Then name what was NOT measured -- out-of-scope lengths with \
-       \their limits, and anything the audit blocks say it could not reach."
+    <> [wft|
+       . Every command in this battery ran, the sweep was exhaustive -- no phase
+       stopped at the first failure, because none of them can -- and the grading
+       found no divergence, no incompleteness and no regression above threshold.
+       Report the verdict WITH ITS BOUND: name the oracle, the codepath the gate
+       exercised, the prompt set, and the tolerance or identity criterion. A
+       verdict quoted without those four is a stronger claim than this run
+       supports. Then name what was NOT measured -- out-of-scope lengths with
+       their limits, and anything the audit blocks say it could not reach.|]
 
 -- ---------------------------------------------------------------------------
 -- The function
@@ -1314,11 +1326,13 @@ retestScript t =
   where
     b = battery t
 
+    -- fixture bytes, not prose: fake `git diff --name-only` stdout.
     changedAnswer =
       "config/models.yaml\n\
       \ingest/export/llama_export.py\n\
       \h/tron/plugins/llama.hpp"
 
+    -- fixture bytes, not prose: fake `git diff` stdout.
     snapshotAnswer =
       "diff --git a/ingest/export/llama_export.py b/ingest/export/llama_export.py\n\
       \@@ -41,7 +41,7 @@\n\
@@ -1329,43 +1343,46 @@ retestScript t =
     -- scripted run gates a real set, and the nothing-gated arm is reached by
     -- changing this row's first line.
     derivedAnswer =
-      "Signals A, B and C all name one model, and the run's argv is that model.\n\
-      \\n\
-      \- signal A: config/models.yaml changed -- names the variant directly.\n\
-      \- signal B: ingest/export/llama_export.py -- the llama arch export.\n\
-      \- signal C: h/tron/plugins/llama.hpp -- the hand-authored plugin.\n\
-      \\n\
-      \Nothing in the diff implies a sibling model, and no model the signals imply \
-      \is missing from the argv."
+      [wft|
+      Signals A, B and C all name one model, and the run's argv is that model.
+
+      - signal A: config/models.yaml changed -- names the variant directly.
+      - signal B: ingest/export/llama_export.py -- the llama arch export.
+      - signal C: h/tron/plugins/llama.hpp -- the hand-authored plugin.
+
+      Nothing in the diff implies a sibling model, and no model the signals
+      imply is missing from the argv.|]
 
     -- No line begins with a verdict word, so all three deciders say no.
     gradedAnswer =
-      "Per (model, cell): every cell reported PASS.\n\
-      \\n\
-      \Build: exit 0, no `error:` line. Unit layers: all layers passed, including \
-      \the byte-identity MD5 baselines. Semantic check: passed. Perf: median \
-      \gen-time/tok within 1.1% of the committed baseline, decoded token IDs \
-      \stable.\n\
-      \\n\
-      \Review: no blocking finding; one MEDIUM about a comment that outlived its \
-      \code.\n\
-      \\n\
-      \Nothing to classify: no cell reported an incompleteness, a divergence or a \
-      \regression, and no cell was out of scope.\n\
-      \\n\
-      \"
-        <> batVerdict b
+      [wft|
+      Per (model, cell): every cell reported PASS.
 
+      Build: exit 0, no `error:` line. Unit layers: all layers passed, including
+      the byte-identity MD5 baselines. Semantic check: passed. Perf: median
+      gen-time/tok within 1.1% of the committed baseline, decoded token IDs
+      stable.
+
+      Review: no blocking finding; one MEDIUM about a comment that outlived its
+      code.
+
+      Nothing to classify: no cell reported an incompleteness, a divergence or
+      a regression, and no cell was out of scope.
+
+      {verdict}|]
+      where
+        verdict = batVerdict b
+
+    findingFrom :: Text -> Text
     findingFrom n =
-      "### [MEDIUM] a comment that outlived its code\n\
-      \- **File**: ingest/export/llama_export.py#L41\n\
-      \- **Category**: Documentation\n\
-      \- **Confidence**: 85\n\
-      \- **Problem**: the comment above the rope_theta default still describes the \
-      \unconditional read.\n\
-      \- **Impact**: a reader takes the default as absent.\n\
-      \- **Fix**: say that the config value may be absent and that 10000.0 is the \
-      \fallback.\n\
-      \(reported by the "
-        <> n
-        <> " pass)"
+      [wft|
+      ### [MEDIUM] a comment that outlived its code
+      - **File**: ingest/export/llama_export.py#L41
+      - **Category**: Documentation
+      - **Confidence**: 85
+      - **Problem**: the comment above the rope_theta default still describes
+        the unconditional read.
+      - **Impact**: a reader takes the default as absent.
+      - **Fix**: say that the config value may be absent and that 10000.0 is the
+        fallback.
+      (reported by the {n} pass)|]

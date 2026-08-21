@@ -282,52 +282,58 @@ reportCategories :: [(Text, Text, Text)]
 reportCategories =
   [ ( "open-questions",
       "the decisions nobody has made yet, and what each one blocks",
-      "List the questions that are still open -- design decisions not taken, \
-      \unknowns not resolved, external answers not received. For each: what it \
-      \blocks, what would settle it, and who or what has to settle it. A \
-      \question with no blocked work is not open, it is idle; say so and move \
-      \on."
+      [wft|
+      List the questions that are still open -- design decisions not taken,
+      unknowns not resolved, external answers not received. For each: what it
+      blocks, what would settle it, and who or what has to settle it. A question
+      with no blocked work is not open, it is idle; say so and move on.|]
     ),
     ( "design",
       "the design work still to be done, phase by phase",
-      "List the design work that remains: what has to be decided or specified \
-      \before implementation can proceed, in the order it has to happen. Name \
-      \the artefact each piece produces -- a specification, a schema, an \
-      \interface -- and what depends on it."
+      [wft|
+      List the design work that remains: what has to be decided or specified
+      before implementation can proceed, in the order it has to happen. Name the
+      artefact each piece produces -- a specification, a schema, an interface --
+      and what depends on it.|]
     ),
     ( "implementation",
       "the implementation work, ordered so each phase stands on the last",
-      "List the implementation work that remains, as an ordered plan of phases. \
-      \Each phase names the files or components it touches, what it makes \
-      \possible, and what it needs to be in place first. A phase whose \
-      \predecessor is not named is a phase in the wrong place."
+      [wft|
+      List the implementation work that remains, as an ordered plan of phases.
+      Each phase names the files or components it touches, what it makes
+      possible, and what it needs to be in place first. A phase whose
+      predecessor is not named is a phase in the wrong place.|]
     ),
     ( "testing",
       "the testing and verification work, and what each test would prove",
-      "List the testing and verification work that remains. For each item: what \
-      \it would prove, what it would run against, and what its passing would \
-      \allow the project to stop worrying about. Distinguish tests that do not \
-      \exist from tests that exist and do not yet pass."
+      [wft|
+      List the testing and verification work that remains. For each item: what
+      it would prove, what it would run against, and what its passing would
+      allow the project to stop worrying about. Distinguish tests that do not
+      exist from tests that exist and do not yet pass.|]
     ),
     ( "documentation",
       "the documentation and commenting work, and its audience",
-      "List the documentation and commenting work that remains, naming the \
-      \reader of each piece: a future maintainer, an operator, a reviewer. \
-      \Include the comments that are now wrong as well as the ones that are \
-      \missing -- a stale comment is a documentation defect, not a cosmetic one."
+      [wft|
+      List the documentation and commenting work that remains, naming the reader
+      of each piece: a future maintainer, an operator, a reviewer. Include the
+      comments that are now wrong as well as the ones that are missing -- a
+      stale comment is a documentation defect, not a cosmetic one.|]
     ),
     ( "cleanup",
       "the cleanup: dead code, scaffolding, temporary shapes",
-      "List the cleanup that remains: scaffolding that was always temporary, \
-      \code that is now dead, duplicated shapes that were tolerated to get \
-      \moving, names that no longer describe what they name. Say for each what \
-      \makes it safe to remove now, or what would have to be true first."
+      [wft|
+      List the cleanup that remains: scaffolding that was always temporary, code
+      that is now dead, duplicated shapes that were tolerated to get moving,
+      names that no longer describe what they name. Say for each what makes it
+      safe to remove now, or what would have to be true first.|]
     ),
     ( "review",
       "the review tasks, and who has to do each",
-      "List the review work that remains: what has to be read by whom before it \
-      \can be relied on, and what each reviewer is being asked to judge. A \
-      \review with no question is a formality; name the question."
+      [wft|
+      List the review work that remains: what has to be read by whom before it
+      can be relied on, and what each reviewer is being asked to judge. A review
+      with no question is a formality; name the question.|]
     )
   ]
 
@@ -367,65 +373,72 @@ sitrepSections :: [(Text, Text, Text)]
 sitrepSections =
   [ ( "aim",
       "the full objective the run is presently trying to accomplish",
-      "Restate the full objective, and name its source where the evidence shows \
-      \one -- a user request, an issue, a pull request, a handoff, a plan. Do \
-      \NOT shrink the aim to the work already completed: an aim narrowed to fit \
-      \the progress is the one error this section exists to prevent."
+      [wft|
+      Restate the full objective, and name its source where the evidence shows
+      one -- a user request, an issue, a pull request, a handoff, a plan. Do NOT
+      shrink the aim to the work already completed: an aim narrowed to fit the
+      progress is the one error this section exists to prevent.|]
     ),
     ( "accomplishments",
       "what has been accomplished, with the artefacts that prove it",
-      "Give a full accounting of what has been accomplished so far, naming the \
-      \concrete artefacts that prove the work moved: files, commits, tests, \
-      \documents, runtime changes. Distinguish completed work from work that is \
-      \merely started, and both from work you are inferring happened."
+      [wft|
+      Give a full accounting of what has been accomplished so far, naming the
+      concrete artefacts that prove the work moved: files, commits, tests,
+      documents, runtime changes. Distinguish completed work from work that is
+      merely started, and both from work you are inferring happened.|]
     ),
     ( "next-steps",
       "the next actions, in the order they should be taken",
-      "List the next actions in the order they should be taken, specific enough \
-      \that another agent could resume from this report without rediscovering \
-      \anything. A step that assumes context this report does not carry is not \
-      \a step."
+      [wft|
+      List the next actions in the order they should be taken, specific enough
+      that another agent could resume from this report without rediscovering
+      anything. A step that assumes context this report does not carry is not a
+      step.|]
     ),
     ( "blockers",
       "what is preventing, slowing or endangering progress",
-      "Call out anything preventing progress, slowing it, or carrying material \
-      \risk. Separate hard blockers from ordinary uncertainty, technical debt, \
-      \flaky signals, missing context, environmental failures, reviewer \
-      \decisions and unverified assumptions -- they are seven different things \
-      \and collapsing them is how a report reads as calmer than the work is."
+      [wft|
+      Call out anything preventing progress, slowing it, or carrying material
+      risk. Separate hard blockers from ordinary uncertainty, technical debt,
+      flaky signals, missing context, environmental failures, reviewer decisions
+      and unverified assumptions -- they are seven different things and
+      collapsing them is how a report reads as calmer than the work is.|]
     ),
     ( "measurements",
       "the measurements that show progress, and the ones not taken",
-      "Report the recent measurements that best show progress toward the goal, \
-      \and name the command, artefact or observation that produced each. Take \
-      \them from the receipts below and from nowhere else. If a measurement \
-      \would be useful but has not been taken, say so plainly rather than \
-      \inventing one, and say what would have to be run to take it. A number \
-      \that no command in the evidence produced does not go in this section at \
-      \all."
+      [wft|
+      Report the recent measurements that best show progress toward the goal,
+      and name the command, artefact or observation that produced each. Take
+      them from the receipts below and from nowhere else. If a measurement would
+      be useful but has not been taken, say so plainly rather than inventing
+      one, and say what would have to be run to take it. A number that no
+      command in the evidence produced does not go in this section at all.|]
     ),
     ( "distance",
       "how far the goal is, in time and effort, with the assumptions named",
-      "Estimate how far away the goal is in both time and effort, as a range \
-      \wherever the uncertainty is material. State the assumptions the estimate \
-      \rests on: remaining task count, known unknowns, expected verification \
-      \cost, external dependencies, review time, computational cost."
+      [wft|
+      Estimate how far away the goal is in both time and effort, as a range
+      wherever the uncertainty is material. State the assumptions the estimate
+      rests on: remaining task count, known unknowns, expected verification
+      cost, external dependencies, review time, computational cost.|]
     ),
     ( "parallel",
       "the work that could safely proceed alongside the current path",
-      "Identify upcoming work that could be done in parallel without disrupting \
-      \the current path. For each: why it is safe to parallelize, what inputs it \
-      \needs, what output it should produce, and what conflicts or coordination \
-      \risks to watch. If nothing should be parallelized yet, say that, and name \
-      \the dependency that has to be resolved first."
+      [wft|
+      Identify upcoming work that could be done in parallel without disrupting
+      the current path. For each: why it is safe to parallelize, what inputs it
+      needs, what output it should produce, and what conflicts or coordination
+      risks to watch. If nothing should be parallelized yet, say that, and name
+      the dependency that has to be resolved first.|]
     ),
     ( "recommendation",
       "the one thing the reviewer should do next",
-      "End with a short recommendation for the reviewer: continue with the \
-      \current agent, allocate another agent to a named parallel task, pause for \
-      \a decision, run a specific verification step, or change course. Base it \
-      \on the evidence above and on nothing else, and say which part of the \
-      \evidence decides it."
+      [wft|
+      End with a short recommendation for the reviewer: continue with the
+      current agent, allocate another agent to a named parallel task, pause for
+      a decision, run a specific verification step, or change course. Base it on
+      the evidence above and on nothing else, and say which part of the evidence
+      decides it.|]
     )
   ]
 
@@ -681,9 +694,10 @@ haltCommitStyle =
 -- | What the push act is told.
 pushBrief :: Text
 pushBrief =
-  "Push the branch. This is `halt`'s step 2 -- the work is being published so \
-  \that a session on another machine can pick it up -- and the lease is what \
-  \keeps the push from overwriting somebody else's work on the ref."
+  [wft|
+  Push the branch. This is `halt`'s step 2 -- the work is being published so
+  that a session on another machine can pick it up -- and the lease is what
+  keeps the push from overwriting somebody else's work on the ref.|]
 
 -- | The instruction @halt.md@ emits for the system that reads its handoff.
 --
@@ -776,8 +790,9 @@ reportDestination =
 -- | Where @account-narrative@ writes.
 narrativeDestination :: Text
 narrativeDestination =
-  "Write the narrative as a Markdown file in the current directory, named \
-  \`narrative-<date>.md`."
+  [wft|
+  Write the narrative as a Markdown file in the current directory, named
+  `narrative-<date>.md`.|]
 
 -- | The brief every artefact is written through.
 accountWriteBrief :: Text
@@ -803,11 +818,12 @@ accountWriteBrief =
 -- | @account-halt@, where the tree came back clean.
 haltCleanNote :: Text
 haltCleanNote =
-  "Provenance: the journal was updated, the series was committed through the \
-  \standing commit discipline and pushed, and the working tree was then re-read: \
-  \`git status --porcelain` came back EMPTY, so nothing this session did is \
-  \sitting uncommitted. The remaining-scope document below was written over \
-  \command receipts. This session can be stopped."
+  [wft|
+  Provenance: the journal was updated, the series was committed through the
+  standing commit discipline and pushed, and the working tree was then re-read:
+  `git status --porcelain` came back EMPTY, so nothing this session did is
+  sitting uncommitted. The remaining-scope document below was written over
+  command receipts. This session can be stopped.|]
 
 -- | @account-halt@, where it did not.
 --
@@ -815,63 +831,70 @@ haltCleanNote =
 -- the file has no arm for its failing.
 haltDirtyNote :: Text
 haltDirtyNote =
-  "Outcome: NOT CLEANLY STOPPED. The journal was updated and the commit and push \
-  \steps ran, and the working tree was then re-read and is STILL DIRTY -- so \
-  \something this session produced is not committed and will not be on the \
-  \machine that resumes. Say that in the first line of the document, list what \
-  \the tree still holds, and tell the resuming session to deal with it before \
-  \anything else. Do not describe this session as cleanly stopped."
+  [wft|
+  Outcome: NOT CLEANLY STOPPED. The journal was updated and the commit and push
+  steps ran, and the working tree was then re-read and is STILL DIRTY -- so
+  something this session produced is not committed and will not be on the
+  machine that resumes. Say that in the first line of the document, list what
+  the tree still holds, and tell the resuming session to deal with it before
+  anything else. Do not describe this session as cleanly stopped.|]
 
 -- | @account-sitrep@'s one provenance line.
 sitrepNote :: Text
 sitrepNote =
-  "Provenance: this sitrep was written over four command receipts -- the working \
-  \tree, the commit series over the trunk, the branch name and the repository \
-  \path -- each spliced into every section, so no section is describing a \
-  \different state of the project. A measurement that no command here produced \
-  \is not in this report; where one is missing, the Measurements section says so."
+  [wft|
+  Provenance: this sitrep was written over four command receipts -- the working
+  tree, the commit series over the trunk, the branch name and the repository
+  path -- each spliced into every section, so no section is describing a
+  different state of the project. A measurement that no command here produced is
+  not in this report; where one is missing, the Measurements section says so.|]
 
 -- | @account-report@'s one provenance line.
 reportNote :: Text
 reportNote =
-  "Provenance: the seven remaining-work categories were answered independently \
-  \over the same two command receipts, and the estimate at the end was made by a \
-  \different party over the fold -- so the party that estimated the remaining \
-  \work is not the party that decided what it consists of. Neither read \
-  \anything but the receipts."
+  [wft|
+  Provenance: the seven remaining-work categories were answered independently
+  over the same two command receipts, and the estimate at the end was made by a
+  different party over the fold -- so the party that estimated the remaining
+  work is not the party that decided what it consists of. Neither read anything
+  but the receipts.|]
 
 -- | @account-narrative@, where the sourcing audit approved.
 narrativeSourcedNote :: Text
 narrativeSourcedNote =
-  "Provenance: the chronology was built from four command receipts, the \
-  \narrative was written from the chronology alone, and a third party -- pinned \
-  \to a serving model neither of the other two used -- checked every claim in \
-  \the prose against those receipts and approved. Fact and inference are \
-  \separated because somebody who did not write the prose said so."
+  [wft|
+  Provenance: the chronology was built from four command receipts, the narrative
+  was written from the chronology alone, and a third party -- pinned to a
+  serving model neither of the other two used -- checked every claim in the
+  prose against those receipts and approved. Fact and inference are separated
+  because somebody who did not write the prose said so.|]
 
 -- | @account-narrative@, where it objected.
 narrativeObjectedNote :: Text
 narrativeObjectedNote =
-  "Provenance: the sourcing audit OBJECTED. Its objection lines are given below \
-  \and they are about this narrative, not about the work. Open the document with \
-  \them, verbatim, under the heading `Sourcing audit: objections`; leave the \
-  \narrative as written -- an objection is not a licence to rewrite the prose it \
-  \is about -- and do not describe this narrative as sourced."
+  [wft|
+  Provenance: the sourcing audit OBJECTED. Its objection lines are given below
+  and they are about this narrative, not about the work. Open the document with
+  them, verbatim, under the heading `Sourcing audit: objections`; leave the
+  narrative as written -- an objection is not a licence to rewrite the prose it
+  is about -- and do not describe this narrative as sourced.|]
 
 -- | @account-narrative@, where it would not answer.
 narrativeSilentNote :: Text
 narrativeSilentNote =
-  "Provenance: the sourcing audit was put to an independent party and it did not \
-  \answer, so this narrative's claims are UNVERIFIED against the receipts. Say \
-  \that in one sentence at the top, before anything else. Do not describe any \
-  \claim below as sourced, and do not substitute your own reading of the \
-  \evidence for the audit that did not happen."
+  [wft|
+  Provenance: the sourcing audit was put to an independent party and it did not
+  answer, so this narrative's claims are UNVERIFIED against the receipts. Say
+  that in one sentence at the top, before anything else. Do not describe any
+  claim below as sourced, and do not substitute your own reading of the evidence
+  for the audit that did not happen.|]
 
 -- | The addendum every kind but @halt@ passes.
 noAddendum :: Text
 noAddendum =
-  "(No addendum: this kind of account carries no standing instruction for a \
-  \downstream system. Write nothing under an addendum heading.)"
+  [wft|
+  (No addendum: this kind of account carries no standing instruction for a
+  downstream system. Write nothing under an addendum heading.)|]
 
 -- ---------------------------------------------------------------------------
 -- The functions
@@ -1127,9 +1150,10 @@ accountProgram kind =
 -- | What the closing tree receipt is introduced as, at @account-halt@.
 afterBrief :: Text
 afterBrief =
-  "The working tree, re-read now that the journal, the commit series and the \
-  \push have all run. This is what a fresh session on another machine would NOT \
-  \see: anything still listed here is staying behind."
+  [wft|
+  The working tree, re-read now that the journal, the commit series and the push
+  have all run. This is what a fresh session on another machine would NOT see:
+  anything still listed here is staying behind.|]
 
 -- ---------------------------------------------------------------------------
 -- The registry's other column
@@ -1170,6 +1194,7 @@ accountScript kind =
       Sitrep -> sitrepRoster
       _ -> reportRoster
 
+    -- fixture bytes, not prose: fake `git status --porcelain` and `git log --oneline` stdout.
     dossierAnswer =
       " M src/Lex.hs\n\
       \?? doc/handoff.md\n\
@@ -1177,59 +1202,63 @@ accountScript kind =
       \e4f5a6b Hoist the position reset out of the success arm"
 
     blockFrom l =
-      "On "
-        <> lensOwns l
-        <> ": drawn from the receipts above and nothing else. Where the receipts \
-           \are silent this section says so rather than filling the gap. (the "
-        <> lensName l
-        <> " section)"
+      [wft|
+      On {owns}: drawn from the receipts above and nothing else. Where the
+      receipts are silent this section says so rather than filling the gap.
+      (the {name} section)|]
+      where
+        owns = lensOwns l
+        name = lensName l
 
     estimateAnswer =
-      "All blocks accounted for.\n\
-      \Estimate: two to four working days of effort, spread over a calendar week \
-      \if review time is counted. Comparison used: the two commits in the series \
-      \receipt cover roughly a third of the implementation blocks and were \
-      \written over two days.\n\
-      \What could move it: the two open questions are both design decisions the \
-      \implementation blocks depend on; if either goes the other way, the \
-      \implementation estimate doubles. Verification cost is not estimable from \
-      \these receipts -- no test run appears in them."
+      [wft|
+      All blocks accounted for.
+      Estimate: two to four working days of effort, spread over a calendar week
+      if review time is counted. Comparison used: the two commits in the series
+      receipt cover roughly a third of the implementation blocks and were
+      written over two days.
+      What could move it: the two open questions are both design decisions the
+      implementation blocks depend on; if either goes the other way, the
+      implementation estimate doubles. Verification cost is not estimable from
+      these receipts -- no test run appears in them.|]
 
     chronologyAnswer =
-      "1. The lexer reported a wrong column on a boundary-split operator \
-      \[journal].\n\
-      \2. The position reset was found to be in the success arm only [diff].\n\
-      \3. The boundary case was added as a test before the fix [series].\n\
-      \\n\
-      \Where the understanding changed: the defect was read as an off-by-one and \
-      \turned out to be a control-flow placement [journal, diff].\n\
-      \\n\
-      \What the evidence does not show: whether the three-character operator \
-      \case was ever considered; no receipt mentions it."
+      [wft|
+      1. The lexer reported a wrong column on a boundary-split operator
+         [journal].
+      2. The position reset was found to be in the success arm only [diff].
+      3. The boundary case was added as a test before the fix [series].
+
+      Where the understanding changed: the defect was read as an off-by-one and
+      turned out to be a control-flow placement [journal, diff].
+
+      What the evidence does not show: whether the three-character operator case
+      was ever considered; no receipt mentions it.|]
 
     narrativeAnswer =
-      "# The Column That Was Off\n\
-      \\n\
-      \## Purpose\n\
-      \\n\
-      \The lexer reported the wrong column for an operator split across a buffer \
-      \boundary. The purpose of the work was to make the reported position \
-      \correct in every case, and to leave behind a test that would notice if it \
-      \ceased to be.\n\
-      \\n\
-      \## How the Work Unfolded\n\
-      \\n\
-      \The defect presented as an off-by-one, and was read that way at first. \
-      \The diff shows what it actually was: the position reset stood in the \
-      \success arm of the scanner alone, so the miss path carried a stale \
-      \position forward. The test was written before the correction, which is \
-      \why the series shows it failing and then passing.\n\
-      \\n\
-      \## Where the Work Now Stands\n\
-      \\n\
-      \The two-character case is corrected and pinned. Whether the \
-      \three-character case was ever considered cannot be established from the \
-      \evidence to hand.\n\
-      \\n\
-      \Sources: the project journal, the commit series over the trunk, the \
-      \working diff, and the working tree."
+      [wft|
+      # The Column That Was Off
+
+      ## Purpose
+
+      The lexer reported the wrong column for an operator split across a buffer
+      boundary. The purpose of the work was to make the reported position
+      correct in every case, and to leave behind a test that would notice if it
+      ceased to be.
+
+      ## How the Work Unfolded
+
+      The defect presented as an off-by-one, and was read that way at first. The
+      diff shows what it actually was: the position reset stood in the success
+      arm of the scanner alone, so the miss path carried a stale position
+      forward. The test was written before the correction, which is why the
+      series shows it failing and then passing.
+
+      ## Where the Work Now Stands
+
+      The two-character case is corrected and pinned. Whether the
+      three-character case was ever considered cannot be established from the
+      evidence to hand.
+
+      Sources: the project journal, the commit series over the trunk, the
+      working diff, and the working tree.|]

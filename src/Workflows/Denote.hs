@@ -801,59 +801,63 @@ closingBrief =
 -- | The arm where the method does not apply.
 notAdmittedNote :: Text
 notAdmittedNote =
-  "Outcome: NOT A DENOTATIONAL DESIGN ENGAGEMENT. The admission test answered no: \
-  \this subject is not a composing vocabulary whose values build unboundedly many \
-  \more values, and the full method would ask a proof assistant to certify \
-  \something that has no compositional meaning to preserve. That is the skill's own \
-  \ruling and it is a real answer, not a refusal. Report the proportionate minimum \
-  \it prescribes instead: name the mathematical object such of it as there is, \
-  \write one line of the meaning function, and stop. Say plainly that this is the \
-  \effort budget talking and NOT method doctrine -- a denoted core with an \
-  \undenoted shell is not a reading of this method, and this ending must never be \
-  \cited as licence for one."
+  [wft|
+  Outcome: NOT A DENOTATIONAL DESIGN ENGAGEMENT. The admission test answered no:
+  this subject is not a composing vocabulary whose values build unboundedly many
+  more values, and the full method would ask a proof assistant to certify
+  something that has no compositional meaning to preserve. That is the skill's
+  own ruling and it is a real answer, not a refusal. Report the proportionate
+  minimum it prescribes instead: name the mathematical object such of it as
+  there is, write one line of the meaning function, and stop. Say plainly that
+  this is the effort budget talking and NOT method doctrine -- a denoted core
+  with an undenoted shell is not a reading of this method, and this ending must
+  never be cited as licence for one.|]
 
 -- | The arm where a retrofit's own defect inventory says to start again.
 startOverNote :: Text
 startOverNote =
-  "Outcome: START OVER, AND THAT IS A SUCCESSFUL RETROFIT. The opening move of a \
-  \retrofit is to write down the denotation the code already implicitly has, \
-  \defects included, and the inventory that came back licenses two verdicts rather \
-  \than one. This run's verdict is the second: the existing model is not worth \
-  \repairing, and the inventory has shown clearly what mistakes were made. Report \
-  \it as a result -- the skill is explicit that a retrofit ending in a documented \
-  \start-over recommendation has succeeded -- and do not soften it into a \
-  \repair plan. No representation, no proof and no realization work was done, on \
-  \purpose: there is nothing yet to represent. What the report owes the reader is \
-  \the defect inventory, the one line each defect costs, and what a greenfield \
-  \design would do differently."
+  [wft|
+  Outcome: START OVER, AND THAT IS A SUCCESSFUL RETROFIT. The opening move of a
+  retrofit is to write down the denotation the code already implicitly has,
+  defects included, and the inventory that came back licenses two verdicts
+  rather than one. This run's verdict is the second: the existing model is not
+  worth repairing, and the inventory has shown clearly what mistakes were made.
+  Report it as a result -- the skill is explicit that a retrofit ending in a
+  documented start-over recommendation has succeeded -- and do not soften it
+  into a repair plan. No representation, no proof and no realization work was
+  done, on purpose: there is nothing yet to represent. What the report owes the
+  reader is the defect inventory, the one line each defect costs, and what a
+  greenfield design would do differently.|]
 
 -- | The arm where the meaning settled and the whole tower was built.
 settledNote :: Text
 settledNote =
-  "Outcome: THE MEANING SETTLED, AND THE REPRESENTATIONS FOLLOW FROM IT. The four \
-  \meaning phases produced a worksheet that a reviewer on another engine approved \
-  \against every phase's own exit tests, and only then were representations, \
-  \meaning functions, solved operations, commuting squares and realizations asked \
-  \about at all -- which is phase 7's own gate expressed as reachability rather \
-  \than as a rule. Report the worksheet as the design of record and the second \
-  \half as what the equations forced. Two things the report must carry verbatim: \
-  \the elimination list, because it is how this result is stated to a skeptic, and \
-  \what resisted, because an unpublished exception is a claim that the morphism \
-  \holds everywhere."
+  [wft|
+  Outcome: THE MEANING SETTLED, AND THE REPRESENTATIONS FOLLOW FROM IT. The four
+  meaning phases produced a worksheet that a reviewer on another engine approved
+  against every phase's own exit tests, and only then were representations,
+  meaning functions, solved operations, commuting squares and realizations asked
+  about at all -- which is phase 7's own gate expressed as reachability rather
+  than as a rule. Report the worksheet as the design of record and the second
+  half as what the equations forced. Two things the report must carry verbatim:
+  the elimination list, because it is how this result is stated to a skeptic,
+  and what resisted, because an unpublished exception is a claim that the
+  morphism holds everywhere.|]
 
 -- | The arm where an equation was still open when the rounds ran out.
 openNote :: Text
 openNote =
-  "Outcome: THE MEANING HAS AN OPEN EQUATION. The reviewer still objected after \
-  \every repair trip this run was given, so the worksheet below is the one the last \
-  \trip produced and the final review objected to -- no trip was spent answering \
-  \that last objection. NO representation, proof or realization work was done, and \
-  \that is the method working rather than failing: meaning constrains \
-  \implementation, so a design whose meaning is unsettled has nothing to represent \
-  \yet. Report the outstanding objection FIRST, verbatim, then the worksheet, then \
-  \the repair the reviewer named. A morphism that will not close is this method's \
-  \most valuable output; the next session starts from that equation and not from a \
-  \blank page."
+  [wft|
+  Outcome: THE MEANING HAS AN OPEN EQUATION. The reviewer still objected after
+  every repair trip this run was given, so the worksheet below is the one the
+  last trip produced and the final review objected to -- no trip was spent
+  answering that last objection. NO representation, proof or realization work
+  was done, and that is the method working rather than failing: meaning
+  constrains implementation, so a design whose meaning is unsettled has nothing
+  to represent yet. Report the outstanding objection FIRST, verbatim, then the
+  worksheet, then the repair the reviewer named. A morphism that will not close
+  is this method's most valuable output; the next session starts from that
+  equation and not from a blank page.|]
 
 -- | The arm where the reviewer would not judge the worksheet.
 --
@@ -863,13 +867,14 @@ openNote =
 -- name says so.
 unjudgedNote :: Text
 unjudgedNote =
-  "Outcome: THE EXIT TESTS WERE NOT APPLIED. The reviewer declined to judge the \
-  \worksheet at all, so no phase's exit test was checked by anybody but its author \
-  \-- which is the arrangement this row exists to avoid. Report the worksheet as \
-  \UNREVIEWED, name the four meaning phases as the author's own unchecked work, and \
-  \do not report any exit test as passed. Nothing downstream ran: a design whose \
-  \meaning nobody would judge is not a design whose representations are worth \
-  \asking about."
+  [wft|
+  Outcome: THE EXIT TESTS WERE NOT APPLIED. The reviewer declined to judge the
+  worksheet at all, so no phase's exit test was checked by anybody but its
+  author -- which is the arrangement this row exists to avoid. Report the
+  worksheet as UNREVIEWED, name the four meaning phases as the author's own
+  unchecked work, and do not report any exit test as passed. Nothing downstream
+  ran: a design whose meaning nobody would judge is not a design whose
+  representations are worth asking about.|]
 
 -- | The third argument the two ending arms with no second half hand the report.
 --
@@ -879,12 +884,13 @@ unjudgedNote =
 -- stopped there deliberately.
 nothingBuiltNote :: Text
 nothingBuiltNote =
-  "No representation, denotation, solved operation, commuting square or \
-  \realization work exists for this run. The program does not contain a path from \
-  \this ending to any of it: phase 7's gate -- do not begin on operations until \
-  \the level's meaning function is written -- is expressed here as reachability, \
-  \and this ending is outside the arm the second half stands in. Report the \
-  \absence as a fact about the run and not as a gap in the design."
+  [wft|
+  No representation, denotation, solved operation, commuting square or
+  realization work exists for this run. The program does not contain a path from
+  this ending to any of it: phase 7's gate -- do not begin on operations until
+  the level's meaning function is written -- is expressed here as reachability,
+  and this ending is outside the arm the second half stands in. Report the
+  absence as a fact about the run and not as a gap in the design.|]
 
 -- ---------------------------------------------------------------------------
 -- The function
@@ -1300,45 +1306,47 @@ denoteScript =
     -- designs, and the retrofit's other verdict is reached by changing this
     -- row's first line.
     objectAnswer =
-      "The object is a SCHEDULE, and its meaning is a function from time to the \
-      \set of tasks live at that time:\n\
-      \\n\
-      \  meaning of a Schedule = Time -> Set Task\n\
-      \\n\
-      \Candidate board: a list of intervals (baggage: an ordering nobody needs, \
-      \and two representations of the empty schedule); a difference of sets \
-      \(baggage: no way to say when); the function above (baggage: not \
-      \computable, which costs nothing because we only compute with \
-      \representations).\n\
-      \\n\
-      \Subtractions: the interval list reappears at level 2 as a representation; \
-      \the calendar's time zone reappears at level 3, which is the bottom, \
-      \because approximation belongs after composition.\n\
-      \\n\
-      \Exit tests: (a) one line, non-computable, fine. (b) the identity test is \
-      \vacuous -- the primitive observation IS the meaning function -- so the \
-      \forcing criterion answers instead, and the operations are forced by \
-      \type-checking. (c) yes. (d) closure holds: a schedule is built out of \
-      \schedules. (e) reach: the model explains recurrence, which it was not \
-      \built for."
+      [wft|
+      The object is a SCHEDULE, and its meaning is a function from time to the
+      set of tasks live at that time:
+
+        meaning of a Schedule = Time -> Set Task
+
+      Candidate board: a list of intervals (baggage: an ordering nobody needs,
+      and two representations of the empty schedule); a difference of sets
+      (baggage: no way to say when); the function above (baggage: not
+      computable, which costs nothing because we only compute with
+      representations).
+
+      Subtractions: the interval list reappears at level 2 as a representation;
+      the calendar's time zone reappears at level 3, which is the bottom,
+      because approximation belongs after composition.
+
+      Exit tests: (a) one line, non-computable, fine. (b) the identity test is
+      vacuous -- the primitive observation IS the meaning function -- so the
+      forcing criterion answers instead, and the operations are forced by
+      type-checking. (c) yes. (d) closure holds: a schedule is built out of
+      schedules. (e) reach: the model explains recurrence, which it was not
+      built for.|]
 
     worksheetAnswer =
-      "# Denotational design worksheet\n\
-      \\n\
-      \## 1. The principal mathematical object\n\
-      \meaning of a Schedule = Time -> Set Task. Candidate board and subtractions \
-      \as recorded in phase 1.\n\
-      \\n\
-      \## 2. The fundamental operations\n\
-      \Monoid (union, pointwise), Functor over Task, and a shift that is an \
-      \action of the additive group of time. No bespoke names survive.\n\
-      \\n\
-      \## 3. The fundamental theorems\n\
-      \S1 union is associative and commutative (from Set). S2 shift distributes \
-      \over union. Non-theorems: shift does NOT distribute over intersection with \
-      \a bounded window; there is no total ordering on schedules.\n\
-      \\n\
-      \## 4. The derived layer\n\
-      \`during`, `never` and `always` all came free from the monoid and the \
-      \functor. OPEN: whether the semiring is the right home for the windowed \
-      \product is not settled."
+      [wft|
+      # Denotational design worksheet
+
+      ## 1. The principal mathematical object
+      meaning of a Schedule = Time -> Set Task. Candidate board and subtractions
+      as recorded in phase 1.
+
+      ## 2. The fundamental operations
+      Monoid (union, pointwise), Functor over Task, and a shift that is an
+      action of the additive group of time. No bespoke names survive.
+
+      ## 3. The fundamental theorems
+      S1 union is associative and commutative (from Set). S2 shift distributes
+      over union. Non-theorems: shift does NOT distribute over intersection with
+      a bounded window; there is no total ordering on schedules.
+
+      ## 4. The derived layer
+      `during`, `never` and `always` all came free from the monoid and the
+      functor. OPEN: whether the semiring is the right home for the windowed
+      product is not settled.|]

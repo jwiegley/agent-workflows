@@ -350,14 +350,17 @@ trunkOf b
 parityClause :: Text -> Text
 parityClause t
   | T.null (T.strip t) =
-      "No parity target was given. So \"done\" means every objective of the \
-      \frozen plan below is complete AND independently verified -- and nothing \
-      \more is required of the work than the plan asks for."
+      [wft|
+      No parity target was given. So "done" means every objective of the frozen
+      plan below is complete AND independently verified -- and nothing more is
+      required of the work than the plan asks for.|]
   | otherwise =
-      "A parity target WAS given, so the last clause of the definition of done \
-      \is a parity check against it, passing with evidence rather than by \
-      \assertion. The target: "
-        <> T.strip t
+      [wft|
+      A parity target WAS given, so the last clause of the definition of done is
+      a parity check against it, passing with evidence rather than by assertion.
+      The target: {target}|]
+  where
+    target = T.strip t
 
 -- ---------------------------------------------------------------------------
 -- run-orchestrator.md's dependency graph, sorted in Haskell
@@ -573,9 +576,10 @@ drainCommitStyle =
 -- between a report and a claim.
 roundSeriesBrief :: Text
 roundSeriesBrief =
-  "What this branch now carries, oldest first, as `git log` reports it against \
-  \the base this run was given. These are bytes; whoever did the work did not \
-  \write them."
+  [wft|
+  What this branch now carries, oldest first, as `git log` reports it against
+  the base this run was given. These are bytes; whoever did the work did not
+  write them.|]
 
 -- | What the round's closing question asks for.
 --
@@ -667,10 +671,11 @@ markersBrief =
 -- @partner-cleanup.md@'s own scope clause.
 observationsBrief :: Text
 observationsBrief =
-  "The partner review observations standing in the directory this run was given, \
-  \one path per line, as `find` reports them -- regular, non-hidden Markdown \
-  \directly inside it, and nothing else. Sorted lexicographically this is \
-  \chronological, because every filename is an ISO timestamp."
+  [wft|
+  The partner review observations standing in the directory this run was given,
+  one path per line, as `find` reports them -- regular, non-hidden Markdown
+  directly inside it, and nothing else. Sorted lexicographically this is
+  chronological, because every filename is an ISO timestamp.|]
 
 -- | What the suite's verdict receipt is introduced as.
 --
@@ -696,23 +701,26 @@ suiteBrief =
 -- reached from @skills\/wiggum\/references\/fess-audit.md@'s context snapshot.
 checkpointChangesBrief :: Text
 checkpointChangesBrief =
-  "The work this loop produced, as `git diff` reports it against the base the \
-  \run was given. This is the change under audit -- the diff itself, not a \
-  \description of one."
+  [wft|
+  The work this loop produced, as `git diff` reports it against the base the run
+  was given. This is the change under audit -- the diff itself, not a
+  description of one.|]
 
 -- | What the checkpoint's worktree receipt is introduced as.
 checkpointWorktreeBrief :: Text
 checkpointWorktreeBrief =
-  "The working tree as `git status --porcelain` reports it after the rounds and \
-  \the currency step: every path with an uncommitted change, staged or not, and \
-  \every untracked file. Anything listed here is work the commits do not carry."
+  [wft|
+  The working tree as `git status --porcelain` reports it after the rounds and
+  the currency step: every path with an uncommitted change, staged or not, and
+  every untracked file. Anything listed here is work the commits do not carry.|]
 
 -- | What the checkpoint's history receipt is introduced as.
 checkpointHistoryBrief :: Text
 checkpointHistoryBrief =
-  "The commits this loop produced, oldest first, as `git log` reports them \
-  \against the base. The last of them is the work commit the final audit is \
-  \about."
+  [wft|
+  The commits this loop produced, oldest first, as `git log` reports them
+  against the base. The last of them is the work commit the final audit is
+  about.|]
 
 -- | What the handoff question asks for.
 --
@@ -806,10 +814,11 @@ doneCriteriaBrief plan parity =
 frozenOr :: Text -> Text
 frozenOr p
   | T.null (T.strip p) =
-      "(No plan was given to this run. There are therefore no frozen \
-      \done-criteria to check the work against. Say that, and treat the run as \
-      \unfinished: an autonomous loop with no stated target cannot have reached \
-      \one.)"
+      [wft|
+      (No plan was given to this run. There are therefore no frozen
+      done-criteria to check the work against. Say that, and treat the run as
+      unfinished: an autonomous loop with no stated target cannot have reached
+      one.)|]
   | otherwise = T.strip p
 
 -- | What the continuation is told when the judge objects.
@@ -887,17 +896,18 @@ continuationBrief =
 -- says so in its own words; that is @'Workflows.Duet.duetProgram'@.
 sharedSessionNote :: Text
 sharedSessionNote =
-  "Outcome: WORK BLOCKED, AND NOTHING WAS STARTED. This run's engine puts every \
-  \question of the run into one shared conversation -- the fact is quoted below \
-  \and it came from the runner, not from anybody asked -- so the party that would \
-  \have judged the work is the party that would have done it. No question was \
-  \put: no round ran, no commit was made, no gate was run and no audit was asked \
-  \for. Every clause of this loop's definition of done is a claim checked by an \
-  \evaluator that must not be the runner, and under one shared session there is \
-  \no such evaluator to reach. Report that, quote the engine fact, and say what \
-  \would fix it: run this loop under an engine that opens a new session per \
-  \question (`--engine acp`), which is the one transport here that can put a \
-  \question to a party that has not read the answer."
+  [wft|
+  Outcome: WORK BLOCKED, AND NOTHING WAS STARTED. This run's engine puts every
+  question of the run into one shared conversation -- the fact is quoted below
+  and it came from the runner, not from anybody asked -- so the party that would
+  have judged the work is the party that would have done it. No question was
+  put: no round ran, no commit was made, no gate was run and no audit was asked
+  for. Every clause of this loop's definition of done is a claim checked by an
+  evaluator that must not be the runner, and under one shared session there is
+  no such evaluator to reach. Report that, quote the engine fact, and say what
+  would fix it: run this loop under an engine that opens a new session per
+  question (`--engine acp`), which is the one transport here that can put a
+  question to a party that has not read the answer.|]
 
 -- | The whole of a refused run's material, which is the fact that refused it.
 --
@@ -938,15 +948,16 @@ sharedSessionState engine =
 -- 'sharedSessionNote' is the gate for the other half.
 notIndependentNote :: Text
 notIndependentNote =
-  "Outcome: WORK BLOCKED, AND NOTHING WAS STARTED. The parent-history sentinel \
-  \probe did not answer PARENT_HISTORY_ABSENT: a line this run generated for \
-  \itself and put in no other place came back, so context this runner planted was \
-  \already in front of the answerer. No round ran, no commit was made and no \
-  \audit was asked for. Every clause of this loop's definition of done is a claim \
-  \checked by an evaluator that must not be the runner, and an answerer that has \
-  \read another of this run's prompts is not one. Report that, name the probe's \
-  \answer below, and say that the loop needs an engine that puts each question to \
-  \a party that has seen no other before it can be run unattended."
+  [wft|
+  Outcome: WORK BLOCKED, AND NOTHING WAS STARTED. The parent-history sentinel
+  probe did not answer PARENT_HISTORY_ABSENT: a line this run generated for
+  itself and put in no other place came back, so context this runner planted was
+  already in front of the answerer. No round ran, no commit was made and no
+  audit was asked for. Every clause of this loop's definition of done is a claim
+  checked by an evaluator that must not be the runner, and an answerer that has
+  read another of this run's prompts is not one. Report that, name the probe's
+  answer below, and say that the loop needs an engine that puts each question to
+  a party that has seen no other before it can be run unattended.|]
 
 -- | The run's own transport, appended to whichever ending was reached.
 --
@@ -986,12 +997,13 @@ runProvenance backends engine note =
 -- new work on an already-broken base only makes it worse.\"
 brokenBaseNote :: Text
 brokenBaseNote =
-  "Outcome: WORK BLOCKED, ON A BROKEN BASE. The baseline verification was run \
-  \before anything was touched and the repository's own green gate did not exit \
-  \0, so no round ran and nothing in the tree was changed by this loop. Report \
-  \the gate that failed and what it said. Starting new work here would only make \
-  \it worse, and the next run's first job is the failure that was already \
-  \present."
+  [wft|
+  Outcome: WORK BLOCKED, ON A BROKEN BASE. The baseline verification was run
+  before anything was touched and the repository's own green gate did not exit
+  0, so no round ran and nothing in the tree was changed by this loop. Report
+  the gate that failed and what it said. Starting new work here would only make
+  it worse, and the next run's first job is the failure that was already
+  present.|]
 
 -- | The arm where the currency step left the tree marked up.
 --
@@ -1000,13 +1012,14 @@ brokenBaseNote =
 -- @commands\/resolve.md@ states and never tests.
 conflictNote :: Text
 conflictNote =
-  "Outcome: WORK BLOCKED, ON A CONFLICT. The rounds' work is committed, the \
-  \currency step ran, and `git diff --check` then exited nonzero -- a conflict \
-  \marker or a whitespace error survived it. This is the stop-and-escalate \
-  \condition for a conflict that cannot be resolved without guessing intent, and \
-  \it is a human's to settle. NOTHING WAS PUBLISHED and nothing in this loop can \
-  \publish. Report the doctrine below, name every path still marked, and say what \
-  \the resolution turns on."
+  [wft|
+  Outcome: WORK BLOCKED, ON A CONFLICT. The rounds' work is committed, the
+  currency step ran, and `git diff --check` then exited nonzero -- a conflict
+  marker or a whitespace error survived it. This is the stop-and-escalate
+  condition for a conflict that cannot be resolved without guessing intent, and
+  it is a human's to settle. NOTHING WAS PUBLISHED and nothing in this loop can
+  publish. Report the doctrine below, name every path still marked, and say what
+  the resolution turns on.|]
 
 -- | The @SettledOn@ arm.
 --
@@ -1015,13 +1028,13 @@ conflictNote =
 -- program's: the evidence is named.
 doneNote :: Text
 doneNote =
-  completeNote
-    <> " This is `wiggum`'s WORK COMPLETE: the evaluator was a party that \
-       \answered none of the work's own questions, the audit ran over the last \
-       \work commit, and the green gate's own output is in the handoff below. \
-       \Say which clause of the definition of done each item satisfies, and end \
-       \with what was deliberately left for a person -- publishing, above all, \
-       \which this loop cannot do."
+  [wft|
+  {completeNote} This is `wiggum`'s WORK COMPLETE: the evaluator was a party
+  that answered none of the work's own questions, the audit ran over the last
+  work commit, and the green gate's own output is in the handoff below. Say
+  which clause of the definition of done each item satisfies, and end with what
+  was deliberately left for a person -- publishing, above all, which this loop
+  cannot do.|]
 
 -- | The @UnsettledOn@ arm.
 --
@@ -1031,12 +1044,12 @@ doneNote =
 -- are, what you tried, and what you need.\"
 stillRemainsNote :: Text
 stillRemainsNote =
-  remainsNote
-    <> " This is the bounded-attempt condition firing: the same criteria have \
-       \now objected as many times as this run was given, which the skill's own \
-       \rule says to escalate rather than thrash. Do a root-cause pass on the \
-       \outstanding objection, and then report where you are, what you tried, \
-       \and what you need."
+  [wft|
+  {remainsNote} This is the bounded-attempt condition firing: the same criteria
+  have now objected as many times as this run was given, which the skill's own
+  rule says to escalate rather than thrash. Do a root-cause pass on the
+  outstanding objection, and then report where you are, what you tried, and what
+  you need.|]
 
 -- | The @AbandonedOn@ arm.
 --
@@ -1044,13 +1057,12 @@ stillRemainsNote =
 -- stop-and-escalate conditions an empty verdict actually means here.
 cannotJudgeNote :: Text
 cannotJudgeNote =
-  blockedNote
-    <> " For this loop that reading is specific: the evaluator could not judge \
-       \the work against the plan it was given, which is the skill's \
-       \\"requirements are ambiguous or appear to have changed\" condition. The \
-       \work in the tree is committed and is not lost. Report what the plan does \
-       \not settle, and what a person would have to decide before another round \
-       \could help."
+  [wft|
+  {blockedNote} For this loop that reading is specific: the evaluator could not
+  judge the work against the plan it was given, which is the skill's
+  "requirements are ambiguous or appear to have changed" condition. The work in
+  the tree is committed and is not lost. Report what the plan does not settle,
+  and what a person would have to decide before another round could help.|]
 
 -- | The brief the report act is given.
 --
@@ -1677,6 +1689,7 @@ wiggumScript =
     <> partnerScript Cleanup
     <> fessScript
   where
+    -- fixture bytes, not prose: fake `git log --oneline` stdout.
     series =
       "a1b2c3d Extract token validation into a module\n\
       \e4f5a6b Add unit tests for token validation\n\
@@ -1684,6 +1697,7 @@ wiggumScript =
 
     worktree = ""
 
+    -- fixture bytes, not prose: a unified diff, trailing newline and all.
     changed =
       "--- a/src/token.rs\n\
       \+++ b/src/token.rs\n\
@@ -1697,25 +1711,28 @@ wiggumScript =
     -- round to run. That one line is what makes the scripted run evidence about
     -- the long path.
     account =
-      "Done: token validation is extracted and tested (a1b2c3d, e4f5a6b), and \
-      \refresh rotation now calls it (c7d8e9f).\n\
-      \Remains: the rotation path has no test for an expired refresh token.\n\
-      \Resume with: `cargo test refresh::` in the repository root.\n\
-      \Repeated objections: none. No gate has objected twice.\n\
-      \WORK REMAINS"
+      [wft|
+      Done: token validation is extracted and tested (a1b2c3d, e4f5a6b), and
+      refresh rotation now calls it (c7d8e9f).
+      Remains: the rotation path has no test for an expired refresh token.
+      Resume with: `cargo test refresh::` in the repository root.
+      Repeated objections: none. No gate has objected twice.
+      WORK REMAINS|]
 
     handoff =
-      "1. Extracted token validation into a module -- a1b2c3d.\n\
-      \2. Added its unit tests -- e4f5a6b.\n\
-      \3. Implemented refresh token rotation over the validator -- c7d8e9f.\n\
-      \Remains: nothing the frozen plan names.\n\
-      \Resume with: nothing; the plan's objectives are advanced.\n\
-      \Green gate: exited 0 over the tree as the rounds left it.\n\
-      \Audit: none in every category, each checked against the diff.\n\
-      \Repeated objections: none."
+      [wft|
+      1. Extracted token validation into a module -- a1b2c3d.
+      2. Added its unit tests -- e4f5a6b.
+      3. Implemented refresh token rotation over the validator -- c7d8e9f.
+      Remains: nothing the frozen plan names.
+      Resume with: nothing; the plan's objectives are advanced.
+      Green gate: exited 0 over the tree as the rounds left it.
+      Audit: none in every category, each checked against the diff.
+      Repeated objections: none.|]
 
     amended =
-      "The objection is that the rotation path's expired-token case is untested. \
-      \That work has not been done, so it stays in `Remains` rather than being \
-      \written up as done: the test is `cargo test refresh::expired`, and it does \
-      \not exist yet."
+      [wft|
+      The objection is that the rotation path's expired-token case is untested.
+      That work has not been done, so it stays in `Remains` rather than being
+      written up as done: the test is `cargo test refresh::expired`, and it does
+      not exist yet.|]

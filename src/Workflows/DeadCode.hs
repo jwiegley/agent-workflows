@@ -330,15 +330,20 @@ neverDo =
 scopeNote :: Text -> Text
 scopeNote s
   | T.null (T.strip s) =
-      "Scope: the whole repository. Discovery, analysis, marking and removal all \
-      \range over every tracked file."
+      [wft|
+      Scope: the whole repository. Discovery, analysis, marking and removal all
+      range over every tracked file.|]
   | otherwise =
-      "Scope: " <> T.strip s <> ". Restrict discovery, analysis, marking and \
-      \removal to it -- but run every cross-reference check over the WHOLE \
-      \repository, because a symbol's callers are not obliged to live in its \
-      \subtree. Where the scope names a kind of thing rather than a path -- \
-      \docs, imports, feature-flags, comments, or a language name -- take only \
-      \candidates of that kind and leave the rest unmarked."
+      "Scope: " <> T.strip s <> [wft|
+                                . Restrict discovery, analysis, marking and
+                                removal to it -- but run every cross-reference
+                                check over the WHOLE repository, because a
+                                symbol's callers are not obliged to live in its
+                                subtree. Where the scope names a kind of thing
+                                rather than a path -- docs, imports,
+                                feature-flags, comments, or a language name --
+                                take only candidates of that kind and leave the
+                                rest unmarked.|]
 
 -- | Whether the two-evidence rule binds, decided from the file list.
 --
@@ -354,18 +359,19 @@ scopeNote s
 dynamicNote :: [Text] -> Text
 dynamicNote files
   | null files || any (touches files) dynamicGlobs =
-      "The two-evidence rule BINDS on this pass. The file list reaches a \
-      \language with reflection or string-based dispatch (or was not given, \
-      \which is not the same as being static), so no region is a removal \
-      \candidate on one modality alone: a static no-references result AND an \
-      \entry-point or registration check, and never two variants of one grep. A \
-      \passing test suite is not one of the two."
+      [wft|
+      The two-evidence rule BINDS on this pass. The file list reaches a language
+      with reflection or string-based dispatch (or was not given, which is not
+      the same as being static), so no region is a removal candidate on one
+      modality alone: a static no-references result AND an entry-point or
+      registration check, and never two variants of one grep. A passing test
+      suite is not one of the two.|]
   | otherwise =
-      "The two-evidence rule does not bind on this pass: the file list reaches \
-      \no language with reflection or string-based dispatch. One sound modality \
-      \is enough to mark a candidate -- and the allowlist, the recency window \
-      \and the approval gates are unaffected, because none of them is about \
-      \dynamism."
+      [wft|
+      The two-evidence rule does not bind on this pass: the file list reaches no
+      language with reflection or string-based dispatch. One sound modality is
+      enough to mark a candidate -- and the allowlist, the recency window and
+      the approval gates are unaffected, because none of them is about dynamism.|]
   where
     -- The seven languages principle 4 names, by the extensions they are written
     -- in. Not `Rubrics.Reviewers.languages`, deliberately: that table is about
@@ -688,13 +694,14 @@ deltaBrief =
 -- | The arm where the tree was dirty before anything started.
 dirtyTreeNote :: Text
 dirtyTreeNote =
-  "Outcome: NOT STARTED -- THE TREE WAS DIRTY. `git status --porcelain` \
-  \answered with at least one line before this run marked, analysed or removed \
-  \anything, so no phase ran and nothing was asked of anybody. A dead-code pass \
-  \discards its markers with `git restore --worktree`, which is only safe from a \
-  \clean start: on a dirty tree that restore would take somebody's work with it. \
-  \Report the porcelain lines below verbatim and say that the pass needs the \
-  \tree committed or stashed first."
+  [wft|
+  Outcome: NOT STARTED -- THE TREE WAS DIRTY. `git status --porcelain` answered
+  with at least one line before this run marked, analysed or removed anything,
+  so no phase ran and nothing was asked of anybody. A dead-code pass discards
+  its markers with `git restore --worktree`, which is only safe from a clean
+  start: on a dirty tree that restore would take somebody's work with it. Report
+  the porcelain lines below verbatim and say that the pass needs the tree
+  committed or stashed first.|]
 
 -- | The arm where the baseline itself was red.
 --
@@ -703,12 +710,13 @@ dirtyTreeNote =
 -- this run.\"
 redBaselineNote :: Text
 redBaselineNote =
-  "Outcome: NOT STARTED -- THE BASELINE WAS RED. The repository's own gate was \
-  \run before any change was made and it did not pass, so no candidate was \
-  \marked and no model was asked to judge one. Dead-code elimination on a broken \
-  \baseline silently corrupts state: every later comparison would be against a \
-  \failure. Report the gate's own failing line, and say plainly that fixing it \
-  \is not this run's job."
+  [wft|
+  Outcome: NOT STARTED -- THE BASELINE WAS RED. The repository's own gate was
+  run before any change was made and it did not pass, so no candidate was marked
+  and no model was asked to judge one. Dead-code elimination on a broken
+  baseline silently corrupts state: every later comparison would be against
+  a failure. Report the gate's own failing line, and say plainly that fixing it is
+  not this run's job.|]
 
 -- | The arm where a marker survived.
 --
@@ -717,33 +725,34 @@ redBaselineNote =
 -- \"strip it before doing anything else\" and has no way to reach.
 markersLeakedNote :: Text
 markersLeakedNote =
-  "Outcome: MARKERS REMAIN. The final sweep found DCE-BEGIN or DCE-END still in \
-  \the tree, which means this run's own scaffolding survived the phase that was \
-  \supposed to remove it. Do not report the pass as complete and do not \
-  \recommend opening a pull request. Say that the markers must be stripped \
-  \before anything else happens, name the sweep as the evidence, and list every \
-  \commit this pass made so that a reader can tell a leak from an unfinished \
-  \phase."
+  [wft|
+  Outcome: MARKERS REMAIN. The final sweep found DCE-BEGIN or DCE-END still in
+  the tree, which means this run's own scaffolding survived the phase that was
+  supposed to remove it. Do not report the pass as complete and do not recommend
+  opening a pull request. Say that the markers must be stripped before anything
+  else happens, name the sweep as the evidence, and list every commit this pass
+  made so that a reader can tell a leak from an unfinished phase.|]
 
 -- | The arm where the gate never came back green.
 gateRedNote :: Text
 gateRedNote =
-  "Outcome: RED AT THE END. Every repair trip this run was given has been spent \
-  \and the repository's own gate still objects. Do not push the branch and do \
-  \not report the pass as complete. Name the commit that most likely introduced \
-  \the failure and the diagnostic step -- a bisect, or a commit-by-commit \
-  \revert -- and say that the offending commit should be reverted and the gate \
-  \re-run before anything else. Every commit this pass made is still in the \
-  \branch."
+  [wft|
+  Outcome: RED AT THE END. Every repair trip this run was given has been spent
+  and the repository's own gate still objects. Do not push the branch and do not
+  report the pass as complete. Name the commit that most likely introduced
+  the failure and the diagnostic step -- a bisect, or a commit-by-commit revert --
+  and say that the offending commit should be reverted and the gate re-run
+  before anything else. Every commit this pass made is still in the branch.|]
 
 -- | The arm where everything held.
 cleanPassNote :: Text
 cleanPassNote =
-  "Outcome: GREEN. The baseline passed before anything changed, the debate \
-  \settled every region, the gate passed again on the final tree, and the marker \
-  \sweep found nothing. Report the pass as ready for review, and say that the \
-  \diff should be read before a pull request is opened -- this run reports the \
-  \evidence it collected and does not claim there was no behaviour change."
+  [wft|
+  Outcome: GREEN. The baseline passed before anything changed, the debate
+  settled every region, the gate passed again on the final tree, and the marker
+  sweep found nothing. Report the pass as ready for review, and say that the
+  diff should be read before a pull request is opened -- this run reports the
+  evidence it collected and does not claim there was no behaviour change.|]
 
 -- ---------------------------------------------------------------------------
 -- The three advocates
@@ -760,36 +769,39 @@ advocates :: [(Text, Text, Text)]
 advocates =
   [ ( "keep",
       "whether anything here is or might be live, on concrete evidence",
-      "You argue that the marked regions must be retained unchanged. Your job \
-      \is to find any reason a region is or might be live: a hidden caller, \
-      \dynamic dispatch, a framework convention, membership of a public \
-      \surface, recency, an allowlist hit, an external consumer. You may win on \
-      \genuine uncertainty or on a protected pattern -- that is the one stance \
-      \that may -- but you must cite a concrete artefact: a file and line, a \
-      \config key, a route table entry, a git range. A bare \"it might be used \
-      \somewhere\" is not admissible and costs you the region."
+      [wft|
+      You argue that the marked regions must be retained unchanged. Your job is
+      to find any reason a region is or might be live: a hidden caller, dynamic
+      dispatch, a framework convention, membership of a public surface, recency,
+      an allowlist hit, an external consumer. You may win on genuine uncertainty
+      or on a protected pattern -- that is the one stance that may -- but you
+      must cite a concrete artefact: a file and line, a config key, a route
+      table entry, a git range. A bare "it might be used somewhere" is not
+      admissible and costs you the region.|]
     ),
     ( "modify",
       "whether a concrete, behaviour-preserving diff is better than either extreme",
-      "You argue that a region should be transformed rather than kept or \
-      \deleted: slimmed, inlined, stubbed, deprecated, narrowed in visibility, \
-      \or moved. You must produce the concrete diff, not the theory of one. If \
-      \you cannot produce a specific diff that is clearly behaviour-preserving \
-      \-- or an explicitly approved behaviour change -- this stance loses by \
-      \default, because modify is not a place to park risk. Object where a \
-      \region should be modified and your diff says how; approve where you have \
-      \no diff to offer."
+      [wft|
+      You argue that a region should be transformed rather than kept or deleted:
+      slimmed, inlined, stubbed, deprecated, narrowed in visibility, or moved.
+      You must produce the concrete diff, not the theory of one. If you cannot
+      produce a specific diff that is clearly behaviour-preserving -- or an
+      explicitly approved behaviour change -- this stance loses by default,
+      because modify is not a place to park risk. Object where a region should
+      be modified and your diff says how; approve where you have no diff to
+      offer.|]
     ),
     ( "remove",
       "whether the recorded evidence, re-verified, actually supports deletion",
-      "You argue for full deletion. You must enumerate the independent evidence \
-      \for each region -- and where the two-evidence rule binds on this pass, \
-      \two independent modalities per region, not two variants of one grep -- \
-      \and explicitly confirm there is no allowlist hit. Only recorded and \
-      \re-verified evidence counts: a speculative or hypothetical justification \
-      \is inadmissible. Object to any region whose evidence you cannot now \
-      \re-establish, even where you would have removed it; approve only the \
-      \regions whose case you can state in full."
+      [wft|
+      You argue for full deletion. You must enumerate the independent evidence
+      for each region -- and where the two-evidence rule binds on this pass, two
+      independent modalities per region, not two variants of one grep -- and
+      explicitly confirm there is no allowlist hit. Only recorded and
+      re-verified evidence counts: a speculative or hypothetical justification
+      is inadmissible. Object to any region whose evidence you cannot now
+      re-establish, even where you would have removed it; approve only the
+      regions whose case you can state in full.|]
     )
   ]
 
@@ -1134,18 +1146,21 @@ deadCodeScript =
   ]
     <> [(lensBrief l, advocateAnswer l) | l <- debateRoster]
   where
+    -- fixture bytes, not prose: fake linter stdout.
     analyzed =
       "src/legacy.py:12:1: F401 'os' imported but unused\n\
       \src/legacy.py:44:1: unused function `render_v1`"
 
     discovered =
-      "Discovery: single package, Python 3.12, pytest, ruff configured. Entry \
-      \points: `cli:main` in pyproject.toml [project.scripts]. CI: \
-      \.github/workflows/test.yml runs `pytest -q` and `ruff check`.\n\
-      \Exclusion allowlist: src/routes/ (FastAPI decorator registration), \
-      \migrations/ (every file load-bearing), src/models.py (SQLAlchemy \
-      \declarative base), tests/fixtures/ (named from CI by filename)."
+      [wft|
+      Discovery: single package, Python 3.12, pytest, ruff configured. Entry
+      points: `cli:main` in pyproject.toml [project.scripts]. CI:
+      .github/workflows/test.yml runs `pytest -q` and `ruff check`.
+      Exclusion allowlist: src/routes/ (FastAPI decorator registration),
+      migrations/ (every file load-bearing), src/models.py (SQLAlchemy
+      declarative base), tests/fixtures/ (named from CI by filename).|]
 
+    -- fixture bytes, not prose: a unified diff.
     markerDiff =
       "--- a/src/legacy.py\n\
       \+++ b/src/legacy.py\n\
@@ -1167,8 +1182,7 @@ deadCodeScript =
 
     advocateAnswer l
       | lensName l == "keep" =
-          "OBJECTION: src/legacy.py:40-58 render_v1 -- templates/old.html:17 \
-          \names it in a string literal, which is the string-based dispatch the \
-          \two-evidence rule is about. 001 is clear."
+          [wft|
+          OBJECTION: src/legacy.py:40-58 render_v1 -- templates/old.html:17 names it in a string literal, which is the string-based dispatch the two-evidence rule is about. 001 is clear.|]
       | otherwise =
           "APPROVE -- on " <> lensOwns l <> ", nothing forbids acting on 001 this pass."

@@ -344,63 +344,72 @@ secretsDiscipline =
 obligations :: [(Text, Text)]
 obligations =
   [ ( "secrets",
-      "Manage every secret this service needs with SOPS. Add the declaration, \
-      \wire the service to the path it produces, and state in one line which \
-      \secret the operator has to create and what it must contain. Do not \
-      \generate, read, print or commit a secret value."
+      [wft|
+      Manage every secret this service needs with SOPS. Add the declaration,
+      wire the service to the path it produces, and state in one line which
+      secret the operator has to create and what it must contain. Do not
+      generate, read, print or commit a secret value.|]
     ),
     ( "vhost",
-      "Set up the nginx virtual host for this service, on the domain this run \
-      \was given, so that it is reachable over HTTPS. Declare the virtual host \
-      \and the certificate it uses; the certificate itself is the operator's to \
-      \issue and this run has already confirmed he has done so. Follow the \
-      \existing virtual hosts on this machine: the same ACME wiring, the same \
-      \headers, the same proxy conventions."
+      [wft|
+      Set up the nginx virtual host for this service, on the domain this run was
+      given, so that it is reachable over HTTPS. Declare the virtual host and
+      the certificate it uses; the certificate itself is the operator's to issue
+      and this run has already confirmed he has done so. Follow the existing
+      virtual hosts on this machine: the same ACME wiring, the same headers, the
+      same proxy conventions.|]
     ),
     ( "cert-monitoring",
-      "Set up certificate monitoring and renewal for the new domain, exactly as \
-      \it is already done for the other certificates this system manages. Find \
-      \how an existing certificate is monitored and add this one to the same \
-      \mechanism rather than inventing a second one."
+      [wft|
+      Set up certificate monitoring and renewal for the new domain, exactly as
+      it is already done for the other certificates this system manages. Find
+      how an existing certificate is monitored and add this one to the same
+      mechanism rather than inventing a second one.|]
     ),
     ( "prometheus",
-      "Set up Prometheus to gather metrics about this service: the exporter or \
-      \the service's own metrics endpoint, the scrape configuration, and the \
-      \labels that match this machine's existing convention. If the service \
-      \exposes no metrics, say so plainly and say what could be scraped instead \
-      \-- a process or a systemd unit collector."
+      [wft|
+      Set up Prometheus to gather metrics about this service: the exporter or
+      the service's own metrics endpoint, the scrape configuration, and the
+      labels that match this machine's existing convention. If the service
+      exposes no metrics, say so plainly and say what could be scraped instead
+      -- a process or a systemd unit collector.|]
     ),
     ( "alertmanager",
-      "Set up Alertmanager rules for the health of this service. Name the \
-      \condition, the threshold, the duration, and the severity label -- and \
-      \make the severity label match what this machine's existing rules use, \
-      \because that label is what routes the page. A rule with no `for` duration \
-      \is a rule that pages on a blip."
+      [wft|
+      Set up Alertmanager rules for the health of this service. Name the
+      condition, the threshold, the duration, and the severity label -- and make
+      the severity label match what this machine's existing rules use, because
+      that label is what routes the page. A rule with no `for` duration is a
+      rule that pages on a blip.|]
     ),
     ( "nagios",
-      "Set up a Nagios check confirming the health of this service, in addition \
-      \to Prometheus. The two are deliberately redundant on this machine: \
-      \Prometheus tells you how it is behaving and Nagios tells you whether it \
-      \is there. Follow the existing checks."
+      [wft|
+      Set up a Nagios check confirming the health of this service, in addition
+      to Prometheus. The two are deliberately redundant on this machine:
+      Prometheus tells you how it is behaving and Nagios tells you whether it is
+      there. Follow the existing checks.|]
     ),
     ( "grafana",
-      "If this service presents a full set of new metrics, create a Grafana \
-      \dashboard for them. Prefer an existing published dashboard for this \
-      \service where one fits -- say which, and where it came from -- over \
-      \authoring panels from scratch. If the service's metrics are already \
-      \covered by an existing dashboard on this machine, say so and add nothing."
+      [wft|
+      If this service presents a full set of new metrics, create a Grafana
+      dashboard for them. Prefer an existing published dashboard for this
+      service where one fits -- say which, and where it came from -- over
+      authoring panels from scratch. If the service's metrics are already
+      covered by an existing dashboard on this machine, say so and add nothing.|]
     ),
     ( "glance",
-      "Add a link to this service under the appropriate existing section of the \
-      \Glance dashboard. Name the section you chose and why it is the right one; \
-      \do not create a new section for one service."
+      [wft|
+      Add a link to this service under the appropriate existing section of the
+      Glance dashboard. Name the section you chose and why it is the right one;
+      do not create a new section for one service.|]
     ),
     ( "samba",
-      "If a new filesystem is being created to support this service, add it to \
-      \the set of available Samba mounts, following the existing mounts' \
-      \declaration and permissions. If no new filesystem is being created, say so \
-      \in one line -- an absence stated is this obligation met, and an omission \
-      \is not."
+      [wft|
+      If a new filesystem is being created to support this service, add it to
+      the set of available Samba mounts, following the existing mounts'
+      declaration and permissions. If no new filesystem is being created, say so
+      in one line -- an absence stated is this obligation met, and an omission
+      is not.|]
     )
   ]
 
@@ -419,64 +428,75 @@ obligations =
 removalSurfaces :: [(Text, Text)]
 removalSurfaces =
   [ ( "nix",
-      "Every declaration of this service in the Nix configuration: the module \
-      \import, the service block, its options, its package, and any `let` binding \
-      \or overlay that exists only for it. Name the file and the attribute path \
-      \of each. This is the one surface this run may edit directly."
+      [wft|
+      Every declaration of this service in the Nix configuration: the module
+      import, the service block, its options, its package, and any `let` binding
+      or overlay that exists only for it. Name the file and the attribute path
+      of each. This is the one surface this run may edit directly.|]
     ),
     ( "systemd",
-      "Every systemd unit, timer, socket, path unit and tmpfiles rule this \
-      \service brings, including any generated by the module rather than written \
-      \by hand. Name each unit and say whether it is enabled, and what stops and \
-      \disables it."
+      [wft|
+      Every systemd unit, timer, socket, path unit and tmpfiles rule this
+      service brings, including any generated by the module rather than written
+      by hand. Name each unit and say whether it is enabled, and what stops and
+      disables it.|]
     ),
     ( "containers",
-      "Any container or rootless quadlet this service runs under, its user \
-      \account, its generated units, its volumes and its images. Name what has to \
-      \be stopped, what has to be removed, and what would still occupy disk after \
-      \the declaration is gone."
+      [wft|
+      Any container or rootless quadlet this service runs under, its user
+      account, its generated units, its volumes and its images. Name what has to
+      be stopped, what has to be removed, and what would still occupy disk after
+      the declaration is gone.|]
     ),
     ( "nginx",
-      "The nginx virtual host, its server names, its proxy targets, any redirect \
-      \that points at it, and any include that exists only for it."
+      [wft|
+      The nginx virtual host, its server names, its proxy targets, any redirect
+      that points at it, and any include that exists only for it.|]
     ),
     ( "tls",
-      "The TLS certificate for its domain, its ACME configuration, and its \
-      \renewal and monitoring entries -- including the monitoring this machine \
-      \adds for every certificate, which is a place a removal is routinely \
-      \forgotten."
+      [wft|
+      The TLS certificate for its domain, its ACME configuration, and its
+      renewal and monitoring entries -- including the monitoring this machine
+      adds for every certificate, which is a place a removal is routinely
+      forgotten.|]
     ),
     ( "prometheus",
-      "The Prometheus exporter, the scrape job, any relabelling that names this \
-      \service, and any recording rule computed from its metrics."
+      [wft|
+      The Prometheus exporter, the scrape job, any relabelling that names this
+      service, and any recording rule computed from its metrics.|]
     ),
     ( "alertmanager",
-      "Every Alertmanager rule and route that names this service, and any \
-      \silence or inhibition that exists because of it."
+      [wft|
+      Every Alertmanager rule and route that names this service, and any silence
+      or inhibition that exists because of it.|]
     ),
     ( "nagios",
       "Every Nagios host, service, command and contact entry for it."
     ),
     ( "grafana",
-      "Its Grafana dashboard, any panel in a shared dashboard that queries only \
-      \its metrics, and any datasource that exists only for it."
+      [wft|
+      Its Grafana dashboard, any panel in a shared dashboard that queries only
+      its metrics, and any datasource that exists only for it.|]
     ),
     ( "glance",
-      "Its link on the Glance dashboard, and the section that would be left \
-      \empty by removing it."
+      [wft|
+      Its link on the Glance dashboard, and the section that would be left empty
+      by removing it.|]
     ),
     ( "state",
-      "Its users and groups, its home and state directories, its data, its \
-      \database and database user inside the shared PostgreSQL and Redis, its \
-      \Samba mount if it had one, and its backup entries. Say which of these hold \
-      \DATA that would be destroyed, because those are the lines the operator \
-      \will want to read twice before running anything."
+      [wft|
+      Its users and groups, its home and state directories, its data, its
+      database and database user inside the shared PostgreSQL and Redis, its
+      Samba mount if it had one, and its backup entries. Say which of these hold
+      DATA that would be destroyed, because those are the lines the operator
+      will want to read twice before running anything.|]
     ),
     ( "sops",
-      "Its SOPS secrets: find them and name them, and DO NOT include their \
-      \removal in the script. The operator cleans up secrets himself, by his own \
-      \instruction. Your job on this surface is a list he can work from -- which \
-      \secret, in which file, referenced from where."
+      [wft|
+      Its SOPS secrets: find them and name them, and DO NOT include their
+      removal in the script. The operator cleans up secrets himself, by his own
+      instruction. Your job on this surface is a list he can work from -- which
+      secret, in which file, referenced from where.|]
     )
   ]
 
@@ -680,14 +700,15 @@ endpointBrief =
 -- | The install arm where every obligation was met and both receipts passed.
 installedNote :: Text
 installedNote =
-  "Outcome: INSTALLED AND ANSWERING. The operator's consent file was present, so \
-  \the certificate and the secrets were his; nine obligations were each planned \
-  \and applied in their own turn, in the file's own order; and both closing \
-  \receipts passed -- the systemd unit is running and the service answers over \
-  \HTTPS at its domain with a certificate this machine trusts. Report each \
-  \obligation and what was changed for it, name every obligation that reported \
-  \itself not applicable and why, and list every SOPS secret the operator still \
-  \has to create."
+  [wft|
+  Outcome: INSTALLED AND ANSWERING. The operator's consent file was present, so
+  the certificate and the secrets were his; nine obligations were each planned
+  and applied in their own turn, in the file's own order; and both closing
+  receipts passed -- the systemd unit is running and the service answers over
+  HTTPS at its domain with a certificate this machine trusts. Report each
+  obligation and what was changed for it, name every obligation that reported
+  itself not applicable and why, and list every SOPS secret the operator still
+  has to create.|]
 
 -- | The install arm where the unit is up and nothing answers.
 --
@@ -696,62 +717,68 @@ installedNote =
 -- certificate, or the port — and none of those is the service.
 notAnsweringNote :: Text
 notAnsweringNote =
-  "Outcome: RUNNING, NOT REACHABLE. The systemd unit is up, and the service did \
-  \NOT answer over HTTPS at its domain. Do not report this installation as \
-  \finished. The unit being healthy narrows it: the service itself started, so the \
-  \fault is between the domain and the process -- the nginx virtual host and its \
-  \proxy target, the certificate's validity or trust chain, or the port the \
-  \service actually listens on against the port the virtual host proxies to. Say \
-  \which of those three this run can rule out from what it changed, and which it \
-  \cannot. Every obligation's edit is still in place."
+  [wft|
+  Outcome: RUNNING, NOT REACHABLE. The systemd unit is up, and the service did
+  NOT answer over HTTPS at its domain. Do not report this installation as
+  finished. The unit being healthy narrows it: the service itself started, so
+  the fault is between the domain and the process -- the nginx virtual host and
+  its proxy target, the certificate's validity or trust chain, or the port the
+  service actually listens on against the port the virtual host proxies to. Say
+  which of those three this run can rule out from what it changed, and which it
+  cannot. Every obligation's edit is still in place.|]
 
 -- | The install arm where the unit itself is not up.
 notRunningNote :: Text
 notRunningNote =
-  "Outcome: NOT RUNNING. `systemctl status` says the service's unit is not \
-  \running, so the endpoint was not asked about -- there is nothing behind it to \
-  \answer. Do not report this installation as finished and do not describe the \
-  \monitoring as working: an exporter scraping a dead service is a dashboard of \
-  \zeroes. Report the unit name that was asked about, since a unit named \
-  \differently from the service would produce exactly this result, and then the \
-  \obligations as applied. Every edit is still in place."
+  [wft|
+  Outcome: NOT RUNNING. `systemctl status` says the service's unit is not
+  running, so the endpoint was not asked about -- there is nothing behind it to
+  answer. Do not report this installation as finished and do not describe the
+  monitoring as working: an exporter scraping a dead service is a dashboard of
+  zeroes. Report the unit name that was asked about, since a unit named
+  differently from the service would produce exactly this result, and then the
+  obligations as applied. Every edit is still in place.|]
 
 -- | The install arm where the operator has not done his part.
 consentAbsentNote :: Text
 consentAbsentNote =
-  "Outcome: NOT STARTED -- WAITING ON THE OPERATOR. The consent file this run \
-  \requires was not there, so nothing was planned, nothing was changed and no \
-  \obligation was attempted. This is the gate that stands in for two instructions \
-  \the source command shouts: the TLS certificate and the SOPS secrets are the \
-  \operator's, and a run that could satisfy the gate itself would not be a gate. \
-  \Report the exact path the run looked for and what has to exist before it is \
-  \started again."
+  [wft|
+  Outcome: NOT STARTED -- WAITING ON THE OPERATOR. The consent file this run
+  requires was not there, so nothing was planned, nothing was changed and no
+  obligation was attempted. This is the gate that stands in for two instructions
+  the source command shouts: the TLS certificate and the SOPS secrets are the
+  operator's, and a run that could satisfy the gate itself would not be a gate.
+  Report the exact path the run looked for and what has to exist before it is
+  started again.|]
 
 -- | The remove arm where the tree still builds.
 removedNote :: Text
 removedNote =
-  "Outcome: DECLARATIONS REMOVED, SCRIPT WRITTEN, TREE STILL BUILDS. Twelve \
-  \surfaces were swept by questions that had no authority to remove anything; the \
-  \service's Nix declarations were removed; a script carrying out everything else \
-  \was WRITTEN AND NOT RUN; and the host's own build driver was run afterwards and \
-  \passed. Those are two different guarantees and the report must keep them apart: \
-  \the build proves the configuration is still coherent without this service, and \
-  \it proves nothing at all about the script -- which the operator reads before he \
-  \runs it. Report the script's path, its destructive sections and what each \
-  \destroys, and the SOPS secrets listed for him to clean up himself."
+  [wft|
+  Outcome: DECLARATIONS REMOVED, SCRIPT WRITTEN, TREE STILL BUILDS. Twelve
+  surfaces were swept by questions that had no authority to remove anything; the
+  service's Nix declarations were removed; a script carrying out everything else
+  was WRITTEN AND NOT RUN; and the host's own build driver was run afterwards
+  and passed. Those are two different guarantees and the report must keep them
+  apart: the build proves the configuration is still coherent without this
+  service, and it proves nothing at all about the script -- which the operator
+  reads before he runs it. Report the script's path, its destructive sections
+  and what each destroys, and the SOPS secrets listed for him to clean up
+  himself.|]
 
 -- | The remove arm where the tree stopped building.
 removalRedNote :: Text
 removalRedNote =
-  "Outcome: THE CONFIGURATION NO LONGER BUILDS. The service's declarations were \
-  \removed and the host's own build driver still objects after every repair trip \
-  \this run was given -- so something else on this machine depended on what came \
-  \out. Do not report the removal as complete and do not suggest running the \
-  \script: a script that tears down state for a service whose declaration cannot \
-  \be removed cleanly is a script run against a half-configured machine. Quote the \
-  \driver's own failing line, name what it says still references the service, and \
-  \say what would have to change first. The script was written and is not to be \
-  \run yet."
+  [wft|
+  Outcome: THE CONFIGURATION NO LONGER BUILDS. The service's declarations were
+  removed and the host's own build driver still objects after every repair trip
+  this run was given -- so something else on this machine depended on what came
+  out. Do not report the removal as complete and do not suggest running the
+  script: a script that tears down state for a service whose declaration cannot
+  be removed cleanly is a script run against a half-configured machine. Quote
+  the driver's own failing line, name what it says still references the service,
+  and say what would have to change first. The script was written and is not to
+  be run yet.|]
 
 -- ---------------------------------------------------------------------------
 -- The functions
@@ -998,10 +1025,11 @@ checkedNote unit url =
     <> unit
     <> "` and `curl -fsS "
     <> url
-    <> "`. Both names were derived from this run's inputs, not discovered: if the \
-       \service's unit is not called that, or its virtual host is not at that \
-       \address, then the receipt tested the wrong thing and that is the first \
-       \possibility to rule out."
+    <> [wft|
+       `. Both names were derived from this run's inputs, not discovered: if the
+       service's unit is not called that, or its virtual host is not at that
+       address, then the receipt tested the wrong thing and that is the first
+       possibility to rule out.|]
 
 -- | One obligation's text, by name.
 --
@@ -1073,18 +1101,20 @@ serviceScript Install =
   ]
   where
     shaped =
-      "Native NixOS service. This machine declares its other metrics-exposing \
-      \services natively and reserves quadlets for upstreams that ship only \
-      \images; this one has a nixpkgs module.\n\
-      \Unit: paperless.service. User: paperless. Port: 28981. State: \
-      \/var/lib/paperless. Configuration: hosts/vulcan/paperless.nix.\n\
-      \Not sure of: whether the module's default port is overridden elsewhere on \
-      \this host."
+      [wft|
+      Native NixOS service. This machine declares its other metrics-exposing
+      services natively and reserves quadlets for upstreams that ship only
+      images; this one has a nixpkgs module.
+      Unit: paperless.service. User: paperless. Port: 28981. State:
+      /var/lib/paperless. Configuration: hosts/vulcan/paperless.nix.
+      Not sure of: whether the module's default port is overridden elsewhere on
+      this host.|]
 
     planned =
-      "hosts/vulcan/paperless.nix -- add the declaration this obligation needs, \
-      \following hosts/vulcan/grafana.nix, which is the nearest existing service \
-      \of the same shape. Applied as written."
+      [wft|
+      hosts/vulcan/paperless.nix -- add the declaration this obligation needs,
+      following hosts/vulcan/grafana.nix, which is the nearest existing service
+      of the same shape. Applied as written.|]
 serviceScript Remove =
   [ (repairBrief, "Removed the last reference to the service from hosts/vulcan/monitoring.nix.")
   ]
@@ -1092,13 +1122,19 @@ serviceScript Remove =
   where
     sweptAnswer l
       | lensName l == "sops" =
-          "sops/secrets.yaml carries `paperless/admin-password`, referenced from \
-          \hosts/vulcan/paperless.nix:22. Listed for the operator and NOT in the \
-          \script."
+          [wft|
+          sops/secrets.yaml carries `paperless/admin-password`, referenced from
+          hosts/vulcan/paperless.nix:22. Listed for the operator and NOT in the
+          script.|]
       | lensName l == "state" =
-          "/var/lib/paperless (DATA: documents and their index; not recoverable \
-          \once removed), the `paperless` user and group, and the `paperless` \
-          \database and role in the shared PostgreSQL (DATA)."
+          [wft|
+          /var/lib/paperless (DATA: documents and their index; not recoverable
+          once removed), the `paperless` user and group, and the `paperless`
+          database and role in the shared PostgreSQL (DATA).|]
       | otherwise =
-          "On " <> lensOwns l <> ": found and named, with the file and the \
-          \attribute path, and nothing removed. (the " <> lensName l <> " surface)"
+          [wft|
+          On {owns}: found and named, with the file and the attribute path, and
+          nothing removed. (the {name} surface)|]
+      where
+        owns = lensOwns l
+        name = lensName l

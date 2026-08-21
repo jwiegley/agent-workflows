@@ -318,32 +318,35 @@ supportBrief =
 -- | The arm where the owner approved the walkthrough.
 decidedNote :: Text
 decidedNote =
-  "Outcome: DECIDED. The owner approved the walkthrough, which means every \
-  \decision on the agenda is settled and the record of it is his. Report the \
-  \record as the decision log for this agenda: one entry per decision, the option \
-  \taken, and his own reason. Then the consequences the walkthrough named that \
-  \nobody has acted on yet, which are the next run's work and not this one's."
+  [wft|
+  Outcome: DECIDED. The owner approved the walkthrough, which means every
+  decision on the agenda is settled and the record of it is his. Report the
+  record as the decision log for this agenda: one entry per decision, the option
+  taken, and his own reason. Then the consequences the walkthrough named that
+  nobody has acted on yet, which are the next run's work and not this one's.|]
 
 -- | The arm where the rounds ran out.
 openNote :: Text
 openNote =
-  "Outcome: NOT SETTLED. The walkthrough's rounds ran out with the owner still \
-  \answering, so the document below is the one the last round produced and his \
-  \final answer objected to -- no round was spent folding in that last answer. Do \
-  \NOT present the agenda as decided. Report, in this order: the decisions the \
-  \record does support, his outstanding answer verbatim, and the agenda items \
-  \still open. The next run is given this record and the same agenda."
+  [wft|
+  Outcome: NOT SETTLED. The walkthrough's rounds ran out with the owner still
+  answering, so the document below is the one the last round produced and his
+  final answer objected to -- no round was spent folding in that last answer. Do
+  NOT present the agenda as decided. Report, in this order: the decisions the
+  record does support, his outstanding answer verbatim, and the agenda items
+  still open. The next run is given this record and the same agenda.|]
 
 -- | The arm where the owner walked away.
 withdrawnNote :: Text
 withdrawnNote =
-  "Outcome: WITHDRAWN -- NOTHING IS AGREED. The owner answered the walkthrough \
-  \with nothing, which in this run means: do not treat any of this as decided. \
-  \Every agenda item is UNSETTLED, including ones an earlier round recorded as \
-  \decided, because the run that would have confirmed them is the run he stopped. \
-  \Report the agenda, the background that was prepared for it, and nothing as \
-  \agreed. This arm exists so that an unattended run cannot read silence as \
-  \consent."
+  [wft|
+  Outcome: WITHDRAWN -- NOTHING IS AGREED. The owner answered the walkthrough
+  with nothing, which in this run means: do not treat any of this as decided.
+  Every agenda item is UNSETTLED, including ones an earlier round recorded as
+  decided, because the run that would have confirmed them is the run he stopped.
+  Report the agenda, the background that was prepared for it, and nothing as
+  agreed. This arm exists so that an unattended run cannot read silence as
+  consent.|]
 
 -- ---------------------------------------------------------------------------
 -- The function
@@ -559,34 +562,37 @@ qandaScript =
   ]
   where
     briefed =
-      "## 1. Whether the ingest queue is shared or per-tenant\n\
-      \Background: today one queue serves everybody, and one slow tenant delays \
-      \the rest.\n\
-      \Options: (a) a queue per tenant -- isolation, and N times the connection \
-      \and monitoring surface; (b) one queue with per-tenant rate limits -- one \
-      \thing to operate, and a slow tenant still adds latency.\n\
-      \Implications: (a) is hard to undo once tenants depend on their own \
-      \retention; (b) stays cheap to change.\n\
-      \For (a) to be right, tenant isolation has to be a contractual commitment \
-      \rather than a preference.\n\
-      \Not known: whether any tenant contract mentions isolation.\n\
-      \\n\
-      \Settle this one first: the retention and the alerting decisions both \
-      \depend on it."
+      [wft|
+      ## 1. Whether the ingest queue is shared or per-tenant
+      Background: today one queue serves everybody, and one slow tenant delays
+      the rest.
+      Options: (a) a queue per tenant -- isolation, and N times the connection
+      and monitoring surface; (b) one queue with per-tenant rate limits -- one
+      thing to operate, and a slow tenant still adds latency.
+      Implications: (a) is hard to undo once tenants depend on their own
+      retention; (b) stays cheap to change.
+      For (a) to be right, tenant isolation has to be a contractual commitment
+      rather than a preference.
+      Not known: whether any tenant contract mentions isolation.
+
+      Settle this one first: the retention and the alerting decisions both
+      depend on it.|]
 
     folded =
-      "## DECIDED\n\
-      \- Ingest queue: one queue with per-tenant rate limits. \"Take the second \
-      \option -- one queue, and accept the latency.\"\n\
-      \\n\
-      \## NEXT\n\
-      \Retention. With one shared queue the per-tenant retention window is a \
-      \property of the consumer rather than of the queue, which removes the \
-      \\"different retention per tenant\" option entirely.\n\
-      \\n\
-      \## STILL OPEN, AND WHAT I OWE YOU\n\
-      \- Alerting thresholds.\n\
-      \- I could not establish whether a tenant contract commits to isolation; the \
-      \signed agreements would settle it.\n\
-      \- Consequence you may not have intended: with one queue, a per-tenant \
-      \backlog alert has to be derived from consumer lag rather than queue depth."
+      [wft|
+      ## DECIDED
+      - Ingest queue: one queue with per-tenant rate limits. "Take the second
+        option -- one queue, and accept the latency."
+
+      ## NEXT
+      Retention. With one shared queue the per-tenant retention window is a
+      property of the consumer rather than of the queue, which removes the
+      "different retention per tenant" option entirely.
+
+      ## STILL OPEN, AND WHAT I OWE YOU
+      - Alerting thresholds.
+      - I could not establish whether a tenant contract commits to isolation;
+        the signed agreements would settle it.
+      - Consequence you may not have intended: with one queue, a per-tenant
+        backlog alert has to be derived from consumer lag rather than queue
+        depth.|]

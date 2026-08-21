@@ -202,9 +202,10 @@ documentPanel r subject =
   panelText (zip (lensNames r) (asksOver r reportClosing subject))
   where
     reportClosing =
-      "Report your findings and nothing else. Your answer is one block of a \
-      \document whose other blocks are your siblings' — do not summarise the \
-      \whole, and do not address the reader of any block but your own."
+      [wft|
+      Report your findings and nothing else. Your answer is one block of a
+      document whose other blocks are your siblings' — do not summarise the
+      whole, and do not address the reader of any block but your own.|]
 
 -- | The roster over an artefact __and__ a dossier of receipts the world
 -- authored.

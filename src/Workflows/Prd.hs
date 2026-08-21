@@ -828,103 +828,114 @@ presenceBrief =
 -- | The @prd-draft@ arm where a PRD already stands.
 standsNote :: Text
 standsNote =
-  "Outcome: A PRD ALREADY STANDS, AND NOTHING WAS WRITTEN. `prd-architect.md` §6 \
-  \says to place the PRD at its default path \"if one doesn't already exist\", and \
-  \one does. This row does not overwrite it and does not merge into it: a document \
-  \with requirements somebody has already built against is not a draft. Report the \
-  \path, and name `prd-critique` as the row for an existing PRD -- it reads the \
-  \document, judges it on seven axes and cannot write to it. If the intent really \
-  \is to start again, the existing file is moved by a person first, which is a \
-  \deliberate act and not a side effect of a workflow."
+  [wft|
+  Outcome: A PRD ALREADY STANDS, AND NOTHING WAS WRITTEN. `prd-architect.md` §6
+  says to place the PRD at its default path "if one doesn't already exist", and
+  one does. This row does not overwrite it and does not merge into it: a
+  document with requirements somebody has already built against is not a draft.
+  Report the path, and name `prd-critique` as the row for an existing PRD -- it
+  reads the document, judges it on seven axes and cannot write to it. If the
+  intent really is to start again, the existing file is moved by a person first,
+  which is a deliberate act and not a side effect of a workflow.|]
 
 -- | The @prd-draft@ arm where the understanding was not confirmed.
 misunderstoodNote :: Text
 misunderstoodNote =
-  "Outcome: NOT CONFIRMED -- NO PRD WAS DRAFTED. The paraphrase of the project was \
-  \put to the owner and he did not accept it, so the eight section questions were \
-  \never asked: every one of them is bound after his answer, which is what makes \
-  \\"validate assumptions before proceeding\" a property of this program rather \
-  \than an instruction in it. Report the understanding that was rejected, verbatim, \
-  \with its assumptions list -- that list is the useful artefact of this run, \
-  \because the assumption he objected to is the one that would have become a \
-  \requirement. Then say what a second run would need to be told."
+  [wft|
+  Outcome: NOT CONFIRMED -- NO PRD WAS DRAFTED. The paraphrase of the project
+  was put to the owner and he did not accept it, so the eight section questions
+  were never asked: every one of them is bound after his answer, which is what
+  makes "validate assumptions before proceeding" a property of this program
+  rather than an instruction in it. Report the understanding that was rejected,
+  verbatim, with its assumptions list -- that list is the useful artefact of
+  this run, because the assumption he objected to is the one that would have
+  become a requirement. Then say what a second run would need to be told.|]
 
 -- | The @prd-draft@ arm where the draft still has open questions.
 openQuestionsNote :: Text
 openQuestionsNote =
-  "Outcome: DRAFT WITH OPEN QUESTIONS -- NOT VERIFIED, AND DELIBERATELY NOT SENT \
-  \TO A REVIEWER. The assembled document carries at least one `[TODO:` line, which \
-  \means a section could not be settled from what the owner was able to say. A \
-  \verifier's opinion about a section built on a guess is worth nothing, so the \
-  \verification budget was not spent. Report the draft in full, then list EVERY \
-  \open question as its own line, addressed to the owner -- that list is what this \
-  \run is for. Do not present the document as a PRD, and do not answer any of the \
-  \open questions in the report: the whole point of the marker is that nobody has."
+  [wft|
+  Outcome: DRAFT WITH OPEN QUESTIONS -- NOT VERIFIED, AND DELIBERATELY NOT SENT
+  TO A REVIEWER. The assembled document carries at least one `[TODO:` line,
+  which means a section could not be settled from what the owner was able to
+  say. A verifier's opinion about a section built on a guess is worth nothing,
+  so the verification budget was not spent. Report the draft in full, then list
+  EVERY open question as its own line, addressed to the owner -- that list is
+  what this run is for. Do not present the document as a PRD, and do not answer
+  any of the open questions in the report: the whole point of the marker is that
+  nobody has.|]
 
 -- | The @prd-draft@ arm where the checklist passed.
 verifiedNote :: Text
 verifiedNote =
-  "Outcome: DRAFTED AND VERIFIED. The owner's answers were paraphrased and \
-  \confirmed before anything was written; eight sections were written by eight \
-  \parties, each told what its siblings own; the assembly changed no section's \
-  \text; the document carries no open question; and a party that wrote none of it \
-  \applied the nine-item self-verification checklist and approved it. Report the \
-  \document as the artefact. Say what this establishes and what it does not: a \
-  \checklist that passed is a document that is internally consistent and \
-  \specific, which is not the same as a document whose requirements are the right \
-  \requirements -- only the owner can say that, and he has seen the paraphrase \
-  \rather than the PRD."
+  [wft|
+  Outcome: DRAFTED AND VERIFIED. The owner's answers were paraphrased and
+  confirmed before anything was written; eight sections were written by eight
+  parties, each told what its siblings own; the assembly changed no section's
+  text; the document carries no open question; and a party that wrote none of it
+  applied the nine-item self-verification checklist and approved it. Report the
+  document as the artefact. Say what this establishes and what it does not: a
+  checklist that passed is a document that is internally consistent and
+  specific, which is not the same as a document whose requirements are the right
+  requirements -- only the owner can say that, and he has seen the paraphrase
+  rather than the PRD.|]
 
 -- | The @prd-draft@ arm where the checklist still objected.
 unverifiedNote :: Text
 unverifiedNote =
-  "Outcome: NOT VERIFIED. The verifier still objected after every repair trip this \
-  \run was given, so the document below is the one the last trip produced and the \
-  \final check objected to -- no trip was spent answering that last objection. \
-  \Report the outstanding objection FIRST, verbatim, with the checklist item \
-  \number it names, then the document beneath it. Do NOT describe this as a \
-  \verified PRD. An item that survived two repairs is usually an item the document \
-  \cannot satisfy from what the owner knew, and naming it is more useful than \
-  \another round would have been."
+  [wft|
+  Outcome: NOT VERIFIED. The verifier still objected after every repair trip
+  this run was given, so the document below is the one the last trip produced
+  and the final check objected to -- no trip was spent answering that last
+  objection. Report the outstanding objection FIRST, verbatim, with the
+  checklist item number it names, then the document beneath it. Do NOT describe
+  this as a verified PRD. An item that survived two repairs is usually an item
+  the document cannot satisfy from what the owner knew, and naming it is more
+  useful than another round would have been.|]
 
 -- | The @prd-draft@ arm where the verifier declined.
 uncheckedNote :: Text
 uncheckedNote =
-  "Outcome: UNCHECKED. The verifier declined to judge the document at all, so the \
-  \nine-item checklist was applied by nobody -- and it certainly was not applied by \
-  \its author, which is the arrangement this row exists to avoid. Report the \
-  \document as UNCHECKED, name the eight sections and their parties, and do not \
-  \report any checklist item as passed."
+  [wft|
+  Outcome: UNCHECKED. The verifier declined to judge the document at all, so the
+  nine-item checklist was applied by nobody -- and it certainly was not applied
+  by its author, which is the arrangement this row exists to avoid. Report the
+  document as UNCHECKED, name the eight sections and their parties, and do not
+  report any checklist item as passed.|]
 
 -- | The @prd-critique@ arm where there is nothing at the path.
 absentNote :: Text
 absentNote =
-  "Outcome: NOTHING TO CRITIQUE. No file stands at the path this run was given, so \
-  \there is no PRD to analyse and nothing was asked of anybody. Report the path \
-  \that was probed, and name `prd-draft` as the row that writes one. This costs two \
-  \consultations and it is the correct answer: seven analysis axes over a document \
-  \that does not exist would have produced seven readings of nothing."
+  [wft|
+  Outcome: NOTHING TO CRITIQUE. No file stands at the path this run was given,
+  so there is no PRD to analyse and nothing was asked of anybody. Report the
+  path that was probed, and name `prd-draft` as the row that writes one. This
+  costs two consultations and it is the correct answer: seven analysis axes over
+  a document that does not exist would have produced seven readings of nothing.|]
 
 -- | The @prd-critique@ arm where every axis reported.
 critiquedNote :: Text
 critiquedNote =
-  "Outcome: CRITIQUED, AND NOTHING WAS WRITTEN TO THE DOCUMENT. Seven axes -- \
-  \completeness, clarity, consistency, feasibility, maintainability, security and \
-  \scalability -- read the same document independently, and the fold accounted for \
-  \every one of them before ranking anything. Nothing in this run can modify the \
-  \PRD: every question in it was asked at `text`, which has no write authority, so \
-  \\"provide feedback\" and \"do not edit\" are one fact here rather than two \
-  \instructions. Report the five parts as they came: strengths, critical gaps, \
-  \improvement opportunities, risk factors, and specific recommendations."
+  [wft|
+  Outcome: CRITIQUED, AND NOTHING WAS WRITTEN TO THE DOCUMENT. Seven axes --
+  completeness, clarity, consistency, feasibility, maintainability, security and
+  scalability -- read the same document independently, and the fold accounted
+  for every one of them before ranking anything. Nothing in this run can modify
+  the PRD: every question in it was asked at `text`, which has no write
+  authority, so "provide feedback" and "do not edit" are one fact here rather
+  than two instructions. Report the five parts as they came: strengths, critical
+  gaps, improvement opportunities, risk factors, and specific recommendations.|]
 
 -- | The @prd-critique@ arm where the fold came up short.
 shortFanOutNote :: Text
 shortFanOutNote =
-  "Outcome: INCOMPLETE CRITIQUE. The fold refused, because at least one axis \
-  \produced no block; its first line names which. Label this feedback incomplete \
-  \and name the missing axes. This matters more here than in most folds: the seven \
-  \axes are chosen to be non-overlapping, so a missing axis is not a thinner \
-  \review of the same thing, it is a dimension of the document nobody looked at."
+  [wft|
+  Outcome: INCOMPLETE CRITIQUE. The fold refused, because at least one axis
+  produced no block; its first line names which. Label this feedback incomplete
+  and name the missing axes. This matters more here than in most folds: the
+  seven axes are chosen to be non-overlapping, so a missing axis is not a
+  thinner review of the same thing, it is a dimension of the document nobody
+  looked at.|]
 
 -- ---------------------------------------------------------------------------
 -- The function
@@ -1203,86 +1214,91 @@ prdScript Draft =
     <> [(lensBrief l, sectionAnswer (lensName l)) | l <- sectionRoster]
   where
     saidAnswer =
-      "The problem: our support team re-types the same answers into three \
-      \systems. Primary users: eight support agents, and their key workflow is \
-      \open ticket, find prior answer, paste, close. Success metric: median \
-      \handle time under four minutes. Performance: 200 concurrent agents, p99 \
-      \under 300ms. Deployment: our own Kubernetes cluster. Integrations: \
-      \Zendesk, and the internal wiki's search API. Timeline: one quarter, two \
-      \engineers. Testing: don't know. Documentation: don't know. Already \
-      \decided: it is TypeScript, because the team is."
+      [wft|
+      The problem: our support team re-types the same answers into three
+      systems. Primary users: eight support agents, and their key workflow is
+      open ticket, find prior answer, paste, close. Success metric: median
+      handle time under four minutes. Performance: 200 concurrent agents, p99
+      under 300ms. Deployment: our own Kubernetes cluster. Integrations:
+      Zendesk, and the internal wiki's search API. Timeline: one quarter, two
+      engineers. Testing: don't know. Documentation: don't know. Already
+      decided: it is TypeScript, because the team is.|]
 
     understandingAnswer =
-      "The project is an answer-reuse layer over an existing support stack. \
-      \Users are eight agents whose workflow is ticket-to-paste-to-close, and \
-      \success is measured in median handle time.\n\
-      \\n\
-      \Constraints already fixed: TypeScript, our own Kubernetes, Zendesk and \
-      \the wiki search API as integrations, one quarter with two engineers.\n\
-      \\n\
-      \Numbers as given: 200 concurrent agents, p99 under 300ms, median handle \
-      \time under four minutes.\n\
-      \\n\
-      \Assumptions I am making: that the wiki search API is read-only; that \
-      \agent identity comes from the existing SSO; that there is no requirement \
-      \to work offline.\n\
-      \\n\
-      \Open questions the owner said he does not know: the testing strategy, and \
-      \the documentation approach."
+      [wft|
+      The project is an answer-reuse layer over an existing support stack. Users
+      are eight agents whose workflow is ticket-to-paste-to-close, and success
+      is measured in median handle time.
+
+      Constraints already fixed: TypeScript, our own Kubernetes, Zendesk and the
+      wiki search API as integrations, one quarter with two engineers.
+
+      Numbers as given: 200 concurrent agents, p99 under 300ms, median handle
+      time under four minutes.
+
+      Assumptions I am making: that the wiki search API is read-only; that agent
+      identity comes from the existing SSO; that there is no requirement to work
+      offline.
+
+      Open questions the owner said he does not know: the testing strategy, and
+      the documentation approach.|]
 
     -- Deliberately does NOT open a line with `[TODO:`, so the rehearsal reaches
     -- the verification loop rather than the open-questions ending.
     draftAnswer =
-      "# Answer Reuse Layer\n\
-      \\n\
-      \## Overview\n\
-      \A service that surfaces prior support answers into the agent's ticket \
-      \view.\n\
-      \\n\
-      \## Technology Stack\n\
-      \TypeScript 5.4, Node 22, PostgreSQL 16, deployed to the existing \
-      \Kubernetes cluster.\n\
-      \\n\
-      \## Requirements\n\
-      \### Functional Requirements\n\
-      \FR-001: Suggest prior answers for an open ticket.\n\
-      \- Acceptance: for a ticket with a known-duplicate history, the prior \
-      \answer appears in the top three suggestions.\n\
-      \- Priority: Critical. Dependencies: IR-001.\n\
-      \### Non-Functional Requirements\n\
-      \NFR-001: p99 suggestion latency under 300ms at 200 concurrent agents.\n\
-      \### Technical Requirements\n\
-      \TR-001: A read-only projection of the wiki index, refreshed every five \
-      \minutes.\n\
-      \### Integration Requirements\n\
-      \IR-001: Zendesk ticket events over its webhook.\n\
-      \\n\
-      \## Testing Strategy\n\
-      \Vitest for units at 80% line coverage; one integration suite against a \
-      \containerised Postgres; a load test that asserts NFR-001.\n\
-      \\n\
-      \## Documentation Strategy\n\
-      \OpenAPI for the HTTP surface, TSDoc on exported symbols, one ADR per \
-      \integration.\n\
-      \\n\
-      \## File Organization\n\
-      \src/api, src/ingest, src/rank, src/db; tests beside the code they cover.\n\
-      \\n\
-      \## Testing Guidelines\n\
-      \80% lines, 70:25:5 unit to integration to end-to-end, and the Zendesk \
-      \client is the only mock permitted.\n\
-      \\n\
-      \## Development Flow\n\
-      \Trunk-based, one review per change, definition of done is: tests green, \
-      \coverage not reduced, ADR written if an integration moved.\n\
-      \\n\
-      \## Dependencies\n\
-      \fastify 4.x (HTTP, MIT), pg 8.x (Postgres driver, MIT), zod 3.x \
-      \(validation, MIT)."
+      [wft|
+      # Answer Reuse Layer
 
+      ## Overview
+      A service that surfaces prior support answers into the agent's ticket
+      view.
+
+      ## Technology Stack
+      TypeScript 5.4, Node 22, PostgreSQL 16, deployed to the existing
+      Kubernetes cluster.
+
+      ## Requirements
+      ### Functional Requirements
+      FR-001: Suggest prior answers for an open ticket.
+      - Acceptance: for a ticket with a known-duplicate history, the prior
+        answer appears in the top three suggestions.
+      - Priority: Critical. Dependencies: IR-001.
+      ### Non-Functional Requirements
+      NFR-001: p99 suggestion latency under 300ms at 200 concurrent agents.
+      ### Technical Requirements
+      TR-001: A read-only projection of the wiki index, refreshed every five
+      minutes.
+      ### Integration Requirements
+      IR-001: Zendesk ticket events over its webhook.
+
+      ## Testing Strategy
+      Vitest for units at 80% line coverage; one integration suite against a
+      containerised Postgres; a load test that asserts NFR-001.
+
+      ## Documentation Strategy
+      OpenAPI for the HTTP surface, TSDoc on exported symbols, one ADR per
+      integration.
+
+      ## File Organization
+      src/api, src/ingest, src/rank, src/db; tests beside the code they cover.
+
+      ## Testing Guidelines
+      80% lines, 70:25:5 unit to integration to end-to-end, and the Zendesk
+      client is the only mock permitted.
+
+      ## Development Flow
+      Trunk-based, one review per change, definition of done is: tests green,
+      coverage not reduced, ADR written if an integration moved.
+
+      ## Dependencies
+      fastify 4.x (HTTP, MIT), pg 8.x (Postgres driver, MIT), zod 3.x
+      (validation, MIT).|]
+
+    sectionAnswer :: Text -> Text
     sectionAnswer n =
-      "This is the " <> n <> " section, written against the confirmed \
-                                \understanding and carrying no open question."
+      [wft|
+      This is the {n} section, written against the confirmed understanding and
+      carrying no open question.|]
 prdScript Critique =
   [ -- No row for the probe: the flag default is `yes`, which is the arm that
     -- reads the document. `(presenceBrief, "no")` reaches the other terminal.
@@ -1292,51 +1308,53 @@ prdScript Critique =
     <> [(lensBrief l, axisAnswer (lensName l)) | l <- critiqueRoster]
   where
     documentAnswer =
-      "# Answer Reuse Layer\n\
-      \\n\
-      \## Overview\n\
-      \A service that surfaces prior support answers into the agent's ticket \
-      \view.\n\
-      \\n\
-      \## Requirements\n\
-      \FR-001: Suggest prior answers. Priority: Critical.\n\
-      \NFR-001: The service should be fast.\n\
-      \\n\
-      \## Dependencies\n\
-      \fastify, pg, zod."
+      [wft|
+      # Answer Reuse Layer
 
+      ## Overview
+      A service that surfaces prior support answers into the agent's ticket
+      view.
+
+      ## Requirements
+      FR-001: Suggest prior answers. Priority: Critical.
+      NFR-001: The service should be fast.
+
+      ## Dependencies
+      fastify, pg, zod.|]
+
+    axisAnswer :: Text -> Text
     axisAnswer n =
-      "I notice the "
-        <> n
-        <> " dimension is addressed in one line. Have you considered stating it \
-           \as a requirement with an acceptance criterion? The Requirements \
-           \section could be strengthened by giving NFR-001 a number: \"should be \
-           \fast\" cannot be tested."
+      [wft|
+      I notice the {n} dimension is addressed in one line. Have you considered
+      stating it as a requirement with an acceptance criterion? The Requirements
+      section could be strengthened by giving NFR-001 a number: "should be fast"
+      cannot be tested.|]
 
     -- Deliberately does NOT open a line with `INCOMPLETE:`: the scripted run
     -- takes the complete arm, and the other arm is reached by opening with one.
     feedbackAnswer =
-      "All seven axes accounted for.\n\
-      \\n\
-      \## Strengths\n\
-      \The Overview states the problem in one sentence, and FR-001 carries a \
-      \priority.\n\
-      \\n\
-      \## Critical Gaps\n\
-      \NFR-001 has no number and therefore no test. Five of the eight required \
-      \sections are absent: Technology Stack, Testing Strategy, Documentation \
-      \Strategy, File Organization, Testing Guidelines and Development Flow.\n\
-      \\n\
-      \## Improvement Opportunities\n\
-      \FR-001 has no acceptance criterion; two reviewers reached this \
-      \independently.\n\
-      \\n\
-      \## Risk Factors\n\
-      \Dependencies carry no versions and no licences, so the build is not \
-      \reproducible and the licence position is unknown.\n\
-      \\n\
-      \## Specific Recommendations\n\
-      \1. Give NFR-001 a latency and a concurrency: \"p99 under 300ms at 200 \
-      \concurrent agents\".\n\
-      \2. Add the six missing sections; the Requirements section depends on the \
-      \stack being named first."
+      [wft|
+      All seven axes accounted for.
+
+      ## Strengths
+      The Overview states the problem in one sentence, and FR-001 carries a
+      priority.
+
+      ## Critical Gaps
+      NFR-001 has no number and therefore no test. Five of the eight required
+      sections are absent: Technology Stack, Testing Strategy, Documentation
+      Strategy, File Organization, Testing Guidelines and Development Flow.
+
+      ## Improvement Opportunities
+      FR-001 has no acceptance criterion; two reviewers reached this
+      independently.
+
+      ## Risk Factors
+      Dependencies carry no versions and no licences, so the build is not
+      reproducible and the licence position is unknown.
+
+      ## Specific Recommendations
+      1. Give NFR-001 a latency and a concurrency: "p99 under 300ms at 200
+         concurrent agents".
+      2. Add the six missing sections; the Requirements section depends on the
+         stack being named first.|]

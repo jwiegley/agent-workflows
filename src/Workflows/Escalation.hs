@@ -195,8 +195,9 @@ escalating judge judgeBrief worker workerBrief subject bound =
 -- | The @SettledOn@ note.
 completeNote :: Text
 completeNote =
-  "Outcome: WORK COMPLETE. A review approved this artefact within the run's \
-  \bound. Report it as finished."
+  [wft|
+  Outcome: WORK COMPLETE. A review approved this artefact within the run's
+  bound. Report it as finished.|]
 
 -- | The @UnsettledOn@ note.
 --
@@ -206,15 +207,17 @@ completeNote =
 -- was never requested.
 remainsNote :: Text
 remainsNote =
-  "Outcome: WORK REMAINS. The bound ran out with an objection outstanding. The \
-  \artefact below is what the last round produced and the final review objected \
-  \to; no round was spent answering that last objection. Report what remains, \
-  \and do not describe this as finished."
+  [wft|
+  Outcome: WORK REMAINS. The bound ran out with an objection outstanding. The
+  artefact below is what the last round produced and the final review objected
+  to; no round was spent answering that last objection. Report what remains, and
+  do not describe this as finished.|]
 
 -- | The @AbandonedOn@ note.
 blockedNote :: Text
 blockedNote =
-  "Outcome: WORK BLOCKED. The reviewer declined to judge the artefact, so no \
-  \further round could help. Report what is blocking and what would have to \
-  \change outside this run; do not report findings as though a review had been \
-  \completed."
+  [wft|
+  Outcome: WORK BLOCKED. The reviewer declined to judge the artefact, so no
+  further round could help. Report what is blocking and what would have to
+  change outside this run; do not report findings as though a review had been
+  completed.|]

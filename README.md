@@ -931,3 +931,13 @@ of 24".
 7. **A row is one shape, never one invocation.** Rungs that differ in roster,
    receipts and price are rows; things that differ only in what `--input-arg` is
    given are not.
+8. **Prose is written at the fence, and only fixtures are not.** Every text a
+   model is put or a report carries is a `[wft|…|]`, holes and all — the owner's
+   ruling of 2026-08-21, "it should only use the latter for consistency". The
+   string-gap literal survives in exactly one job: bytes some tool or file would
+   have produced, standing in for a receipt inside a scripted table — fake
+   `git`/`gt`/`psql`/linter/test-runner stdout, a diff, a schema, a JSON payload,
+   a directory listing, a code scrap. A fence cannot hold several of those shapes
+   at all (it drops leading and trailing blank lines and cannot end in a
+   newline), so each one that stays says why in one line above it: *fixture
+   bytes, not prose*.

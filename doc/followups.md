@@ -147,6 +147,53 @@ lightly compressed — each is a decision, not just a chore:
   assumed. The convertible idioms (412 `wfText [wf|…|]` compositions, two
   prefix-concatenations) are all gone.
 
+  **The prose half is discharged (2026-08-21), by a ruling that let the bytes
+  move.** The owner, on `Wiggum.hs`: *"why does src/Workflows/Wiggum.hs still
+  use a mixture of Haskell-style multi-line strings, and the wft quasi-quoter?
+  It should only use the latter for consistency."* That overrules
+  bytes-win-over-beauty **for prose** and for prose only. Of the 511 gap
+  literals this tree actually holds (the 500 above counted a slightly different
+  grouping), 471 were prose and all 471 are now `[wft|…|]`, re-wrapped to the
+  tree's ~80-col style. 429 stood alone and converted mechanically; the other
+  42 were fragments of `<>` chains and were folded into 37 fences carrying
+  define holes — among them `notIndependentNote`'s siblings `doneNote`,
+  `stillRemainsNote` and `cannotJudgeNote`, `Wiggum.hs`'s `parityClause`, and
+  the provenance builders `tierProvenance`, `wholeTeamNote` and `auditedNote`.
+  Seven of those needed a `:: Text` signature on the newly held-out binding,
+  because a hole goes through the class method `saysText` and an unannotated
+  local binding is then ambiguous.
+
+  **The fixture half stands, with its reason sharpened.** 40 gap literals
+  remain and every one is *bytes some tool or file would have produced*,
+  standing in for a receipt inside a scripted table: fake `git`/`gt`/`psql`/
+  linter/test-runner stdout, unified diffs, a schema DDL, `gh --json`
+  payloads, directory listings, an org tree, a checklist file, a code scrap
+  whose indentation is the defect under review. Six end in a trailing newline
+  and four begin with a space — shapes a fence cannot produce, since it drops
+  its blank edge lines. Each now carries one line above it: `fixture bytes,
+  not prose: <what it stands in for>`. README house rule 8 states the split;
+  `Workflows.Prose`'s header carries the argument.
+
+  **Two prose blocks are fences that are deliberately not re-wrapped**, and
+  say so: `DeadCode.hs`'s advocate `OBJECTION` and `Nix.hs`'s `baseline`, both
+  answers to *verdict* questions, where `Agentic.Text.decodeVerdict` makes one
+  objection **per line** — a wrap would have turned one objection into three.
+  That is the one failure the word-preserving re-wrap could still cause, and
+  it was caught by diffing every row's run output rather than by reading.
+
+  **What the sweep is evidence about.** Every row's `wf plan`, `wf cost` and
+  `wf run --scripted` output is byte-identical to `178cabb` — without
+  `--raw`, which prints literal prompt bytes and correctly differs (the runner's
+  per-run `PARENT_HISTORY_SENTINEL` normalised), which is stronger than the
+  gate: it pins every arm, every bill and every rendered prompt, not just the
+  level, the path count and the ceiling. The mechanism is
+  `Agentic.Exec.oneLine`, which collapses whitespace runs when it prints a
+  prompt — so a re-wrap that moves no *word* cannot move a printed byte.
+  **No scripted key needed updating**, and that is a fact about the design
+  rather than luck: every key in every table is the define itself (or a
+  function of it), so a reworded prompt moves its key with it. A grep for a
+  string-literal key across all `*Script*` tables finds zero.
+
 ## From the duet landing (2026-08-20)
 
 The design of record is `doc/research/duet-design.md`. Everything in §1–§5 and

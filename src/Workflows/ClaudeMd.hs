@@ -165,24 +165,30 @@ claudeMdDoc Advise =
 -- handed the same list. A ninth rule reaches both by being added.
 claudeMdRules :: [Text]
 claudeMdRules =
-  [ "Do not repeat yourself. A thing said in two sections is a thing that will \
-    \drift in one of them.",
-    "Do not include obvious instructions -- \"provide helpful error messages\", \
-    \\"write unit tests for all new utilities\", \"never include secrets in \
-    \code or commits\". Every one of those is true of every repository, so none \
-    \of them says anything about this one.",
-    "Avoid listing every component or file structure that can be discovered by \
-    \looking. A tree listing is not architecture.",
+  [ [wft|
+    Do not repeat yourself. A thing said in two sections is a thing that will
+    drift in one of them.|],
+    [wft|
+    Do not include obvious instructions -- "provide helpful error messages",
+    "write unit tests for all new utilities", "never include secrets in code or
+    commits". Every one of those is true of every repository, so none of them
+    says anything about this one.|],
+    [wft|
+    Avoid listing every component or file structure that can be discovered by
+    looking. A tree listing is not architecture.|],
     "Do not include generic development practices.",
-    "If there are Cursor rules -- in `.cursor/rules/` or `.cursorrules` -- or \
-    \Copilot rules in `.github/copilot-instructions.md`, include the important \
-    \parts of them.",
+    [wft|
+    If there are Cursor rules -- in `.cursor/rules/` or `.cursorrules` -- or
+    Copilot rules in `.github/copilot-instructions.md`, include the important
+    parts of them.|],
     "If there is a `README.md`, include the important parts of it.",
-    "Do not make up information. Sections such as \"Common Development Tasks\", \
-    \\"Tips for Development\" or \"Support and Documentation\" go in only when \
-    \a file you actually read carries them.",
-    "Prefix the file with the mandatory block, exactly as given, before anything \
-    \else."
+    [wft|
+    Do not make up information. Sections such as "Common Development Tasks",
+    "Tips for Development" or "Support and Documentation" go in only when a file
+    you actually read carries them.|],
+    [wft|
+    Prefix the file with the mandatory block, exactly as given, before anything
+    else.|]
   ]
 
 -- | The four lines @initialize.md@ says the file must begin with.
@@ -192,10 +198,11 @@ claudeMdRules =
 -- writing act is handed the text, not a description of it.
 mandatoryPrefix :: Text
 mandatoryPrefix =
-  "# CLAUDE.md\n\
-  \\n\
-  \This file provides guidance to Claude Code (claude.ai/code) when working\n\
-  \with code in this repository."
+  [wft|
+  # CLAUDE.md
+
+  This file provides guidance to Claude Code (claude.ai/code) when working
+  with code in this repository.|]
 
 -- | The two things both files ask a @CLAUDE.md@ to contain.
 --
@@ -313,9 +320,10 @@ adviceBrief who =
 -- | What the adviser panel's blocks are told about their shape.
 adviceClosing :: Text
 adviceClosing =
-  "Report your advice and nothing else. Your answer is one block of a document \
-  \whose other blocks are the other specialists', each fenced under its own \
-  \name: do not write theirs, and do not draft the file."
+  [wft|
+  Report your advice and nothing else. Your answer is one block of a document
+  whose other blocks are the other specialists', each fenced under its own name:
+  do not write theirs, and do not draft the file.|]
 
 -- | What the drafting act is told, at @claude-md@.
 draftBrief :: Text
@@ -471,47 +479,51 @@ adviseWriteBrief =
 -- | The arm where there was no file.
 writtenNote :: Text
 writtenNote =
-  "Provenance: the repository's top level was read with `ls`, no `CLAUDE.md` \
-  \stood in it -- a test over the listing's own bytes -- and one was written, \
-  \beginning with the mandatory prefix block as given. Nothing was overwritten, \
-  \because there was nothing there to overwrite."
+  [wft|
+  Provenance: the repository's top level was read with `ls`, no `CLAUDE.md`
+  stood in it -- a test over the listing's own bytes -- and one was written,
+  beginning with the mandatory prefix block as given. Nothing was overwritten,
+  because there was nothing there to overwrite.|]
 
 -- | The arm where there was one.
 critiquedNote :: Text
 critiquedNote =
-  "Provenance: the repository already carries a `CLAUDE.md`, so this run \
-  \produced a CRITIQUE of it and did not touch it. The existing file is quoted \
-  \in the critique and is otherwise exactly as it was. Do not report this run as \
-  \having written or updated the repository's briefing file."
+  [wft|
+  Provenance: the repository already carries a `CLAUDE.md`, so this run produced
+  a CRITIQUE of it and did not touch it. The existing file is quoted in the
+  critique and is otherwise exactly as it was. Do not report this run as having
+  written or updated the repository's briefing file.|]
 
 -- | @claude-md-advise@, where the audit approved.
 auditedNote :: Roster -> Text
 auditedNote r =
-  "Provenance: this draft was built from "
-    <> tshow (length r)
-    <> " specialist reading(s) of the repository, folded once, and then audited \
-       \against the eight standing rules by a party pinned to a serving model \
-       \none of them used -- which approved. The audit is somebody else's, which \
-       \is what makes it an audit."
+  [wft|
+  Provenance: this draft was built from {readings} specialist reading(s) of the
+  repository, folded once, and then audited against the eight standing rules by
+  a party pinned to a serving model none of them used -- which approved. The
+  audit is somebody else's, which is what makes it an audit.|]
+  where
+    readings = tshow (length r)
 
 -- | Where it objected.
 auditObjectedNote :: Text
 auditObjectedNote =
-  "Outcome: THE AUDIT OBJECTED. The draft below did not hold against the \
-  \standing rules; the objection lines are given with it and each quotes what it \
-  \is about. Do NOT write this draft to `CLAUDE.md`: a briefing file every \
-  \future session reads is exactly the wrong place for a rule violation to land \
-  \unnoticed. Write it as a draft beside the audit and leave the decision to a \
-  \person."
+  [wft|
+  Outcome: THE AUDIT OBJECTED. The draft below did not hold against the standing
+  rules; the objection lines are given with it and each quotes what it is about.
+  Do NOT write this draft to `CLAUDE.md`: a briefing file every future session
+  reads is exactly the wrong place for a rule violation to land unnoticed. Write
+  it as a draft beside the audit and leave the decision to a person.|]
 
 -- | Where it declined.
 auditSilentNote :: Text
 auditSilentNote =
-  "Outcome: UNAUDITED. The audit was put to an independent party and it did not \
-  \answer, so this draft is unchecked against the standing rules. Do NOT write it \
-  \to `CLAUDE.md`. Write it as a draft, say in one line at the top that no audit \
-  \ran, and do not substitute your own reading of the rules for the one that did \
-  \not happen."
+  [wft|
+  Outcome: UNAUDITED. The audit was put to an independent party and it did not
+  answer, so this draft is unchecked against the standing rules. Do NOT write it
+  to `CLAUDE.md`. Write it as a draft, say in one line at the top that no audit
+  ran, and do not substitute your own reading of the rules for the one that did
+  not happen.|]
 
 -- ---------------------------------------------------------------------------
 -- The two named outcomes
@@ -730,6 +742,7 @@ claudeMdScript rung =
 
     -- Deliberately without a `CLAUDE.md` line: the scripted run takes the
     -- writing arm, and the other arm is reached by adding one.
+    -- fixture bytes, not prose: fake `ls` stdout.
     listingAnswer =
       "Makefile\n\
       \README.md\n\
@@ -737,6 +750,7 @@ claudeMdScript rung =
       \src\n\
       \test"
 
+    -- fixture bytes, not prose: the existing CLAUDE.md's own bytes, as read off disk.
     existingAnswer =
       "# CLAUDE.md\n\
       \\n\
@@ -752,29 +766,30 @@ claudeMdScript rung =
       \Always write unit tests for new utilities."
 
     adviceAnswer l =
-      "On "
-        <> lensOwns l
-        <> ": the build is `make`, and a single test runs as `make test \
-           \TEST=<name>` (read off the Makefile). The architecture worth stating \
-           \is that `src` is a library and `test` drives it through one entry \
-           \point. Nothing else in my area. (the "
-        <> lensName l
-        <> " seat)"
+      [wft|
+      On {owns}: the build is `make`, and a single test runs as `make test
+      TEST=<name>` (read off the Makefile). The architecture worth stating is
+      that `src` is a library and `test` drives it through one entry point.
+      Nothing else in my area. (the {name} seat)|]
+      where
+        owns = lensOwns l
+        name = lensName l
 
     draftAnswer =
-      "# CLAUDE.md\n\
-      \\n\
-      \This file provides guidance to Claude Code (claude.ai/code) when working\n\
-      \with code in this repository.\n\
-      \\n\
-      \## Commands\n\
-      \\n\
-      \- Build: `make`\n\
-      \- Test: `make test`\n\
-      \- One test: `make test TEST=<name>`\n\
-      \\n\
-      \## Architecture\n\
-      \\n\
-      \`src` is a library with a single public entry point; `test` drives it \
-      \through that entry point only, which is why a change to an internal \
-      \module rarely needs a test change."
+      [wft|
+      # CLAUDE.md
+
+      This file provides guidance to Claude Code (claude.ai/code) when working
+      with code in this repository.
+
+      ## Commands
+
+      - Build: `make`
+      - Test: `make test`
+      - One test: `make test TEST=<name>`
+
+      ## Architecture
+
+      `src` is a library with a single public entry point; `test` drives it
+      through that entry point only, which is why a change to an internal module
+      rarely needs a test change.|]

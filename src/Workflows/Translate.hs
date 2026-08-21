@@ -530,12 +530,14 @@ registerLens d =
 -- whole of what is transplanted.
 registerTargetNote :: Direction -> Text
 registerTargetNote Fa =
-  "The tone should evoke the elevated yet clear style of the letters from the \
-  \Universal House of Justice."
+  [wft|
+  The tone should evoke the elevated yet clear style of the letters from the
+  Universal House of Justice.|]
 registerTargetNote En =
-  "The tone should sit in the elevated register of Shoghi Effendi's own English \
-  \renderings -- formal, cadenced and exact, and never antiquarian for its own \
-  \sake."
+  [wft|
+  The tone should sit in the elevated register of Shoghi Effendi's own English
+  renderings -- formal, cadenced and exact, and never antiquarian for its own
+  sake.|]
 registerTargetNote Es =
   "The tone should be literary and clear, elevated without becoming ornate."
 
@@ -848,44 +850,49 @@ reviewClosing d src glossary references =
 -- | The arm where the team approved.
 approvedNote :: Direction -> Text
 approvedNote d =
-  "Outcome: TRANSLATED AND REVIEWED. The draft was read by the review team -- \
-  \meaning fidelity by back-translation, terminology, grammar, the reading aloud, \
-  \register and modern accessibility -- and the panel approved the translation \
-  \below within the run's bound. Report the translation as the artefact and the \
-  \target language as `"
+  [wft|
+  Outcome: TRANSLATED AND REVIEWED. The draft was read by the review team --
+  meaning fidelity by back-translation, terminology, grammar, the reading aloud,
+  register and modern accessibility -- and the panel approved the translation
+  below within the run's bound. Report the translation as the artefact and the
+  target language as `|]
     <> targetLanguage d
-    <> "`. Two sentences on what the review changed is the right amount; the \
-       \reviews themselves are not in this report's scope and are not to be \
-       \reconstructed. Say what this establishes: six independent readings of one \
-       \draft agreed, which is the strongest thing available here, and it is not \
-       \the same as a native speaker of the target language signing it off."
+    <> [wft|
+       `. Two sentences on what the review changed is the right amount; the
+       reviews themselves are not in this report's scope and are not to be
+       reconstructed. Say what this establishes: six independent readings of one
+       draft agreed, which is the strongest thing available here, and it is not
+       the same as a native speaker of the target language signing it off.|]
 
 -- | The arm where the trips ran out.
 unresolvedNote :: Direction -> Text
 unresolvedNote d =
-  "Outcome: NOT AGREED. At least one reviewer still objected after every \
-  \synthesis trip this run was given, so the translation below is the one the \
-  \last trip produced and the final review objected to -- no trip was spent \
-  \answering that last objection. Do NOT present it as a reviewed translation. \
-  \Report the outstanding objection FIRST, verbatim, and name the passage it is \
-  \about: because the panel folds in priority order, that objection is the \
-  \highest-priority one outstanding, so a fidelity or terminology objection here \
-  \is a passage a human must look at before this text is used. The target \
-  \language is `"
+  [wft|
+  Outcome: NOT AGREED. At least one reviewer still objected after every
+  synthesis trip this run was given, so the translation below is the one the
+  last trip produced and the final review objected to -- no trip was spent
+  answering that last objection. Do NOT present it as a reviewed translation.
+  Report the outstanding objection FIRST, verbatim, and name the passage it is
+  about: because the panel folds in priority order, that objection is the
+  highest-priority one outstanding, so a fidelity or terminology objection here
+  is a passage a human must look at before this text is used. The target
+  language is `|]
     <> targetLanguage d
     <> "`."
 
 -- | The arm where a reviewer declined to judge.
 declinedNote :: Direction -> Text
 declinedNote d =
-  "Outcome: NOT REVIEWED. A reviewer declined to judge the translation at all, so \
-  \the panel produced no verdict and no round could help. Report the translation \
-  \as UNREVIEWED, name `"
+  [wft|
+  Outcome: NOT REVIEWED. A reviewer declined to judge the translation at all, so
+  the panel produced no verdict and no round could help. Report the translation
+  as UNREVIEWED, name `|]
     <> targetLanguage d
-    <> "` as the target language, and say plainly that only the drafter has read \
-       \it. A declining seat is most often a seat that could not read the material \
-       \it was given -- the source, the glossary or the reference letters -- so \
-       \name which inputs this run was given and which it was not."
+    <> [wft|
+       ` as the target language, and say plainly that only the drafter has read
+       it. A declining seat is most often a seat that could not read the
+       material it was given -- the source, the glossary or the reference
+       letters -- so name which inputs this run was given and which it was not.|]
 
 -- | The arm the one-call rung reports through.
 --
@@ -895,14 +902,15 @@ declinedNote d =
 -- cheaper version of its siblings.
 directNote :: Text
 directNote =
-  "Outcome: TRANSLATED, NOT REVIEWED, AND THAT IS THE WHOLE OF WHAT WAS ASKED. \
-  \`prompts/spanish.md` is an instruction block and a task: it asks for an \
-  \elevated Latin-American Spanish rendering and for nothing beside it, and it \
-  \names no reviewer, no glossary and no second pass. So this row is one call of \
-  \the shared translation function and one artefact, and its price says so. \
-  \Report the translation. Do NOT describe it as checked, and do not compare it \
-  \to what the Persian and English rungs do -- those carry a six-seat review \
-  \because their sources ask for one, and this one does not."
+  [wft|
+  Outcome: TRANSLATED, NOT REVIEWED, AND THAT IS THE WHOLE OF WHAT WAS ASKED.
+  `prompts/spanish.md` is an instruction block and a task: it asks for an
+  elevated Latin-American Spanish rendering and for nothing beside it, and it
+  names no reviewer, no glossary and no second pass. So this row is one call of
+  the shared translation function and one artefact, and its price says so.
+  Report the translation. Do NOT describe it as checked, and do not compare it
+  to what the Persian and English rungs do -- those carry a six-seat review
+  because their sources ask for one, and this one does not.|]
 
 -- ---------------------------------------------------------------------------
 -- The functions
@@ -1055,9 +1063,10 @@ translateProgram Es =
   where
     noGlossary :: Text
     noGlossary =
-      "No glossary applies to this rung. `prompts/spanish.md` fixes no \
-      \terminology, and inventing a term list for it would be inventing the \
-      \standard it is held to."
+      [wft|
+      No glossary applies to this rung. `prompts/spanish.md` fixes no
+      terminology, and inventing a term list for it would be inventing the
+      standard it is held to.|]
 translateProgram d =
   taking (input "text" :> input "glossary" :> input "references" :> noInputs)
     \source glossary references ->
@@ -1162,17 +1171,18 @@ translateScript d =
     <> [(lensBrief l, "APPROVE") | l <- teamRoster d ""]
   where
     termsAnswer =
-      "Register: institutional, formal, addressed to a national community.\n\
-      \Audience: Baha'i institutions and their communities.\n\
-      \Purpose: to convey guidance and to call to action.\n\
-      \\n\
-      \Relevant terms:\n\
-      \- National Spiritual Assembly\n\
-      \- Nine Year Plan\n\
-      \- Training Institute\n\
-      \- Study circle\n\
-      \\n\
-      \Conflicts between the two glossaries: none in the terms this text touches."
+      [wft|
+      Register: institutional, formal, addressed to a national community.
+      Audience: Baha'i institutions and their communities.
+      Purpose: to convey guidance and to call to action.
+
+      Relevant terms:
+      - National Spiritual Assembly
+      - Nine Year Plan
+      - Training Institute
+      - Study circle
+
+      Conflicts between the two glossaries: none in the terms this text touches.|]
 
     drafted = draftFor d
 

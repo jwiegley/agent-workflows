@@ -491,48 +491,53 @@ fillBrief =
 -- | The arm where a flagged table was approved and built.
 builtFlaggedNote :: Text
 builtFlaggedNote =
-  "Outcome: BUILT, AFTER REVIEW. The extraction flagged at least one row as \
-  \uncertain, the operator read the flagged rows and approved the table -- \
-  \possibly after corrections, which are in the table below -- and the filler \
-  \script ran. Report the flagged rows and what became of each: corrected to \
-  \what, or approved as extracted. A row that was flagged and then approved \
-  \unchanged is still a row somebody should look at in the spreadsheet."
+  [wft|
+  Outcome: BUILT, AFTER REVIEW. The extraction flagged at least one row as
+  uncertain, the operator read the flagged rows and approved the table --
+  possibly after corrections, which are in the table below -- and the filler
+  script ran. Report the flagged rows and what became of each: corrected to
+  what, or approved as extracted. A row that was flagged and then approved
+  unchanged is still a row somebody should look at in the spreadsheet.|]
 
 -- | The arm where a clean table was confirmed and built.
 builtCleanNote :: Text
 builtCleanNote =
-  "Outcome: BUILT. The extraction flagged nothing as uncertain and the operator \
-  \confirmed the table in one answer, so no correction round was spent. Say that \
-  \plainly in the report: nothing here was reviewed field by field, because \
-  \nothing asked to be."
+  [wft|
+  Outcome: BUILT. The extraction flagged nothing as uncertain and the operator
+  confirmed the table in one answer, so no correction round was spent. Say that
+  plainly in the report: nothing here was reviewed field by field, because
+  nothing asked to be.|]
 
 -- | The arm where the corrections never settled.
 unresolvedNote :: Text
 unresolvedNote =
-  "Outcome: NOT CONFIRMED -- NOTHING WAS BUILT. The operator was still asking for \
-  \changes when this run's correction budget ran out, so the table below is the \
-  \one the last correction produced and his final answer objected to; no round \
-  \was spent answering that last objection. No JSON was written and no \
-  \spreadsheet exists. Report his outstanding objection first, in his own words, \
-  \then the table beneath it, and say what the next run should be given."
+  [wft|
+  Outcome: NOT CONFIRMED -- NOTHING WAS BUILT. The operator was still asking for
+  changes when this run's correction budget ran out, so the table below is the
+  one the last correction produced and his final answer objected to; no round
+  was spent answering that last objection. No JSON was written and no
+  spreadsheet exists. Report his outstanding objection first, in his own words,
+  then the table beneath it, and say what the next run should be given.|]
 
 -- | The arm where the operator declined to judge.
 noAnswerNote :: Text
 noAnswerNote =
-  "Outcome: STOPPED -- THE OPERATOR DID NOT JUDGE THE TABLE. The confirmation was \
-  \answered with nothing, which in this run means: do not build this. No JSON was \
-  \written and no spreadsheet exists. This is the arm that exists so that an \
-  \unattended run cannot read silence as consent -- report the table, name the \
-  \receipt directory it came from, and stop."
+  [wft|
+  Outcome: STOPPED -- THE OPERATOR DID NOT JUDGE THE TABLE. The confirmation was
+  answered with nothing, which in this run means: do not build this. No JSON was
+  written and no spreadsheet exists. This is the arm that exists so that an
+  unattended run cannot read silence as consent -- report the table, name the
+  receipt directory it came from, and stop.|]
 
 -- | The arm where a clean table was refused.
 declinedNote :: Text
 declinedNote =
-  "Outcome: DECLINED -- NOTHING WAS BUILT. The extraction flagged nothing and the \
-  \operator still said no, which means something is wrong that the flags did not \
-  \catch: a receipt that should not be in this report, a missing one, the wrong \
-  \trip. No JSON was written. Report the table and the file list side by side, so \
-  \the discrepancy is visible, and ask what to change."
+  [wft|
+  Outcome: DECLINED -- NOTHING WAS BUILT. The extraction flagged nothing and the
+  operator still said no, which means something is wrong that the flags did not
+  catch: a receipt that should not be in this report, a missing one, the wrong
+  trip. No JSON was written. Report the table and the file list side by side, so
+  the discrepancy is visible, and ask what to change.|]
 
 -- ---------------------------------------------------------------------------
 -- The functions
@@ -829,28 +834,27 @@ expenseScript =
     (fillBrief, "Wrote /home/johnw/Documents/expense-report-2026-03-NYC.xlsx (3 expenses, 3 categories).")
   ]
   where
+    -- fixture bytes, not prose: fake `ls` stdout.
     listed =
       "/home/johnw/receipts/nyc/flight-confirmation.pdf\n\
       \/home/johnw/receipts/nyc/uber-receipt.png\n\
       \/home/johnw/receipts/nyc/dinner-receipt.jpg"
 
     extracted =
-      "## Extracted Expenses\n\
-      \\n\
-      \| # | Date | Category | Vendor | Amount | Payment | Flag | Source File |\n\
-      \|---|------|----------|--------|--------|---------|------|-------------|\n\
-      \| 1 | 03/15/2026 | Flights | United Airlines | $487.30 | Corp Card ...1234 | | \
-      \/home/johnw/receipts/nyc/flight-confirmation.pdf |\n\
-      \| 2 | 03/15/2026 | Lyft / Uber | Uber | $34.50 | Personal | | \
-      \/home/johnw/receipts/nyc/uber-receipt.png |\n\
-      \| 3 | 03/15/2026 | Dining | Joe's Bistro | $67.82 | | REVIEW | \
-      \/home/johnw/receipts/nyc/dinner-receipt.jpg |\n\
-      \\n\
-      \**Trip metadata**\n\
-      \- Trip Name: NYC Summit Q3\n\
-      \- Destination: New York, NY\n\
-      \- Dates: 03/15 - 03/15/2026\n\
-      \- Traveler:\n\
-      \\n\
-      \REVIEW: 3 the total is either 67.82 or 72.50 -- the tip line is handwritten \
-      \and the printed total does not include it."
+      [wft|
+      ## Extracted Expenses
+
+      | # | Date | Category | Vendor | Amount | Payment | Flag | Source File |
+      |---|------|----------|--------|--------|---------|------|-------------|
+      | 1 | 03/15/2026 | Flights | United Airlines | $487.30 | Corp Card ...1234 | | /home/johnw/receipts/nyc/flight-confirmation.pdf |
+      | 2 | 03/15/2026 | Lyft / Uber | Uber | $34.50 | Personal | | /home/johnw/receipts/nyc/uber-receipt.png |
+      | 3 | 03/15/2026 | Dining | Joe's Bistro | $67.82 | | REVIEW | /home/johnw/receipts/nyc/dinner-receipt.jpg |
+
+      **Trip metadata**
+      - Trip Name: NYC Summit Q3
+      - Destination: New York, NY
+      - Dates: 03/15 - 03/15/2026
+      - Traveler:
+
+      REVIEW: 3 the total is either 67.82 or 72.50 -- the tip line is
+      handwritten and the printed total does not include it.|]

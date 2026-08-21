@@ -424,14 +424,16 @@ executeBrief =
 -- "Workflows.Gates"' own reason for writing one.
 gateBrief :: Text
 gateBrief =
-  "The repository's own lint and type-check gate, run after the work. Its exit \
-  \code is the answer: nothing here is a claim about whether the tree is green."
+  [wft|
+  The repository's own lint and type-check gate, run after the work. Its exit
+  code is the answer: nothing here is a claim about whether the tree is green.|]
 
 -- | The same gate, after a repair round.
 regateBrief :: Text
 regateBrief =
-  "The repository's own gate again, after the repair round. This is the second \
-  \and last time this run asks it."
+  [wft|
+  The repository's own gate again, after the repair round. This is the second
+  and last time this run asks it.|]
 
 -- | What the repair round's first question asks for.
 repairDiagnoseBrief :: Text
@@ -704,9 +706,10 @@ forgeApprovalBrief =
 -- | /Source:/ @forge@ step 3.1.
 baselineBrief :: Text
 baselineBrief =
-  "The working tree as it stands before execution begins, as `git status \
-  \--porcelain` reports it. This is the baseline the review measures against, \
-  \and it is bytes rather than a recollection."
+  [wft|
+  The working tree as it stands before execution begins, as `git status
+  --porcelain` reports it. This is the baseline the review measures against, and
+  it is bytes rather than a recollection.|]
 
 -- | /Source:/ @forge@ step 3.2's Task prompt, items 1 to 4.
 forgeExecuteBrief :: Text
@@ -735,16 +738,18 @@ forgeExecuteBrief =
 -- verify what changed\".
 changesBrief :: Text
 changesBrief =
-  "Everything the execution phase changed, as `git diff` reports it. This is the \
-  \diff, not an account of one: where it and the executor's report disagree, \
-  \this is what happened."
+  [wft|
+  Everything the execution phase changed, as `git diff` reports it. This is the
+  diff, not an account of one: where it and the executor's report disagree, this
+  is what happened.|]
 
 -- | /Source:/ @forge@ step 4.1's second sentence.
 testsBrief :: Text
 testsBrief =
-  "The repository's own test suite, run independently of the executor. Its exit \
-  \code is the answer and its own first failing line is the objection; nothing \
-  \here is a claim about whether the tests passed."
+  [wft|
+  The repository's own test suite, run independently of the executor. Its exit
+  code is the answer and its own first failing line is the objection; nothing
+  here is a claim about whether the tests passed.|]
 
 -- | /Source:/ @forge@ steps 4.2 and 4.4.
 forgeReviewBrief :: Text
@@ -831,31 +836,35 @@ forgeRemediationBrief =
 -- | The arm where the gate approved first time.
 greenFirstNote :: Tier -> Text
 greenFirstNote t =
-  "Outcome: DELIVERED. The plan was executed and the repository's own gate for \
-  \rung `"
+  [wft|
+  Outcome: DELIVERED. The plan was executed and the repository's own gate for
+  rung `|]
     <> effortName t
-    <> "` exited 0 on the first ask, so no repair round was spent. That the tree \
-       \is green is the gate's own answer and not a model's account of it."
+    <> [wft|
+       ` exited 0 on the first ask, so no repair round was spent. That the tree
+       is green is the gate's own answer and not a model's account of it.|]
 
 -- | The arm where one repair round settled it.
 repairedNote :: Tier -> Text
 repairedNote t =
   "Outcome: DELIVERED AFTER ONE REPAIR. The gate for rung `"
     <> effortName t
-    <> "` objected after the work, one repair round was spent on the cause it \
-       \named, and the second ask exited 0. Report both the work and the repair: \
-       \a run that needed a repair round is a run whose plan was incomplete, and \
-       \that is worth knowing."
+    <> [wft|
+       ` objected after the work, one repair round was spent on the cause it
+       named, and the second ask exited 0. Report both the work and the repair:
+       a run that needed a repair round is a run whose plan was incomplete, and
+       that is worth knowing.|]
 
 -- | The arm where the gate was still red.
 stillRedNote :: Tier -> Text
 stillRedNote t =
   "Outcome: STILL RED. The gate for rung `"
     <> effortName t
-    <> "` objected after the work and objected again after the one repair round \
-       \this rung is given. Every edit both rounds made is still in the tree. Do \
-       \not report this as delivered: say what the gate is objecting to and what \
-       \the next run would have to start with."
+    <> [wft|
+       ` objected after the work and objected again after the one repair round
+       this rung is given. Every edit both rounds made is still in the tree. Do
+       not report this as delivered: say what the gate is objecting to and what
+       the next run would have to start with.|]
 
 -- | The arm where the owner declined the plan.
 --
@@ -864,42 +873,46 @@ stillRedNote t =
 -- takes.
 declinedNote :: Text
 declinedNote =
-  "Outcome: NOT APPROVED. The plan below was researched, validated by both \
-  \pinned partners and refined against what they said, and the owner declined \
-  \it. Nothing was executed and no file was touched. Write the plan down as it \
-  \stands, with the partners' concerns and their dispositions: the next attempt \
-  \starts from this document, and none of the four questions that produced it \
-  \has to be paid for twice."
+  [wft|
+  Outcome: NOT APPROVED. The plan below was researched, validated by both pinned
+  partners and refined against what they said, and the owner declined it.
+  Nothing was executed and no file was touched. Write the plan down as it
+  stands, with the partners' concerns and their dispositions: the next attempt
+  starts from this document, and none of the four questions that produced it has
+  to be paid for twice.|]
 
 -- | The three endings of the remediation loop, as
 -- 'Workflows.Escalation''s three notes with @forge@'s own words for each.
 readyNote :: Text
 readyNote =
-  completeNote
-    <> "\n\nIn this workflow's terms that is READY TO MERGE: the adversarial \
-       \critique was assessed and no critical finding remained. Report the \
-       \medium and low concerns for awareness; they are not blockers and must \
-       \not be presented as any."
+  [wft|
+  {completeNote}
+
+  In this workflow's terms that is READY TO MERGE: the adversarial critique was
+  assessed and no critical finding remained. Report the medium and low concerns
+  for awareness; they are not blockers and must not be presented as any.|]
 
 -- | /Source:/ 'Workflows.Escalation.remainsNote' and @forge@'s \"needs fixes\".
 fixesNote :: Text
 fixesNote =
-  remainsNote
-    <> "\n\nIn this workflow's terms that is NEEDS FIXES: a critical finding was \
-       \outstanding when the remediation bound ran out. Name it, name what the \
-       \last round did about it, and say plainly that this change is not ready \
-       \to merge."
+  [wft|
+  {remainsNote}
+
+  In this workflow's terms that is NEEDS FIXES: a critical finding was
+  outstanding when the remediation bound ran out. Name it, name what the last
+  round did about it, and say plainly that this change is not ready to merge.|]
 
 -- | /Source:/ 'Workflows.Escalation.blockedNote' and @forge@'s prerequisite
 -- halt.
 reworkNote :: Text
 reworkNote =
-  blockedNote
-    <> "\n\nIn this workflow's terms that is NEEDS REWORK, and it is the ending \
-       \`forge`'s prerequisites describe: the assessment declined to judge, so \
-       \no further round could help and this run does not fall back to a \
-       \single-model reading. Report what succeeded, what failed, and what would \
-       \have to change outside this run."
+  [wft|
+  {blockedNote}
+
+  In this workflow's terms that is NEEDS REWORK, and it is the ending `forge`'s
+  prerequisites describe: the assessment declined to judge, so no further round
+  could help and this run does not fall back to a single-model reading. Report
+  what succeeded, what failed, and what would have to change outside this run.|]
 
 -- | The brief the report is written through.
 --
@@ -1270,32 +1283,36 @@ effortScript Forge =
     <> [(lensBrief l, criticAnswer l) | l <- critiqueRoster]
   where
     investigated =
-      "Root cause: `Lex.hs` re-enters `scanToken` after a partial match without \
-      \resetting `pos`, so a two-character operator at a buffer boundary is \
-      \reported at the wrong column. Read off the code: the reset is in the \
-      \success arm only. Inferred: that the boundary is the only trigger."
+      [wft|
+      Root cause: `Lex.hs` re-enters `scanToken` after a partial match without
+      resetting `pos`, so a two-character operator at a buffer boundary is
+      reported at the wrong column. Read off the code: the reset is in the
+      success arm only. Inferred: that the boundary is the only trigger.|]
 
     researchBriefAnswer =
-      "Problem: wrong column on a boundary-split operator. Root cause: `pos` is \
-      \reset in the success arm of `scanToken` only. Constraints: the \
-      \diagnostics format has downstream consumers. Agreement: both partners \
-      \accept the root cause. Disagreement: partner-1 wants the reset hoisted, \
-      \partner-2 wants the boundary case tested first. Planning should do both, \
-      \test first."
+      [wft|
+      Problem: wrong column on a boundary-split operator. Root cause: `pos` is
+      reset in the success arm of `scanToken` only. Constraints: the diagnostics
+      format has downstream consumers. Agreement: both partners accept the root
+      cause. Disagreement: partner-1 wants the reset hoisted, partner-2 wants
+      the boundary case tested first. Planning should do both, test first.|]
 
     planned =
-      "1. tests/Lex.hs -- add the boundary case, expected column 7. 2. \
-      \src/Lex.hs -- hoist the `pos` reset out of the success arm. 3. Run \
-      \`make test`. Rollback: revert step 2; step 1 stands on its own."
+      [wft|
+      1. tests/Lex.hs -- add the boundary case, expected column 7. 2. src/Lex.hs
+         -- hoist the `pos` reset out of the success arm. 3. Run `make test`.
+         Rollback: revert step 2; step 1 stands on its own.|]
 
     refined =
-      "1. tests/Lex.hs -- add the boundary case, expected column 7. 2. \
-      \src/Lex.hs -- hoist the `pos` reset. 3. `make test`. 4. Check the two \
-      \downstream consumers of the diagnostics format still parse it.\n\
-      \Concerns addressed: partner-1's hoist -- accepted, step 2. partner-2's \
-      \test-first -- accepted, step 1 precedes step 2. partner-2's format \
-      \concern -- accepted as step 4."
+      [wft|
+      1. tests/Lex.hs -- add the boundary case, expected column 7. 2. src/Lex.hs
+         -- hoist the `pos` reset. 3. `make test`. 4. Check the two downstream
+         consumers of the diagnostics format still parse it.
+      Concerns addressed: partner-1's hoist -- accepted, step 2. partner-2's
+      test-first -- accepted, step 1 precedes step 2. partner-2's format concern
+      -- accepted as step 4.|]
 
+    -- fixture bytes, not prose: a unified diff, trailing newline and all.
     diffed =
       "--- a/src/Lex.hs\n\
       \+++ b/src/Lex.hs\n\
@@ -1304,10 +1321,11 @@ effortScript Forge =
       \+  scanToken s = reset (case match s of Just t -> advance t; Nothing -> s)\n"
 
     reviewed =
-      "Correctness: the hoist fixes the reported case and the added test pins \
-      \it. Security: nothing in scope. Performance: one extra `reset` on the \
-      \miss path, constant. Architecture: matches the plan. Test coverage: the \
-      \boundary case is covered; the three-character operator is not."
+      [wft|
+      Correctness: the hoist fixes the reported case and the added test pins it.
+      Security: nothing in scope. Performance: one extra `reset` on the miss
+      path, constant. Architecture: matches the plan. Test coverage: the
+      boundary case is covered; the three-character operator is not.|]
 
     -- An approve word and nothing else, because that is what
     -- `Agentic.Text.approvesB` reads: a verdict answer carrying a sentence
@@ -1316,9 +1334,10 @@ effortScript Forge =
     assessed = "APPROVE"
 
     remediated =
-      "Remediation: added the three-character boundary case to tests/Lex.hs. \
-      \The critique's Medium entry now reads: covered by \
-      \`tests/Lex.hs:boundary3`. Every other entry unchanged."
+      [wft|
+      Remediation: added the three-character boundary case to tests/Lex.hs. The
+      critique's Medium entry now reads: covered by `tests/Lex.hs:boundary3`.
+      Every other entry unchanged.|]
 
     seatAnswer l =
       "On " <> lensOwns l <> ": one point worth acting on, from the " <> lensName l <> " seat."
@@ -1340,15 +1359,17 @@ effortScript t =
       | otherwise = []
 
     planned =
-      "1. src/Lex.hs -- hoist the `pos` reset out of `scanToken`'s success arm. \
-      \2. tests/Lex.hs -- add the boundary case, expected column 7. Order: test \
-      \first. Check: `make test`. On failure: report the failing column rather \
-      \than adjusting the expectation."
+      [wft|
+      1. src/Lex.hs -- hoist the `pos` reset out of `scanToken`'s success arm.
+         2. tests/Lex.hs -- add the boundary case, expected column 7. Order:
+         test first. Check: `make test`. On failure: report the failing column
+         rather than adjusting the expectation.|]
 
     diagnosed =
-      "Cause: `src/Lex.hs:41` shadows `pos` with the hoisted binding, so \
-      \`-Wname-shadowing` fires. Rename the outer binding to `pos0`; do not add \
-      \a pragma."
+      [wft|
+      Cause: `src/Lex.hs:41` shadows `pos` with the hoisted binding, so
+      `-Wname-shadowing` fires. Rename the outer binding to `pos0`; do not add a
+      pragma.|]
 
     seatAnswer l =
       "On " <> lensOwns l <> ": one point worth acting on, from the " <> lensName l <> " seat."

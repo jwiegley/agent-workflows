@@ -214,8 +214,9 @@ stanceClosing =
 -- of an opinion rather than the shape of a block.
 opinionClosing :: Text
 opinionClosing =
-  "Say whether the claim holds, where it is weakest, and what would change \
-  \your answer. At most ten lines."
+  [wft|
+  Say whether the claim holds, where it is weakest, and what would change your
+  answer. At most ten lines.|]
 
 -- ---------------------------------------------------------------------------
 -- The subject

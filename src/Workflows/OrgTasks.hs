@@ -463,27 +463,30 @@ orgWriteBrief =
 -- | @breakdown.md@'s first special case.
 atomicNote :: Text
 atomicNote =
-  "Outcome: ATOMIC. The analysis found this task cannot meaningfully be broken \
-  \down, so no decomposition was produced and none should be invented below. \
-  \Write the comment, then the task as it was given, unchanged."
+  [wft|
+  Outcome: ATOMIC. The analysis found this task cannot meaningfully be broken
+  down, so no decomposition was produced and none should be invented below.
+  Write the comment, then the task as it was given, unchanged.|]
 
 -- | Its second.
 ambiguousNote :: Text
 ambiguousNote =
-  "Outcome: AMBIGUOUS. The analysis could not confidently decompose this task \
-  \without an answer from a person; its `[AMBIGUOUS: …]` line says what is \
-  \needed. Reproduce that line verbatim in the comment. Do not decompose \
-  \anyway, and do not guess the missing detail."
+  [wft|
+  Outcome: AMBIGUOUS. The analysis could not confidently decompose this task
+  without an answer from a person; its `[AMBIGUOUS: …]` line says what is
+  needed. Reproduce that line verbatim in the comment. Do not decompose anyway,
+  and do not guess the missing detail.|]
 
 -- | Its third.
 noExpertiseNote :: Text
 noExpertiseNote =
-  "Outcome: DECOMPOSED WITHOUT THE DOMAIN. The analysis reported that this task \
-  \needs expertise it does not have, so what follows is the standard project \
-  \phases with research subtasks first, and it was NOT checked for completeness \
-  \-- a set nobody could judge is not a set to certify. Say that in the comment, \
-  \and say that the research subtasks come first because the rest depends on \
-  \what they find."
+  [wft|
+  Outcome: DECOMPOSED WITHOUT THE DOMAIN. The analysis reported that this task
+  needs expertise it does not have, so what follows is the standard project
+  phases with research subtasks first, and it was NOT checked for completeness
+  -- a set nobody could judge is not a set to certify. Say that in the comment,
+  and say that the research subtasks come first because the rest depends on what
+  they find.|]
 
 -- | The arm where the completeness gate approved.
 --
@@ -493,10 +496,11 @@ noExpertiseNote =
 -- ending of a three-way revision, which this is not.
 exhaustiveNote :: Text
 exhaustiveNote =
-  "Provenance: this decomposition was produced from a written analysis, and a \
-  \second party -- pinned to a serving model the decomposer did not use -- was \
-  \asked whether completing every subtask would fully complete the parent, and \
-  \said yes. The check is somebody else's, which is what makes it a check."
+  [wft|
+  Provenance: this decomposition was produced from a written analysis, and a
+  second party -- pinned to a serving model the decomposer did not use -- was
+  asked whether completing every subtask would fully complete the parent, and
+  said yes. The check is somebody else's, which is what makes it a check.|]
 
 -- | The arm where it objected.
 --
@@ -504,58 +508,63 @@ exhaustiveNote =
 -- check is a bullet in the analysis the decomposer does in its own head.
 incompleteNote :: Text
 incompleteNote =
-  "Outcome: INCOMPLETE DECOMPOSITION. A second party was asked whether \
-  \completing every subtask below would fully complete the parent task, and said \
-  \NO. The subtasks are reproduced unchanged, because a set that is short is \
-  \still the set that was produced -- but say in the comment that it is known to \
-  \be short, so that whoever files it looks for what is missing before working \
-  \from it."
+  [wft|
+  Outcome: INCOMPLETE DECOMPOSITION. A second party was asked whether completing
+  every subtask below would fully complete the parent task, and said NO. The
+  subtasks are reproduced unchanged, because a set that is short is still the
+  set that was produced -- but say in the comment that it is known to be short,
+  so that whoever files it looks for what is missing before working from it.|]
 
 -- | @infer-tasks.md@'s empty case.
 nothingFoundNote :: Text
 nothingFoundNote =
-  "Outcome: NO TASKS. The extraction reported that the source text carries no \
-  \actionable commitment, and it was believed: that sentence is the one thing \
-  \this workflow asks for by name when there is nothing to extract. No judgment \
-  \seat was asked, because there is nothing to judge. Reproduce the extraction's \
-  \own sentence and any note it gave, and add nothing."
+  [wft|
+  Outcome: NO TASKS. The extraction reported that the source text carries no
+  actionable commitment, and it was believed: that sentence is the one thing
+  this workflow asks for by name when there is nothing to extract. No judgment
+  seat was asked, because there is nothing to judge. Reproduce the extraction's
+  own sentence and any note it gave, and add nothing.|]
 
 -- | The arm where the flat list was not flat.
 nestedNote :: Text
 nestedNote =
-  "Outcome: NESTED HEADLINES. The extraction emitted a headline at a deeper star \
-  \depth than its siblings, which this workflow forbids absolutely: the output is \
-  \a flat list of independent commitments, and a child headline is a \
-  \decomposition that a different workflow owns. Do NOT file this list. Say in \
-  \the comment which lines are nested, reproduce the list unchanged beneath, and \
-  \say that the extraction should be re-run or the nested entries lifted by hand."
+  [wft|
+  Outcome: NESTED HEADLINES. The extraction emitted a headline at a deeper star
+  depth than its siblings, which this workflow forbids absolutely: the output is
+  a flat list of independent commitments, and a child headline is a
+  decomposition that a different workflow owns. Do NOT file this list. Say in
+  the comment which lines are nested, reproduce the list unchanged beneath, and
+  say that the extraction should be re-run or the nested entries lifted by hand.|]
 
 -- | The arm where both judgments approved.
 groundedNote :: Text
 groundedNote =
-  "Provenance: the list was extracted from the source text, checked for nesting \
-  \by a grep over its own bytes, and then put to two independent judgment seats \
-  \-- pinned to a serving model the extractor did not use -- which asked whether \
-  \every entry is carried by specific language in the source and whether any \
-  \entry is a step of another. Both approved."
+  [wft|
+  Provenance: the list was extracted from the source text, checked for nesting
+  by a grep over its own bytes, and then put to two independent judgment seats
+  -- pinned to a serving model the extractor did not use -- which asked whether
+  every entry is carried by specific language in the source and whether any
+  entry is a step of another. Both approved.|]
 
 -- | The arm where at least one objected.
 objectedNote :: Text
 objectedNote =
-  "Outcome: JUDGMENT OBJECTED. At least one of the two independent seats objected \
-  \to this list; their objection lines are given below and each names the \
-  \headline it is about. Open the comment with them, verbatim, and reproduce the \
-  \list unchanged. An objection is not a licence to edit the extraction: the \
-  \entries named are the ones to look at before anything is filed."
+  [wft|
+  Outcome: JUDGMENT OBJECTED. At least one of the two independent seats objected
+  to this list; their objection lines are given below and each names the
+  headline it is about. Open the comment with them, verbatim, and reproduce the
+  list unchanged. An objection is not a licence to edit the extraction: the
+  entries named are the ones to look at before anything is filed.|]
 
 -- | The arm where the judgment declined.
 silentNote :: Text
 silentNote =
-  "Outcome: UNJUDGED. The two independent seats were asked and did not answer, so \
-  \this list is UNVERIFIED: nobody has checked that its entries are grounded in \
-  \the source or that none is a step of another. Say so in the comment, before \
-  \anything else, and do not substitute your own reading of the source for the \
-  \judgment that did not happen."
+  [wft|
+  Outcome: UNJUDGED. The two independent seats were asked and did not answer, so
+  this list is UNVERIFIED: nobody has checked that its entries are grounded in
+  the source or that none is a step of another. Say so in the comment, before
+  anything else, and do not substitute your own reading of the source for the
+  judgment that did not happen.|]
 
 -- ---------------------------------------------------------------------------
 -- The artefact every ending writes through
@@ -774,31 +783,34 @@ orgScript Breakdown =
   ]
   where
     analysed =
-      "Understanding: the goal is a working Elsa static-analysis setup for this \
-      \project's Emacs Lisp, integrated into the ordinary edit loop. \"Done\" is \
-      \Elsa running over the whole codebase and its findings triaged.\n\
-      \Scope: setup plus configuration; two natural phases, install and \
-      \integrate. Depends on a working package manager.\n\
-      \Hidden requirements: type annotations on the critical functions, and a \
-      \configuration file the project does not have.\n\
-      \Ordering: install before configure before integrate; the CI step depends \
-      \on the configuration existing.\n\
-      \Completeness: research, setup, configuration, integration, documentation \
-      \are all needed; testing is the run over the codebase.\n\
-      \[PROCEED]"
+      [wft|
+      Understanding: the goal is a working Elsa static-analysis setup for this
+      project's Emacs Lisp, integrated into the ordinary edit loop. "Done" is
+      Elsa running over the whole codebase and its findings triaged.
+      Scope: setup plus configuration; two natural phases, install and
+      integrate. Depends on a working package manager.
+      Hidden requirements: type annotations on the critical functions, and a
+      configuration file the project does not have.
+      Ordering: install before configure before integrate; the CI step depends
+      on the configuration existing.
+      Completeness: research, setup, configuration, integration, documentation
+      are all needed; testing is the run over the codebase.
+      [PROCEED]|]
 
     decomposed =
-      "**** TODO Research Elsa capabilities and architecture\n\
-      \**** TODO Review Elsa type annotation syntax\n\
-      \**** TODO Install Elsa via package manager\n\
-      \**** TODO Configure Elsa rules for project conventions\n\
-      \**** TODO Integrate Elsa with flycheck for real-time analysis\n\
-      \**** TODO Run Elsa over entire codebase and triage findings\n\
-      \**** TODO Document Elsa setup and configuration decisions"
+      [wft|
+      **** TODO Research Elsa capabilities and architecture
+      **** TODO Review Elsa type annotation syntax
+      **** TODO Install Elsa via package manager
+      **** TODO Configure Elsa rules for project conventions
+      **** TODO Integrate Elsa with flycheck for real-time analysis
+      **** TODO Run Elsa over entire codebase and triage findings
+      **** TODO Document Elsa setup and configuration decisions|]
 orgScript Infer = [(inferBrief, extracted)]
   where
     extracted =
-      "* TODO Set up Prometheus on new cluster\n\
-      \* TASK Write Grafana dashboard configurations        :Ben:\n\
-      \* TODO Review alerting rules with full team\n\
-      \* TODO Update runbook with new endpoints"
+      [wft|
+      * TODO Set up Prometheus on new cluster
+      * TASK Write Grafana dashboard configurations        :Ben:
+      * TODO Review alerting rules with full team
+      * TODO Update runbook with new endpoints|]

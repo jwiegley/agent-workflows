@@ -321,21 +321,22 @@ duetWorkPins = filter (/= partnerPin) routablePins
 -- refusal in order to improve an error message.
 sameSessionNote :: Text
 sameSessionNote =
-  "Outcome: WORK BLOCKED, AND NOTHING WAS STARTED. This run puts the judgment in \
-  \a conversation the work also reaches -- the route table and the session policy \
-  \are quoted below and both came from the runner, not from anybody asked -- so \
-  \the party that would have judged the work is a party that will have read it. \
-  \No question was put: no round ran, no review was asked for, no commit was \
-  \made, no gate was run and no audit was requested. Every clause of this loop's \
-  \definition of done is a claim checked by an evaluator that must not be the \
-  \runner, and there is no such evaluator in this table to reach. Report that, \
-  \quote both facts, and say what would fix it: give the WORK the default \
-  \answerer and route only the judge away -- `--session <work-pane> --route \
-  \partner=deck:<partner-pane>` -- because everything this row does not pin \
-  \itself, every borrowed callee and every tool among them, lands on the default \
-  \and is work. Written the other way round, the judge inherits the commit \
-  \decomposition, the conflict resolution and the cleanup review, which is what \
-  \was just refused."
+  [wft|
+  Outcome: WORK BLOCKED, AND NOTHING WAS STARTED.
+  This run puts the judgment in a conversation the work also reaches -- the
+  route table and the session policy are quoted below and both came from the
+  runner, not from anybody asked -- so the party that would have judged the work
+  is a party that will have read it. No question was put: no round ran, no
+  review was asked for, no commit was made, no gate was run and no audit was
+  requested. Every clause of this loop's definition of done is a claim checked
+  by an evaluator that must not be the runner, and there is no such evaluator in
+  this table to reach. Report that, quote both facts, and say what would fix it:
+  give the WORK the default answerer and route only the judge away -- `--session
+  <work-pane> --route partner=deck:<partner-pane>` -- because everything this
+  row does not pin itself, every borrowed callee and every tool among them,
+  lands on the default and is work. Written the other way round, the judge
+  inherits the commit decomposition, the conflict resolution and the cleanup
+  review, which is what was just refused.|]
 
 -- | The whole of a refused run's material, which is the pair of facts that
 -- refused it.
@@ -409,11 +410,12 @@ duetProvenance backends engine routes note =
 orNoTable :: Text -> Text
 orNoTable t
   | T.null (T.strip t) =
-      "(No route table. This verb resolved no answerer at all -- it is a plan, a \
-      \price or a rehearsal against a canned table -- so there is nothing here \
-      \to read, and the gate above therefore took the shape a run with an \
-      \unknown table would take. A real run always has at least the one \
-      \`(default) = <backend>` line.)"
+      [wft|
+      (No route table. This verb resolved no answerer at all -- it is a plan, a
+      price or a rehearsal against a canned table -- so there is nothing here to
+      read, and the gate above therefore took the shape a run with an unknown
+      table would take. A real run always has at least the one `(default) =
+      <backend>` line.)|]
   | otherwise = T.strip t
 
 -- ---------------------------------------------------------------------------
@@ -792,15 +794,17 @@ duetScript =
         <> "/2026-08-20T11:02:41.902Z.md"
 
     blockFrom l =
-      "### [MEDIUM] "
-        <> lensOwns l
-        <> "\n- **File**: src/token.rs#L120-L134\n\
-           \- **Category**: Test Coverage\n\
-           \- **Confidence**: 75\n\
-           \- **Problem**: the rotation path's expired-refresh case is untested.\n\
-           \- **Impact**: a regression there fails open, and nothing in the suite \
-           \would say so.\n\
-           \- **Fix**: add a case that presents an expired refresh token and \
-           \asserts the rotation is refused.\n(reported by the "
-        <> lensName l
-        <> " pass)"
+      [wft|
+      ### [MEDIUM] {owns}
+      - **File**: src/token.rs#L120-L134
+      - **Category**: Test Coverage
+      - **Confidence**: 75
+      - **Problem**: the rotation path's expired-refresh case is untested.
+      - **Impact**: a regression there fails open, and nothing in the suite
+        would say so.
+      - **Fix**: add a case that presents an expired refresh token and asserts
+        the rotation is refused.
+      (reported by the {name} pass)|]
+      where
+        owns = lensOwns l
+        name = lensName l

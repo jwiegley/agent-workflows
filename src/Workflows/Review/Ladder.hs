@@ -384,21 +384,20 @@ synthesisBrief r =
 -- done rather than a quality of a report.
 tierProvenance :: Tier -> Roster -> Text -> Text
 tierProvenance t r engine =
-  "rung `"
-    <> tierName t
-    <> "`, over a frozen scope snapshot. This run's engine and its session \
-       \policy, from the runner: "
-    <> engine
-    <> ". The reviewers, and what each owns:\n"
-    <> rosterTable r
-    <> "\nEvery reviewer read the same snapshot and the same command receipts. \
-       \The parent-history sentinel probe passed, which establishes that no line \
-       \this run planted was already in an answerer's context -- it cannot see \
-       \any other prior context, so whether these passes were reached \
-       \independently of each other and of the work is settled by the engine \
-       \fact above and not by the probe. Under a new session per question they \
-       \were; under one shared session they were not, however clean each block \
-       \reads."
+  [wft|
+  rung `{rung}`, over a frozen scope snapshot. This run's engine and its session
+  policy, from the runner: {engine}. The reviewers, and what each owns:
+  {table}
+  Every reviewer read the same snapshot and the same command receipts. The
+  parent-history sentinel probe passed, which establishes that no line this run
+  planted was already in an answerer's context -- it cannot see any other prior
+  context, so whether these passes were reached independently of each other and
+  of the work is settled by the engine fact above and not by the probe. Under a
+  new session per question they were; under one shared session they were not,
+  however clean each block reads.|]
+  where
+    rung = tierName t
+    table = rosterTable r
 
 -- | The provenance line the failed-attestation arm carries.
 --
@@ -412,11 +411,12 @@ tierProvenance t r engine =
 -- that ends silently is a run whose operator learns nothing.
 notIndependentNote :: Text
 notIndependentNote =
-  "Outcome: NO REVIEW WAS RUN. The parent-history sentinel probe did not answer \
-  \PARENT_HISTORY_ABSENT: a line this run generated for itself and put in no \
-  \other place came back, so context this runner planted was already in front of \
-  \the answerer. No reviewer was asked. Report exactly that, name the scope below \
-  \as un-reviewed, and do not characterise the code."
+  [wft|
+  Outcome: NO REVIEW WAS RUN. The parent-history sentinel probe did not
+  answer PARENT_HISTORY_ABSENT: a line this run generated for itself and put in no
+  other place came back, so context this runner planted was already in front of
+  the answerer. No reviewer was asked. Report exactly that, name the scope below
+  as un-reviewed, and do not characterise the code.|]
 
 -- | The provenance line the short-fan-out arm carries.
 --
@@ -425,10 +425,11 @@ notIndependentNote =
 -- review\").
 shortFanOutNote :: Text
 shortFanOutNote =
-  "Outcome: INCOMPLETE FAN-OUT. The consolidation refused, because at least \
-  \one reviewer's block was missing or empty; its first line names which. \
-  \Label this report incomplete, name the missing reviewers in the Reviewers \
-  \line, and do not present it as a full pass."
+  [wft|
+  Outcome: INCOMPLETE FAN-OUT. The consolidation refused, because at least one
+  reviewer's block was missing or empty; its first line names which. Label this
+  report incomplete, name the missing reviewers in the Reviewers line, and do
+  not present it as a full pass.|]
 
 -- ---------------------------------------------------------------------------
 -- The lenses the corpus keeps in skill files
@@ -945,41 +946,43 @@ reviewScript t =
     roster = tierRoster t []
 
     snapshotAnswer =
-      "diff --git a/config.py b/config.py\n\
-      \@@ -1,2 +1,2 @@\n\
-      \-def read_config(path):\n\
-      \-    return json.load(open(path))\n\
-      \+def read_config(path):\n\
-      \+    return eval(open(path).read())"
+      [wft|
+      diff --git a/config.py b/config.py
+      @@ -1,2 +1,2 @@
+      -def read_config(path):
+      -    return json.load(open(path))
+      +def read_config(path):
+      +    return eval(open(path).read())|]
 
     dossierAnswer = "config.py"
 
+    findingFrom :: Text -> Text
     findingFrom n =
-      "### [HIGH] eval on file contents\n\
-      \- **File**: config.py#L1-L2\n\
-      \- **Category**: Security\n\
-      \- **Confidence**: 90\n\
-      \- **Problem**: the configuration loader evaluates the file it reads.\n\
-      \- **Impact**: any writer of that file executes code in this process.\n\
-      \- **Fix**: parse with json.load or ast.literal_eval.\n\
-      \(reported by the "
-        <> n
-        <> " pass)"
+      [wft|
+      ### [HIGH] eval on file contents
+      - **File**: config.py#L1-L2
+      - **Category**: Security
+      - **Confidence**: 90
+      - **Problem**: the configuration loader evaluates the file it reads.
+      - **Impact**: any writer of that file executes code in this process.
+      - **Fix**: parse with json.load or ast.literal_eval.
+      (reported by the {n} pass)|]
 
     -- Deliberately does NOT open a line with `INCOMPLETE:`: the scripted run
     -- takes the complete arm, and the other arm is reached by deleting this row.
     consolidatedAnswer =
-      "# Code Review Report\n\
-      \\n\
-      \All blocks accounted for.\n\
-      \\n\
-      \## CRITICAL\n\
-      \(none)\n\
-      \\n\
-      \## HIGH\n\
-      \- config.py#L1-L2 — eval on file contents; parse instead. Two reviewers \
-      \reached this independently.\n\
-      \\n\
-      \## Fix order\n\
-      \1. config.py#L1-L2 — replace eval with json.load; verify with `pytest \
-      \tests/test_config.py`."
+      [wft|
+      # Code Review Report
+
+      All blocks accounted for.
+
+      ## CRITICAL
+      (none)
+
+      ## HIGH
+      - config.py#L1-L2 — eval on file contents; parse instead. Two reviewers
+        reached this independently.
+
+      ## Fix order
+      1. config.py#L1-L2 — replace eval with json.load; verify with `pytest
+         tests/test_config.py`.|]

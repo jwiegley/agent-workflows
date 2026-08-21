@@ -125,75 +125,85 @@ teammates :: [(Text, Text, Text)]
 teammates =
   [ ( "domain",
       "deep research on the problem domain",
-      "Establish what the problem actually is, in the terms of the field it \
-      \belongs to. Name the entities, the invariants, the vocabulary and the \
-      \constraints that come from the domain itself rather than from any \
-      \proposed solution. Say which parts of the stated problem are the real \
-      \difficulty and which are incidental."
+      [wft|
+      Establish what the problem actually is, in the terms of the field it
+      belongs to. Name the entities, the invariants, the vocabulary and the
+      constraints that come from the domain itself rather than from any proposed
+      solution. Say which parts of the stated problem are the real difficulty
+      and which are incidental.|]
     ),
     ( "practice",
       "deep research on community best practices",
-      "Report what practitioners in this area have settled on, and how settled \
-      \it is. Separate a convention that exists for a reason from one that \
-      \exists because a popular tool chose it. Where a practice is contested, \
-      \name both camps and what the disagreement turns on."
+      [wft|
+      Report what practitioners in this area have settled on, and how settled it
+      is. Separate a convention that exists for a reason from one that exists
+      because a popular tool chose it. Where a practice is contested, name both
+      camps and what the disagreement turns on.|]
     ),
     ( "prior-art",
       "deep research on prior art and existing solutions",
-      "Find what already solves this or nearly solves it -- libraries, systems, \
-      \papers, previous attempts inside this codebase. For each, say what it \
-      \does, where it stops, and what adopting it would cost. A candidate you \
-      \reject is worth naming with its reason: the next reader will think of it \
-      \too."
+      [wft|
+      Find what already solves this or nearly solves it -- libraries, systems,
+      papers, previous attempts inside this codebase. For each, say what it
+      does, where it stops, and what adopting it would cost. A candidate you
+      reject is worth naming with its reason: the next reader will think of it
+      too.|]
     ),
     ( "ux",
       "UX",
-      "Answer for whoever has to use the result. Walk the path they take, name \
-      \the point at which they must understand something to proceed, and say \
-      \what they will get wrong. Where the problem statement assumes a user who \
-      \already knows something, say so."
+      [wft|
+      Answer for whoever has to use the result. Walk the path they take, name
+      the point at which they must understand something to proceed, and say what
+      they will get wrong. Where the problem statement assumes a user who
+      already knows something, say so.|]
     ),
     ( "architecture",
       "technical architecture",
-      "Propose the shape: the components, what each owns, and where the seams \
-      \are. Say which decisions are load-bearing and hard to reverse, and which \
-      \can be deferred. Name the alternative you rejected and the property that \
-      \decided it."
+      [wft|
+      Propose the shape: the components, what each owns, and where the seams
+      are. Say which decisions are load-bearing and hard to reverse, and which
+      can be deferred. Name the alternative you rejected and the property that
+      decided it.|]
     ),
     ( "planning",
       "planning and strategy",
-      "Turn this into an order of work. Say what must come first because \
-      \something else needs it, what can proceed in parallel, and what the \
-      \first slice is that is worth having on its own. Name the decision that \
-      \has to be made before the work can start."
+      [wft|
+      Turn this into an order of work. Say what must come first because
+      something else needs it, what can proceed in parallel, and what the first
+      slice is that is worth having on its own. Name the decision that has to be
+      made before the work can start.|]
     ),
     ( "testing",
       "testing and code coverage",
-      "Say how this would be known to work. Name the properties worth \
-      \asserting, the cases that are easy to get wrong, and the kind of test \
-      \that would catch each. Say where coverage would be misleading -- a path \
-      \exercised by a test that would pass whatever the code did."
+      [wft|
+      Say how this would be known to work. Name the properties worth asserting,
+      the cases that are easy to get wrong, and the kind of test that would
+      catch each. Say where coverage would be misleading -- a path exercised by
+      a test that would pass whatever the code did.|]
     ),
     ( "security",
       "security and code safety",
-      "Answer for what an adversary or an accident could do. Name the trust \
-      \boundaries, the inputs that cross them, and what happens when each is \
-      \hostile or malformed. Say which failure modes are silent, because those \
-      \are the expensive ones."
+      [wft|
+      Answer for what an adversary or an accident could do. Name the trust
+      boundaries, the inputs that cross them, and what happens when each is
+      hostile or malformed. Say which failure modes are silent, because those
+      are the expensive ones.|]
     ),
     ( "performance",
       "performance and efficiency",
-      "Say what this costs when it runs: the critical path, the allocations, \
-      \the work that scales with input and the work that scales with the \
-      \collection. Name the measurement that would settle each claim, and \
-      \separate what you computed from what you expect."
+      [wft|
+      Say what this costs when it runs: the critical path, the allocations, the
+      work that scales with input and the work that scales with the collection.
+      Name the measurement that would settle each claim, and separate what you
+      computed from what you expect.|]
     ),
     ( "documentation",
       "documentation and good code comments",
-      "Say what a reader would need written down, and where. Name the decisions \
-      \whose reasons will be invisible in the result, the invariants a comment \
-      \has to carry because the types cannot, and the places where a comment \
-      \would only narrate the code."
+      [wft|
+      Say what a reader would need written down, and where. Name the decisions
+      whose reasons will be invisible in the result, the invariants a comment
+      has to carry because the types cannot, and the places where a comment
+      would only narrate the code.|]
     )
   ]
 
@@ -349,15 +359,17 @@ teamsSynthesis r =
 -- | What the artefact says when every block arrived.
 wholeTeamNote :: Roster -> Text
 wholeTeamNote r =
-  "Provenance: a team of "
-    <> tshow (length r)
-    <> " angles over one problem, a devil's advocate over their folded \
-       \document, and a review of all the work. Every angle answered, and the \
-       \review accounted for every block before it judged anything. The team, \
-       \and what each angle owned:\n"
-    <> rosterTable r
-    <> "\nEach angle was a separate question and no angle saw another's answer; \
-       \the advocate and the review saw all of them."
+  [wft|
+  Provenance: a team of {angles} angles over one problem, a devil's advocate
+  over their folded document, and a review of all the work. Every angle
+  answered, and the review accounted for every block before it judged anything.
+  The team, and what each angle owned:
+  {table}
+  Each angle was a separate question and no angle saw another's answer; the
+  advocate and the review saw all of them.|]
+  where
+    angles = tshow (length r)
+    table = rosterTable r
 
 -- | What the artefact says when the review refused.
 --
@@ -366,11 +378,12 @@ wholeTeamNote r =
 -- of it never arrived.
 shortTeamNote :: Text
 shortTeamNote =
-  "Provenance: INCOMPLETE TEAM. The review refused, because at least one \
-  \angle's block was missing or empty; its first line names which. Do not \
-  \present this as a whole-team exploration: name the missing angles at the top \
-  \of the document, and say that the recommendation below, if there is one, was \
-  \reached without them."
+  [wft|
+  Provenance: INCOMPLETE TEAM. The review refused, because at least one angle's
+  block was missing or empty; its first line names which. Do not present this as
+  a whole-team exploration: name the missing angles at the top of the document,
+  and say that the recommendation below, if there is one, was reached without
+  them.|]
 
 -- | The brief the artefact is written through.
 --
@@ -523,30 +536,31 @@ teamsScript =
        ]
   where
     blockFrom l =
-      "On "
-        <> lensOwns l
-        <> ": one finding worth acting on, and one thing this angle could not \
-           \settle from what it was given. Reported by the "
-        <> lensName l
-        <> " angle."
+      [wft|
+      On {owns}: one finding worth acting on, and one thing this angle could not
+      settle from what it was given. Reported by the {name} angle.|]
+      where
+        owns = lensOwns l
+        name = lensName l
 
     contraryAnswer =
-      "The team has converged on treating the input format as fixed, and no \
-      \block says why it is fixed -- prior-art and architecture both assume it \
-      \and neither checked. That agreement is the weakest load-bearing point \
-      \here. Everything else survives: the objections I can raise against the \
-      \testing and performance blocks are smaller than the cost of raising them."
+      [wft|
+      The team has converged on treating the input format as fixed, and no block
+      says why it is fixed -- prior-art and architecture both assume it and
+      neither checked. That agreement is the weakest load-bearing point here.
+      Everything else survives: the objections I can raise against the testing
+      and performance blocks are smaller than the cost of raising them.|]
 
     reviewAnswer =
-      "All ten blocks accounted for.\n\
-      \\n\
-      \Agreed, independently: the first slice is worth having on its own \
-      \(planning, architecture).\n\
-      \Conflict: ux wants the format negotiable, prior-art assumes it fixed. \
-      \What turns on it: whether the first slice ships behind a flag. What \
-      \would settle it: one question to whoever owns the format.\n\
-      \Advocate: the fixed-format objection survives and lands on prior-art. \
-      \The rest the document already answers.\n\
-      \Recommending: the first slice, format left negotiable. Not yet in a \
-      \position to recommend: the migration. Next decision: who owns the \
-      \format."
+      [wft|
+      All ten blocks accounted for.
+
+      Agreed, independently: the first slice is worth having on its own
+      (planning, architecture).
+      Conflict: ux wants the format negotiable, prior-art assumes it fixed. What
+      turns on it: whether the first slice ships behind a flag. What would
+      settle it: one question to whoever owns the format.
+      Advocate: the fixed-format objection survives and lands on prior-art. The
+      rest the document already answers.
+      Recommending: the first slice, format left negotiable. Not yet in a
+      position to recommend: the migration. Next decision: who owns the format.|]

@@ -392,32 +392,36 @@ threadsWriteBrief =
 -- | The arm where the pull request had nothing open on it.
 nothingOpenNote :: Text
 nothingOpenNote =
-  "Outcome: NOTHING OPEN. The pull request's own record was read and the \
-  \inventory built from it found no open comment from a human author, so no \
-  \specialist and no answering question was asked. Report that, name the pull \
-  \request, and say plainly that bot comments -- if there are any -- are the \
-  \`green-ci` workflow's and were not looked at here."
+  [wft|
+  Outcome: NOTHING OPEN. The pull request's own record was read and the
+  inventory built from it found no open comment from a human author, so no
+  specialist and no answering question was asked. Report that, name the pull
+  request, and say plainly that bot comments -- if there are any -- are the
+  `green-ci` workflow's and were not looked at here.|]
 
 -- | The arm where every item was answered.
 answeredNote :: ThreadRung -> Text
 answeredNote Respond =
-  "Provenance: every item in the inventory was answered from the pull request's \
-  \own record and its diff, both of which are command receipts. Nothing was \
-  \posted: no question in this run had write authority, and no bot author was \
-  \answered. Report the answers as they stand."
+  [wft|
+  Provenance: every item in the inventory was answered from the pull request's
+  own record and its diff, both of which are command receipts. Nothing was
+  posted: no question in this run had write authority, and no bot author was
+  answered. Report the answers as they stand.|]
 answeredNote Assess =
-  "Provenance: the language specialists read the inventory and the diff -- the \
-  \same bytes, spliced into every seat -- and the fold accounted for every seat \
-  \before recommending anything. Nothing was posted and no bot author was \
-  \answered. Report the findings and the approach as they stand."
+  [wft|
+  Provenance: the language specialists read the inventory and the diff -- the
+  same bytes, spliced into every seat -- and the fold accounted for every seat
+  before recommending anything. Nothing was posted and no bot author was
+  answered. Report the findings and the approach as they stand.|]
 
 -- | The arm where the answering refused.
 shortNote :: Text
 shortNote =
-  "Outcome: INCOMPLETE. The answering step declined to account for at least one \
-  \inventory item; its first line names which. Label this report incomplete, \
-  \name the unanswered items at the top, and do not present the rest as a full \
-  \pass over the pull request's comments."
+  [wft|
+  Outcome: INCOMPLETE. The answering step declined to account for at least one
+  inventory item; its first line names which. Label this report incomplete, name
+  the unanswered items at the top, and do not present the rest as a full pass
+  over the pull request's comments.|]
 
 -- ---------------------------------------------------------------------------
 -- The artefact every ending writes through
@@ -615,6 +619,7 @@ threadsScript rung =
 
     _ = rung
 
+    -- fixture bytes, not prose: fake `gh pr view --json` stdout.
     recordAnswer =
       "{\"number\":412,\"title\":\"Cache the parsed header\",\
       \\"headRefOid\":\"9f1c2ab\",\"files\":[{\"path\":\"src/Header.hs\"}],\
@@ -622,11 +627,13 @@ threadsScript rung =
       \\"body\":\"The cache is never invalidated when the header changes.\"}]}"
 
     inventoryAnswer =
-      "1. rlepinski -- inline review thread -- src/Header.hs:88 -- the parsed \
-      \header cache is never invalidated when the underlying header changes.\n\
-      \2. rlepinski -- top-level comment -- asks whether the cache is shared \
-      \between requests."
+      [wft|
+      1. rlepinski -- inline review thread -- src/Header.hs:88 -- the parsed
+         header cache is never invalidated when the underlying header changes.
+      2. rlepinski -- top-level comment -- asks whether the cache is shared
+         between requests.|]
 
+    -- fixture bytes, not prose: a unified diff, trailing newline and all.
     diffAnswer =
       "--- a/src/Header.hs\n\
       \+++ b/src/Header.hs\n\
@@ -635,39 +642,41 @@ threadsScript rung =
       \+parsedCache = unsafePerformIO (newIORef mempty)\n"
 
     answersAnswer =
-      "## 1. rlepinski -- src/Header.hs:88\n\
-      \\n\
-      \> The cache is never invalidated when the header changes.\n\
-      \\n\
-      \You are right, and the diff shows why: `parsedCache` at \
-      \src/Header.hs:88-90 is keyed on the raw bytes, so a changed header is a \
-      \different key and the stale entry is never read again. It is a leak \
-      \rather than a correctness bug, and the fix is a bounded map.\n\
-      \\n\
-      \## 2. rlepinski -- top-level\n\
-      \\n\
-      \> Is the cache shared between requests?\n\
-      \\n\
-      \Yes -- it is a top-level `IORef`, so it is process-wide. That is \
-      \deliberate for the parse cost, and the boundedness above is what makes it \
-      \safe."
+      [wft|
+      ## 1. rlepinski -- src/Header.hs:88
+
+      > The cache is never invalidated when the header changes.
+
+      You are right, and the diff shows why: `parsedCache` at
+      src/Header.hs:88-90 is keyed on the raw bytes, so a changed header is a
+      different key and the stale entry is never read again. It is a leak rather
+      than a correctness bug, and the fix is a bounded map.
+
+      ## 2. rlepinski -- top-level
+
+      > Is the cache shared between requests?
+
+      Yes -- it is a top-level `IORef`, so it is process-wide. That is
+      deliberate for the parse cost, and the boundedness above is what makes it
+      safe.|]
 
     approachAnswer =
-      "All blocks accounted for.\n\
-      \\n\
-      \Verified: the cache is keyed on raw bytes and is process-wide (both read \
-      \off src/Header.hs:88-90).\n\
-      \Inferred: that the entry count is unbounded in practice; nobody measured \
-      \it.\n\
-      \One objection said twice: items 1 and 2 are both about lifetime, and one \
-      \answer serves them.\n\
-      \Order: decide the bound first -- it settles both comments; the sharing \
-      \question needs no change."
+      [wft|
+      All blocks accounted for.
+
+      Verified: the cache is keyed on raw bytes and is process-wide (both read
+      off src/Header.hs:88-90).
+      Inferred: that the entry count is unbounded in practice; nobody measured
+      it.
+      One objection said twice: items 1 and 2 are both about lifetime, and one
+      answer serves them.
+      Order: decide the bound first -- it settles both comments; the sharing
+      question needs no change.|]
 
     seatAnswer l =
-      "On "
-        <> lensOwns l
-        <> ": the objection holds against this code, and its implication is \
-           \wider than the call site it names. Read by the "
-        <> lensName l
-        <> " seat."
+      [wft|
+      On {owns}: the objection holds against this code, and its implication is
+      wider than the call site it names. Read by the {name} seat.|]
+      where
+        owns = lensOwns l
+        name = lensName l

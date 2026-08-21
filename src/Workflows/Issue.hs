@@ -207,9 +207,10 @@ todoTestPath n = "test/todo/" <> issueNumber n <> ".test"
 -- a reader of the plan can see what the receipt is for.
 prSearchBrief :: Text
 prSearchBrief =
-  "The open pull requests whose text mentions this issue, one URL per line, as \
-  \`gh pr list --search` reports them. Nothing at all means nobody is already \
-  \working on it."
+  [wft|
+  The open pull requests whose text mentions this issue, one URL per line, as
+  `gh pr list --search` reports them. Nothing at all means nobody is already
+  working on it.|]
 
 -- | What the issue receipt is introduced as.
 issueBrief :: Text
@@ -226,8 +227,9 @@ issueBrief =
 -- a question about history and is asked here with the history in hand.
 historyBrief :: Text
 historyBrief =
-  "The commits this branch carries over the trunk, oldest first. If the issue \
-  \below has already been dealt with, it was dealt with here."
+  [wft|
+  The commits this branch carries over the trunk, oldest first. If the issue
+  below has already been dealt with, it was dealt with here.|]
 
 -- | @commands\/fix.md@'s second gate, as the one question in this program that
 -- is genuinely a judgment.
@@ -256,8 +258,9 @@ triageBrief =
 -- does not read; @plan --raw@ prints them, and the /answer/ is the exit code.
 confirmationBrief :: Text
 confirmationBrief =
-  "Does this issue already have a confirmation test in test/todo? The answer is \
-  \the exit code of `test -f`, and nothing here is being asked of a model."
+  [wft|
+  Does this issue already have a confirmation test in test/todo? The answer is
+  the exit code of `test -f`, and nothing here is being asked of a model.|]
 
 -- | @commands\/fix.md@'s @# Think, Research, Plan, Act, Review@ opening, as the
 -- planning question.
@@ -363,9 +366,10 @@ regressionOnlyBrief =
 -- | What the push act is told.
 pushBrief :: Text
 pushBrief =
-  "Push the branch. What is being published is the series the commit step just \
-  \produced, and the lease is what keeps this push from overwriting somebody \
-  \else's work on the ref."
+  [wft|
+  Push the branch. What is being published is the series the commit step just
+  produced, and the lease is what keeps this push from overwriting somebody
+  else's work on the ref.|]
 
 -- | What the pull-request act is told.
 --
@@ -374,9 +378,10 @@ pushBrief =
 -- assertion; what the program says is what the pull request is for.
 prBrief :: Text
 prBrief =
-  "Open the pull request for the branch that was just pushed, filled from the \
-  \commit series. Its body must name the issue this run fixed, so that merging \
-  \it closes the issue. Then reply DONE."
+  [wft|
+  Open the pull request for the branch that was just pushed, filled from the
+  commit series. Its body must name the issue this run fixed, so that merging it
+  closes the issue. Then reply DONE.|]
 
 -- | What the current branch's pull-request record is introduced as.
 --
@@ -430,10 +435,11 @@ commitStyle =
 -- visible at two call sites.
 botExclusions :: Text
 botExclusions =
-  "Exclude every human author, without exception. This sweep runs immediately \
-  \after the pull request was opened, so a human comment on it is a colleague \
-  \reading a fresh diff: replying to one on a bot's behalf is how an automated \
-  \sweep starts answering a person."
+  [wft|
+  Exclude every human author, without exception. This sweep runs immediately
+  after the pull request was opened, so a human comment on it is a colleague
+  reading a fresh diff: replying to one on a bot's behalf is how an automated
+  sweep starts answering a person.|]
 
 -- | What the worktree-creating act is told.
 --
@@ -442,10 +448,11 @@ botExclusions =
 -- this text has to say is that they are not the answerer's to choose.
 worktreeBrief :: Text
 worktreeBrief =
-  "Create the worktree and branch for this issue. The path and the branch name \
-  \are the argv of this command and were computed from the issue number; \
-  \nothing here is for you to choose. The issue follows so that the command's \
-  \own output can be read beside what it is for."
+  [wft|
+  Create the worktree and branch for this issue. The path and the branch name
+  are the argv of this command and were computed from the issue number; nothing
+  here is for you to choose. The issue follows so that the command's own output
+  can be read beside what it is for.|]
 
 -- | What the closing worktree receipt is introduced as.
 --
@@ -454,9 +461,10 @@ worktreeBrief =
 -- the receipt is @-C@'d and not 'Workflows.Evidence.gitStatus'.
 leftBrief :: Text
 leftBrief =
-  "The worktree's own working tree, as `git -C <path> status --porcelain` \
-  \reports it. This run was asked to leave its work uncommitted, so these bytes \
-  \are the evidence that it did -- and their absence is evidence that it did not."
+  [wft|
+  The worktree's own working tree, as `git -C <path> status --porcelain` reports
+  it. This run was asked to leave its work uncommitted, so these bytes are the
+  evidence that it did -- and their absence is evidence that it did not.|]
 
 -- | The brief the report act is given.
 issueWriteBrief :: Text
@@ -485,39 +493,43 @@ issueWriteBrief =
 -- /Source:/ @commands\/fix.md@'s @NOTE@, whose \"stop immediately\" this is.
 alreadyOpenNote :: Text
 alreadyOpenNote =
-  "Outcome: ALREADY IN HAND. A search of the open pull requests found at least \
-  \one that mentions this issue, so no investigation was started and nothing was \
-  \changed. Report the pull request URLs below and stop there: this run's whole \
-  \job was to find out that somebody is already on it."
+  [wft|
+  Outcome: ALREADY IN HAND. A search of the open pull requests found at least
+  one that mentions this issue, so no investigation was started and nothing was
+  changed. Report the pull request URLs below and stop there: this run's whole
+  job was to find out that somebody is already on it.|]
 
 -- | The arm where the issue turned out to be fixed already.
 alreadyFixedNote :: Text
 alreadyFixedNote =
-  "Outcome: ALREADY ADDRESSED. The issue and the branch's own commit log were \
-  \read together, and the work the issue asks for is already in the history -- \
-  \so this run added the regression test that demonstrates it and did nothing \
-  \else. Report which commit the test pins, and do not describe a fix that was \
-  \not written here."
+  [wft|
+  Outcome: ALREADY ADDRESSED. The issue and the branch's own commit log were
+  read together, and the work the issue asks for is already in the history -- so
+  this run added the regression test that demonstrates it and did nothing else.
+  Report which commit the test pins, and do not describe a fix that was not
+  written here.|]
 
 -- | The arm where the work was done and published.
 fixedNote :: Bool -> Text
 fixedNote promoting =
-  "Outcome: FIXED AND PUBLISHED. The issue was still outstanding, the plan was \
-  \carried out, the series was committed through the standing commit discipline, \
-  \the branch was pushed and a pull request was opened; the bot comments on that \
-  \pull request were then swept."
-    <> promotedClause
-    <> " Two things this run did NOT do, and the report must not claim: it did \
-       \not watch CI -- that is the `green-ci` workflow, and it takes the pull \
-       \request number this run cannot know -- and it did not merge anything."
+  [wft|
+  Outcome: FIXED AND PUBLISHED. The issue was still outstanding, the plan was
+  carried out, the series was committed through the standing commit discipline,
+  the branch was pushed and a pull request was opened; the bot comments on that
+  pull request were then swept. {promotedClause} Two things this run did NOT do,
+  and the report must not claim: it did not watch CI -- that is the `green-ci`
+  workflow, and it takes the pull request number this run cannot know -- and it
+  did not merge anything.|]
   where
     promotedClause
       | promoting =
-          " The confirmation test in `test/todo` was promoted to `test/regress` \
-          \and rewritten to assert the correct behaviour."
+          [wft|
+          The confirmation test in `test/todo` was promoted to `test/regress`
+          and rewritten to assert the correct behaviour.|]
       | otherwise =
-          " No confirmation test was waiting in `test/todo` for this issue, so \
-          \none was promoted."
+          [wft|
+          No confirmation test was waiting in `test/todo` for this issue, so
+          none was promoted.|]
 
 -- | The arm where the worktree came back with something to review.
 uncommittedNote :: Text -> Text
@@ -526,10 +538,11 @@ uncommittedNote n =
     <> worktreePath n
     <> " on branch "
     <> worktreeBranch n
-    <> ", and `git -C` reports that tree as dirty -- which is what this run was \
-       \asked for: the changes are there to be read and nothing has been \
-       \committed. Report the file list below, and name the worktree path and \
-       \branch so a reviewer can get to them."
+    <> [wft|
+       , and `git -C` reports that tree as dirty -- which is what this run was
+       asked for: the changes are there to be read and nothing has been
+       committed. Report the file list below, and name the worktree path and
+       branch so a reviewer can get to them.|]
 
 -- | The arm where it came back clean.
 --
@@ -537,13 +550,15 @@ uncommittedNote n =
 -- postcondition and the file has no arm for its failing.
 nothingChangedNote :: Text -> Text
 nothingChangedNote n =
-  "Outcome: NOTHING TO REVIEW. The worktree at "
-    <> worktreePath n
-    <> " was created and the work ran, and `git -C … status --porcelain` came \
-       \back EMPTY -- so either nothing was changed or something committed it, \
-       \and step 8 of this workflow says the work is to be left uncommitted. Do \
-       \not report this as a completed fix. Say which of the two happened, from \
-       \the evidence below, and what the next run would have to check first."
+  [wft|
+  Outcome: NOTHING TO REVIEW. The worktree at {path} was created and the work
+  ran, and `git -C … status --porcelain` came back EMPTY -- so either nothing
+  was changed or something committed it, and step 8 of this workflow says the
+  work is to be left uncommitted. Do not report this as a completed fix. Say
+  which of the two happened, from the evidence below, and what the next run
+  would have to check first.|]
+  where
+    path = worktreePath n
 
 -- ---------------------------------------------------------------------------
 -- The functions
@@ -793,26 +808,30 @@ issueScript rung =
   where
     _ = rung
 
+    -- fixture bytes, not prose: fake `gh issue view --json` stdout.
     issueAnswer =
       "{\"number\":1024,\"title\":\"format --json drops the trailing newline\",\
       \\"state\":\"OPEN\",\"labels\":[{\"name\":\"bug\"}],\
       \\"body\":\"Running `fmt --json` on a file ending in a newline writes one \
       \that does not. The plain formatter is fine.\",\"comments\":[]}"
 
+    -- fixture bytes, not prose: fake `git log --oneline` stdout.
     historyAnswer =
       "a1b2c3d Add the JSON writer\n\
       \e4f5a6b Reuse the plain formatter's buffer"
 
     planAnswer =
-      "1. test/todo/1024.test -> test/regress/1024.test -- promote, and rewrite \
-      \the expectation to a trailing newline. Verify: the test fails before step \
-      \2 and passes after it.\n\
-      \2. src/Json.hs -- the writer drops the final newline because it joins \
-      \with `intercalate`; append it. Verify: `make test`.\n\
-      \3. Run the repository's linting and type checking. Verify: both clean."
+      [wft|
+      1. test/todo/1024.test -> test/regress/1024.test -- promote, and rewrite
+         the expectation to a trailing newline. Verify: the test fails before
+         step 2 and passes after it.
+      2. src/Json.hs -- the writer drops the final newline because it joins with
+         `intercalate`; append it. Verify: `make test`.
+      3. Run the repository's linting and type checking. Verify: both clean.|]
 
     sweepAnswer = "No unresolved bot comments found"
 
+    -- fixture bytes, not prose: fake `git status --porcelain` stdout.
     leftAnswer =
       " M src/Json.hs\n\
       \?? test/regress/1024.test"

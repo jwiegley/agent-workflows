@@ -233,14 +233,17 @@ diffFlags base
 modeNote :: Text -> Text
 modeNote base
   | T.null (T.strip base) =
-      "Scope: the whole project. Every comment the extractor found is in scope, \
-      \and there is no diff to prioritise by."
+      [wft|
+      Scope: the whole project. Every comment the extractor found is in scope,
+      and there is no diff to prioritise by.|]
   | otherwise =
-      "Scope: the changes against "
-        <> T.strip base
-        <> ". The manifest records which comments fall inside the diff, and \
-           \those come first.\n\n"
-        <> remoteSweep
+      [wft|
+      Scope: the changes against {scope}. The manifest records which comments
+      fall inside the diff, and those come first.
+
+      {remoteSweep}|]
+  where
+    scope = T.strip base
 
 -- | @SKILL.md@ step 4, verbatim in substance.
 --
@@ -646,12 +649,13 @@ fixBrief =
 -- | The arm where the manifest still had pending entries.
 notDrainedNote :: Text
 notDrainedNote =
-  "Outcome: THE AUDIT DID NOT FINISH. The extractor's own `stats` line says \
-  \entries are still pending after this run's audit turn, so the manifest is \
-  \partial and nothing has been fixed. That is a count printed by the tool and \
-  \not a claim by whoever did the auditing. Report the counts, say which surfaces \
-  \were reached, and say that the audit is resumable: the manifest on disk holds \
-  \every verdict already recorded, and another run continues from it."
+  [wft|
+  Outcome: THE AUDIT DID NOT FINISH. The extractor's own `stats` line says
+  entries are still pending after this run's audit turn, so the manifest is
+  partial and nothing has been fixed. That is a count printed by the tool and
+  not a claim by whoever did the auditing. Report the counts, say which surfaces
+  were reached, and say that the audit is resumable: the manifest on disk holds
+  every verdict already recorded, and another run continues from it.|]
 
 -- | The arm where the denominator did not reconcile.
 --
@@ -659,22 +663,24 @@ notDrainedNote =
 -- proof that extraction itself was complete.\"
 notReconciledNote :: Text
 notReconciledNote =
-  "Outcome: EXHAUSTIVE ONLY WITHIN THE EXTRACTOR. Every extracted entry has a \
-  \verdict, and an independent reconciliation found that the extracted set is \
-  \NOT the declared scope: the gaps it names are below, verbatim. Do not describe \
-  \this audit as exhaustive. Open the report with the boundary -- which surfaces \
-  \were covered and which were not -- and only then the findings, because a \
-  \reader who takes a bounded audit for a complete one has been told something \
-  \false by omission."
+  [wft|
+  Outcome: EXHAUSTIVE ONLY WITHIN THE EXTRACTOR. Every extracted entry has a
+  verdict, and an independent reconciliation found that the extracted set is NOT
+  the declared scope: the gaps it names are below, verbatim. Do not describe
+  this audit as exhaustive. Open the report with the boundary -- which surfaces
+  were covered and which were not -- and only then the findings, because a
+  reader who takes a bounded audit for a complete one has been told something
+  false by omission.|]
 
 -- | The arm where the guard approved and the fixes were applied.
 appliedNote :: Text
 appliedNote =
-  "Outcome: AUDITED, GUARDED AND FIXED. Every extracted entry has a verdict, an \
-  \independent reconciliation accounted for the scope, and a false-positive guard \
-  \on a serving model that did none of the auditing approved the finding set \
-  \before any comment was edited. Report which fixes were applied and which \
-  \findings were deliberately left for a human, and keep those two lists apart."
+  [wft|
+  Outcome: AUDITED, GUARDED AND FIXED. Every extracted entry has a verdict, an
+  independent reconciliation accounted for the scope, and a false-positive guard
+  on a serving model that did none of the auditing approved the finding set
+  before any comment was edited. Report which fixes were applied and which
+  findings were deliberately left for a human, and keep those two lists apart.|]
 
 -- | The arm where the guard was still objecting when the bound ran out.
 --
@@ -683,22 +689,24 @@ appliedNote =
 -- has no outcome.
 notGuardedNote :: Text
 notGuardedNote =
-  "Outcome: AUDITED, NOT FIXED. The false-positive guard was still objecting when \
-  \this run's rounds ran out, so NO comment was edited -- which is the correct \
-  \outcome and not a failure: an unguarded fix to a correct comment is the most \
-  \damaging thing this workflow can do. Report the findings as proposals, quote \
-  \the guard's outstanding objections verbatim under their own heading, and say \
-  \that every edit is waiting on a human."
+  [wft|
+  Outcome: AUDITED, NOT FIXED. The false-positive guard was still objecting when
+  this run's rounds ran out, so NO comment was edited -- which is the correct
+  outcome and not a failure: an unguarded fix to a correct comment is the most
+  damaging thing this workflow can do. Report the findings as proposals, quote
+  the guard's outstanding objections verbatim under their own heading, and say
+  that every edit is waiting on a human.|]
 
 -- | The arm where the guard would not judge at all.
 guardSilentNote :: Text
 guardSilentNote =
-  "Outcome: AUDITED, UNGUARDED. The false-positive guard declined to judge the \
-  \finding set, so this audit has no independent check on its verdicts and no \
-  \comment was edited. Say that in one sentence at the top of the report, before \
-  \anything else. Report every finding as a proposal, do not describe any verdict \
-  \as confirmed, and do not substitute your own reading of the guardrails for the \
-  \guard that did not answer."
+  [wft|
+  Outcome: AUDITED, UNGUARDED. The false-positive guard declined to judge the
+  finding set, so this audit has no independent check on its verdicts and no
+  comment was edited. Say that in one sentence at the top of the report, before
+  anything else. Report every finding as a proposal, do not describe any verdict
+  as confirmed, and do not substitute your own reading of the guardrails for the
+  guard that did not answer.|]
 
 -- ---------------------------------------------------------------------------
 -- The two functions
@@ -967,30 +975,34 @@ commentsScript =
   ]
   where
     inventoried =
-      "Manifest written: .comment-audit/manifest.json\n\
-      \  scope:          whole project\n\
-      \  files scanned:  18\n\
-      \  files skipped:  2\n\
-      \  comments found: 41\n\
-      \  preserved:      0 (verdicts carried over)\n\
-      \  pending:        41"
+      [wft|
+      Manifest written: .comment-audit/manifest.json
+        scope:          whole project
+        files scanned:  18
+        files skipped:  2
+        comments found: 41
+        preserved:      0 (verdicts carried over)
+        pending:        41|]
 
     pendingList =
-      "c0a1  src/cache.py:12-14  [line]\n\
-      \c0a2  src/cache.py:57-57  [trailing]\n\
-      \c0b7  src/http.py:88-96  [docstring]"
+      [wft|
+      c0a1  src/cache.py:12-14  [line]
+      c0a2  src/cache.py:57-57  [trailing]
+      c0b7  src/http.py:88-96  [docstring]|]
 
     stats =
-      "total:   41\n\
-      \pending: 0\n\
-      \audited: 41\n\
-      \  NEEDS_REVIEW: 3\n\
-      \  STALE: 2\n\
-      \  VALID: 36\n\
-      \\n\
-      \EXTRACTED INVENTORY COMPLETE: every extracted entry has a verdict.\n\
-      \File/comment denominator reconciliation is still required."
+      [wft|
+      total:   41
+      pending: 0
+      audited: 41
+        NEEDS_REVIEW: 3
+        STALE: 2
+        VALID: 36
 
+      EXTRACTED INVENTORY COMPLETE: every extracted entry has a verdict.
+      File/comment denominator reconciliation is still required.|]
+
+    -- fixture bytes, not prose: fake manifest JSON.
     ledger =
       "{\"manifest_version\": 3, \"files_scanned\": 18, \"files_skipped\": \
       \[{\"path\": \"assets/app.min.js\", \"reason\": \"unrecognised \
@@ -1003,12 +1015,14 @@ commentsScript =
       \not in this repository\"}]}"
 
     reconciled =
-      "RECONCILED -- 18 of 20 files accounted for. The 2 skipped are \
-      \assets/app.min.js and assets/vendor.min.css, both generated bundles and \
-      \both out of the declared scope. Python files used the real tokenizer; no \
-      \heredoc or embedded-language surface remains unexamined."
+      [wft|
+      RECONCILED -- 18 of 20 files accounted for. The 2 skipped are
+      assets/app.min.js and assets/vendor.min.css, both generated bundles and
+      both out of the declared scope. Python files used the real tokenizer; no
+      heredoc or embedded-language surface remains unexamined.|]
 
     corrected =
-      "c0b7 downgraded from NEEDS_REVIEW confidence low to NEEDS_REVIEW with the \
-      \evidence string naming the upstream sanitiser explicitly. Every other \
-      \finding unchanged."
+      [wft|
+      c0b7 downgraded from NEEDS_REVIEW confidence low to NEEDS_REVIEW with the
+      evidence string naming the upstream sanitiser explicitly. Every other
+      finding unchanged.|]

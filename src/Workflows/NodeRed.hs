@@ -251,6 +251,9 @@ eventLog nid =
                   "-d",
                   "nodered_events",
                   "-c",
+                  -- fixture bytes, not prose: an argv — the printed SQL is the
+                  -- binding's own contract ("what is asked of the database is
+                  -- visible before it is asked"), so its bytes are the point.
                   "SELECT ts, msgid, node_name, hook, topic, payload FROM msg_events \
                   \WHERE node_id = '"
                     <> nid
@@ -807,50 +810,54 @@ verifyBrief =
 -- | The arm where the change was put, and the node had fired in the window.
 putActiveNote :: Text
 putActiveNote =
-  "Outcome: EDITED AND PUT, WITH HISTORY. The tab was fetched, six reviewers read \
-  \the same envelope, the edit was staged and validated, the helper accepted the \
-  \put, and the tab was refetched to confirm what is deployed. The event log for \
-  \the node in question HAS rows in the last twenty-four hours, so the wiring \
-  \question was answered against messages that actually passed through it rather \
-  \than against a reading of the flow. Report what changed, field by field, and \
-  \name the hop in the log where the old behaviour is visible."
+  [wft|
+  Outcome: EDITED AND PUT, WITH HISTORY. The tab was fetched, six reviewers read
+  the same envelope, the edit was staged and validated, the helper accepted the
+  put, and the tab was refetched to confirm what is deployed. The event log for
+  the node in question HAS rows in the last twenty-four hours, so the wiring
+  question was answered against messages that actually passed through it rather
+  than against a reading of the flow. Report what changed, field by field, and
+  name the hop in the log where the old behaviour is visible.|]
 
 -- | The arm where the change was put, and the node had never fired.
 putSilentNote :: Text
 putSilentNote =
-  "Outcome: EDITED AND PUT, AND THE NODE HAD NEVER FIRED. The put was accepted \
-  \and confirmed by a refetch. But the event log returned NO ROWS for this node in \
-  \the last twenty-four hours, and this host's own debugging rule reads that \
-  \exactly one way: zero rows means the problem is UPSTREAM -- something never \
-  \reached the node -- and not in the node itself. So report the change that was \
-  \made AND report that it may well not be the fix: name what feeds this node, and \
-  \say that the next thing to look at is whether the upstream trigger fires at \
-  \all. A node edited because it did the wrong thing, when it never did anything, \
-  \is a change that will look like it failed."
+  [wft|
+  Outcome: EDITED AND PUT, AND THE NODE HAD NEVER FIRED. The put was accepted
+  and confirmed by a refetch. But the event log returned NO ROWS for this node
+  in the last twenty-four hours, and this host's own debugging rule reads that
+  exactly one way: zero rows means the problem is UPSTREAM -- something never
+  reached the node -- and not in the node itself. So report the change that was
+  made AND report that it may well not be the fix: name what feeds this node,
+  and say that the next thing to look at is whether the upstream trigger fires
+  at all. A node edited because it did the wrong thing, when it never did
+  anything, is a change that will look like it failed.|]
 
 -- | The arm where the validator objected.
 invalidNote :: Text
 invalidNote =
-  "Outcome: NOT PUT -- THE STAGED ENVELOPE DID NOT VALIDATE. The edit was staged \
-  \and the validator objected; its own first failing line is the closing evidence \
-  \below. NOTHING WAS SENT to the runtime: the deployed flow is exactly what it \
-  \was before this run. Report the failing line verbatim and name what in the \
-  \envelope it is about -- an invalid JSON document, an envelope missing a key, a \
-  \wire referring to a node id that is not in `nodes`. The reviewers' blocks are \
-  \still worth reading and are below: the analysis stands even though the edit did \
-  \not."
+  [wft|
+  Outcome: NOT PUT -- THE STAGED ENVELOPE DID NOT VALIDATE. The edit was staged
+  and the validator objected; its own first failing line is the closing evidence
+  below. NOTHING WAS SENT to the runtime: the deployed flow is exactly what it
+  was before this run. Report the failing line verbatim and name what in the
+  envelope it is about -- an invalid JSON document, an envelope missing a key, a
+  wire referring to a node id that is not in `nodes`. The reviewers' blocks are
+  still worth reading and are below: the analysis stands even though the edit
+  did not.|]
 
 -- | The arm where the validator did not run.
 noValidatorNote :: Text
 noValidatorNote =
-  "Outcome: NOT PUT -- THE VALIDATOR DID NOT RUN. The validation script was \
-  \missing, or it outran its clock: it did not fail, it did not run. This host's \
-  \rule for that case is explicit -- a helper failure is a blocker to report, not \
-  \permission to fall back to a lower-level interface -- so nothing was sent and \
-  \no other route was tried. Report which script was invoked and with what argv, \
-  \and say that this is a fact about the run's tooling and not about the flow. The \
-  \edit and the six review blocks are below and are unaffected; a second run with \
-  \the scripts directory named correctly will put the same envelope."
+  [wft|
+  Outcome: NOT PUT -- THE VALIDATOR DID NOT RUN. The validation script was
+  missing, or it outran its clock: it did not fail, it did not run. This host's
+  rule for that case is explicit -- a helper failure is a blocker to report, not
+  permission to fall back to a lower-level interface -- so nothing was sent and
+  no other route was tried. Report which script was invoked and with what argv,
+  and say that this is a fact about the run's tooling and not about the flow.
+  The edit and the six review blocks are below and are unaffected; a second run
+  with the scripts directory named correctly will put the same envelope.|]
 
 -- ---------------------------------------------------------------------------
 -- The function
@@ -1107,10 +1114,12 @@ noderedScript =
   ]
     <> [(lensBrief l, seatAnswer (lensName l)) | l <- houseRoster]
   where
+    -- fixture bytes, not prose: fake `node-red-admin` flows JSON.
     tabsAnswer =
       "{\"flows\":[{\"id\":\"a1b2c3d4e5f60718\",\"label\":\"Office\"},\
       \{\"id\":\"b2c3d4e5f6071829\",\"label\":\"Pool Time\"}]}"
 
+    -- fixture bytes, not prose: fake `psql` stdout.
     uuidAnswer =
       "0f1e2d3c4b5a6978\n\
       \1a2b3c4d5e6f7081\n\
@@ -1118,6 +1127,7 @@ noderedScript =
 
     -- Deliberately does NOT print `(0 rows)`: the rehearsal walks the
     -- with-history ending, and the upstream-issue ending is one line away.
+    -- fixture bytes, not prose: fake `psql` stdout, column alignment and all.
     eventAnswer =
       "             ts             |  msgid   |     node_name      |   hook   \n\
       \----------------------------+----------+--------------------+----------\n\
@@ -1125,6 +1135,7 @@ noderedScript =
       \ 2026-08-19 22:00:01.140+00 | 7f3a2b10 | Turn off HVAC       | onSend\n\
       \(2 rows)"
 
+    -- fixture bytes, not prose: fake Home Assistant entity-list stdout.
     entityAnswer =
       "binary_sensor.office_door_sensor_p2_office_door\n\
       \climate.home_office\n\
@@ -1132,16 +1143,17 @@ noderedScript =
       \sensor.johns_mac_studio_active_camera\n\
       \switch.pool"
 
+    -- fixture bytes, not prose: fake flow-envelope JSON.
     envelopeAnswer =
       "{\"baseDigest\":\"sha256:\
       \0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\
       \\"flow\":{\"id\":\"a1b2c3d4e5f60718\",\"label\":\"Office\",\"nodes\":[],\
       \\"configs\":[]}}"
 
+    seatAnswer :: Text -> Text
     seatAnswer n =
-      "On the "
-        <> n
-        <> " area: the existing wiring routes `office door closed?` output 0 to \
-           \`Turn off HVAC`, so the gate fires when the door IS closed, which is \
-           \what the band's comment says it should do. Nothing in the requested \
-           \change depends on a direction I could not read from the envelope."
+      [wft|
+      On the {n} area: the existing wiring routes `office door closed?` output 0
+      to `Turn off HVAC`, so the gate fires when the door IS closed, which is
+      what the band's comment says it should do. Nothing in the requested change
+      depends on a direction I could not read from the envelope.|]

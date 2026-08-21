@@ -294,9 +294,10 @@ botProtocol =
 -- disagree about it.
 humansExcluded :: Text
 humansExcluded =
-  "Exclude every human author, without exception. A human's review comment is \
-  \not this run's business: replying to one on a bot's behalf is how an \
-  \automated sweep starts answering a colleague."
+  [wft|
+  Exclude every human author, without exception. A human's review comment is not
+  this run's business: replying to one on a bot's behalf is how an automated
+  sweep starts answering a colleague.|]
 
 -- | What the tree question asks for, at the @green-tree@ rung.
 --
@@ -385,8 +386,9 @@ greenNote :: Rung -> Text
 greenNote r =
   "Outcome: GREEN. The check for rung `"
     <> rungName r
-    <> "` exited 0. Everything below is what the run produced; the check's own \
-       \approval, and not a model's account of it, is why this says green."
+    <> [wft|
+       ` exited 0. Everything below is what the run produced; the check's own
+       approval, and not a model's account of it, is why this says green.|]
 
 -- | The provenance line an exhausted gate reports under.
 --
@@ -398,26 +400,29 @@ stillRedNote :: Rung -> Text
 stillRedNote r =
   "Outcome: STILL RED. The repair budget for rung `"
     <> rungName r
-    <> "` ran out with the check still failing. The artefact below is what the \
-       \last repair produced and the final check objected to; no trip was spent \
-       \answering that last objection, and every edit the repairs made is still \
-       \in the tree. Name the check that is red and the line it failed on. Do \
-       \not describe this as finished."
+    <> [wft|
+       ` ran out with the check still failing. The artefact below is what the
+       last repair produced and the final check objected to; no trip was spent
+       answering that last objection, and every edit the repairs made is still
+       in the tree. Name the check that is red and the line it failed on. Do not
+       describe this as finished.|]
 
 -- | The provenance line the flaky rung's steady arm reports under.
 steadyNote :: Text
 steadyNote =
-  "Outcome: GREEN AND STEADY. After the repairs, an independent fourth run of \
-  \the same suite also exited 0. Two clean runs is not a proof of \
-  \determinism; say so, and say what would be."
+  [wft|
+  Outcome: GREEN AND STEADY. After the repairs, an independent fourth run of the
+  same suite also exited 0. Two clean runs is not a proof of determinism; say
+  so, and say what would be.|]
 
 -- | The provenance line the flaky rung's unsteady arm reports under.
 unsteadyNote :: Text
 unsteadyNote =
-  "Outcome: GREEN ONCE, NOT STEADY. The gate settled, and an independent fourth \
-  \run of the same suite did not exit 0. That is the flake, still there, and it \
-  \is the finding: report the suite as unfixed and name what the fourth run \
-  \disagreed with the third about."
+  [wft|
+  Outcome: GREEN ONCE, NOT STEADY. The gate settled, and an independent fourth
+  run of the same suite did not exit 0. That is the flake, still there, and it
+  is the finding: report the suite as unfixed and name what the fourth run
+  disagreed with the third about.|]
 
 -- ---------------------------------------------------------------------------
 -- The protocol that is called rather than copied
@@ -587,11 +592,13 @@ greenScript r =
       Flaky -> []
 
     inventoryAnswer =
-      "1. cursor[bot] — review thread — src/parse.rs:118 — unchecked slice \
-      \index when the header is empty.\n\
-      \2. graphite-app[bot] — top-level comment — the stack's base branch \
-      \moved; rebase before merging."
+      [wft|
+      1. cursor[bot] — review thread — src/parse.rs:118 — unchecked slice index
+         when the header is empty.
+      2. graphite-app[bot] — top-level comment — the stack's base branch moved;
+         rebase before merging.|]
 
+    -- fixture bytes, not prose: fake `git status --porcelain` stdout.
     treeAnswer =
       " M flake.nix\n\
       \ M src/Parse.hs\n\
@@ -600,6 +607,7 @@ greenScript r =
     -- An objection, and it says so in its own first line: a verdict answer that
     -- is not an approval is read as one, and a canned "ok" would have been a
     -- passing run reported as a failing one.
+    -- fixture bytes, not prose: fake test-runner stdout.
     drawnAnswer =
       "test tests::race_on_tempdir ... FAILED\n\
       \failures:\n\
@@ -612,13 +620,17 @@ greenScript r =
     -- suspect one. The flaky column is empty and says why, because a scripted
     -- run has no way to make one draw disagree with another.
     triagedAnswer =
-      "Broken: tests::race_on_tempdir failed in all three runs with the same \
-      \line. It writes to a fixed path under /tmp, so it is also the shared-state \
-      \candidate: under concurrency the same defect would present as a flake.\n\
-      \Flaky: none. Three draws objected identically, which distinguishes \
-      \nothing -- flakiness is a disagreement between runs.\n\
-      \Never failed: the remaining 40."
+      [wft|
+      Broken: tests::race_on_tempdir failed in all three runs with the same
+      line. It writes to a fixed path under /tmp, so it is also the shared-state
+      candidate: under concurrency the same defect would present as a flake.
+      Flaky: none. Three draws objected identically, which distinguishes nothing
+      -- flakiness is a disagreement between runs.
+      Never failed: the remaining 40.|]
 
     repairedAnswer =
-      "tests::race_on_tempdir now allocates its directory with tempfile::tempdir()\n\
-      \and drops it at the end of the test, so two concurrent runs cannot collide."
+      [wft|
+      tests::race_on_tempdir now allocates its directory with
+      tempfile::tempdir()
+      and drops it at the end of the test, so two concurrent runs cannot
+      collide.|]

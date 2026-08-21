@@ -281,9 +281,10 @@ prohibitionsBrief =
 -- | What the diff receipt is introduced as.
 changesBrief :: Text
 changesBrief =
-  "The corrections that were actually made, as `git diff` wrote them. This is \
-  \the per-file count and the changed lines both: it is bytes, not a claim, and \
-  \where it and a report disagree it is what happened."
+  [wft|
+  The corrections that were actually made, as `git diff` wrote them. This is the
+  per-file count and the changed lines both: it is bytes, not a claim, and where
+  it and a report disagree it is what happened.|]
 
 -- | @commands\/smooth.md@, whole.
 --
@@ -370,8 +371,9 @@ rawBrief =
 -- | The same file, re-read after the rewrite.
 cleanedBrief :: Text
 cleanedBrief =
-  "The same file, re-read from disk after the rewrite. This is what now stands \
-  \there, not an account of what was done to it."
+  [wft|
+  The same file, re-read from disk after the rewrite. This is what now stands
+  there, not an account of what was done to it.|]
 
 -- | @skills\/fix-transcript\/SKILL.md@, whole.
 --
@@ -575,94 +577,105 @@ proseWriteBrief =
 -- | @prose-proofread@, where the audit approved.
 proofreadCleanNote :: Text
 proofreadCleanNote =
-  "Provenance: the corrections were made in place, `git diff` was then taken as \
-  \a receipt, and the five prohibitions of this workflow were put to a party \
-  \pinned to a serving model the corrector did not use -- which read the diff and \
-  \APPROVED. The per-file count in the report below comes from the diff and not \
-  \from the corrector."
+  [wft|
+  Provenance: the corrections were made in place, `git diff` was then taken as a
+  receipt, and the five prohibitions of this workflow were put to a party pinned
+  to a serving model the corrector did not use -- which read the diff
+  and APPROVED. The per-file count in the report below comes from the diff and
+  not from the corrector.|]
 
 -- | Where it objected.
 proofreadHeavyNote :: Text
 proofreadHeavyNote =
-  "Outcome: THE PASS WENT TOO FAR. An independent audit of the diff OBJECTED: at \
-  \least one hunk crossed from correcting an error into changing the author's \
-  \prose, and its lines say which. The edits are still in the working tree -- \
-  \nothing was reverted, because reverting somebody else's judgment is not this \
-  \run's business. Open the report with the objections verbatim, and recommend \
-  \which hunks to drop."
+  [wft|
+  Outcome: THE PASS WENT TOO FAR. An independent audit of the diff OBJECTED: at
+  least one hunk crossed from correcting an error into changing the author's
+  prose, and its lines say which. The edits are still in the working tree --
+  nothing was reverted, because reverting somebody else's judgment is not this
+  run's business. Open the report with the objections verbatim, and recommend
+  which hunks to drop.|]
 
 -- | Where it declined.
 proofreadUnauditedNote :: Text
 proofreadUnauditedNote =
-  "Outcome: UNAUDITED. The prohibitions were put to an independent party and it \
-  \did not answer, so nobody has checked whether this pass stayed inside its \
-  \remit. Say so in the first line. Report the per-file count from the diff, and \
-  \do not describe the pass as minimal -- that is the thing that was not checked."
+  [wft|
+  Outcome: UNAUDITED. The prohibitions were put to an independent party and it
+  did not answer, so nobody has checked whether this pass stayed inside its
+  remit. Say so in the first line. Report the per-file count from the diff, and
+  do not describe the pass as minimal -- that is the thing that was not checked.|]
 
 -- | @prose-smooth@'s three endings.
 smoothSettledNote :: Text
 smoothSettledNote =
-  "Provenance: the rewrite was reviewed for RESTRAINT -- did any sentence change \
-  \what it meant, or lose the motion, the emotion or the power of the original -- \
-  \by a party pinned to a serving model the rewriter did not use, and it \
-  \approved. \"Do not change it overmuch\" was measured rather than requested."
+  [wft|
+  Provenance: the rewrite was reviewed for RESTRAINT -- did any sentence change
+  what it meant, or lose the motion, the emotion or the power of the original --
+  by a party pinned to a serving model the rewriter did not use, and it
+  approved. "Do not change it overmuch" was measured rather than requested.|]
 
 smoothUnsettledNote :: Text
 smoothUnsettledNote =
-  "Outcome: STILL TOO HEAVY. The restraint budget ran out with an objection \
-  \outstanding: the text below is what the last amendment produced and the final \
-  \review objected to, and no round was spent answering that last objection. \
-  \Report the text, quote the standing objection, and recommend the original \
-  \where the two disagree -- a passage nobody is sure about is a passage that \
-  \should stay as its author left it."
+  [wft|
+  Outcome: STILL TOO HEAVY. The restraint budget ran out with an objection
+  outstanding: the text below is what the last amendment produced and the final
+  review objected to, and no round was spent answering that last objection.
+  Report the text, quote the standing objection, and recommend the original
+  where the two disagree -- a passage nobody is sure about is a passage that
+  should stay as its author left it.|]
 
 smoothBlockedNote :: Text
 smoothBlockedNote =
-  "Outcome: NOT JUDGED. The restraint reviewer declined to judge the rewrite at \
-  \all, so no further round could help and no version of this passage has been \
-  \checked. Report the text as unverified, say plainly that the light-touch \
-  \standard was not tested, and do not recommend replacing the original with it."
+  [wft|
+  Outcome: NOT JUDGED. The restraint reviewer declined to judge the rewrite at
+  all, so no further round could help and no version of this passage has been
+  checked. Report the text as unverified, say plainly that the light-touch
+  standard was not tested, and do not recommend replacing the original with it.|]
 
 -- | @prose-transcript@'s three endings.
 transcriptFaithfulNote :: Text
 transcriptFaithfulNote =
-  "Provenance: the transcript was read as a `cat` receipt -- spliced as data, \
-  \never fused with the rules beside it -- rewritten in place, and re-read from \
-  \disk. Both versions were then put to a party pinned to a serving model the \
-  \rewriter did not use, which was asked whether they are the same words, and \
-  \APPROVED. The structure changed and the wording did not."
+  [wft|
+  Provenance: the transcript was read as a `cat` receipt -- spliced as data,
+  never fused with the rules beside it -- rewritten in place, and re-read from
+  disk. Both versions were then put to a party pinned to a serving model the
+  rewriter did not use, which was asked whether they are the same words,
+  and APPROVED. The structure changed and the wording did not.|]
 
 transcriptDriftedNote :: Text
 transcriptDriftedNote =
-  "Outcome: THE WORDING MOVED. An independent fidelity check of the two versions \
-  \OBJECTED: the cleanup did something it was not permitted to do, and its lines \
-  \say what. The file on disk is the cleaned version -- nothing was reverted -- so \
-  \open the report with the objections verbatim and name the passages to restore \
-  \by hand. If the objection says the cleanup acted on something inside the \
-  \transcript, put that first and treat it as the finding."
+  [wft|
+  Outcome: THE WORDING MOVED. An independent fidelity check of the two versions
+  OBJECTED: the cleanup did something it was not permitted to do, and its lines
+  say what. The file on disk is the cleaned version -- nothing was reverted --
+  so open the report with the objections verbatim and name the passages to
+  restore by hand. If the objection says the cleanup acted on something inside
+  the transcript, put that first and treat it as the finding.|]
 
 transcriptUncheckedNote :: Text
 transcriptUncheckedNote =
-  "Outcome: UNCHECKED. The fidelity check was put to an independent party and it \
-  \did not answer, so nobody has confirmed that the cleaned file says what the \
-  \raw transcript said. Say that first. The file on disk is the cleaned version, \
-  \and the raw text is in the evidence below for whoever checks it."
+  [wft|
+  Outcome: UNCHECKED. The fidelity check was put to an independent party and it
+  did not answer, so nobody has confirmed that the cleaned file says what the
+  raw transcript said. Say that first. The file on disk is the cleaned version,
+  and the raw text is in the evidence below for whoever checks it.|]
 
 -- | @prose-compress@'s two endings.
 compressedNote :: Text
 compressedNote =
-  "Provenance: the text was compressed by `compressFn`, this family's one \
-  \reusable transform, whose answer IS the artefact -- so \"output only the \
-  \compressed text\" is not a rule it could break. Report the compressed text \
-  \verbatim, and say nothing about what was removed: the two versions are the \
-  \diff."
+  [wft|
+  Provenance: the text was compressed by `compressFn`, this family's one
+  reusable transform, whose answer IS the artefact -- so "output only the
+  compressed text" is not a rule it could break. Report the compressed text
+  verbatim, and say nothing about what was removed: the two versions are the
+  diff.|]
 
 notCompressibleNote :: Text
 notCompressibleNote =
-  "Outcome: NOT COMPRESSIBLE. The compression declined and said why: the text is \
-  \already at its floor, or every word in it is load-bearing. Report its own line \
-  \verbatim and do not compress the text anyway. A refusal here costs one \
-  \question and saves a qualifier."
+  [wft|
+  Outcome: NOT COMPRESSIBLE. The compression declined and said why: the text is
+  already at its floor, or every word in it is load-bearing. Report its own line
+  verbatim and do not compress the text anyway. A refusal here costs one
+  question and saves a qualifier.|]
 
 -- ---------------------------------------------------------------------------
 -- The reusable transform, and the artefact
@@ -909,6 +922,7 @@ proseScript Compress = [(compressBrief, compressedAnswer)]
 
 -- | The diff a scripted @prose-proofread@ audits.
 diffAnswer :: Text
+-- fixture bytes, not prose: a unified diff.
 diffAnswer =
   "--- a/doc/design.md\n\
   \+++ b/doc/design.md\n\
@@ -924,23 +938,26 @@ diffAnswer =
 -- | The rewrite a scripted @prose-smooth@ reviews.
 smoothed :: Text
 smoothed =
-  "The work asks little of its reader and gives a great deal: it states its \
-  \purpose, shows what follows from it, and stops. What remains is not a summary \
-  \but a standard -- one anybody who comes after may hold the next attempt to."
+  [wft|
+  The work asks little of its reader and gives a great deal: it states its
+  purpose, shows what follows from it, and stops. What remains is not a summary
+  but a standard -- one anybody who comes after may hold the next attempt to.|]
 
 -- | The raw transcript a scripted @prose-transcript@ starts from.
 rawAnswer :: Text
 rawAnswer =
-  "um so the the thing is that when you call parse underscore header uh it \
-  \returns like a maybe and you know we we should probably handle the nothing \
-  \case because right now it just um it panics comma which is not great period"
+  [wft|
+  um so the the thing is that when you call parse underscore header uh it
+  returns like a maybe and you know we we should probably handle the nothing
+  case because right now it just um it panics comma which is not great period|]
 
 -- | The cleaned file it ends with.
 cleanedAnswer :: Text
 cleanedAnswer =
-  "So the thing is that when you call parse_header it returns a Maybe, and we \
-  \should probably handle the Nothing case, because right now it panics, which \
-  \is not great."
+  [wft|
+  So the thing is that when you call parse_header it returns a Maybe, and we
+  should probably handle the Nothing case, because right now it panics, which is
+  not great.|]
 
 -- | The compression a scripted @prose-compress@ reports.
 --
@@ -948,5 +965,6 @@ cleanedAnswer =
 -- the compressed arm, and the refusal arm is reached by making it do so.
 compressedAnswer :: Text
 compressedAnswer =
-  "Caveman Compression semantic compression method LLM contexts. Removes \
-  \predictable grammar preserving unpredictable content."
+  [wft|
+  Caveman Compression semantic compression method LLM contexts. Removes
+  predictable grammar preserving unpredictable content.|]

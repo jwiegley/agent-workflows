@@ -234,17 +234,19 @@ workBrief =
 -- | The arm where the checklist was already empty.
 nothingLeftNote :: Text
 nothingLeftNote =
-  "Outcome: NOTHING TO DO. The checklist was read before any work was planned \
-  \and no unchecked box was found in it, so no round ran and nothing was asked \
-  \of anybody. Report that, and name the file that was read."
+  [wft|
+  Outcome: NOTHING TO DO. The checklist was read before any work was planned and
+  no unchecked box was found in it, so no round ran and nothing was asked of
+  anybody. Report that, and name the file that was read.|]
 
 -- | The arm where the list came out empty.
 clearedNote :: Text
 clearedNote =
-  "Outcome: CLEAR. The checklist was worked and then re-read from disk, and the \
-  \re-read found no unchecked box. That test is a grep over the file's own \
-  \bytes and not a claim by whoever did the work. Report the list as complete, \
-  \and say which round each item was finished in if the file records it."
+  [wft|
+  Outcome: CLEAR. The checklist was worked and then re-read from disk, and the
+  re-read found no unchecked box. That test is a grep over the file's own bytes
+  and not a claim by whoever did the work. Report the list as complete, and say
+  which round each item was finished in if the file records it.|]
 
 -- | The arm where items survived every round.
 --
@@ -254,11 +256,12 @@ clearedNote =
 -- one.
 unfinishedNote :: Text
 unfinishedNote =
-  "Outcome: ITEMS REMAIN. Every round this run was given has been spent and the \
-  \checklist below, re-read from disk, still carries unchecked boxes. Do not \
-  \report this run as complete. Name each box that is still open, quote any \
-  \`BLOCKED:` line beneath it verbatim, and say what the next run would have to \
-  \start with."
+  [wft|
+  Outcome: ITEMS REMAIN. Every round this run was given has been spent and the
+  checklist below, re-read from disk, still carries unchecked boxes. Do not
+  report this run as complete. Name each box that is still open, quote any
+  `BLOCKED:` line beneath it verbatim, and say what the next run would have to
+  start with.|]
 
 -- | The brief the report act is given.
 --
@@ -472,6 +475,7 @@ checklistScript =
     (orderBrief, plan)
   ]
   where
+    -- fixture bytes, not prose: the checklist file's own bytes, before the run.
     before =
       "# Release checklist\n\
       \\n\
@@ -479,6 +483,7 @@ checklistScript =
       \- [ ] Regenerate the parser fixtures\n\
       \- [ ] Update CHANGELOG.md for 0.4.0"
 
+    -- fixture bytes, not prose: the checklist file's own bytes, one box on.
     midway =
       "# Release checklist\n\
       \\n\
@@ -486,6 +491,7 @@ checklistScript =
       \- [x] Regenerate the parser fixtures\n\
       \- [ ] Update CHANGELOG.md for 0.4.0"
 
+    -- fixture bytes, not prose: the checklist file's own bytes, drained.
     cleared =
       "# Release checklist\n\
       \\n\
@@ -494,9 +500,10 @@ checklistScript =
       \- [x] Update CHANGELOG.md for 0.4.0"
 
     plan =
-      "1. Regenerate the parser fixtures -- still incomplete: tests/fixtures/ \
-      \is older than grammar.y. Run `make fixtures`; complete when \
-      \`git diff --exit-code tests/fixtures` is clean.\n\
-      \2. Update CHANGELOG.md for 0.4.0 -- still incomplete: the file's last \
-      \entry is 0.3.2. Write the 0.4.0 section from `git log 0.3.2..HEAD`; \
-      \complete when the top heading reads 0.4.0."
+      [wft|
+      1. Regenerate the parser fixtures -- still incomplete: tests/fixtures/ is
+         older than grammar.y. Run `make fixtures`; complete when `git diff
+         --exit-code tests/fixtures` is clean.
+      2. Update CHANGELOG.md for 0.4.0 -- still incomplete: the file's last
+         entry is 0.3.2. Write the 0.4.0 section from `git log 0.3.2..HEAD`;
+         complete when the top heading reads 0.4.0.|]

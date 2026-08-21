@@ -352,30 +352,33 @@ reviseBrief =
 -- | The arm where the audit approved.
 approvedNote :: Text
 approvedNote =
-  "Outcome: A QUERY, AUDITED. The schema was read as a receipt, one query was \
-  \written against it, and an auditor on a different serving model approved it \
-  \for disclosure, for correctness against that schema and for answering the \
-  \question asked. Report the query, the assumptions it rests on, and the fact \
-  \that nothing in this run connected to the database -- so the query has never \
-  \been executed and its plan has never been seen."
+  [wft|
+  Outcome: A QUERY, AUDITED. The schema was read as a receipt, one query was
+  written against it, and an auditor on a different serving model approved it
+  for disclosure, for correctness against that schema and for answering the
+  question asked. Report the query, the assumptions it rests on, and the fact
+  that nothing in this run connected to the database -- so the query has never
+  been executed and its plan has never been seen.|]
 
 -- | The arm where the bound ran out.
 unresolvedNote :: Text
 unresolvedNote =
-  "Outcome: NOT SETTLED. The audit still objected after every repair trip this \
-  \run was given, so the query below is the one the last trip produced and the \
-  \final audit objected to -- no trip was spent answering that last objection. \
-  \Do NOT present it as ready to run. Report the outstanding objection first, in \
-  \the auditor's own words, and then the query beneath it."
+  [wft|
+  Outcome: NOT SETTLED. The audit still objected after every repair trip this
+  run was given, so the query below is the one the last trip produced and the
+  final audit objected to -- no trip was spent answering that last objection. Do
+  NOT present it as ready to run. Report the outstanding objection first, in the
+  auditor's own words, and then the query beneath it.|]
 
 -- | The arm where the audit declined.
 declinedNote :: Text
 declinedNote =
-  "Outcome: NOT AUDITED. The auditor declined to judge the query at all, which \
-  \means it could not tell what it was looking at -- most often because the \
-  \schema receipt is not a schema, or is empty. Report the query as UNCHECKED, \
-  \name the schema file the run was pointed at, and say that no disclosure check \
-  \and no correctness check was completed."
+  [wft|
+  Outcome: NOT AUDITED. The auditor declined to judge the query at all, which
+  means it could not tell what it was looking at -- most often because the
+  schema receipt is not a schema, or is empty. Report the query as UNCHECKED,
+  name the schema file the run was pointed at, and say that no disclosure check
+  and no correctness check was completed.|]
 
 -- | The arm the free decider takes.
 --
@@ -384,13 +387,14 @@ declinedNote =
 -- that reads the answer.
 mutatingNote :: Text
 mutatingNote =
-  "Outcome: REFUSED -- THE ANSWER WOULD CHANGE THE DATABASE. A line of the draft \
-  \begins with a statement that writes: INSERT, UPDATE, DELETE, MERGE, DROP, \
-  \TRUNCATE, ALTER, CREATE, GRANT, REVOKE or a procedure call. This row exists to \
-  \hand the operator something he runs by hand against his own database, so a \
-  \write is refused rather than reported. Nothing was audited and no repair was \
-  \attempted. Quote the offending line, say what a read-only query answering the \
-  \same question would look like, and stop."
+  [wft|
+  Outcome: REFUSED -- THE ANSWER WOULD CHANGE THE DATABASE. A line of the draft
+  begins with a statement that writes: INSERT, UPDATE, DELETE, MERGE, DROP,
+  TRUNCATE, ALTER, CREATE, GRANT, REVOKE or a procedure call. This row exists to
+  hand the operator something he runs by hand against his own database, so a
+  write is refused rather than reported. Nothing was audited and no repair was
+  attempted. Quote the offending line, say what a read-only query answering the
+  same question would look like, and stop.|]
 
 -- ---------------------------------------------------------------------------
 -- The function
@@ -597,6 +601,7 @@ queryScript =
     (reviseBrief, drafted)
   ]
   where
+    -- fixture bytes, not prose: the schema DDL the MCP server returns.
     schema =
       "CREATE TABLE dbo.Invoice (\n\
       \  InvoiceId    INT           NOT NULL PRIMARY KEY,\n\
@@ -612,22 +617,23 @@ queryScript =
       \);"
 
     drafted =
-      "```sql\n\
-      \SELECT c.RegionId,\n\
-      \       SUM(i.TotalCents) / 100.0 AS BilledDollars\n\
-      \FROM dbo.Invoice AS i\n\
-      \JOIN dbo.Customer AS c ON c.CustomerId = i.CustomerId\n\
-      \WHERE i.VoidedOn IS NULL\n\
-      \  AND i.IssuedOn >= '2026-01-01'\n\
-      \  AND i.IssuedOn <  '2026-04-01'\n\
-      \GROUP BY c.RegionId\n\
-      \ORDER BY BilledDollars DESC;\n\
-      \```\n\
-      \\n\
-      \Returns one row per region, with the region id and the dollars billed in \
-      \the first quarter of 2026.\n\
-      \\n\
-      \Assumptions: a voided invoice is one with a non-null VoidedOn, and \
-      \IssuedOn is the billing date rather than the delivery date. Relies on the \
-      \primary key on Customer.CustomerId; without an index on Invoice.IssuedOn \
-      \this is a full scan of Invoice."
+      [wft|
+      ```sql
+      SELECT c.RegionId,
+             SUM(i.TotalCents) / 100.0 AS BilledDollars
+      FROM dbo.Invoice AS i
+      JOIN dbo.Customer AS c ON c.CustomerId = i.CustomerId
+      WHERE i.VoidedOn IS NULL
+        AND i.IssuedOn >= '2026-01-01'
+        AND i.IssuedOn <  '2026-04-01'
+      GROUP BY c.RegionId
+      ORDER BY BilledDollars DESC;
+      ```
+
+      Returns one row per region, with the region id and the dollars billed in
+      the first quarter of 2026.
+
+      Assumptions: a voided invoice is one with a non-null VoidedOn, and
+      IssuedOn is the billing date rather than the delivery date. Relies on the
+      primary key on Customer.CustomerId; without an index on Invoice.IssuedOn
+      this is a full scan of Invoice.|]

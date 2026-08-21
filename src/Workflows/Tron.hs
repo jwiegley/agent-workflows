@@ -309,24 +309,28 @@ torchTrace t
 stages :: [(Text, Text)]
 stages =
   [ ( "bulk",
-      "the Torch Fx -> Bulk translation: whether the Bulk dump is a faithful \
-      \reading of the traced graph, and whether anything the trace expressed was \
-      \dropped, defaulted or silently reshaped on the way in"
+      [wft|
+      the Torch Fx -> Bulk translation: whether the Bulk dump is a faithful
+      reading of the traced graph, and whether anything the trace expressed was
+      dropped, defaulted or silently reshaped on the way in|]
     ),
     ( "loopy",
-      "the Bulk -> Loopy translation: whether the loop and iteration structure \
-      \Loopy imposes matches what Bulk described, and whether any implicit \
-      \broadcast, reduction or ordering assumption was introduced here"
+      [wft|
+      the Bulk -> Loopy translation: whether the loop and iteration structure
+      Loopy imposes matches what Bulk described, and whether any implicit
+      broadcast, reduction or ordering assumption was introduced here|]
     ),
     ( "tron",
-      "the Loopy -> Tron translation: whether the Tron dump's operations, \
-      \buffers and schedule are what Loopy asked for, and whether anything about \
-      \layout, dtype or lifetime was decided here rather than carried"
+      [wft|
+      the Loopy -> Tron translation: whether the Tron dump's operations, buffers
+      and schedule are what Loopy asked for, and whether anything about layout,
+      dtype or lifetime was decided here rather than carried|]
     ),
     ( "cpp",
-      "the Tron -> C++ plugin translation: whether the emitted code implements \
-      \the Tron dump it was generated from, and whether the fault is in the \
-      \emitter rather than in anything upstream of it"
+      [wft|
+      the Tron -> C++ plugin translation: whether the emitted code implements
+      the Tron dump it was generated from, and whether the fault is in the
+      emitter rather than in anything upstream of it|]
     )
   ]
 
@@ -546,35 +550,39 @@ stageClosing problem =
 -- | The arm where the control does not build.
 controlBrokenNote :: Text
 controlBrokenNote =
-  "Outcome: NO CONTROL -- NOTHING WAS DIAGNOSED. The sglang ingest, which is the \
-  \status quo this differential compares against, did not complete. So there is no \
-  \working path to compare the Torch Fx path with, and this run refuses to \
-  \diagnose: a one-sided reading presented as a differential is exactly the \
-  \mistake this row exists to prevent. Report which command was run, and say that \
-  \fixing or rebuilding the status quo is the prerequisite -- not a detail."
+  [wft|
+  Outcome: NO CONTROL -- NOTHING WAS DIAGNOSED. The sglang ingest, which is the
+  status quo this differential compares against, did not complete. So there is
+  no working path to compare the Torch Fx path with, and this run refuses to
+  diagnose: a one-sided reading presented as a differential is exactly the
+  mistake this row exists to prevent. Report which command was run, and say that
+  fixing or rebuilding the status quo is the prerequisite -- not a detail.|]
 
 -- | The arm where the ingest under test fails.
 ingestFailedNote :: Text
 ingestFailedNote =
-  "Outcome: THE INGEST DID NOT COMPLETE. The Torch Fx pipeline failed before it \
-  \wrote its dumps, so there is no Bulk, Loopy or Tron dump from this run to read \
-  \and no plugin to build. That is not a dead end -- it is a better-localised \
-  \failure than the one the operator came in with. The pipeline's own first \
-  \failing line is the closing evidence below: report it verbatim, say which stage \
-  \of the pipeline it comes from, and say what to look at first. Do not diagnose \
-  \any boundary downstream of the failure, because nothing downstream ran."
+  [wft|
+  Outcome: THE INGEST DID NOT COMPLETE. The Torch Fx pipeline failed before it
+  wrote its dumps, so there is no Bulk, Loopy or Tron dump from this run to read
+  and no plugin to build. That is not a dead end -- it is a
+  better-localised failure than the one the operator came in with. The pipeline's own
+  first failing line is the closing evidence below: report it verbatim, say which
+  stage of the pipeline it comes from, and say what to look at first. Do not
+  diagnose any boundary downstream of the failure, because nothing downstream
+  ran.|]
 
 -- | The arm where the emitted plugin does not compile.
 makeFailedNote :: Text
 makeFailedNote =
-  "Outcome: THE GENERATED C++ DOES NOT COMPILE. The ingest completed and wrote its \
-  \dumps and its plugin, and the build of that plugin failed. This localises the \
-  \fault to the Tron -> C++ emitter more sharply than any reading of the IRs \
-  \could: the emitter produced code that is not valid C++, which is a bug in the \
-  \emitter and not a question about semantics. Report the compiler's own first \
-  \failing line verbatim, and name the emitted construct it is about. The three IR \
-  \dumps exist and are worth reading next, but the first thing to look at is the \
-  \emitter."
+  [wft|
+  Outcome: THE GENERATED C++ DOES NOT COMPILE. The ingest completed and wrote
+  its dumps and its plugin, and the build of that plugin failed. This localises
+  the fault to the Tron -> C++ emitter more sharply than any reading of the IRs
+  could: the emitter produced code that is not valid C++, which is a bug in the
+  emitter and not a question about semantics. Report the compiler's own
+  first failing line verbatim, and name the emitted construct it is about. The three
+  IR dumps exist and are worth reading next, but the first thing to look at is
+  the emitter.|]
 
 -- | The arm where a command is missing or hung.
 --
@@ -584,12 +592,13 @@ makeFailedNote =
 -- it did not run__.
 toolMissingNote :: Text
 toolMissingNote =
-  "Outcome: A COMMAND DID NOT RUN. One of this run's commands was missing, or \
-  \outran its clock -- it did not fail, it did not run. That is a fact about this \
-  \working tree and not about the pipeline: the wrong directory, an unbuilt \
-  \`runtron`, a `cabal` outside the project, a Nix shell that was not entered. \
-  \Report which command it was and what its argv was, and say that no conclusion \
-  \at all follows about the model or the pipeline. Nothing was diagnosed."
+  [wft|
+  Outcome: A COMMAND DID NOT RUN. One of this run's commands was missing, or
+  outran its clock -- it did not fail, it did not run. That is a fact about this
+  working tree and not about the pipeline: the wrong directory, an unbuilt
+  `runtron`, a `cabal` outside the project, a Nix shell that was not entered.
+  Report which command it was and what its argv was, and say that no conclusion
+  at all follows about the model or the pipeline. Nothing was diagnosed.|]
 
 -- | The arm where the symptom did not reproduce.
 --
@@ -598,36 +607,39 @@ toolMissingNote =
 -- is still there.
 noReproNote :: Text
 noReproNote =
-  "Outcome: DID NOT REPRODUCE. The ingest completed, the plugin built, and the \
-  \model generated without failing -- so the symptom this run was given did not \
-  \occur here. Do NOT diagnose anything. Report exactly what was run, in full argv, \
-  \and then the two possibilities, because they need different next steps: either \
-  \the symptom is conditional on something this invocation did not carry (a longer \
-  \prompt, a different model, a different trace directory, a stale plugin from a \
-  \previous build) or it is a WRONG-OUTPUT symptom rather than a failure, which an \
-  \exit code cannot see. If it is the second, the next run needs the expected \
-  \output beside the actual, and this row cannot supply that."
+  [wft|
+  Outcome: DID NOT REPRODUCE. The ingest completed, the plugin built, and the
+  model generated without failing -- so the symptom this run was given did not
+  occur here. Do NOT diagnose anything. Report exactly what was run, in full
+  argv, and then the two possibilities, because they need different next steps:
+  either the symptom is conditional on something this invocation did not carry
+  (a longer prompt, a different model, a different trace directory, a stale
+  plugin from a previous build) or it is a WRONG-OUTPUT symptom rather than
+  a failure, which an exit code cannot see. If it is the second, the next run
+  needs the expected output beside the actual, and this row cannot supply that.|]
 
 -- | The arm where the fan-out came up short.
 shortFanOutNote :: Text
 shortFanOutNote =
-  "Outcome: INCOMPLETE DIAGNOSIS. The synthesis refused, because at least one of \
-  \the four pipeline boundaries produced no block; its first line names which. \
-  \Label this report incomplete and name the missing boundaries. A pipeline \
-  \diagnosis that skipped a translation has not localised anything -- the fault is \
-  \as likely to be at the boundary nobody spoke about as at any of the others."
+  [wft|
+  Outcome: INCOMPLETE DIAGNOSIS. The synthesis refused, because at least one of
+  the four pipeline boundaries produced no block; its first line names which.
+  Label this report incomplete and name the missing boundaries. A pipeline
+  diagnosis that skipped a translation has not localised anything -- the fault
+  is as likely to be at the boundary nobody spoke about as at any of the others.|]
 
 -- | The arm where everything ran and the differential was answered.
 diagnosedNote :: Text
 diagnosedNote =
-  "Outcome: DIAGNOSED, OVER RUNS THAT HAPPENED. The control ingest passed, the \
-  \Torch Fx ingest completed, the emitted plugin compiled, and the model then \
-  \failed at run time -- so every piece of evidence below comes from a command \
-  \this run executed, and the runtime's own failing line is in it. Four pipeline \
-  \boundaries were read independently over the same three IR dumps and the same \
-  \`Fx.hs` Note, and the synthesis accounted for all four before answering the \
-  \frontend-or-backend question. Report the answer, the boundary it localises to, \
-  \the evidence for it, and the one experiment that would confirm it."
+  [wft|
+  Outcome: DIAGNOSED, OVER RUNS THAT HAPPENED. The control ingest passed, the
+  Torch Fx ingest completed, the emitted plugin compiled, and the model
+  then failed at run time -- so every piece of evidence below comes from a command
+  this run executed, and the runtime's own failing line is in it. Four pipeline
+  boundaries were read independently over the same three IR dumps and the same
+  `Fx.hs` Note, and the synthesis accounted for all four before answering the
+  frontend-or-backend question. Report the answer, the boundary it localises to,
+  the evidence for it, and the one experiment that would confirm it.|]
 
 -- ---------------------------------------------------------------------------
 -- The function
@@ -921,44 +933,51 @@ tronScript =
   ]
     <> [(lensBrief l, boundaryAnswer l) | l <- stageRoster]
   where
+    -- fixture bytes, not prose: a source-code comment block, quoted as it stands in the tree.
     note =
       "-- Note [Torch Fx -> Bulk]\n\
       \-- The traced graph is walked once; every node becomes exactly one Bulk\n\
       \-- operation, and buffer lifetimes are computed from the walk order rather\n\
       \-- than from the graph's use-def edges."
 
+    -- fixture bytes, not prose: an IR dump, column alignment and all.
     dump =
       "op 16: matmul  in=[b12,b13] out=[b17]\n\
       \op 17: add     in=[b17,b14] out=[b18]\n\
       \op 18: output  in=[b18]"
 
     diagnosed =
-      "All four boundaries accounted for.\n\
-      \\n\
-      \FRONTEND. The Torch -> Bulk translation computes buffer lifetimes from walk \
-      \order, and the Fx trace for this model reuses a buffer across a branch the \
-      \sglang frontend never emits -- so the lifetime it assigns to b17 ends before \
-      \op 17 reads it. Every pass downstream carries that lifetime faithfully, which \
-      \is why the Loopy, Tron and C++ boundaries are all clean.\n\
-      \\n\
-      \Why the control survives it: the sglang frontend emits a linear graph, so walk \
-      \order and use-def order coincide and the assumption in Note [Torch Fx -> Bulk] \
-      \holds.\n\
-      \\n\
-      \Smallest experiment: re-ingest with the walk-order lifetime computation \
-      \replaced by a use-def scan, and diff `model.bulk`. If b17's lifetime extends \
-      \past op 17, that is the fault."
+      [wft|
+      All four boundaries accounted for.
+
+      FRONTEND. The Torch -> Bulk translation computes buffer lifetimes from
+      walk order, and the Fx trace for this model reuses a buffer across a
+      branch the sglang frontend never emits -- so the lifetime it assigns to
+      b17 ends before op 17 reads it. Every pass downstream carries that
+      lifetime faithfully, which is why the Loopy, Tron and C++ boundaries are
+      all clean.
+
+      Why the control survives it: the sglang frontend emits a linear graph, so
+      walk order and use-def order coincide and the assumption in Note [Torch Fx
+      -> Bulk] holds.
+
+      Smallest experiment: re-ingest with the walk-order lifetime computation
+      replaced by a use-def scan, and diff `model.bulk`. If b17's lifetime
+      extends past op 17, that is the fault.|]
 
     boundaryAnswer l
       | lensName l == "bulk" =
-          "The Bulk dump assigns b17 a lifetime ending at op 16, and op 17 reads \
-          \b17. That is inconsistent, and it is decided here: the Note says \
-          \lifetimes come from walk order. Confirmed by the dump; the Torch trace \
-          \itself is not in this dossier, so I cannot say what the trace intended. \
-          \(the bulk boundary)"
+          [wft|
+          The Bulk dump assigns b17 a lifetime ending at op 16, and op 17 reads
+          b17. That is inconsistent, and it is decided here: the Note says
+          lifetimes come from walk order. Confirmed by the dump; the Torch trace
+          itself is not in this dossier, so I cannot say what the trace
+          intended. (the bulk boundary)|]
       | otherwise =
-          "This boundary is clean: my output is a faithful translation of my input, \
-          \including the lifetime it was given, which is the thing the symptom is \
-          \about. I carry it, I do not decide it. (the "
-            <> lensName l
-            <> " boundary)"
+          [wft|
+          This boundary is clean: my output is a faithful translation of my
+          input, including the lifetime it was given, which is the thing the
+          symptom is about. I carry it, I do not decide it. (the {name}
+          boundary)|]
+      where
+        name = lensName l

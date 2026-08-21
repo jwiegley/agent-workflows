@@ -16,6 +16,32 @@
 -- in the quoter, instead of once in front of each of the 412 defines that used
 -- it — which is the whole of the change, and why it could not move a byte.
 --
+-- __And the string-gap literal went with it, on a ruling that let bytes move.__
+-- Those 412 were the defines that were /already/ fences. Beside them stood some
+-- 470 prose blocks written as Haskell string gaps — a line ending in a backslash,
+-- continued by one beginning with a backslash — which the first sweep left alone
+-- for a reason that was true: a gap join encodes a __space__ and a fence join
+-- encodes a __newline__, so converting one moves its bytes. The owner ruled on
+-- 2026-08-21 that consistency outranks those bytes for prose, \"it should only
+-- use the latter\". So every prose gap literal under @src\/@ is now a fence,
+-- re-wrapped to read at the width it is sent at, and what survives as a gap
+-- literal is __fixture bytes only__: canned stdout, a diff, a schema, a JSON
+-- payload, a directory listing, a code scrap — text standing in for what some
+-- tool or file produced, inside a scripted table. Several of those shapes a
+-- fence cannot hold at all, because it drops its leading and trailing blank
+-- lines and cannot end in a newline. Each survivor carries one line above it
+-- saying which it is.
+--
+-- __What made that safe was an oracle rather than care.__ A prompt reaches a
+-- run's trace through @Agentic.Exec.oneLine@, which collapses every run of
+-- whitespace to a single space — so a re-wrap that moves no /word/ cannot move a
+-- printed byte, and all 72 rows' @plan@, @cost@ and @--scripted@ output are
+-- byte-for-byte what they were before the sweep. Two things do read line
+-- structure, and both are left alone with the reason written beside them: an
+-- answer decoded as a verdict, where @Agentic.Text.decodeVerdict@ makes one
+-- objection __per line__, and "Workflows.Deciders"' needles, which no wrapped
+-- line may begin with.
+--
 -- __Why a define is 'Text' and not the 'Words' a prompt is__ — the argument that
 -- travelled with @wfText@, and which the four fragments below now carry, because
 -- each of them is a define computed rather than written:

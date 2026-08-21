@@ -474,34 +474,39 @@ seatRows r = [(lensBrief l, blockFrom (lensName l)) | l <- r]
 -- stance-before-rubric order exists to prevent.
 blockFrom :: Text -> Text
 blockFrom "for" =
-  "The rewrite pays for itself in the parser's two worst files: the hand-rolled \
-  \state machine in `lex.c` is where every open bug lives, and a table-driven \
-  \DFA deletes the class rather than the instances."
+  [wft|
+  The rewrite pays for itself in the parser's two worst files: the hand-rolled
+  state machine in `lex.c` is where every open bug lives, and a table-driven DFA
+  deletes the class rather than the instances.|]
 blockFrom "against" =
-  "The cost the proposal does not price is the error messages. `lex.c` reports \
-  \a column and a suggestion; a generated DFA reports a state number, and every \
-  \downstream consumer of the diagnostics format breaks on the same day."
+  [wft|
+  The cost the proposal does not price is the error messages. `lex.c` reports a
+  column and a suggestion; a generated DFA reports a state number, and every
+  downstream consumer of the diagnostics format breaks on the same day.|]
 blockFrom "neutral" =
-  "Settled by the context: the bug list, and that the grammar is regular. A \
-  \judgement call: whether diagnostics quality is negotiable. Unknowable from \
-  \what is here: how many callers parse the diagnostics."
+  [wft|
+  Settled by the context: the bug list, and that the grammar is regular. A
+  judgement call: whether diagnostics quality is negotiable. Unknowable from
+  what is here: how many callers parse the diagnostics.|]
 blockFrom n = "No position from the " <> n <> " seat."
 
 -- | The canned synthesis, which deliberately does __not__ open a line with
 -- @INCOMPLETE:@ — the scripted run walks the arm where every block arrived.
 recommended :: Text
 recommended =
-  "The parties disagree on one thing: whether diagnostics quality is a \
-  \constraint or a preference. `for` says the DFA deletes a bug class; \
-  \`against` says it deletes the column numbers with it. What turns on it: if \
-  \diagnostics are a constraint the rewrite needs a source-map, which is most \
-  \of the work. Recommendation: rewrite, with the source-map in scope from the \
-  \start. This changes if no caller parses the diagnostics."
+  [wft|
+  The parties disagree on one thing: whether diagnostics quality is a constraint
+  or a preference. `for` says the DFA deletes a bug class; `against` says it
+  deletes the column numbers with it. What turns on it: if diagnostics are a
+  constraint the rewrite needs a source-map, which is most of the work.
+  Recommendation: rewrite, with the source-map in scope from the start. This
+  changes if no caller parses the diagnostics.|]
 
 -- | The canned second opinion.
 opinionAnswer :: Text
 opinionAnswer =
-  "The claim holds for the lexer and not for the parser. It is weakest where it \
-  \assumes the grammar stays regular; one context-sensitive rule and the table \
-  \is back to hand-written code beside it. What would change my answer: a \
-  \single counterexample rule in the current grammar."
+  [wft|
+  The claim holds for the lexer and not for the parser. It is weakest where it
+  assumes the grammar stays regular; one context-sensitive rule and the table is
+  back to hand-written code beside it. What would change my answer: a single
+  counterexample rule in the current grammar.|]

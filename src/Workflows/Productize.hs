@@ -227,17 +227,24 @@ preferences =
 preferenceTable :: [Text] -> Text
 preferenceTable files
   | null present =
-      "No file list was given to this run, so the languages present were not \
-      \decided. The operator's standing tool preferences, in full, are below; \
-      \use the ones that apply to what you find in the tree, and say in your \
-      \block which language you assumed.\n\n"
-        <> bullets [(n, toolLine l f) | (n, _, l, f) <- preferences]
+      [wft|
+      No file list was given to this run, so the languages present were not
+      decided. The operator's standing tool preferences, in full, are below; use
+      the ones that apply to what you find in the tree, and say in your block
+      which language you assumed.
+
+      {everyRow}|]
   | otherwise =
-      "The languages this repository is in, from the file list this run was \
-      \given, and the operator's tool preference for each:\n\n"
-        <> bullets [(n, toolLine l f) | (n, _, l, f) <- present]
+      [wft|
+      The languages this repository is in, from the file list this run was
+      given, and the operator's tool preference for each:
+
+      {presentRows}|]
   where
     present = [row | row@(_, globs, _, _) <- preferences, any (touches files) globs]
+
+    everyRow = bullets [(n, toolLine l f) | (n, _, l, f) <- preferences]
+    presentRows = bullets [(n, toolLine l f) | (n, _, l, f) <- present]
 
     toolLine l f = "lint: " <> quoted l <> "; format: " <> quoted f
     quoted (Just x) = "`" <> x <> "`"
@@ -302,175 +309,195 @@ deliverables :: [(Text, Text, Text)]
 deliverables =
   [ ( "readme",
       "a full, clear, concise README.md, if the repository has none",
-      "Specify the README.md this repository should have, if it does not already \
-      \have one: what it must say, section by section, and in what order. Full, \
-      \clear and concise, in that order of priority. Write in a measured, \
-      \institutionally grounded register -- no promotional adjectives, no \
-      \exclamation, no second-person marketing. The owner's own personal writing \
-      \voice is NOT available to this run: say so in one line at the end of your \
-      \block rather than approximating it, so that a reader can tell a register \
-      \that was chosen from one that was missed. If a README already exists, say \
-      \what is missing from it instead of specifying a replacement."
+      [wft|
+      Specify the README.md this repository should have, if it does not already
+      have one: what it must say, section by section, and in what order. Full,
+      clear and concise, in that order of priority. Write in a measured,
+      institutionally grounded register -- no promotional adjectives, no
+      exclamation, no second-person marketing. The owner's own personal writing
+      voice is NOT available to this run: say so in one line at the end of your
+      block rather than approximating it, so that a reader can tell a register
+      that was chosen from one that was missed. If a README already exists, say
+      what is missing from it instead of specifying a replacement.|]
     ),
     ( "license",
       "LICENSE.md, BSD-3-Clause, with the copyright years taken from the receipt",
-      "Specify LICENSE.md containing the standard BSD-3-Clause license text, with \
-      \the copyright line reading exactly `Copyright (c) <earliest>-<latest>, \
-      \John Wiegley.  All rights reserved.` -- two spaces after the period, as \
-      \written. Take <earliest> and <latest> from the commit-years receipt you \
-      \were given: the first line is the earliest year and the last line is the \
-      \latest. Quote both, and say which line of the receipt each came from. Do \
-      \not compute a range from anything else, and do not write a single year \
-      \where the receipt shows two."
+      [wft|
+      Specify LICENSE.md containing the standard BSD-3-Clause license text, with
+      the copyright line reading exactly `Copyright (c) <earliest>-<latest>,
+      John Wiegley.  All rights reserved.` -- two spaces after the period, as
+      written. Take <earliest> and <latest> from the commit-years receipt you
+      were given: the first line is the earliest year and the last line is the
+      latest. Quote both, and say which line of the receipt each came from. Do
+      not compute a range from anything else, and do not write a single year
+      where the receipt shows two.|]
     ),
     ( "devshell",
       "flake.nix, so `nix develop` enters a shell that can build every target",
-      "Specify the flake.nix this repository needs so that `nix develop` enters a \
-      \development shell carrying every dependency required to build every \
-      \target. Name the inputs, the devShell's packages, and which target each \
-      \package is there for -- a shell with an unexplained dependency is a shell \
-      \nobody can prune later."
+      [wft|
+      Specify the flake.nix this repository needs so that `nix develop` enters a
+      development shell carrying every dependency required to build every
+      target. Name the inputs, the devShell's packages, and which target each
+      package is there for -- a shell with an unexplained dependency is a shell
+      nobody can prune later.|]
     ),
     ( "build-check",
       "a pre-commit check and a CI check that `nix build` completes",
-      "Specify the pre-commit check and the CI check that `nix build` completes \
-      \correctly. Both, and the same command in both: a pre-commit check that CI \
-      \does not mirror is a check that stops applying the moment somebody \
-      \commits from another machine."
+      [wft|
+      Specify the pre-commit check and the CI check that `nix build` completes
+      correctly. Both, and the same command in both: a pre-commit check that CI
+      does not mirror is a check that stops applying the moment somebody commits
+      from another machine.|]
     ),
     ( "flake-check",
       "`nix flake check` running every check in this list",
-      "Specify how `nix flake check` comes to build and run all of the checks in \
-      \this specification -- not a subset, and not a separate script that \
-      \happens to run them. Name each check as a flake check output. This is the \
-      \deliverable that makes every other one verifiable by one command, so say \
-      \which of the others it does NOT cover and why."
+      [wft|
+      Specify how `nix flake check` comes to build and run all of the checks in
+      this specification -- not a subset, and not a separate script that happens
+      to run them. Name each check as a flake check output. This is the
+      deliverable that makes every other one verifiable by one command, so say
+      which of the others it does NOT cover and why.|]
     ),
     ( "format-target",
       "a build target that formats every language present",
-      "Specify a build target that formats all the code to one standard, using \
-      \the formatter the preferences table names for each language present. One \
-      \target that covers every language, and name the tool per language."
+      [wft|
+      Specify a build target that formats all the code to one standard, using
+      the formatter the preferences table names for each language present. One
+      target that covers every language, and name the tool per language.|]
     ),
     ( "format-hook",
       "a pre-commit check that formatting is correct in every file",
-      "Specify the pre-commit check that verifies formatting is correct in every \
-      \file -- a check, not a reformat: a hook that rewrites the tree under \
-      \somebody's commit is a hook that loses work. Name the flag that makes each \
-      \formatter check rather than write."
+      [wft|
+      Specify the pre-commit check that verifies formatting is correct in every
+      file -- a check, not a reformat: a hook that rewrites the tree under
+      somebody's commit is a hook that loses work. Name the flag that makes each
+      formatter check rather than write.|]
     ),
     ( "coverage-target",
       "a build target that generates a code-coverage report",
-      "Specify a build target that generates a code-coverage report, naming the \
-      \tool for each language present and where the report lands."
+      [wft|
+      Specify a build target that generates a code-coverage report, naming the
+      tool for each language present and where the report lands.|]
     ),
     ( "coverage-hook",
       "a pre-commit check that coverage does not drop",
-      "Specify the pre-commit check that coverage does not drop. Say against what \
-      \it compares -- a committed baseline number, or the merge base -- and what \
-      \happens on the first run, when there is nothing to compare against. A \
-      \ratchet with no stored baseline is a check that always passes."
+      [wft|
+      Specify the pre-commit check that coverage does not drop. Say against what
+      it compares -- a committed baseline number, or the merge base -- and what
+      happens on the first run, when there is nothing to compare against. A
+      ratchet with no stored baseline is a check that always passes.|]
     ),
     ( "profile-target",
       "a build target that generates a performance profiling report",
-      "Specify a build target that generates a performance profiling report: the \
-      \tool, the workload it profiles, and where the report lands. Name the \
-      \workload explicitly -- a profile of an unspecified workload is a number \
-      \nobody can reproduce."
+      [wft|
+      Specify a build target that generates a performance profiling report: the
+      tool, the workload it profiles, and where the report lands. Name the
+      workload explicitly -- a profile of an unspecified workload is a number
+      nobody can reproduce.|]
     ),
     ( "profile-hook",
       "a pre-commit check that performance has not dropped by more than 5%",
-      "Specify the pre-commit check that performance numbers do not drop by more \
-      \than 5%. Say which numbers, against what baseline, and how the noise floor \
-      \is handled -- a 5% threshold on a benchmark whose run-to-run variance is \
-      \10% is a check that fails at random, which is worse than no check."
+      [wft|
+      Specify the pre-commit check that performance numbers do not drop by more
+      than 5%. Say which numbers, against what baseline, and how the noise floor
+      is handled -- a 5% threshold on a benchmark whose run-to-run variance is
+      10% is a check that fails at random, which is worse than no check.|]
     ),
     ( "lint-target",
       "a build target that performs full linting",
-      "Specify a build target that performs full linting, using the linter the \
-      \preferences table names for each language present -- or the one the \
-      \toolchain block below recommends, where the table does not name it."
+      [wft|
+      Specify a build target that performs full linting, using the linter the
+      preferences table names for each language present -- or the one the
+      toolchain block below recommends, where the table does not name it.|]
     ),
     ( "warnings-as-errors",
       "warnings enabled and treated as errors, where the language allows it",
-      "Specify how the build comes to have all warnings enabled and warnings \
-      \treated as errors, per language, where that is applicable. Name the flag \
-      \for each. Where a language cannot do it, say so rather than omitting the \
-      \language."
+      [wft|
+      Specify how the build comes to have all warnings enabled and warnings
+      treated as errors, per language, where that is applicable. Name the flag
+      for each. Where a language cannot do it, say so rather than omitting the
+      language.|]
     ),
     ( "clean-build",
       "a build target proving the full build is warning-free and passes cleanly",
-      "Specify a build target that ensures the full build contains no warnings \
-      \and passes cleanly. Say how it distinguishes a warning from the build \
-      \tool's own noise -- a grep for the word `warning` catches a package index \
-      \being out of date, and a gate that goes red for that is a gate everybody \
-      \learns to skip."
+      [wft|
+      Specify a build target that ensures the full build contains no warnings
+      and passes cleanly. Say how it distinguishes a warning from the build
+      tool's own noise -- a grep for the word `warning` catches a package index
+      being out of date, and a gate that goes red for that is a gate everybody
+      learns to skip.|]
     ),
     ( "fuzz",
       "a fuzz-testing target, where the language supports one",
-      "Specify a fuzz-testing target, if this is possible in the languages \
-      \present: the harness, the corpus, and where a crash lands. If none of the \
-      \languages present supports fuzzing, say that in one line -- \"this \
-      \language has none\" is a complete answer to this deliverable and an \
-      \omission is not."
+      [wft|
+      Specify a fuzz-testing target, if this is possible in the languages
+      present: the harness, the corpus, and where a crash lands. If none of the
+      languages present supports fuzzing, say that in one line -- "this language
+      has none" is a complete answer to this deliverable and an omission is not.|]
     ),
     ( "tests",
       "a build target that builds and runs unit and integration tests",
-      "Specify the build target that builds and runs all unit tests and all \
-      \integration tests. If the two are run differently, say so and name both."
+      [wft|
+      Specify the build target that builds and runs all unit tests and all
+      integration tests. If the two are run differently, say so and name both.|]
     ),
     ( "sanitizer",
       "a memory-sanitizer build, where the language supports one",
-      "Specify a memory-sanitizer build, or the nearest equivalent, if the \
-      \languages present support one: the flags, and which target it applies to. \
-      \If none does, say that in one line -- an absence stated is a deliverable \
-      \met, and an absence omitted is a deliverable nobody can tell was \
-      \considered."
+      [wft|
+      Specify a memory-sanitizer build, or the nearest equivalent, if the
+      languages present support one: the flags, and which target it applies to.
+      If none does, say that in one line -- an absence stated is a deliverable
+      met, and an absence omitted is a deliverable nobody can tell was
+      considered.|]
     ),
     ( "lefthook",
       "the lefthook.yml that runs every check on pre-commit",
-      "Specify the lefthook.yml that performs all of the builds and checks in \
-      \this specification on pre-commit, adapted to the languages and tools \
-      \present. One command entry per check, each with the glob it applies to and \
-      \the command it runs against the staged files. Follow the shape of this \
-      \example rather than its contents:\n\
-      \\n\
-      \  pre-commit:\n\
-      \    parallel: true\n\
-      \    commands:\n\
-      \      ruff-format:\n\
-      \        glob: \"*.py\"\n\
-      \        run: ruff format --check {staged_files}\n\
-      \      ruff-lint:\n\
-      \        glob: \"*.py\"\n\
-      \        run: ruff check {staged_files}\n\
-      \      tests:\n\
-      \        run: pytest tests/ -x -q\n\
-      \\n\
-      \Every hook that can take the staged file list should take it: a hook that \
-      \lints the whole tree on every commit is a hook somebody disables."
+      [wft|
+      Specify the lefthook.yml that performs all of the builds and checks in
+      this specification on pre-commit, adapted to the languages and tools
+      present. One command entry per check, each with the glob it applies to and
+      the command it runs against the staged files. Follow the shape of this
+      example rather than its contents:
+
+        pre-commit:
+          parallel: true
+          commands:
+            ruff-format:
+              glob: "*.py"
+              run: ruff format --check {{staged_files}
+            ruff-lint:
+              glob: "*.py"
+              run: ruff check {{staged_files}
+            tests:
+              run: pytest tests/ -x -q
+
+      Every hook that can take the staged file list should take it: a hook that
+      lints the whole tree on every commit is a hook somebody disables.|]
     ),
     ( "docs",
       "a documentation build, and its output as a CI artifact",
-      "If this repository has documentation that needs building, specify the \
-      \build target that checks the docs do build, and how that build's output \
-      \becomes a CI artifact. If it has none, say so in one line."
+      [wft|
+      If this repository has documentation that needs building, specify the
+      build target that checks the docs do build, and how that build's output
+      becomes a CI artifact. If it has none, say so in one line.|]
     ),
     ( "actions",
       "GitHub Actions running the same checks the pre-commit hook runs",
-      "Specify the GitHub Actions workflow that runs the same checks the \
-      \pre-commit hook runs. The same checks, named the same way: two lists that \
-      \drift are two lists, and the whole value of this deliverable is that a \
-      \contributor without the hook installed is held to the same bar. Say how \
-      \the two stay in step."
+      [wft|
+      Specify the GitHub Actions workflow that runs the same checks the
+      pre-commit hook runs. The same checks, named the same way: two lists that
+      drift are two lists, and the whole value of this deliverable is that a
+      contributor without the hook installed is held to the same bar. Say how
+      the two stay in step.|]
     ),
     ( "parallel",
       "the pre-commit checks running in parallel, as far as they can",
-      "Specify how the pre-commit checks run in parallel, as much as is possible. \
-      \Say which checks cannot -- because one produces what another reads, or \
-      \because two contend for the same lock or build directory -- and what the \
-      \ordering between those is. Parallelism stated without its exceptions is a \
-      \hook that fails intermittently."
+      [wft|
+      Specify how the pre-commit checks run in parallel, as much as is possible.
+      Say which checks cannot -- because one produces what another reads, or
+      because two contend for the same lock or build directory -- and what the
+      ordering between those is. Parallelism stated without its exceptions is a
+      hook that fails intermittently.|]
     )
   ]
 
@@ -649,33 +676,35 @@ hookBrief =
 -- | The arm where the gate came back green.
 greenNote :: ProductizeRung -> Text
 greenNote t =
-  "Outcome: GREEN. "
-    <> what
-    <> " and `nix flake check` passed on the tree that resulted -- which is \
-       \deliverable 5's own answer to how any of this is verified, run rather \
-       \than promised. Report each deliverable and what proves it, and name every \
-       \one whose block said this repository already satisfied it: those are the \
-       \ones a reader will want to check for himself."
+  [wft|
+  Outcome: GREEN. {what} and `nix flake check` passed on the tree that resulted
+  -- which is deliverable 5's own answer to how any of this is verified, run
+  rather than promised. Report each deliverable and what proves it, and name
+  every one whose block said this repository already satisfied it: those are the
+  ones a reader will want to check for himself.|]
   where
     what = case t of
       Full ->
-        "All twenty-one deliverables were specified block by block, applied in \
-        \one turn"
+        [wft|
+        All twenty-one deliverables were specified block by block, applied in
+        one turn|]
       Lefthook ->
-        "The pre-commit slice was specified block by block and the hook file and \
-        \its Actions mirror were written"
+        [wft|
+        The pre-commit slice was specified block by block and the hook file and
+        its Actions mirror were written|]
 
 -- | The arm where the gate never came back green.
 redNote :: ProductizeRung -> Text
 redNote t =
   "Outcome: STILL RED. "
     <> what
-    <> ", and `nix flake check` still objects after every repair trip this run \
-       \was given. Do not report the work as done. Quote the check's own failing \
-       \line, name the deliverable it belongs to, and say what the next run would \
-       \have to start with. Everything the repair trips wrote is still in the \
-       \tree: nothing was reverted, because a half-productized repository with a \
-       \named failure is worth more than a clean one with none of the work in it."
+    <> [wft|
+       , and `nix flake check` still objects after every repair trip this run
+       was given. Do not report the work as done. Quote the check's own failing
+       line, name the deliverable it belongs to, and say what the next run would
+       have to start with. Everything the repair trips wrote is still in the
+       tree: nothing was reverted, because a half-productized repository with a
+       named failure is worth more than a clean one with none of the work in it.|]
   where
     what = case t of
       Full -> "All twenty-one deliverables were specified and applied"
@@ -901,9 +930,10 @@ deliverableAsks r years tools scope =
 -- need a fact and a rung that has a fact it did not check.
 noYears :: Text
 noYears =
-  "Not counted on this rung. The pre-commit slice specifies no LICENSE.md, so \
-  \the repository's commit years were not read: no block below may state a \
-  \copyright range, and none of them needs one."
+  [wft|
+  Not counted on this rung. The pre-commit slice specifies no LICENSE.md, so the
+  repository's commit years were not read: no block below may state a copyright
+  range, and none of them needs one.|]
 
 -- | What each tool seat is told about the shape of its answer.
 searchClosing :: Text
@@ -951,17 +981,18 @@ productizeScript t =
     <> [(lensBrief l, blockFor l) | l <- deliverableRoster t []]
   where
     toolAnswer l =
-      "The tree is Haskell and Nix, by `agent-workflows.cabal` and `flake.nix`. \
-      \For Haskell the preferences table names no linter: use `hlint`, invoked \
-      \as `hlint --no-exit-code=false` for checking, per its own README. Source: \
-      \the hlint repository. (the "
-        <> lensName l
-        <> " seat)"
+      [wft|
+      The tree is Haskell and Nix, by `agent-workflows.cabal` and `flake.nix`.
+      For Haskell the preferences table names no linter: use `hlint`, invoked as
+      `hlint --no-exit-code=false` for checking, per its own README. Source: the
+      hlint repository. (the {name} seat)|]
+      where
+        name = lensName l
 
     blockFor l =
-      "On "
-        <> lensOwns l
-        <> ": specified concretely, with the file or target named and the one \
-           \command that proves it. Verified by `nix flake check`. (the "
-        <> lensName l
-        <> " block)"
+      [wft|
+      On {owns}: specified concretely, with the file or target named and the one
+      command that proves it. Verified by `nix flake check`. (the {name} block)|]
+      where
+        owns = lensOwns l
+        name = lensName l

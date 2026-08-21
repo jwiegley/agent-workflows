@@ -327,34 +327,37 @@ reviseBrief =
 -- | The arm where the second reader approved.
 approvedNote :: Text
 approvedNote =
-  "Outcome: TRANSCRIBED AND RE-READ. The image files were proved to exist by an \
-  \`ls` receipt, transcribed, and then re-read independently by a second engine \
-  \which approved the result for fidelity, for coverage of every image, and for \
-  \honest gap marking. Report the transcription as the artefact and the gaps as \
-  \gaps. Say what this establishes and what it does not: two readings of the same \
-  \pages agreed, which is the strongest thing available here, and it is not the \
-  \same as somebody who was there checking the transcript against the notebook."
+  [wft|
+  Outcome: TRANSCRIBED AND RE-READ. The image files were proved to exist by an
+  `ls` receipt, transcribed, and then re-read independently by a second engine
+  which approved the result for fidelity, for coverage of every image, and for
+  honest gap marking. Report the transcription as the artefact and the gaps as
+  gaps. Say what this establishes and what it does not: two readings of the same
+  pages agreed, which is the strongest thing available here, and it is not the
+  same as somebody who was there checking the transcript against the notebook.|]
 
 -- | The arm where the trips ran out.
 unresolvedNote :: Text
 unresolvedNote =
-  "Outcome: NOT AGREED. The second reader still objected after every re-reading \
-  \trip this run was given, so the transcription below is the one the last trip \
-  \produced and the final review objected to -- no trip was spent answering that \
-  \last objection. Do NOT present it as a checked transcription. Report the \
-  \outstanding objection first, verbatim, then the transcription beneath it, and \
-  \name the specific passage the two readings disagree about: a passage two \
-  \careful readers read differently is a passage a human should look at, and that \
-  \is a useful result rather than a failure."
+  [wft|
+  Outcome: NOT AGREED. The second reader still objected after every re-reading
+  trip this run was given, so the transcription below is the one the last trip
+  produced and the final review objected to -- no trip was spent answering that
+  last objection. Do NOT present it as a checked transcription. Report the
+  outstanding objection first, verbatim, then the transcription beneath it, and
+  name the specific passage the two readings disagree about: a passage two
+  careful readers read differently is a passage a human should look at, and that
+  is a useful result rather than a failure.|]
 
 -- | The arm where the second reader declined.
 declinedNote :: Text
 declinedNote =
-  "Outcome: NOT RE-READ. The second reader declined to judge the transcription at \
-  \all, which means it could not do the job asked -- most often because it cannot \
-  \open the image files, which is a fact about the run's tooling and not about the \
-  \notes. Report the transcription as UNCHECKED, name the image files by path, and \
-  \say plainly that only one reading of these pages exists."
+  [wft|
+  Outcome: NOT RE-READ. The second reader declined to judge the transcription at
+  all, which means it could not do the job asked -- most often because it cannot
+  open the image files, which is a fact about the run's tooling and not about
+  the notes. Report the transcription as UNCHECKED, name the image files by
+  path, and say plainly that only one reading of these pages exists.|]
 
 -- ---------------------------------------------------------------------------
 -- The function
@@ -512,10 +515,13 @@ transcribeProgram =
 -- scripted table's key is a prefix of the rendered prompt by construction.
 reviewOver :: Text -> Text
 reviewOver manifest =
-  reviewBrief
-    <> "\n\nThe image files, in page order -- every one of these must be accounted \
-       \for in the transcription:\n\n"
-    <> manifest
+  [wft|
+  {reviewBrief}
+
+  The image files, in page order -- every one of these must be accounted for in
+  the transcription:
+
+  {manifest}|]
 
 -- ---------------------------------------------------------------------------
 -- The registry's two other columns
@@ -560,28 +566,31 @@ transcribeScript =
   ]
   where
     listed =
-      "/home/johnw/scans/notebook-p1.jpg\n\
-      \/home/johnw/scans/notebook-p2.jpg"
+      [wft|
+      /home/johnw/scans/notebook-p1.jpg
+      /home/johnw/scans/notebook-p2.jpg|]
 
     transcribed =
-      "# Notebook, pages 1-2\n\
-      \\n\
-      \The queue design has to answer one question before anything else: whether \
-      \a tenant gets its own queue. Everything downstream follows from that, and \
-      \it is the decision that is hardest to reverse.\n\
-      \\n\
-      \With one shared queue the retention window belongs to the consumer, not to \
-      \the queue, so per-tenant retention stops being available at all. That may \
-      \be fine. [margin note: check the [?Kowalski] contract]\n\
-      \\n\
-      \Numbers from last month: 41k messages a day at peak, 3.2s p99 end to end. \
-      \The p99 is dominated by one tenant's batch job, which is the whole reason \
-      \this came up.\n\
-      \\n\
-      \[illegible] -- something about the alerting thresholds, three or four words.\n\
-      \\n\
-      \UNREADABLE: image 2 -- a short line at the foot of the page, immediately \
-      \after the paragraph about alerting thresholds; three or four words, heavily \
-      \crossed through and rewritten over.\n\
-      \UNREADABLE: image 1 -- the surname in the margin note reads as Kowalski but \
-      \could be Kowalsky or Kowalksi."
+      [wft|
+      # Notebook, pages 1-2
+
+      The queue design has to answer one question before anything else: whether
+      a tenant gets its own queue. Everything downstream follows from that, and
+      it is the decision that is hardest to reverse.
+
+      With one shared queue the retention window belongs to the consumer, not to
+      the queue, so per-tenant retention stops being available at all. That may
+      be fine. [margin note: check the [?Kowalski] contract]
+
+      Numbers from last month: 41k messages a day at peak, 3.2s p99 end to end.
+      The p99 is dominated by one tenant's batch job, which is the whole reason
+      this came up.
+
+      [illegible] -- something about the alerting thresholds, three or four
+      words.
+
+      UNREADABLE: image 2 -- a short line at the foot of the page, immediately
+      after the paragraph about alerting thresholds; three or four words,
+      heavily crossed through and rewritten over.
+      UNREADABLE: image 1 -- the surname in the margin note reads as Kowalski
+      but could be Kowalsky or Kowalksi.|]

@@ -381,13 +381,18 @@ observationContract ideas =
     ideaReading :: Text
     ideaReading
       | not ideas = ""
+      -- The separator is a lit and not part of the fence: a fence drops its
+      -- leading blank lines, and this paragraph's whole job is to arrive after
+      -- one.
       | otherwise =
-          "\n\nFor a `Category: Idea` file, keep the same headers and read them \
-          \as: **Problem** = the idea and the gap it addresses, **Impact** = why \
-          \it is worth doing, **Suggested Fix** = a concrete first step, \
-          \**Verification** = how to validate that it pays off. Tie it to the \
-          \commit that inspired it, and give it the severity its value deserves \
-          \-- usually Low."
+          "\n\n"
+            <> [wft|
+               For a `Category: Idea` file, keep the same headers and read them
+               as: **Problem** = the idea and the gap it addresses, **Impact** =
+               why it is worth doing, **Suggested Fix** = a concrete first step,
+               **Verification** = how to validate that it pays off. Tie it to
+               the commit that inspired it, and give it the severity its value
+               deserves -- usually Low.|]
 
 -- ---------------------------------------------------------------------------
 -- The roster each reviewing role fans out over
@@ -514,9 +519,10 @@ publishBrief =
 -- files it wrote. These bytes are the answer, and they are not the writer's.
 publishedBrief :: Text
 publishedBrief =
-  "The observation files that now stand in the directory, one path per line, as \
-  \`find` reports them. This is the count and the filenames both reporting \
-  \sections ask for, and it is a receipt rather than a claim."
+  [wft|
+  The observation files that now stand in the directory, one path per line, as
+  `find` reports them. This is the count and the filenames both reporting
+  sections ask for, and it is a receipt rather than a claim.|]
 
 -- | @commands\/partner-cleanup.md@'s @## Sub-Agent Assignment@ block, whole.
 --
@@ -570,9 +576,10 @@ assignmentBrief =
 -- | What the round's own review receipt is introduced as.
 reviewEvidenceBrief :: Text
 reviewEvidenceBrief =
-  "The working tree's diff, as `git diff` wrote it, now that the round has \
-  \finished. This is what the round actually changed, as against what it said it \
-  \changed."
+  [wft|
+  The working tree's diff, as `git diff` wrote it, now that the round has
+  finished. This is what the round actually changed, as against what it said it
+  changed.|]
 
 -- | @commands\/partner-cleanup.md@'s @## Main-Agent Review@ section, as the one
 -- question in this program that reads without any authority to write.
@@ -634,13 +641,15 @@ publishedNote :: PartnerRole -> Text
 publishedNote role =
   "Provenance: one commit was read as a `git show` receipt and reviewed by "
     <> rosterWord
-    <> ", each pass put as a separate question over the same bytes and told \
-       \nothing of what the others said"
+    <> [wft|
+       , each pass put as a separate question over the same bytes and told
+       nothing of what the others said|]
     <> ideaWord
-    <> ". The observation files were then published under the standing contract, \
-       \and the directory was read back with `find`: the receipt below is the \
-       \count and the filenames, and it is not the writer's account of its own \
-       \work. Nothing was staged and nothing was committed."
+    <> [wft|
+       . The observation files were then published under the standing contract,
+       and the directory was read back with `find`: the receipt below is the
+       count and the filenames, and it is not the writer's account of its own
+       work. Nothing was staged and nothing was committed.|]
   where
     rosterWord
       | role == Reviewer = "`heavy-review`'s seven passes"
@@ -681,30 +690,33 @@ onThisRun engine note =
 -- which is an instruction with no ending. This is the ending.
 nothingPublishedNote :: Text
 nothingPublishedNote =
-  "Outcome: NOTHING PUBLISHED. The commit was reviewed and the observations \
-  \directory was read back with `find`, which listed no file -- so either every \
-  \pass came back clean or every finding was judged not worth an observation. \
-  \That is a legitimate result and this workflow's own rule prefers it to a \
-  \noisy one: report the commit as reviewed and clean, and do not describe a \
-  \finding that produced no file."
+  [wft|
+  Outcome: NOTHING PUBLISHED. The commit was reviewed and the observations
+  directory was read back with `find`, which listed no file -- so either every
+  pass came back clean or every finding was judged not worth an observation.
+  That is a legitimate result and this workflow's own rule prefers it to a noisy
+  one: report the commit as reviewed and clean, and do not describe a finding
+  that produced no file.|]
 
 -- | The draining arm where the directory was already empty.
 nothingToDrainNote :: Text
 nothingToDrainNote =
-  "Outcome: NOTHING TO DO. The observations directory was read before any work \
-  \was planned and `find` listed no regular, non-hidden Markdown file in it, so \
-  \no round ran, nothing was asked of anybody and nothing was committed. Report \
-  \that, and name the directory that was read."
+  [wft|
+  Outcome: NOTHING TO DO. The observations directory was read before any work
+  was planned and `find` listed no regular, non-hidden Markdown file in it, so
+  no round ran, nothing was asked of anybody and nothing was committed. Report
+  that, and name the directory that was read.|]
 
 -- | The draining arm where the directory came back empty.
 drainedNote :: Text
 drainedNote =
-  "Outcome: DRAINED. Every observation the directory held was addressed or \
-  \proven inapplicable, the directory was re-read from disk and `find` listed \
-  \nothing -- a test over the filesystem's own bytes and not a claim by whoever \
-  \did the work -- and the cleanup was then committed as ONE commit through the \
-  \standing commit discipline. If the reviewing half has since reacted to that \
-  \commit, another cleanup cycle is available; say so, and do not start it."
+  [wft|
+  Outcome: DRAINED. Every observation the directory held was addressed or proven
+  inapplicable, the directory was re-read from disk and `find` listed nothing --
+  a test over the filesystem's own bytes and not a claim by whoever did the work
+  -- and the cleanup was then committed as ONE commit through the standing
+  commit discipline. If the reviewing half has since reacted to that commit,
+  another cleanup cycle is available; say so, and do not start it.|]
 
 -- | The draining arm where observations survived both rounds.
 --
@@ -713,12 +725,13 @@ drainedNote =
 -- a prose loop has no arm for not getting there.
 notDrainedNote :: Text
 notDrainedNote =
-  "Outcome: OBSERVATIONS REMAIN. Both rounds this run was given have been spent \
-  \and `find` still lists observation files in the directory. NOTHING WAS \
-  \COMMITTED: this workflow's rule is exactly one commit for a completed batch, \
-  \and the batch is not complete. Name every file still standing, say what the \
-  \last round said about each, and say what the next run would have to start \
-  \with."
+  [wft|
+  Outcome: OBSERVATIONS REMAIN. Both rounds this run was given have been spent
+  and `find` still lists observation files in the directory.
+  NOTHING WAS COMMITTED: this workflow's rule is exactly one commit for a completed batch,
+  and the batch is not complete. Name every file still standing, say what the
+  last round said about each, and say what the next run would have to start
+  with.|]
 
 -- | What this caller asks of the commit decomposition.
 --
@@ -1004,30 +1017,34 @@ partnerProgram role =
 -- no review to show, and saying so is better than passing the batch twice.
 noRoundRan :: Text
 noRoundRan =
-  "(No round ran, so there is no review of one. The listing above was the first \
-  \and only thing this run read.)"
+  [wft|
+  (No round ran, so there is no review of one. The listing above was the first
+  and only thing this run read.)|]
 
 -- | What the opening batch receipt is introduced as.
 batchBrief :: Text
 batchBrief =
-  "The observation files standing in the directory before any work has been done \
-  \to them, one path per line, as `find` reports them. Sorted lexicographically \
-  \this is chronological, because every filename is an ISO timestamp."
+  [wft|
+  The observation files standing in the directory before any work has been done
+  to them, one path per line, as `find` reports them. Sorted lexicographically
+  this is chronological, because every filename is an ISO timestamp.|]
 
 -- | The same directory, re-read after the first round.
 afterBrief :: Text
 afterBrief =
-  "The same directory, re-read from disk now that the first round has finished. \
-  \This is what stands there, not an account of what was done: anything still \
-  \listed is still to be addressed, including a file the reviewing half added \
-  \while the round was running."
+  [wft|
+  The same directory, re-read from disk now that the first round has finished.
+  This is what stands there, not an account of what was done: anything still
+  listed is still to be addressed, including a file the reviewing half added
+  while the round was running.|]
 
 -- | The same directory, re-read after the second round.
 finalBrief :: Text
 finalBrief =
-  "The same directory, re-read from disk after the second round. This is the \
-  \last look this run takes at it, and it is what decides whether the batch is \
-  \complete."
+  [wft|
+  The same directory, re-read from disk after the second round. This is the last
+  look this run takes at it, and it is what decides whether the batch is
+  complete.|]
 
 -- ---------------------------------------------------------------------------
 -- The registry's other column
@@ -1078,6 +1095,7 @@ partnerScript role =
 
     oneFile = dir <> "/2026-08-19T09:14:02.884Z.md"
 
+    -- fixture bytes, not prose: fake `git show --stat` stdout with its diff.
     commitAnswer =
       "commit 9f1c2ab Cache the parsed header\n\
       \ src/Header.hs | 12 ++++++++++--\n\
@@ -1089,25 +1107,31 @@ partnerScript role =
       \+parsedCache = unsafePerformIO (newIORef mempty)\n"
 
     blockFrom l =
-      "### [MEDIUM] "
-        <> lensOwns l
-        <> "\n- **File**: src/Header.hs#L85-L90\n- **Category**: Maintainability\n\
-           \- **Confidence**: 80\n- **Problem**: the cache is unbounded.\n\
-           \- **Impact**: a long-lived process retains every header it has ever \
-           \parsed.\n- **Fix**: bound the map, or key it on a digest with an \
-           \eviction policy.\n(reported by the "
-        <> lensName l
-        <> " pass)"
+      [wft|
+      ### [MEDIUM] {owns}
+      - **File**: src/Header.hs#L85-L90
+      - **Category**: Maintainability
+      - **Confidence**: 80
+      - **Problem**: the cache is unbounded.
+      - **Impact**: a long-lived process retains every header it has ever
+        parsed.
+      - **Fix**: bound the map, or key it on a digest with an eviction policy.
+      (reported by the {name} pass)|]
+      where
+        owns = lensOwns l
+        name = lensName l
 
     ideaAnswer =
-      "Hidden assumption: that the cache has to live for the process. Inverted: \
-      \let it live for the request. Borrowed from logistics -- a cross-docking \
-      \model, where nothing is warehoused and everything is sorted in transit: a \
-      \per-request arena freed at the end of the request needs no eviction policy \
-      \at all, because the lifetime IS the policy. Mechanism: the parse cost is \
-      \paid once per distinct header per request, which is where the repetition \
-      \actually is."
+      [wft|
+      Hidden assumption: that the cache has to live for the process. Inverted:
+      let it live for the request. Borrowed from logistics -- a cross-docking
+      model, where nothing is warehoused and everything is sorted in transit: a
+      per-request arena freed at the end of the request needs no eviction policy
+      at all, because the lifetime IS the policy. Mechanism: the parse cost is
+      paid once per distinct header per request, which is where the repetition
+      actually is.|]
 
+    -- fixture bytes, not prose: a unified diff, trailing newline and all.
     diffAnswer =
       "--- a/src/Header.hs\n\
       \+++ b/src/Header.hs\n\
@@ -1116,11 +1140,12 @@ partnerScript role =
       \+parsedCache = unsafePerformIO (newIORef (bounded 4096))\n"
 
     reviewAnswer =
-      "Both observation files in the batch were removed, and the diff carries a \
-      \change for each: the unbounded map is now bounded, and the second \
-      \observation's missing test is present.\n\
-      \Uncertain: the bound of 4096 is not justified anywhere in the diff or the \
-      \handoff -- it is a number somebody chose.\n\
-      \Verification: the handoff names `make test`; the diff makes that \
-      \plausible. A test that the eviction actually evicts is the further check \
-      \the risk warrants, and it is not there."
+      [wft|
+      Both observation files in the batch were removed, and the diff carries a
+      change for each: the unbounded map is now bounded, and the second
+      observation's missing test is present.
+      Uncertain: the bound of 4096 is not justified anywhere in the diff or the
+      handoff -- it is a number somebody chose.
+      Verification: the handoff names `make test`; the diff makes that
+      plausible. A test that the eviction actually evicts is the further check
+      the risk warrants, and it is not there.|]

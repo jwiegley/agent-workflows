@@ -126,22 +126,25 @@ import Prelude
 -- /Source:/ @agents\/fess-auditor.md@ @## What To Inspect@, item 1.
 worktreeBrief :: Text
 worktreeBrief =
-  "The working tree, as `git status --porcelain` reports it: every path with an \
-  \uncommitted change, staged or not, and every untracked file."
+  [wft|
+  The working tree, as `git status --porcelain` reports it: every path with an
+  uncommitted change, staged or not, and every untracked file.|]
 
 -- | What the change receipt is introduced as.
 --
 -- /Source:/ @agents\/fess-auditor.md@ @## What To Inspect@, items 1 and 2.
 changesBrief :: Text
 changesBrief =
-  "The change under audit, as `git diff` reports it against the base this run \
-  \was given. This is the diff, not a description of one."
+  [wft|
+  The change under audit, as `git diff` reports it against the base this run was
+  given. This is the diff, not a description of one.|]
 
 -- | What the history receipt is introduced as.
 historyBrief :: Text
 historyBrief =
-  "The commits under audit, oldest first, as `git log` reports them against the \
-  \base this run was given."
+  [wft|
+  The commits under audit, oldest first, as `git log` reports them against the
+  base this run was given.|]
 
 -- $dossier
 --
@@ -212,8 +215,9 @@ requesting request r
   | otherwise = [l {lensBrief = lensBrief l <> "\n\n" <> header <> "\n\n" <> request} | l <- r]
   where
     header =
-      "The original request this work was done in answer to, verbatim. Every \
-      \category below is stated relative to it."
+      [wft|
+      The original request this work was done in answer to, verbatim. Every
+      category below is stated relative to it.|]
 
 -- ---------------------------------------------------------------------------
 -- The report both arms call
@@ -417,6 +421,7 @@ fessScript =
     (fessStance, "none -- checked, and this category has no hits in the diff above.")
   ]
   where
+    -- fixture bytes, not prose: a unified diff, trailing newline and all.
     scriptedDiff =
       "--- a/src/token.rs\n\
       \+++ b/src/token.rs\n\

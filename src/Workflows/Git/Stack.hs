@@ -340,14 +340,16 @@ rungSpecialists rung given
     defaultsFor Rebase =
       "Route Haskell conflicts to haskell-pro. Anything else, resolve directly."
     defaultsFor Cleanup =
-      "This run resolves no conflicts of its own: it runs the repository's \
-      \pre-commit hooks over every branch in the stack and then restacks. It is \
-      \that closing restack that can conflict. Route Haskell conflicts to \
-      \haskell-pro and C++ conflicts to cpp-pro, and say so briefly rather than \
-      \at length -- there may be nothing to resolve at all."
+      [wft|
+      This run resolves no conflicts of its own: it runs the repository's
+      pre-commit hooks over every branch in the stack and then restacks. It is
+      that closing restack that can conflict. Route Haskell conflicts to
+      haskell-pro and C++ conflicts to cpp-pro, and say so briefly rather than
+      at length -- there may be nothing to resolve at all.|]
     defaultsFor _ =
-      "Route Haskell conflicts to haskell-pro and C++ conflicts to cpp-pro. \
-      \Trivial comment-only conflicts may be resolved directly, without routing."
+      [wft|
+      Route Haskell conflicts to haskell-pro and C++ conflicts to cpp-pro.
+      Trivial comment-only conflicts may be resolved directly, without routing.|]
 
 -- | Who repairs, when the advancing command objects.
 --
@@ -502,9 +504,10 @@ advancingObjected =
 -- | /Source:/ @commands\/restack.md@ step 7's parenthesis.
 rerereNote :: Text
 rerereNote =
-  "`git rerere` is enabled, so a resolution you make once is replayed \
-  \automatically the next time the same conflict appears. Resolve it right the \
-  \first time; you are not going to be asked again."
+  [wft|
+  `git rerere` is enabled, so a resolution you make once is replayed
+  automatically the next time the same conflict appears. Resolve it right the
+  first time; you are not going to be asked again.|]
 
 -- | /Source:/ @commands\/rebase.md@ and @commands\/rebase-and-fix.md@, their
 -- three shared bullets.
@@ -522,31 +525,35 @@ descendantRule =
 -- /Source:/ @commands\/restack.md@ step 1, first half.
 stackBrief :: Text
 stackBrief =
-  "The stack as Graphite reports it, before anything is touched: every branch, \
-  \its parent, and whether it needs restacking."
+  [wft|
+  The stack as Graphite reports it, before anything is touched: every branch,
+  its parent, and whether it needs restacking.|]
 
 -- | What the branch-tips receipt is introduced as.
 --
 -- /Source:/ @commands\/restack.md@ step 1, second half.
 tipsBrief :: Text
 tipsBrief =
-  "Every local branch and the object id of its tip, before anything is touched. \
-  \This is the record the closing proof is measured against."
+  [wft|
+  Every local branch and the object id of its tip, before anything is touched.
+  This is the record the closing proof is measured against.|]
 
 -- | What the pre-run tip receipt is introduced as.
 tipBrief :: Text
 tipBrief =
-  "The pre-run tip of this branch, resolved. If this question failed, the run \
-  \stops here -- which is the point: a rewrite whose starting point cannot be \
-  \named is a rewrite nothing can prove afterwards."
+  [wft|
+  The pre-run tip of this branch, resolved. If this question failed, the run
+  stops here -- which is the point: a rewrite whose starting point cannot be
+  named is a rewrite nothing can prove afterwards.|]
 
 -- | What the sync act is told.
 --
 -- /Source:/ @commands\/restack.md@ step 2.
 syncBrief :: Text
 syncBrief =
-  "Sync the trunk and the stack from the remote before anything is rewritten, \
-  \then reply DONE."
+  [wft|
+  Sync the trunk and the stack from the remote before anything is rewritten,
+  then reply DONE.|]
 
 -- | What the range-diff receipt is introduced as.
 --
@@ -573,16 +580,19 @@ cherryBrief =
 -- | What the closing publish act is told, by rung.
 publishBrief :: StackRung -> Text
 publishBrief Restack =
-  "The stack is restacked, green, and proved intact. Submit the whole stack, \
-  \then reply DONE. The proof:"
+  [wft|
+  The stack is restacked, green, and proved intact. Submit the whole stack, then
+  reply DONE. The proof:|]
 publishBrief Cleanup =
-  "Every branch's hooks pass and nothing was lost. Restack the whole stack so \
-  \the amended commits are the ones the pull requests describe, then reply DONE. \
-  \The proof:"
+  [wft|
+  Every branch's hooks pass and nothing was lost. Restack the whole stack so the
+  amended commits are the ones the pull requests describe, then reply DONE. The
+  proof:|]
 publishBrief _ =
-  "The branch is rebased, green, and proved intact. Push it and every descendant \
-  \that was rewritten, with a lease so a push cannot overwrite somebody else's \
-  \work on the ref, then reply DONE. The proof:"
+  [wft|
+  The branch is rebased, green, and proved intact. Push it and every descendant
+  that was rewritten, with a lease so a push cannot overwrite somebody else's
+  work on the ref, then reply DONE. The proof:|]
 
 -- | What the bot inventory question asks for.
 --
@@ -613,10 +623,11 @@ inventoryBrief =
 -- at two call sites.
 botExclusions :: Text
 botExclusions =
-  "Exclude every human author, without exception. This sweep exists because a \
-  \rewrite invalidated what the bots had said; a colleague's review comment is \
-  \not this run's business, and replying to one on a bot's behalf is how an \
-  \automated sweep starts answering a person."
+  [wft|
+  Exclude every human author, without exception. This sweep exists because a
+  rewrite invalidated what the bots had said; a colleague's review comment is
+  not this run's business, and replying to one on a bot's behalf is how an
+  automated sweep starts answering a person.|]
 
 -- | The report's own shape.
 --
@@ -648,10 +659,11 @@ intactNote :: StackRung -> Text
 intactNote rung =
   "Outcome: CLEAN. The rung `"
     <> stackRungName rung
-    <> "` reached its fixpoint, the repository's own green gate approved the \
-       \result, and `git cherry` found an equivalent of every pre-run commit in \
-       \the new head. Nothing was lost, and that is a receipt rather than a \
-       \reading."
+    <> [wft|
+       ` reached its fixpoint, the repository's own green gate approved the
+       result, and `git cherry` found an equivalent of every pre-run commit in
+       the new head. Nothing was lost, and that is a receipt rather than a
+       reading.|]
 
 -- | The rewrite finished and was green, and something is missing.
 --
@@ -661,12 +673,13 @@ lossNote :: StackRung -> Text
 lossNote rung =
   "Outcome: A COMMIT WAS LOST. The rung `"
     <> stackRungName rung
-    <> "` reached its fixpoint and the green gate approved the result, but \
-       \`git cherry` reports at least one commit from the pre-run tip with no \
-       \equivalent patch in the new head. Nothing has been published. Name every \
-       \`+` line, say what that commit did, and say where it went; the reflog and \
-       \the recorded tip below are both still valid. Do not describe this run as \
-       \finished."
+    <> [wft|
+       ` reached its fixpoint and the green gate approved the result, but `git
+       cherry` reports at least one commit from the pre-run tip with no
+       equivalent patch in the new head. Nothing has been published. Name every
+       `+` line, say what that commit did, and say where it went; the reflog and
+       the recorded tip below are both still valid. Do not describe this run as
+       finished.|]
 
 -- | The fixpoint ran out.
 --
@@ -677,21 +690,23 @@ fixpointNote :: StackRung -> Text
 fixpointNote rung =
   "Outcome: FIXPOINT NOT REACHED. The trip budget for rung `"
     <> stackRungName rung
-    <> "` ran out with the advancing command still objecting. Every resolution \
-       \made is still in the tree and the running record below is what the last \
-       \trip produced; no trip was spent answering the final objection. Say which \
-       \branch and which commit it stopped on, and what it was objecting to. The \
-       \baseline is the record of where this started."
+    <> [wft|
+       ` ran out with the advancing command still objecting. Every resolution
+       made is still in the tree and the running record below is what the last
+       trip produced; no trip was spent answering the final objection. Say which
+       branch and which commit it stopped on, and what it was objecting to. The
+       baseline is the record of where this started.|]
 
 -- | The build gate ran out.
 stillRedNote :: StackRung -> Text
 stillRedNote rung =
   "Outcome: REWRITTEN, STILL RED. The rung `"
     <> stackRungName rung
-    <> "` reached its fixpoint, and the repository's own green gate still \
-       \objects after every repair trip this run was given. Nothing has been \
-       \published. The rewrite is real and is in the tree; report it as \
-       \unfinished, and name the check that is red and the line it failed on."
+    <> [wft|
+       ` reached its fixpoint, and the repository's own green gate still objects
+       after every repair trip this run was given. Nothing has been published.
+       The rewrite is real and is in the tree; report it as unfinished, and name
+       the check that is red and the line it failed on.|]
 
 -- | The CI gate after the push ran out.
 --
@@ -699,11 +714,12 @@ stillRedNote rung =
 -- which is a loop with no end. This is the end.
 ciStillRedNote :: Text
 ciStillRedNote =
-  "Outcome: PUSHED, CI STILL RED. The rewritten branch was pushed and proved \
-  \intact, and the pull request's checks still fail after every repair trip this \
-  \run was given. The bot sweep was not run: a sweep that replies to review \
-  \comments on a red branch is answering questions the next push will change. \
-  \Name the failing check and the line it failed on."
+  [wft|
+  Outcome: PUSHED, CI STILL RED. The rewritten branch was pushed and proved
+  intact, and the pull request's checks still fail after every repair trip this
+  run was given. The bot sweep was not run: a sweep that replies to review
+  comments on a red branch is answering questions the next push will change.
+  Name the failing check and the line it failed on.|]
 
 -- ---------------------------------------------------------------------------
 -- The step every rung calls, and the report every arm calls
@@ -1051,35 +1067,42 @@ stackScript rung =
     (inventoryBrief, scriptedInventory)
   ]
   where
+    -- fixture bytes, not prose: fake `gt log short` stdout.
     scriptedStack =
       "◉ feat/token-refresh (needs restack)\n\
       \◯ feat/token-validate\n\
       \◯ main"
+    -- fixture bytes, not prose: fake `git for-each-ref` stdout.
     scriptedTips =
       "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678 feat/token-refresh\n\
       \b2c3d4e5f60718293a4b5c6d7e8f90123456789a feat/token-validate\n\
       \c3d4e5f60718293a4b5c6d7e8f90123456789ab2 main"
     scriptedTip = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
     scriptedDoctrine =
-      "Doctrine for this stack. src/token.rs is touched by both branches: \
-      \feat/token-validate adds the validator, feat/token-refresh adds the \
-      \rotation call. Both additions are orthogonal (a new function and a new \
-      \call site), so a conflict there is combined, never chosen between. \
-      \Haskell conflicts route to haskell-pro; there are none in this stack."
+      [wft|
+      Doctrine for this stack. src/token.rs is touched by both branches:
+      feat/token-validate adds the validator, feat/token-refresh adds the
+      rotation call. Both additions are orthogonal (a new function and a new
+      call site), so a conflict there is combined, never chosen between. Haskell
+      conflicts route to haskell-pro; there are none in this stack.|]
     scriptedRepair =
-      "Resolved src/token.rs on feat/token-refresh: kept the incoming validator \
-      \and the current rotation call, both. Marked resolved with `git add`. \
-      \Nothing committed."
+      [wft|
+      Resolved src/token.rs on feat/token-refresh: kept the incoming validator
+      and the current rotation call, both. Marked resolved with `git add`.
+      Nothing committed.|]
+    -- fixture bytes, not prose: fake `git range-diff` stdout.
     scriptedProof =
       "1:  a1b2c3d =  1:  9f8e7d6 Extract token validation into a module\n\
       \2:  b2c3d4e !  2:  8e7d6c5 Implement refresh token rotation"
     -- Every line begins `-`: every pre-run commit has an equivalent in the new
     -- head, so nothing was lost and the intact arm is the one that runs.
+    -- fixture bytes, not prose: fake `git cherry` stdout.
     scriptedCherry =
       "- a1b2c3d4e5f60718293a4b5c6d7e8f9012345678\n\
       \- b2c3d4e5f60718293a4b5c6d7e8f90123456789a"
     scriptedInventory =
-      "1. cursor[bot] — review thread — src/token.rs:44 — the rotation call \
-      \ignores the validator's error.\n\
-      \2. graphite-app[bot] — top-level comment — the stack was rewritten; \
-      \re-request review."
+      [wft|
+      1. cursor[bot] — review thread — src/token.rs:44 — the rotation call
+         ignores the validator's error.
+      2. graphite-app[bot] — top-level comment — the stack was rewritten;
+         re-request review.|]

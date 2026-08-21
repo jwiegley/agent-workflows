@@ -176,82 +176,91 @@ sections :: [(Text, Text, Text)]
 sections =
   [ ( "metadata",
       "the meeting's stated date, participants, purpose, duration and format",
-      "Extract only explicitly stated information, one field per line: \
-      \Date/Time, Participants, Purpose, Duration, Location/Format. If a field \
-      \is absent, write \"Not specified.\" -- do not omit the line, because an \
-      \omitted line and an unstated fact look the same to the reader."
+      [wft|
+      Extract only explicitly stated information, one field per line: Date/Time,
+      Participants, Purpose, Duration, Location/Format. If a field is absent,
+      write "Not specified." -- do not omit the line, because an omitted line
+      and an unstated fact look the same to the reader.|]
     ),
     ( "themes",
       "the notes restructured into the topics they actually cover",
-      "Restructure the notes into logical categories following the discussion \
-      \flow. Use descriptive headers that reflect the topics actually covered, \
-      \and under each, the points from the notes as bullets. Maintain the \
-      \original meaning without embellishment: a bullet is a note's content \
-      \reorganised, never rewritten into something stronger."
+      [wft|
+      Restructure the notes into logical categories following the discussion
+      flow. Use descriptive headers that reflect the topics actually covered,
+      and under each, the points from the notes as bullets. Maintain the
+      original meaning without embellishment: a bullet is a note's content
+      reorganised, never rewritten into something stronger.|]
     ),
     ( "decisions",
       "what was clearly stated as decided, and what only looked like it",
-      "List only decisions clearly stated as made, agreed or finalised. For \
-      \each: the decision in its own terms, its rationale if one was given, and \
-      \the affected parties if they were mentioned. If you are uncertain \
-      \whether something was decided or merely discussed, put it under \
-      \\"Discussed but not decided\" -- that is the guard rail, and it is not \
-      \optional."
+      [wft|
+      List only decisions clearly stated as made, agreed or finalised. For each:
+      the decision in its own terms, its rationale if one was given, and the
+      affected parties if they were mentioned. If you are uncertain whether
+      something was decided or merely discussed, put it under "Discussed but not
+      decided" -- that is the guard rail, and it is not optional.|]
     ),
     ( "actions",
       "the concrete assigned tasks, with owner, deadline and dependencies",
-      "Extract concrete, assigned tasks. For each: the task, its owner (or \
-      \\"Unassigned\"), its deadline (or \"No deadline specified\"), its \
-      \dependencies if mentioned, and its priority if stated. Include only \
-      \items explicitly framed as action items or to-dos. A casual mention of \
-      \future work is not an action item, and promoting one is the most \
-      \expensive error in this section."
+      [wft|
+      Extract concrete, assigned tasks. For each: the task, its owner (or
+      "Unassigned"), its deadline (or "No deadline specified"), its dependencies
+      if mentioned, and its priority if stated. Include only items explicitly
+      framed as action items or to-dos. A casual mention of future work is not
+      an action item, and promoting one is the most expensive error in this
+      section.|]
     ),
     ( "questions",
       "what was tabled, left unresolved, or asked and not answered",
-      "Identify what was explicitly tabled for later, discussed without \
-      \reaching consensus, marked as needing more information, or asked and not \
-      \answered in the meeting. Do not include questions you think should have \
-      \been asked, or topics you believe need clarification: this section is \
-      \about the meeting, not about the notes' quality."
+      [wft|
+      Identify what was explicitly tabled for later, discussed without reaching
+      consensus, marked as needing more information, or asked and not answered
+      in the meeting. Do not include questions you think should have been asked,
+      or topics you believe need clarification: this section is about the
+      meeting, not about the notes' quality.|]
     ),
     ( "timeline",
       "every date-bound item, in chronological order",
-      "Create a chronological view of all date-bound items, one per line, as \
-      \\"[date] - [event, deadline or milestone]\". Include past dates the notes \
-      \mention where they give the reader context. Every line here must \
-      \correspond to a date that appears in the notes."
+      [wft|
+      Create a chronological view of all date-bound items, one per line, as
+      "[date] - [event, deadline or milestone]". Include past dates the notes
+      mention where they give the reader context. Every line here must
+      correspond to a date that appears in the notes.|]
     ),
     ( "gaps",
       "the gaps the participants themselves named",
-      "List only gaps the meeting participants identified -- \"we need to find \
-      \out\", \"TBD pending\", \"waiting on confirmation of\". Label the \
-      \section \"Gaps identified BY participants during meeting\". Never \
-      \include a gap you noticed from the outside: that is a different kind of \
-      \claim and it does not belong in this report."
+      [wft|
+      List only gaps the meeting participants identified -- "we need to find
+      out", "TBD pending", "waiting on confirmation of". Label the section "Gaps
+      identified BY participants during meeting". Never include a gap you
+      noticed from the outside: that is a different kind of claim and it does
+      not belong in this report.|]
     ),
     ( "next-steps",
       "the immediate follow-ups, kept separate from what was assigned",
-      "Suggest immediate follow-up actions based strictly on the discussion \
-      \content, under the heading \"DERIVED FROM DISCUSSION\". Then, under \
-      \\"EXPLICITLY ASSIGNED\", the action items as the notes assigned them. \
-      \The distinction between the two headings is the content of this section: \
-      \a suggestion presented as an assignment is a fabricated commitment."
+      [wft|
+      Suggest immediate follow-up actions based strictly on the discussion
+      content, under the heading "DERIVED FROM DISCUSSION". Then, under
+      "EXPLICITLY ASSIGNED", the action items as the notes assigned them. The
+      distinction between the two headings is the content of this section: a
+      suggestion presented as an assignment is a fabricated commitment.|]
     ),
     ( "summary",
       "a four-to-six sentence synthesis of objective, outcomes and next steps",
-      "Write four to six sentences: the meeting's objective in one, the key \
-      \outcomes and decisions in two or three, the critical next steps in one \
-      \or two. Use concrete language. Do not write \"various topics\" or \
-      \\"productive discussion\" -- if the notes do not support a concrete \
-      \sentence, say what they do support instead."
+      [wft|
+      Write four to six sentences: the meeting's objective in one, the key
+      outcomes and decisions in two or three, the critical next steps in one or
+      two. Use concrete language. Do not write "various topics" or "productive
+      discussion" -- if the notes do not support a concrete sentence, say what
+      they do support instead.|]
     ),
     ( "flags",
       "conflicting information, unclear ownership, ambiguous deadlines",
-      "Flag any of these if the notes contain them: conflicting information; \
-      \unclear ownership of a task; an ambiguous deadline; a decision that \
-      \appears to contradict an earlier note. Quote the conflicting parts. If \
-      \there are none, say so -- this section being empty is informative."
+      [wft|
+      Flag any of these if the notes contain them: conflicting information;
+      unclear ownership of a task; an ambiguous deadline; a decision that
+      appears to contradict an earlier note. Quote the conflicting parts. If
+      there are none, say so -- this section being empty is informative.|]
     )
   ]
 
@@ -294,36 +303,40 @@ sectionRoster =
 checkpoints :: [(Text, Text)]
 checkpoints =
   [ ( "traceable",
-      "Check that every statement in the report can be traced to specific note \
-      \content. Take the report's claims one at a time and look for the note \
-      \that carries each. Object if any statement has no source in the notes, \
-      \and name it."
+      [wft|
+      Check that every statement in the report can be traced to specific note
+      content. Take the report's claims one at a time and look for the note that
+      carries each. Object if any statement has no source in the notes, and name
+      it.|]
     ),
     ( "unassuming",
-      "Check that the report makes no assumption about missing context. Look \
-      \for a sentence that only makes sense if something absent from the notes \
-      \were true -- a role, a prior decision, an organisational fact, an \
-      \expanded acronym. Object with the sentence and the assumption it rests \
-      \on."
+      [wft|
+      Check that the report makes no assumption about missing context. Look for
+      a sentence that only makes sense if something absent from the notes were
+      true -- a role, a prior decision, an organisational fact, an expanded
+      acronym. Object with the sentence and the assumption it rests on.|]
     ),
     ( "decided",
-      "Check that decisions and discussions are clearly distinguished. Every \
-      \item under decisions must have been stated as made, agreed or finalised \
-      \in the notes; anything softer belongs under discussed-but-not-decided. \
-      \Object with any item that crossed that line, in either direction."
+      [wft|
+      Check that decisions and discussions are clearly distinguished. Every item
+      under decisions must have been stated as made, agreed or finalised in the
+      notes; anything softer belongs under discussed-but-not-decided. Object
+      with any item that crossed that line, in either direction.|]
     ),
     ( "assigned",
-      "Check that every action item has an explicit basis in the notes -- \
-      \framed there as a task or a to-do, not merely mentioned as future work. \
-      \Check the same for every owner, deadline and priority the report states. \
-      \Object with any item, owner or date the notes do not carry."
+      [wft|
+      Check that every action item has an explicit basis in the notes -- framed
+      there as a task or a to-do, not merely mentioned as future work. Check the
+      same for every owner, deadline and priority the report states. Object with
+      any item, owner or date the notes do not carry.|]
     ),
     ( "faithful",
-      "Check that the executive summary reflects the meeting the notes \
-      \describe. It must not introduce an outcome, a decision or an emphasis \
-      \that the rest of the report does not carry, and it must not describe the \
-      \meeting in vague terms where the notes are concrete. Object with the \
-      \sentence and what is wrong with it."
+      [wft|
+      Check that the executive summary reflects the meeting the notes describe.
+      It must not introduce an outcome, a decision or an emphasis that the rest
+      of the report does not carry, and it must not describe the meeting in
+      vague terms where the notes are concrete. Object with the sentence and
+      what is wrong with it.|]
     )
   ]
 
@@ -387,11 +400,12 @@ sectionClosing =
 -- | The arm where the audit approved.
 auditPassedNote :: Text
 auditPassedNote =
-  "Provenance: the five quality checkpoints of `meeting-notes.md` were put to a \
-  \party pinned to a serving model that answered none of the ten sections, over \
-  \this report and over the notes receipt itself, and all five approved. The \
-  \fact-only discipline was audited by somebody other than its author. Report \
-  \the sections as they stand."
+  [wft|
+  Provenance: the five quality checkpoints of `meeting-notes.md` were put to a
+  party pinned to a serving model that answered none of the ten sections, over
+  this report and over the notes receipt itself, and all five approved. The
+  fact-only discipline was audited by somebody other than its author. Report the
+  sections as they stand.|]
 
 -- | The arm where the audit objected.
 --
@@ -400,12 +414,13 @@ auditPassedNote =
 -- verification changes.
 auditObjectedNote :: Text
 auditObjectedNote =
-  "Provenance: the five quality checkpoints were put to an independent party \
-  \and at least one OBJECTED. Its objection lines are given below and they are \
-  \about this report, not about the meeting. Open the document with them, \
-  \verbatim, under the heading `Fact-only audit: objections`; leave every \
-  \section as written -- an objection is not a licence to rewrite the analysis \
-  \it is about -- and do not describe this report as having passed its audit."
+  [wft|
+  Provenance: the five quality checkpoints were put to an independent party and
+  at least one OBJECTED. Its objection lines are given below and they are about
+  this report, not about the meeting. Open the document with them, verbatim,
+  under the heading `Fact-only audit: objections`; leave every section as
+  written -- an objection is not a licence to rewrite the analysis it is about
+  -- and do not describe this report as having passed its audit.|]
 
 -- | The arm where the audit declined.
 --
@@ -414,11 +429,12 @@ auditObjectedNote =
 -- is reachable and the compiler makes it be written.
 auditSilentNote :: Text
 auditSilentNote =
-  "Provenance: the five quality checkpoints were put to an independent party \
-  \and it did not answer, so this report's fact-only discipline is UNVERIFIED. \
-  \Say that in one sentence at the top of the document, before anything else. \
-  \Do not describe any section below as checked, and do not substitute your own \
-  \reading of the checkpoints for the audit that did not happen."
+  [wft|
+  Provenance: the five quality checkpoints were put to an independent party and
+  it did not answer, so this report's fact-only discipline is UNVERIFIED. Say
+  that in one sentence at the top of the document, before anything else. Do not
+  describe any section below as checked, and do not substitute your own reading
+  of the checkpoints for the audit that did not happen.|]
 
 -- | The brief the artefact is written through.
 --
@@ -568,18 +584,19 @@ notesScript =
     : [(lensBrief l, blockFrom l) | l <- sectionRoster]
   where
     rawAnswer =
-      "Tue 12 Aug, 30 min, video. Present: RL, JS, MK.\n\
-      \- Purpose: settle the 0.4.0 cut date.\n\
-      \- RL: parser fixtures are stale, needs a day.\n\
-      \- Agreed: cut on 19 Aug.\n\
-      \- JS to update CHANGELOG by 18 Aug.\n\
-      \- MK asked whether the format freeze applies to 0.4.0; not answered.\n\
-      \- TBD pending legal on the licence header."
+      [wft|
+      Tue 12 Aug, 30 min, video. Present: RL, JS, MK.
+      - Purpose: settle the 0.4.0 cut date.
+      - RL: parser fixtures are stale, needs a day.
+      - Agreed: cut on 19 Aug.
+      - JS to update CHANGELOG by 18 Aug.
+      - MK asked whether the format freeze applies to 0.4.0; not answered.
+      - TBD pending legal on the licence header.|]
 
     blockFrom l =
-      "On "
-        <> lensOwns l
-        <> ": drawn from the notes above and nothing else. Not specified where \
-           \the notes are silent. (the "
-        <> lensName l
-        <> " section)"
+      [wft|
+      On {owns}: drawn from the notes above and nothing else. Not specified
+      where the notes are silent. (the {name} section)|]
+      where
+        owns = lensOwns l
+        name = lensName l

@@ -71,8 +71,9 @@ scrapBrief =
 -- labels the slot, and a value that labels itself again prints the word twice.
 helloProvenance :: Text
 helloProvenance =
-  "the `hello` smoke row. Two cross-cutting lenses, one scrap, no independence \
-  \probe and no receipts. Nothing here is evidence about a real tree."
+  [wft|
+  the `hello` smoke row. Two cross-cutting lenses, one scrap, no independence
+  probe and no receipts. Nothing here is evidence about a real tree.|]
 
 -- | The program.
 helloWorkflow :: Program
@@ -101,16 +102,18 @@ helloScript =
   (scrapBrief, scrapAnswer)
     : [(lensBrief l, answerOf (lensName l)) | l <- crossCuttingRoster]
   where
+    -- fixture bytes, not prose: a code scrap whose indentation is the defect under review.
     scrapAnswer =
       "def read_config(path):\n\
       \    return eval(open(path).read())"
 
     answerOf "security" =
-      "### [CRITICAL] eval on file contents\n\
-      \- **File**: config.py#L1-L2\n\
-      \- **Category**: Security\n\
-      \- **Confidence**: 95\n\
-      \- **Fix**: parse with json.load or ast.literal_eval."
+      [wft|
+      ### [CRITICAL] eval on file contents
+      - **File**: config.py#L1-L2
+      - **Category**: Security
+      - **Confidence**: 95
+      - **Fix**: parse with json.load or ast.literal_eval.|]
     answerOf "performance" =
       "No performance findings: the function reads one file once."
     answerOf n = "No findings from " <> n <> "."

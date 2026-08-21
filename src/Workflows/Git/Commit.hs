@@ -143,12 +143,14 @@ data CommitRung
 -- paths. It is the whole of what separates four commands.
 rungStyle :: CommitRung -> Text
 rungStyle Commit =
-  "This is the ordinary case: commit the work in the tree now. Nothing has been \
-  \reset and no history is being rewritten."
+  [wft|
+  This is the ordinary case: commit the work in the tree now. Nothing has been
+  reset and no history is being rewritten.|]
 rungStyle Push =
-  "The series will be pushed and a pull request opened from it as soon as it is \
-  \green, so the last commit's message is the one a reviewer reads first. Write \
-  \it as the summary of the whole."
+  [wft|
+  The series will be pushed and a pull request opened from it as soon as it is
+  green, so the last commit's message is the one a reviewer reads first. Write
+  it as the summary of the whole.|]
 rungStyle Recommit =
   [wft|
   Each commit in this series will be submitted as its own pull request in a
@@ -288,14 +290,16 @@ stagingBrief =
 -- for. That is the same reason "Workflows.Gates" writes one.
 seriesBrief :: Text
 seriesBrief =
-  "The commit series this branch now carries, oldest first, as `git log` reports \
-  \it against the trunk."
+  [wft|
+  The commit series this branch now carries, oldest first, as `git log` reports
+  it against the trunk.|]
 
 -- | What the closing tree receipt is introduced as.
 treeBrief :: Text
 treeBrief =
-  "The tree object at HEAD, now that the series exists, as `git rev-parse` \
-  \reports it."
+  [wft|
+  The tree object at HEAD, now that the series exists, as `git rev-parse`
+  reports it.|]
 
 -- | @commands\/commit.md@'s closing sentence, as the exhausted gate's report.
 --
@@ -348,14 +352,16 @@ committedBrief =
 -- | /Source:/ @commands\/push.md@.
 pushBrief :: Text
 pushBrief =
-  "Push the branch. The series below is what is being published, and the lease \
-  \is what keeps a push from overwriting somebody else's work on this ref."
+  [wft|
+  Push the branch. The series below is what is being published, and the lease is
+  what keeps a push from overwriting somebody else's work on this ref.|]
 
 -- | /Source:/ @commands\/push.md@.
 prBrief :: Text
 prBrief =
-  "Open the pull request for the branch that was just pushed, filled from the \
-  \commit series below. Then reply DONE."
+  [wft|
+  Open the pull request for the branch that was just pushed, filled from the
+  commit series below. Then reply DONE.|]
 
 -- ---------------------------------------------------------------------------
 -- The function four programs share
@@ -548,9 +554,11 @@ commitScript rung =
   where
     _ = rung
     plan =
-      "1. [Refactoring] src/token.rs -- Extract token validation into a module\n\
-      \2. [Tests] tests/token.rs -- Add unit tests for token validation\n\
-      \3. [New functionality] src/refresh.rs -- Implement refresh token rotation"
+      [wft|
+      1. [Refactoring] src/token.rs -- Extract token validation into a module
+      2. [Tests] tests/token.rs -- Add unit tests for token validation
+      3. [New functionality] src/refresh.rs -- Implement refresh token rotation|]
+    -- fixture bytes, not prose: fake `git log --oneline` stdout.
     series =
       "a1b2c3d Extract token validation into a module\n\
       \e4f5a6b Add unit tests for token validation\n\

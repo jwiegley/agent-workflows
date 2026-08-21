@@ -263,10 +263,11 @@ hostNote h
   | otherwise =
       "Host: "
         <> shown
-        <> ". This machine is parked and is built with `--max-jobs 1 --cores 1`, \
-           \which is already in the command this run uses. A fix that requires a \
-           \large rebuild will take hours here: say so if you propose one, and \
-           \prefer a change that builds narrowly."
+        <> [wft|
+           . This machine is parked and is built with `--max-jobs 1 --cores 1`,
+           which is already in the command this run uses. A fix that requires a
+           large rebuild will take hours here: say so if you propose one, and
+           prefer a change that builds narrowly.|]
   where
     shown
       | T.null (T.strip h) = "not named, so the unconstrained default"
@@ -312,26 +313,29 @@ severityOf alert = case [v | l <- T.lines alert, Just v <- [labelled l]] of
 alertRouting :: Text -> Text
 alertRouting alert = case severityOf alert of
   "critical" ->
-    "This alert is labelled severity=critical. Something is down or is about to \
-    \be, so the first question is containment and not elegance: name the \
-    \smallest change that stops the page, say what it costs, and only then the \
-    \correct fix. If the two are different, say both and say which you \
-    \recommend now."
+    [wft|
+    This alert is labelled severity=critical. Something is down or is about to
+    be, so the first question is containment and not elegance: name the smallest
+    change that stops the page, say what it costs, and only then the correct
+    fix. If the two are different, say both and say which you recommend now.|]
   "warning" ->
-    "This alert is labelled severity=warning. Nothing is down. Diagnose the \
-    \cause properly rather than silencing the symptom, and if the honest answer \
-    \is that the threshold is wrong, say that -- a warning that fires every day \
-    \is a warning nobody reads, and moving it is a real fix."
+    [wft|
+    This alert is labelled severity=warning. Nothing is down. Diagnose the cause
+    properly rather than silencing the symptom, and if the honest answer is that
+    the threshold is wrong, say that -- a warning that fires every day is a
+    warning nobody reads, and moving it is a real fix.|]
   "info" ->
-    "This alert is labelled severity=info. Treat it as a report and not as a \
-    \page: say what it indicates, whether it needs any action at all, and what \
-    \would have to change for it to become a warning."
+    [wft|
+    This alert is labelled severity=info. Treat it as a report and not as a
+    page: say what it indicates, whether it needs any action at all, and what
+    would have to change for it to become a warning.|]
   s ->
     "This alert carries no severity label this run could read (it read `"
       <> s
-      <> "`). Do not assume it is urgent and do not assume it is not: say which \
-         \it is from the payload's own contents, and say that the label was \
-         \missing -- an unlabelled alert is itself a defect in whoever emits it."
+      <> [wft|
+         `). Do not assume it is urgent and do not assume it is not: say which
+         it is from the payload's own contents, and say that the label was
+         missing -- an unlabelled alert is itself a defect in whoever emits it.|]
 
 -- | The failing output, with the corpus's own sample as the default.
 --
@@ -348,12 +352,13 @@ alertRouting alert = case severityOf alert of
 failureText :: Text -> Text
 failureText t
   | T.null (T.strip t) =
-      "Config flow could not be loaded: {\"message\":\"Invalid handler specified\"}\n\
-      \\n\
-      \(No output was given to this run, so this is the error \
-      \`fix-integration.md` carries as its own example. If the failure on the \
-      \host is a different one, the diagnosis below is about the wrong thing: \
-      \say so.)"
+      [wft|
+      Config flow could not be loaded: {{"message":"Invalid handler specified"}
+
+      (No output was given to this run, so this is the error
+      `fix-integration.md` carries as its own example. If the failure on the
+      host is a different one, the diagnosis below is about the wrong thing: say
+      so.)|]
   | otherwise = T.strip t
 
 -- | The symptom a non-@Rebuild@ rung diagnoses, assembled in Haskell.
@@ -529,11 +534,12 @@ repairPlanBrief =
 -- not diagnose a failure that is no longer there.
 nothingWrongNote :: Text
 nothingWrongNote =
-  "Outcome: NOTHING TO DIAGNOSE. The host's own build driver was run first and it \
-  \passed, so the system builds and nothing was diagnosed, repaired or verified -- \
-  \the run cost one receipt. Report that, name the command that was run and the \
-  \host it was run for, and say that if a failure was seen earlier then something \
-  \changed in between: the tree, the channel, or the machine."
+  [wft|
+  Outcome: NOTHING TO DIAGNOSE. The host's own build driver was run first and it
+  passed, so the system builds and nothing was diagnosed, repaired or verified
+  -- the run cost one receipt. Report that, name the command that was run and
+  the host it was run for, and say that if a failure was seen earlier then
+  something changed in between: the tree, the channel, or the machine.|]
 
 -- | The arm where the configuration was already broken before this run started.
 --
@@ -544,14 +550,15 @@ nothingWrongNote =
 -- reason and in the same words.
 redBaselineNote :: Text
 redBaselineNote =
-  "Outcome: NOT DIAGNOSED -- THE CONFIGURATION WAS ALREADY BROKEN. The host's own \
-  \build driver was run before anything was changed and it failed, so this run \
-  \diagnosed nothing and changed nothing. That is deliberate: a repair applied on \
-  \top of a configuration that already does not build cannot be verified by a \
-  \build, because the build fails either way, and a run that proceeded would end \
-  \unable to say which failure was whose. Report the driver's own failing line, \
-  \name it as pre-existing, and say that the build has to be green before the \
-  \symptom below is worth diagnosing."
+  [wft|
+  Outcome: NOT DIAGNOSED -- THE CONFIGURATION WAS ALREADY BROKEN. The host's own
+  build driver was run before anything was changed and it failed, so this run
+  diagnosed nothing and changed nothing. That is deliberate: a repair applied on
+  top of a configuration that already does not build cannot be verified by a
+  build, because the build fails either way, and a run that proceeded would end
+  unable to say which failure was whose. Report the driver's own failing line,
+  name it as pre-existing, and say that the build has to be green before the
+  symptom below is worth diagnosing.|]
 
 -- | The arm where the driver did not answer at all.
 --
@@ -566,25 +573,26 @@ redBaselineNote =
 -- cannot acquire its lock, report its error and stop.\"
 driverSilentNote :: Text
 driverSilentNote =
-  "Outcome: THE DRIVER DID NOT ANSWER. The host's build driver was asked and gave \
-  \back nothing at all -- neither a pass nor a failure -- so this run has no \
-  \evidence about the machine and diagnosed nothing. Do not characterise the \
-  \host's state. Report that the driver was reached and did not answer, and say \
-  \what to check by hand: whether it holds its `.nixos-build` lock, and whether the \
-  \run was started from the directory the driver lives in."
+  [wft|
+  Outcome: THE DRIVER DID NOT ANSWER. The host's build driver was asked and gave
+  back nothing at all -- neither a pass nor a failure -- so this run has no
+  evidence about the machine and diagnosed nothing. Do not characterise the
+  host's state. Report that the driver was reached and did not answer, and say
+  what to check by hand: whether it holds its `.nixos-build` lock, and whether
+  the run was started from the directory the driver lives in.|]
 
 -- | The arm where the repair verified.
 repairedNote :: NixRung -> Text
 repairedNote t =
-  "Outcome: REPAIRED AND VERIFIED. "
-    <> what
-    <> " The host's own build driver was run again after the edit and it passed, \
-       \which is the verification `nix-pro`'s search strategy asks for and cannot \
-       \perform: an option that does not exist is a build error, so a green build \
-       \is evidence that every option the repair named is real. Nothing was \
-       \activated. Report the diagnosis, the edit, and what the operator should \
-       \watch after switching."
+  [wft|
+  Outcome: REPAIRED AND VERIFIED. {what} The host's own build driver was run
+  again after the edit and it passed, which is the verification `nix-pro`'s
+  search strategy asks for and cannot perform: an option that does not exist is
+  a build error, so a green build is evidence that every option the repair named
+  is real. Nothing was activated. Report the diagnosis, the edit, and what the
+  operator should watch after switching.|]
   where
+    what :: Text
     what = case t of
       Rebuild -> "The failing build was diagnosed from its own output and repaired."
       Alert -> "The alert was diagnosed from its own payload, uncompressed, and repaired."
@@ -593,17 +601,17 @@ repairedNote t =
 -- | The arm where the build never came back.
 stillBrokenNote :: NixRung -> Text
 stillBrokenNote t =
-  "Outcome: STILL FAILING. "
-    <> what
-    <> " and the host's own build driver still objects after every repair trip \
-       \this run was given. Do not report this as resolved and do not suggest \
-       \activating anything. Quote the driver's own failing line, say whether it \
-       \is the same failure as the one this run started from or a new one -- those \
-       \are very different facts -- and name what the next attempt should try. \
-       \Every edit the repair trips made is still in the tree: nothing was \
-       \reverted, because a named failure with the work in place is worth more \
-       \than a clean tree with none of it."
+  [wft|
+  Outcome: STILL FAILING. {what} and the host's own build driver still objects
+  after every repair trip this run was given. Do not report this as resolved and
+  do not suggest activating anything. Quote the driver's own failing line, say
+  whether it is the same failure as the one this run started from or a new one
+  -- those are very different facts -- and name what the next attempt should
+  try. Every edit the repair trips made is still in the tree: nothing was
+  reverted, because a named failure with the work in place is worth more than a
+  clean tree with none of it.|]
   where
+    what :: Text
     what = case t of
       Rebuild -> "The failing build was diagnosed and a repair was applied"
       Alert -> "The alert was diagnosed and a repair was applied"
@@ -859,43 +867,46 @@ nixScript t =
   where
     baseline = case t of
       Rebuild ->
-        "error: The option `services.grafana.protocol' does not exist. \
-        \Definition values: [ \"http\" ]"
+        [wft|
+        error: The option `services.grafana.protocol' does not exist. Definition values: [ "http" ]|]
       _ -> "APPROVE"
 
     diagnosed = case t of
       Rebuild ->
-        "1. Evidence: `error: The option `services.grafana.protocol' does not \
-        \exist.` -- that is the driver's own line and it names the option.\n\
-        \2. Cause: `hosts/vulcan/grafana.nix:14` sets \
-        \`services.grafana.protocol`, which moved under \
-        \`services.grafana.settings.server` in 23.05.\n\
-        \3. Repair: in that file, replace the attribute with \
-        \`services.grafana.settings.server.protocol`. Validated against the \
-        \nixpkgs option list (step 1).\n\
-        \4. Beyond the build: grafana answers on its port after activation.\n\
-        \5. Not established: whether any other option in that file moved in the \
-        \same release."
+        [wft|
+        1. Evidence: `error: The option `services.grafana.protocol' does not
+           exist.` -- that is the driver's own line and it names the option.
+        2. Cause: `hosts/vulcan/grafana.nix:14` sets
+           `services.grafana.protocol`, which moved under
+           `services.grafana.settings.server` in 23.05.
+        3. Repair: in that file, replace the attribute with
+           `services.grafana.settings.server.protocol`. Validated against the
+           nixpkgs option list (step 1).
+        4. Beyond the build: grafana answers on its port after activation.
+        5. Not established: whether any other option in that file moved in the
+           same release.|]
       Alert ->
-        "1. Evidence: the payload's `alertname=NodeFilesystemAlmostOutOfSpace` \
-        \and `mountpoint=/nix`.\n\
-        \2. Cause: the Nix store has not been collected since the last channel \
-        \bump; this is not a configuration defect.\n\
-        \3. Repair: `nix.gc.automatic` is off in `hosts/vulcan/nix.nix`; turn it \
-        \on with a weekly schedule. Validated against the nixpkgs option list \
-        \(step 1).\n\
-        \4. Beyond the build: the mountpoint's free space rises after the first \
-        \collection.\n\
-        \5. Not established: whether the growth rate makes weekly enough."
+        [wft|
+        1. Evidence: the payload's `alertname=NodeFilesystemAlmostOutOfSpace`
+           and `mountpoint=/nix`.
+        2. Cause: the Nix store has not been collected since the last channel
+           bump; this is not a configuration defect.
+        3. Repair: `nix.gc.automatic` is off in `hosts/vulcan/nix.nix`; turn it
+           on with a weekly schedule. Validated against the nixpkgs option list
+           (step 1).
+        4. Beyond the build: the mountpoint's free space rises after the first
+           collection.
+        5. Not established: whether the growth rate makes weekly enough.|]
       Integration ->
-        "1. Evidence: `Config flow could not be loaded: {\"message\":\"Invalid \
-        \handler specified\"}`.\n\
-        \2. Cause: the custom component's directory name does not match the \
-        \`domain` in its `manifest.json`, so Home Assistant cannot find the \
-        \handler the config flow names.\n\
-        \3. Repair: rename the component directory to the manifest's domain in \
-        \the package that installs it.\n\
-        \4. Beyond the build: the integration appears in the add-integration \
-        \dialog and its config flow opens.\n\
-        \5. Not established: whether the component's own version constraint \
-        \still matches the Home Assistant in this configuration."
+        [wft|
+        1. Evidence: `Config flow could not be loaded: {{"message":"Invalid
+           handler specified"}`.
+        2. Cause: the custom component's directory name does not match the
+           `domain` in its `manifest.json`, so Home Assistant cannot find the
+           handler the config flow names.
+        3. Repair: rename the component directory to the manifest's domain in
+           the package that installs it.
+        4. Beyond the build: the integration appears in the add-integration
+           dialog and its config flow opens.
+        5. Not established: whether the component's own version constraint still
+           matches the Home Assistant in this configuration.|]

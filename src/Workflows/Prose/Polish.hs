@@ -922,18 +922,20 @@ proseScript Compress = [(compressBrief, compressedAnswer)]
 
 -- | The diff a scripted @prose-proofread@ audits.
 diffAnswer :: Text
--- fixture bytes, not prose: a unified diff.
+-- fixture bytes, not prose: a unified diff. The fence carries the exact bytes,
+-- one diff line a line, and the diff does not end in a newline.
 diffAnswer =
-  "--- a/doc/design.md\n\
-  \+++ b/doc/design.md\n\
-  \@@ -12,3 +12,3 @@\n\
-  \-The parser recieves its tokens from the lexer, it does not tokenise.\n\
-  \+The parser receives its tokens from the lexer; it does not tokenise.\n\
-  \--- a/README.md\n\
-  \+++ b/README.md\n\
-  \@@ -4,2 +4,2 @@\n\
-  \-Their are two build paths.\n\
-  \+There are two build paths."
+  [wft|
+  --- a/doc/design.md
+  +++ b/doc/design.md
+  @@ -12,3 +12,3 @@
+  -The parser recieves its tokens from the lexer, it does not tokenise.
+  +The parser receives its tokens from the lexer; it does not tokenise.
+  --- a/README.md
+  +++ b/README.md
+  @@ -4,2 +4,2 @@
+  -Their are two build paths.
+  +There are two build paths.|]
 
 -- | The rewrite a scripted @prose-smooth@ reviews.
 smoothed :: Text

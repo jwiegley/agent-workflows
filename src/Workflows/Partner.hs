@@ -1095,16 +1095,22 @@ partnerScript role =
 
     oneFile = dir <> "/2026-08-19T09:14:02.884Z.md"
 
-    -- fixture bytes, not prose: fake `git show --stat` stdout with its diff.
+    -- fixture bytes, not prose: fake `git show --stat` stdout with its diff. The
+    -- fence carries the exact bytes: the stat line keeps its leading space (the
+    -- `commit` line sets the common prefix at the margin), the blank line
+    -- between stat and diff is interior and rides the fence, and the trailing
+    -- newline is spliced.
     commitAnswer =
-      "commit 9f1c2ab Cache the parsed header\n\
-      \ src/Header.hs | 12 ++++++++++--\n\
-      \\n\
-      \--- a/src/Header.hs\n\
-      \+++ b/src/Header.hs\n\
-      \@@ -85,6 +85,9 @@\n\
-      \+parsedCache :: IORef (Map ByteString Header)\n\
-      \+parsedCache = unsafePerformIO (newIORef mempty)\n"
+      [wft|
+      commit 9f1c2ab Cache the parsed header
+       src/Header.hs | 12 ++++++++++--
+
+      --- a/src/Header.hs
+      +++ b/src/Header.hs
+      @@ -85,6 +85,9 @@
+      +parsedCache :: IORef (Map ByteString Header)
+      +parsedCache = unsafePerformIO (newIORef mempty)|]
+        <> "\n"
 
     blockFrom l =
       [wft|
@@ -1131,13 +1137,17 @@ partnerScript role =
       paid once per distinct header per request, which is where the repetition
       actually is.|]
 
-    -- fixture bytes, not prose: a unified diff, trailing newline and all.
+    -- fixture bytes, not prose: a unified diff, trailing newline and all. The
+    -- fence carries the exact bytes; the trailing newline is spliced, because a
+    -- fence never ends in one.
     diffAnswer =
-      "--- a/src/Header.hs\n\
-      \+++ b/src/Header.hs\n\
-      \@@\n\
-      \-parsedCache = unsafePerformIO (newIORef mempty)\n\
-      \+parsedCache = unsafePerformIO (newIORef (bounded 4096))\n"
+      [wft|
+      --- a/src/Header.hs
+      +++ b/src/Header.hs
+      @@
+      -parsedCache = unsafePerformIO (newIORef mempty)
+      +parsedCache = unsafePerformIO (newIORef (bounded 4096))|]
+        <> "\n"
 
     reviewAnswer =
       [wft|

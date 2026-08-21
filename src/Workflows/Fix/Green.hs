@@ -598,21 +598,28 @@ greenScript r =
       2. graphite-app[bot] — top-level comment — the stack's base branch moved;
          rebase before merging.|]
 
-    -- fixture bytes, not prose: fake `git status --porcelain` stdout.
+    -- fixture bytes, not prose: fake `git status --porcelain` stdout. The fence
+    -- carries the exact bytes: the porcelain column's leading space survives
+    -- common-strip, because the `??` line sets the common prefix at the fence
+    -- margin.
     treeAnswer =
-      " M flake.nix\n\
-      \ M src/Parse.hs\n\
-      \?? src/Parse.hs.orig"
+      [wft|
+       M flake.nix
+       M src/Parse.hs
+      ?? src/Parse.hs.orig|]
 
     -- An objection, and it says so in its own first line: a verdict answer that
     -- is not an approval is read as one, and a canned "ok" would have been a
     -- passing run reported as a failing one.
-    -- fixture bytes, not prose: fake test-runner stdout.
+    -- fixture bytes, not prose: fake test-runner stdout. The fence carries the
+    -- exact bytes: the failure line keeps its four-space indent, because the
+    -- lines around it sit at the fence margin and set the common prefix there.
     drawnAnswer =
-      "test tests::race_on_tempdir ... FAILED\n\
-      \failures:\n\
-      \    tests::race_on_tempdir: File exists (os error 17) at /tmp/fixture\n\
-      \test result: FAILED. 40 passed; 1 failed"
+      [wft|
+      test tests::race_on_tempdir ... FAILED
+      failures:
+          tests::race_on_tempdir: File exists (os error 17) at /tmp/fixture
+      test result: FAILED. 40 passed; 1 failed|]
 
     -- What the triage says when all three draws objected with the same line,
     -- which is what a scripted run can produce: same failure every time is the

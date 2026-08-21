@@ -254,10 +254,13 @@ eventLog nid =
                   -- fixture bytes, not prose: an argv — the printed SQL is the
                   -- binding's own contract ("what is asked of the database is
                   -- visible before it is asked"), so its bytes are the point.
-                  "SELECT ts, msgid, node_name, hook, topic, payload FROM msg_events \
-                  \WHERE node_id = '"
-                    <> nid
-                    <> "' AND ts > now() - INTERVAL '24 hours' ORDER BY ts"
+                  -- The fences carry the exact bytes: the query is ONE line, so
+                  -- each fence is one line, `<>` joins them for width, and the
+                  -- node id arrives through the `{nid}` hole rather than beside
+                  -- the string.
+                  [wft|SELECT ts, msgid, node_name, hook, topic, payload |]
+                    <> [wft|FROM msg_events WHERE node_id = '{nid}' |]
+                    <> [wft|AND ts > now() - INTERVAL '24 hours' ORDER BY ts|]
                 ]
               )
 
@@ -1114,41 +1117,55 @@ noderedScript =
   ]
     <> [(lensBrief l, seatAnswer (lensName l)) | l <- houseRoster]
   where
-    -- fixture bytes, not prose: fake `node-red-admin` flows JSON.
+    -- fixture bytes, not prose: fake `node-red-admin` flows JSON. The envelope
+    -- is ONE line, so the fences are one line each and `<>` joins them where the
+    -- old gap broke; `{{` is the fence's literal open brace.
     tabsAnswer =
-      "{\"flows\":[{\"id\":\"a1b2c3d4e5f60718\",\"label\":\"Office\"},\
-      \{\"id\":\"b2c3d4e5f6071829\",\"label\":\"Pool Time\"}]}"
+      [wft|{{"flows":[{{"id":"a1b2c3d4e5f60718","label":"Office"},|]
+        <> [wft|{{"id":"b2c3d4e5f6071829","label":"Pool Time"}]}|]
 
-    -- fixture bytes, not prose: fake `psql` stdout.
+    -- fixture bytes, not prose: fake `psql` stdout. The fence carries the exact
+    -- bytes, one uuid a line.
     uuidAnswer =
-      "0f1e2d3c4b5a6978\n\
-      \1a2b3c4d5e6f7081\n\
-      \2b3c4d5e6f708192"
+      [wft|
+      0f1e2d3c4b5a6978
+      1a2b3c4d5e6f7081
+      2b3c4d5e6f708192|]
 
     -- Deliberately does NOT print `(0 rows)`: the rehearsal walks the
     -- with-history ending, and the upstream-issue ending is one line away.
     -- fixture bytes, not prose: fake `psql` stdout, column alignment and all.
+    -- The fence carries the exact bytes: the header line's own leading run
+    -- survives common-strip (the rule line sits at the margin and sets the
+    -- prefix), and psql's THREE TRAILING SPACES after `hook` are in the fence
+    -- too — layout drops whitespace-only lines at the fence's edges and never
+    -- trims a line's tail.
     eventAnswer =
-      "             ts             |  msgid   |     node_name      |   hook   \n\
-      \----------------------------+----------+--------------------+----------\n\
-      \ 2026-08-19 22:00:01.114+00 | 7f3a2b10 | office door closed? | onSend\n\
-      \ 2026-08-19 22:00:01.140+00 | 7f3a2b10 | Turn off HVAC       | onSend\n\
-      \(2 rows)"
+      [wft|
+                   ts             |  msgid   |     node_name      |   hook   
+      ----------------------------+----------+--------------------+----------
+       2026-08-19 22:00:01.114+00 | 7f3a2b10 | office door closed? | onSend
+       2026-08-19 22:00:01.140+00 | 7f3a2b10 | Turn off HVAC       | onSend
+      (2 rows)|]
 
-    -- fixture bytes, not prose: fake Home Assistant entity-list stdout.
+    -- fixture bytes, not prose: fake Home Assistant entity-list stdout. The
+    -- fence carries the exact bytes, one entity id a line.
     entityAnswer =
-      "binary_sensor.office_door_sensor_p2_office_door\n\
-      \climate.home_office\n\
-      \person.john_wiegley\n\
-      \sensor.johns_mac_studio_active_camera\n\
-      \switch.pool"
+      [wft|
+      binary_sensor.office_door_sensor_p2_office_door
+      climate.home_office
+      person.john_wiegley
+      sensor.johns_mac_studio_active_camera
+      switch.pool|]
 
-    -- fixture bytes, not prose: fake flow-envelope JSON.
+    -- fixture bytes, not prose: fake flow-envelope JSON. The envelope is ONE
+    -- line, so the fences are one line each and `<>` joins them where the old
+    -- gaps broke; `{{` is the fence's literal open brace.
     envelopeAnswer =
-      "{\"baseDigest\":\"sha256:\
-      \0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\
-      \\"flow\":{\"id\":\"a1b2c3d4e5f60718\",\"label\":\"Office\",\"nodes\":[],\
-      \\"configs\":[]}}"
+      [wft|{{"baseDigest":"sha256:|]
+        <> [wft|0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",|]
+        <> [wft|"flow":{{"id":"a1b2c3d4e5f60718","label":"Office","nodes":[],|]
+        <> [wft|"configs":[]}}|]
 
     seatAnswer :: Text -> Text
     seatAnswer n =

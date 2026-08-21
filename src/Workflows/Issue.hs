@@ -808,17 +808,21 @@ issueScript rung =
   where
     _ = rung
 
-    -- fixture bytes, not prose: fake `gh issue view --json` stdout.
+    -- fixture bytes, not prose: fake `gh issue view --json` stdout. The record
+    -- is ONE line, so the fences are one line each and `<>` joins them where the
+    -- old gaps broke; `{{` is the fence's literal open brace.
     issueAnswer =
-      "{\"number\":1024,\"title\":\"format --json drops the trailing newline\",\
-      \\"state\":\"OPEN\",\"labels\":[{\"name\":\"bug\"}],\
-      \\"body\":\"Running `fmt --json` on a file ending in a newline writes one \
-      \that does not. The plain formatter is fine.\",\"comments\":[]}"
+      [wft|{{"number":1024,"title":"format --json drops the trailing newline",|]
+        <> [wft|"state":"OPEN","labels":[{{"name":"bug"}],|]
+        <> [wft|"body":"Running `fmt --json` on a file ending in a newline writes one |]
+        <> [wft|that does not. The plain formatter is fine.","comments":[]}|]
 
-    -- fixture bytes, not prose: fake `git log --oneline` stdout.
+    -- fixture bytes, not prose: fake `git log --oneline` stdout. The fence
+    -- carries the exact bytes, one commit a line.
     historyAnswer =
-      "a1b2c3d Add the JSON writer\n\
-      \e4f5a6b Reuse the plain formatter's buffer"
+      [wft|
+      a1b2c3d Add the JSON writer
+      e4f5a6b Reuse the plain formatter's buffer|]
 
     planAnswer =
       [wft|
@@ -831,7 +835,11 @@ issueScript rung =
 
     sweepAnswer = "No unresolved bot comments found"
 
-    -- fixture bytes, not prose: fake `git status --porcelain` stdout.
+    -- fixture bytes, not prose: fake `git status --porcelain` stdout. The fence
+    -- carries the exact bytes: the porcelain column's leading space survives
+    -- common-strip, because the `??` line sets the common prefix at the fence
+    -- margin.
     leftAnswer =
-      " M src/Json.hs\n\
-      \?? test/regress/1024.test"
+      [wft|
+       M src/Json.hs
+      ?? test/regress/1024.test|]

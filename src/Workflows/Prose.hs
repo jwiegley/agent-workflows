@@ -23,14 +23,18 @@
 -- for a reason that was true: a gap join encodes a __space__ and a fence join
 -- encodes a __newline__, so converting one moves its bytes. The owner ruled on
 -- 2026-08-21 that consistency outranks those bytes for prose, \"it should only
--- use the latter\". So every prose gap literal under @src\/@ is now a fence,
--- re-wrapped to read at the width it is sent at, and what survives as a gap
--- literal is __fixture bytes only__: canned stdout, a diff, a schema, a JSON
--- payload, a directory listing, a code scrap — text standing in for what some
--- tool or file produced, inside a scripted table. Several of those shapes a
--- fence cannot hold at all, because it drops its leading and trailing blank
--- lines and cannot end in a newline. Each survivor carries one line above it
--- saying which it is.
+-- use the latter\". So every prose gap literal under @src\/@ became a fence,
+-- re-wrapped to read at the width it is sent at. The fixtures held out one
+-- more day: the owner's __total__ ruling (\"any multi-line string uses the
+-- wft quasi-quoter\", also 2026-08-21) took them too, byte-exact and proved
+-- per literal — the shapes a bare fence cannot carry are held at the seam
+-- (a trailing newline is @[wft|…|] <> \"\\n\"@, a leading space is
+-- @\" \" <> [wft|…|]@, and an indentation-significant scrap sets its own
+-- margin so the common strip takes only the fence's). __Zero string-gap
+-- literals remain in this tree.__ agent-cat keeps nineteen, each naming a
+-- mechanism the compiler itself states: a Symbol in a type, a module the
+-- quoter cannot reach without an import cycle, or the quoter's own module
+-- under the Template Haskell stage restriction.
 --
 -- __What made that safe was an oracle rather than care.__ A prompt reaches a
 -- run's trace through @Agentic.Exec.oneLine@, which collapses every run of

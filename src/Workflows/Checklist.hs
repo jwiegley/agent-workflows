@@ -476,28 +476,35 @@ checklistScript =
   ]
   where
     -- fixture bytes, not prose: the checklist file's own bytes, before the run.
+    -- The fence carries the exact bytes; the blank line is interior, so it rides
+    -- the fence as an empty line rather than needing a splice.
     before =
-      "# Release checklist\n\
-      \\n\
-      \- [x] Cut the release branch\n\
-      \- [ ] Regenerate the parser fixtures\n\
-      \- [ ] Update CHANGELOG.md for 0.4.0"
+      [wft|
+      # Release checklist
 
-    -- fixture bytes, not prose: the checklist file's own bytes, one box on.
+      - [x] Cut the release branch
+      - [ ] Regenerate the parser fixtures
+      - [ ] Update CHANGELOG.md for 0.4.0|]
+
+    -- fixture bytes, not prose: the checklist file's own bytes, one box on. The
+    -- fence carries the exact bytes, blank line included.
     midway =
-      "# Release checklist\n\
-      \\n\
-      \- [x] Cut the release branch\n\
-      \- [x] Regenerate the parser fixtures\n\
-      \- [ ] Update CHANGELOG.md for 0.4.0"
+      [wft|
+      # Release checklist
 
-    -- fixture bytes, not prose: the checklist file's own bytes, drained.
+      - [x] Cut the release branch
+      - [x] Regenerate the parser fixtures
+      - [ ] Update CHANGELOG.md for 0.4.0|]
+
+    -- fixture bytes, not prose: the checklist file's own bytes, drained. The
+    -- fence carries the exact bytes, blank line included.
     cleared =
-      "# Release checklist\n\
-      \\n\
-      \- [x] Cut the release branch\n\
-      \- [x] Regenerate the parser fixtures\n\
-      \- [x] Update CHANGELOG.md for 0.4.0"
+      [wft|
+      # Release checklist
+
+      - [x] Cut the release branch
+      - [x] Regenerate the parser fixtures
+      - [x] Update CHANGELOG.md for 0.4.0|]
 
     plan =
       [wft|

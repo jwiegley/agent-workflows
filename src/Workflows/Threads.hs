@@ -619,12 +619,14 @@ threadsScript rung =
 
     _ = rung
 
-    -- fixture bytes, not prose: fake `gh pr view --json` stdout.
+    -- fixture bytes, not prose: fake `gh pr view --json` stdout. The record is
+    -- ONE line, so the fences are one line each and `<>` joins them where the
+    -- old gaps broke; `{{` is the fence's literal open brace.
     recordAnswer =
-      "{\"number\":412,\"title\":\"Cache the parsed header\",\
-      \\"headRefOid\":\"9f1c2ab\",\"files\":[{\"path\":\"src/Header.hs\"}],\
-      \\"reviews\":[{\"author\":{\"login\":\"rlepinski\"},\
-      \\"body\":\"The cache is never invalidated when the header changes.\"}]}"
+      [wft|{{"number":412,"title":"Cache the parsed header",|]
+        <> [wft|"headRefOid":"9f1c2ab","files":[{{"path":"src/Header.hs"}],|]
+        <> [wft|"reviews":[{{"author":{{"login":"rlepinski"},|]
+        <> [wft|"body":"The cache is never invalidated when the header changes."}]}|]
 
     inventoryAnswer =
       [wft|
@@ -633,13 +635,17 @@ threadsScript rung =
       2. rlepinski -- top-level comment -- asks whether the cache is shared
          between requests.|]
 
-    -- fixture bytes, not prose: a unified diff, trailing newline and all.
+    -- fixture bytes, not prose: a unified diff, trailing newline and all. The
+    -- fence carries the exact bytes; the trailing newline is spliced, because a
+    -- fence never ends in one.
     diffAnswer =
-      "--- a/src/Header.hs\n\
-      \+++ b/src/Header.hs\n\
-      \@@ -85,6 +85,9 @@\n\
-      \+parsedCache :: IORef (Map ByteString Header)\n\
-      \+parsedCache = unsafePerformIO (newIORef mempty)\n"
+      [wft|
+      --- a/src/Header.hs
+      +++ b/src/Header.hs
+      @@ -85,6 +85,9 @@
+      +parsedCache :: IORef (Map ByteString Header)
+      +parsedCache = unsafePerformIO (newIORef mempty)|]
+        <> "\n"
 
     answersAnswer =
       [wft|

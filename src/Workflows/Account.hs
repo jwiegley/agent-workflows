@@ -1194,12 +1194,16 @@ accountScript kind =
       Sitrep -> sitrepRoster
       _ -> reportRoster
 
-    -- fixture bytes, not prose: fake `git status --porcelain` and `git log --oneline` stdout.
+    -- fixture bytes, not prose: fake `git status --porcelain` and `git log
+    -- --oneline` stdout. The fence carries the exact bytes: the porcelain
+    -- column's leading space survives common-strip, because the `??` line sets
+    -- the common prefix at the fence margin.
     dossierAnswer =
-      " M src/Lex.hs\n\
-      \?? doc/handoff.md\n\
-      \a1b2c3d Add the boundary case to the lexer tests\n\
-      \e4f5a6b Hoist the position reset out of the success arm"
+      [wft|
+       M src/Lex.hs
+      ?? doc/handoff.md
+      a1b2c3d Add the boundary case to the lexer tests
+      e4f5a6b Hoist the position reset out of the success arm|]
 
     blockFrom l =
       [wft|

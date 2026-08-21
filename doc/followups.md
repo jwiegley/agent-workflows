@@ -163,16 +163,17 @@ lightly compressed — each is a decision, not just a chore:
   because a hole goes through the class method `saysText` and an unannotated
   local binding is then ambiguous.
 
-  **The fixture half stands, with its reason sharpened.** 40 gap literals
-  remain and every one is *bytes some tool or file would have produced*,
-  standing in for a receipt inside a scripted table: fake `git`/`gt`/`psql`/
-  linter/test-runner stdout, unified diffs, a schema DDL, `gh --json`
-  payloads, directory listings, an org tree, a checklist file, a code scrap
-  whose indentation is the defect under review. Six end in a trailing newline
-  and four begin with a space — shapes a fence cannot produce, since it drops
-  its blank edge lines. Each now carries one line above it: `fixture bytes,
-  not prose: <what it stands in for>`. README house rule 8 states the split;
-  `Workflows.Prose`'s header carries the argument.
+  **The fixture half fell to the total ruling (2026-08-21, same day).** The
+  owner then ruled "any multi-line string uses the wft quasi-quoter", and all
+  41 fixture gap literals became fences too — byte-exact, proved per literal
+  against the text they replaced (83/83 across both repos), with the shapes a
+  bare fence cannot carry held at the seam: trailing newlines spliced as
+  `<> "\n"`, leading spaces as `" " <>`, indentation-significant scraps
+  written at their own margin. Zero gap literals remain in this tree.
+  agent-cat keeps nineteen, each naming a compiler-stated mechanism (Symbols
+  in types; modules below the quoter in the import graph; the quoter's own
+  module under the Template Haskell stage restriction). README house rule
+  8 states the ruling; `Workflows.Prose`'s header carries the history.
 
   **Two prose blocks are fences that are deliberately not re-wrapped**, and
   say so: `DeadCode.hs`'s advocate `OBJECTION` and `Nix.hs`'s `baseline`, both

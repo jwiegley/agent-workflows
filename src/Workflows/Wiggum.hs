@@ -1689,21 +1689,27 @@ wiggumScript =
     <> partnerScript Cleanup
     <> fessScript
   where
-    -- fixture bytes, not prose: fake `git log --oneline` stdout.
+    -- fixture bytes, not prose: fake `git log --oneline` stdout. The fence
+    -- carries the exact bytes, one commit a line.
     series =
-      "a1b2c3d Extract token validation into a module\n\
-      \e4f5a6b Add unit tests for token validation\n\
-      \c7d8e9f Implement refresh token rotation"
+      [wft|
+      a1b2c3d Extract token validation into a module
+      e4f5a6b Add unit tests for token validation
+      c7d8e9f Implement refresh token rotation|]
 
     worktree = ""
 
-    -- fixture bytes, not prose: a unified diff, trailing newline and all.
+    -- fixture bytes, not prose: a unified diff, trailing newline and all. The
+    -- fence carries the exact bytes; the trailing newline is spliced, because a
+    -- fence never ends in one.
     changed =
-      "--- a/src/token.rs\n\
-      \+++ b/src/token.rs\n\
-      \@@\n\
-      \-    let _ = validate(tok);\n\
-      \+    validate(tok)?;\n"
+      [wft|
+      --- a/src/token.rs
+      +++ b/src/token.rs
+      @@
+      -    let _ = validate(tok);
+      +    validate(tok)?;|]
+        <> "\n"
 
     listing = observationsDir "" <> "/2026-08-19T09:14:02.117Z.md"
 

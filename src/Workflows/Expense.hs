@@ -834,11 +834,13 @@ expenseScript =
     (fillBrief, "Wrote /home/johnw/Documents/expense-report-2026-03-NYC.xlsx (3 expenses, 3 categories).")
   ]
   where
-    -- fixture bytes, not prose: fake `ls` stdout.
+    -- fixture bytes, not prose: fake `ls` stdout. The fence carries the exact
+    -- bytes, one path a line.
     listed =
-      "/home/johnw/receipts/nyc/flight-confirmation.pdf\n\
-      \/home/johnw/receipts/nyc/uber-receipt.png\n\
-      \/home/johnw/receipts/nyc/dinner-receipt.jpg"
+      [wft|
+      /home/johnw/receipts/nyc/flight-confirmation.pdf
+      /home/johnw/receipts/nyc/uber-receipt.png
+      /home/johnw/receipts/nyc/dinner-receipt.jpg|]
 
     extracted =
       [wft|

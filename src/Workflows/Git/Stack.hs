@@ -1067,16 +1067,20 @@ stackScript rung =
     (inventoryBrief, scriptedInventory)
   ]
   where
-    -- fixture bytes, not prose: fake `gt log short` stdout.
+    -- fixture bytes, not prose: fake `gt log short` stdout. The fence carries
+    -- the exact bytes, glyphs and all.
     scriptedStack =
-      "◉ feat/token-refresh (needs restack)\n\
-      \◯ feat/token-validate\n\
-      \◯ main"
-    -- fixture bytes, not prose: fake `git for-each-ref` stdout.
+      [wft|
+      ◉ feat/token-refresh (needs restack)
+      ◯ feat/token-validate
+      ◯ main|]
+    -- fixture bytes, not prose: fake `git for-each-ref` stdout. The fence
+    -- carries the exact bytes, one ref a line.
     scriptedTips =
-      "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678 feat/token-refresh\n\
-      \b2c3d4e5f60718293a4b5c6d7e8f90123456789a feat/token-validate\n\
-      \c3d4e5f60718293a4b5c6d7e8f90123456789ab2 main"
+      [wft|
+      a1b2c3d4e5f60718293a4b5c6d7e8f9012345678 feat/token-refresh
+      b2c3d4e5f60718293a4b5c6d7e8f90123456789a feat/token-validate
+      c3d4e5f60718293a4b5c6d7e8f90123456789ab2 main|]
     scriptedTip = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
     scriptedDoctrine =
       [wft|
@@ -1090,16 +1094,20 @@ stackScript rung =
       Resolved src/token.rs on feat/token-refresh: kept the incoming validator
       and the current rotation call, both. Marked resolved with `git add`.
       Nothing committed.|]
-    -- fixture bytes, not prose: fake `git range-diff` stdout.
+    -- fixture bytes, not prose: fake `git range-diff` stdout. The fence carries
+    -- the exact bytes, column runs included.
     scriptedProof =
-      "1:  a1b2c3d =  1:  9f8e7d6 Extract token validation into a module\n\
-      \2:  b2c3d4e !  2:  8e7d6c5 Implement refresh token rotation"
+      [wft|
+      1:  a1b2c3d =  1:  9f8e7d6 Extract token validation into a module
+      2:  b2c3d4e !  2:  8e7d6c5 Implement refresh token rotation|]
     -- Every line begins `-`: every pre-run commit has an equivalent in the new
     -- head, so nothing was lost and the intact arm is the one that runs.
-    -- fixture bytes, not prose: fake `git cherry` stdout.
+    -- fixture bytes, not prose: fake `git cherry` stdout. The fence carries the
+    -- exact bytes, one commit a line.
     scriptedCherry =
-      "- a1b2c3d4e5f60718293a4b5c6d7e8f9012345678\n\
-      \- b2c3d4e5f60718293a4b5c6d7e8f90123456789a"
+      [wft|
+      - a1b2c3d4e5f60718293a4b5c6d7e8f9012345678
+      - b2c3d4e5f60718293a4b5c6d7e8f90123456789a|]
     scriptedInventory =
       [wft|
       1. cursor[bot] — review thread — src/token.rs:44 — the rotation call

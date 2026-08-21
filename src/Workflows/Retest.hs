@@ -1326,18 +1326,23 @@ retestScript t =
   where
     b = battery t
 
-    -- fixture bytes, not prose: fake `git diff --name-only` stdout.
+    -- fixture bytes, not prose: fake `git diff --name-only` stdout. The fence
+    -- carries the exact bytes, one path a line.
     changedAnswer =
-      "config/models.yaml\n\
-      \ingest/export/llama_export.py\n\
-      \h/tron/plugins/llama.hpp"
+      [wft|
+      config/models.yaml
+      ingest/export/llama_export.py
+      h/tron/plugins/llama.hpp|]
 
-    -- fixture bytes, not prose: fake `git diff` stdout.
+    -- fixture bytes, not prose: fake `git diff` stdout. The fence carries the
+    -- exact bytes: the hunk's four-space body indent survives common-strip,
+    -- because the `diff` and `@@` lines sit at the fence margin.
     snapshotAnswer =
-      "diff --git a/ingest/export/llama_export.py b/ingest/export/llama_export.py\n\
-      \@@ -41,7 +41,7 @@\n\
-      \-    rope_theta = cfg.rope_theta\n\
-      \+    rope_theta = cfg.rope_theta or 10000.0"
+      [wft|
+      diff --git a/ingest/export/llama_export.py b/ingest/export/llama_export.py
+      @@ -41,7 +41,7 @@
+      -    rope_theta = cfg.rope_theta
+      +    rope_theta = cfg.rope_theta or 10000.0|]
 
     -- Deliberately does NOT open a line with `NO MODEL-AFFECTING CHANGES`: the
     -- scripted run gates a real set, and the nothing-gated arm is reached by

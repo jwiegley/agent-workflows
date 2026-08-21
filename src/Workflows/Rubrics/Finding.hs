@@ -130,10 +130,12 @@ soundnessLine =
 -- passes; the number is the caller's and the sentence is one.
 confidenceFloor :: Int -> Text
 confidenceFloor n =
-  "Report only findings whose Confidence is "
-    <> tshow n
-    <> " or higher. A finding you cannot reach that number on is a verification "
-    <> "action, not a finding: say what you would have to check."
+  [wft|
+  Report only findings whose Confidence is {floorText} or higher. A finding
+  you cannot reach that number on is a verification action, not a finding:
+  say what you would have to check.|]
+  where
+    floorText = tshow n :: Text
 
 -- | The line a question whose answer is a __verdict__ ends with.
 --

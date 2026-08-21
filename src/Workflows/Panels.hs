@@ -133,14 +133,16 @@ memberNote :: Roster -> Lens -> Text
 memberNote r l
   | null others = ""
   | otherwise =
-      "You are one of "
-        <> tshow (length r)
-        <> " independent reviewers reading the same artefact. The others own:\n"
-        <> bullets [(lensName o, lensOwns o) | o <- others]
-        <> "\nDo not repeat their work. Report only what you own; anything you\n"
-        <> "duplicate ships twice and is read once.\n\n"
+      [wft|
+      You are one of {count} independent reviewers reading the same artefact. The others own:
+      {owned}
+      Do not repeat their work. Report only what you own; anything you
+      duplicate ships twice and is read once.|]
+        <> "\n\n"
   where
     others = [o | o <- r, lensName o /= lensName l]
+    count = tshow (length r) :: Text
+    owned = bullets [(lensName o, lensOwns o) | o <- others] :: Text
 
 -- ---------------------------------------------------------------------------
 -- The fan-outs

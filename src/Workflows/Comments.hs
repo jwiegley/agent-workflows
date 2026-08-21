@@ -1002,17 +1002,19 @@ commentsScript =
       EXTRACTED INVENTORY COMPLETE: every extracted entry has a verdict.
       File/comment denominator reconciliation is still required.|]
 
-    -- fixture bytes, not prose: fake manifest JSON.
+    -- fixture bytes, not prose: fake manifest JSON. The manifest is ONE line,
+    -- so the fences are one line each and `<>` joins them where the old gaps
+    -- broke; `{{` is the fence's literal open brace, and `}` needs no escape.
     ledger =
-      "{\"manifest_version\": 3, \"files_scanned\": 18, \"files_skipped\": \
-      \[{\"path\": \"assets/app.min.js\", \"reason\": \"unrecognised \
-      \extension\"}], \"comments\": [{\"id\": \"c0a1\", \"path\": \
-      \\"src/cache.py\", \"verdict\": \"STALE\", \"confidence\": \"high\", \
-      \\"evidence\": \"comment says 'retries 3 times'; retry_count is 5 at \
-      \src/cache.py:31\"}, {\"id\": \"c0b7\", \"path\": \"src/http.py\", \
-      \\"verdict\": \"NEEDS_REVIEW\", \"confidence\": \"low\", \"evidence\": \
-      \\"claims the response is already sanitized; sanitiser is upstream and \
-      \not in this repository\"}]}"
+      [wft|{{"manifest_version": 3, "files_scanned": 18, "files_skipped": |]
+        <> [wft|[{{"path": "assets/app.min.js", "reason": "unrecognised |]
+        <> [wft|extension"}], "comments": [{{"id": "c0a1", "path": |]
+        <> [wft|"src/cache.py", "verdict": "STALE", "confidence": "high", |]
+        <> [wft|"evidence": "comment says 'retries 3 times'; retry_count is 5 at |]
+        <> [wft|src/cache.py:31"}, {{"id": "c0b7", "path": "src/http.py", |]
+        <> [wft|"verdict": "NEEDS_REVIEW", "confidence": "low", "evidence": |]
+        <> [wft|"claims the response is already sanitized; sanitiser is upstream and |]
+        <> [wft|not in this repository"}]}|]
 
     reconciled =
       [wft|

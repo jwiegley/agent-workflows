@@ -601,20 +601,24 @@ queryScript =
     (reviseBrief, drafted)
   ]
   where
-    -- fixture bytes, not prose: the schema DDL the MCP server returns.
+    -- fixture bytes, not prose: the schema DDL the MCP server returns. The fence
+    -- carries the exact bytes: its margin sits at the `CREATE TABLE` lines, so
+    -- common-strip removes the margin and nothing else, and the two-space column
+    -- indent and the type-column padding both survive.
     schema =
-      "CREATE TABLE dbo.Invoice (\n\
-      \  InvoiceId    INT           NOT NULL PRIMARY KEY,\n\
-      \  CustomerId   INT           NOT NULL,\n\
-      \  IssuedOn     DATE          NOT NULL,\n\
-      \  VoidedOn     DATE          NULL,\n\
-      \  TotalCents   BIGINT        NOT NULL\n\
-      \);\n\
-      \CREATE TABLE dbo.Customer (\n\
-      \  CustomerId   INT           NOT NULL PRIMARY KEY,\n\
-      \  Name         NVARCHAR(200) NOT NULL,\n\
-      \  RegionId     INT           NOT NULL\n\
-      \);"
+      [wft|
+      CREATE TABLE dbo.Invoice (
+        InvoiceId    INT           NOT NULL PRIMARY KEY,
+        CustomerId   INT           NOT NULL,
+        IssuedOn     DATE          NOT NULL,
+        VoidedOn     DATE          NULL,
+        TotalCents   BIGINT        NOT NULL
+      );
+      CREATE TABLE dbo.Customer (
+        CustomerId   INT           NOT NULL PRIMARY KEY,
+        Name         NVARCHAR(200) NOT NULL,
+        RegionId     INT           NOT NULL
+      );|]
 
     drafted =
       [wft|

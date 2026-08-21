@@ -1312,13 +1312,17 @@ effortScript Forge =
       test-first -- accepted, step 1 precedes step 2. partner-2's format concern
       -- accepted as step 4.|]
 
-    -- fixture bytes, not prose: a unified diff, trailing newline and all.
+    -- fixture bytes, not prose: a unified diff, trailing newline and all. The
+    -- fence carries the exact bytes; the trailing newline is spliced, because a
+    -- fence never ends in one.
     diffed =
-      "--- a/src/Lex.hs\n\
-      \+++ b/src/Lex.hs\n\
-      \@@\n\
-      \-  scanToken s = case match s of Just t -> reset (advance t); Nothing -> s\n\
-      \+  scanToken s = reset (case match s of Just t -> advance t; Nothing -> s)\n"
+      [wft|
+      --- a/src/Lex.hs
+      +++ b/src/Lex.hs
+      @@
+      -  scanToken s = case match s of Just t -> reset (advance t); Nothing -> s
+      +  scanToken s = reset (case match s of Just t -> advance t; Nothing -> s)|]
+        <> "\n"
 
     reviewed =
       [wft|

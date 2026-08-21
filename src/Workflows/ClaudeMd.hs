@@ -742,28 +742,33 @@ claudeMdScript rung =
 
     -- Deliberately without a `CLAUDE.md` line: the scripted run takes the
     -- writing arm, and the other arm is reached by adding one.
-    -- fixture bytes, not prose: fake `ls` stdout.
+    -- fixture bytes, not prose: fake `ls` stdout. The fence carries the exact
+    -- bytes, one entry a line.
     listingAnswer =
-      "Makefile\n\
-      \README.md\n\
-      \flake.nix\n\
-      \src\n\
-      \test"
+      [wft|
+      Makefile
+      README.md
+      flake.nix
+      src
+      test|]
 
-    -- fixture bytes, not prose: the existing CLAUDE.md's own bytes, as read off disk.
+    -- fixture bytes, not prose: the existing CLAUDE.md's own bytes, as read off
+    -- disk. The fence carries the exact bytes; every blank line is interior, so
+    -- each rides the fence as an empty line.
     existingAnswer =
-      "# CLAUDE.md\n\
-      \\n\
-      \This file provides guidance to Claude Code (claude.ai/code) when working\n\
-      \with code in this repository.\n\
-      \\n\
-      \## Commands\n\
-      \\n\
-      \Run `make` to build.\n\
-      \\n\
-      \## Notes\n\
-      \\n\
-      \Always write unit tests for new utilities."
+      [wft|
+      # CLAUDE.md
+
+      This file provides guidance to Claude Code (claude.ai/code) when working
+      with code in this repository.
+
+      ## Commands
+
+      Run `make` to build.
+
+      ## Notes
+
+      Always write unit tests for new utilities.|]
 
     adviceAnswer l =
       [wft|

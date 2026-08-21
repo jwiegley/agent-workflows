@@ -558,11 +558,13 @@ commitScript rung =
       1. [Refactoring] src/token.rs -- Extract token validation into a module
       2. [Tests] tests/token.rs -- Add unit tests for token validation
       3. [New functionality] src/refresh.rs -- Implement refresh token rotation|]
-    -- fixture bytes, not prose: fake `git log --oneline` stdout.
+    -- fixture bytes, not prose: fake `git log --oneline` stdout. The fence
+    -- carries the exact bytes, one commit a line.
     series =
-      "a1b2c3d Extract token validation into a module\n\
-      \e4f5a6b Add unit tests for token validation\n\
-      \c7d8e9f Implement refresh token rotation"
+      [wft|
+      a1b2c3d Extract token validation into a module
+      e4f5a6b Add unit tests for token validation
+      c7d8e9f Implement refresh token rotation|]
 
 -- | The tree oid the scripted table answers the postcondition receipt with, and
 -- the value a scripted run must pass as @--input-arg tree=@ for the intact arm

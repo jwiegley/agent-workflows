@@ -933,18 +933,24 @@ tronScript =
   ]
     <> [(lensBrief l, boundaryAnswer l) | l <- stageRoster]
   where
-    -- fixture bytes, not prose: a source-code comment block, quoted as it stands in the tree.
+    -- fixture bytes, not prose: a source-code comment block, quoted as it stands
+    -- in the tree. The fence carries the exact bytes: inside a fence a leading
+    -- `--` is text and not a comment, so the block needs no escape.
     note =
-      "-- Note [Torch Fx -> Bulk]\n\
-      \-- The traced graph is walked once; every node becomes exactly one Bulk\n\
-      \-- operation, and buffer lifetimes are computed from the walk order rather\n\
-      \-- than from the graph's use-def edges."
+      [wft|
+      -- Note [Torch Fx -> Bulk]
+      -- The traced graph is walked once; every node becomes exactly one Bulk
+      -- operation, and buffer lifetimes are computed from the walk order rather
+      -- than from the graph's use-def edges.|]
 
-    -- fixture bytes, not prose: an IR dump, column alignment and all.
+    -- fixture bytes, not prose: an IR dump, column alignment and all. The fence
+    -- carries the exact bytes: every line starts at the margin, so common-strip
+    -- takes the margin and leaves the interior column runs alone.
     dump =
-      "op 16: matmul  in=[b12,b13] out=[b17]\n\
-      \op 17: add     in=[b17,b14] out=[b18]\n\
-      \op 18: output  in=[b18]"
+      [wft|
+      op 16: matmul  in=[b12,b13] out=[b17]
+      op 17: add     in=[b17,b14] out=[b18]
+      op 18: output  in=[b18]|]
 
     diagnosed =
       [wft|

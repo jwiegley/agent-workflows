@@ -421,10 +421,14 @@ fessScript =
     (fessStance, "none -- checked, and this category has no hits in the diff above.")
   ]
   where
-    -- fixture bytes, not prose: a unified diff, trailing newline and all.
+    -- fixture bytes, not prose: a unified diff, trailing newline and all. The
+    -- fence carries the exact bytes; the trailing newline is spliced, because a
+    -- fence never ends in one.
     scriptedDiff =
-      "--- a/src/token.rs\n\
-      \+++ b/src/token.rs\n\
-      \@@\n\
-      \-    validate(tok)?\n\
-      \+    let _ = validate(tok); // TODO: handle\n"
+      [wft|
+      --- a/src/token.rs
+      +++ b/src/token.rs
+      @@
+      -    validate(tok)?
+      +    let _ = validate(tok); // TODO: handle|]
+        <> "\n"

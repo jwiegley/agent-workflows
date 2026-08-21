@@ -102,10 +102,14 @@ helloScript =
   (scrapBrief, scrapAnswer)
     : [(lensBrief l, answerOf (lensName l)) | l <- crossCuttingRoster]
   where
-    -- fixture bytes, not prose: a code scrap whose indentation is the defect under review.
+    -- fixture bytes, not prose: a code scrap whose indentation is the defect
+    -- under review. The fence carries the exact bytes: its margin is set at the
+    -- scrap's OUTDENTED line, so common-strip removes the margin and nothing
+    -- else, and the body's four-space indent survives.
     scrapAnswer =
-      "def read_config(path):\n\
-      \    return eval(open(path).read())"
+      [wft|
+      def read_config(path):
+          return eval(open(path).read())|]
 
     answerOf "security" =
       [wft|

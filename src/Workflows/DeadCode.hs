@@ -1146,10 +1146,12 @@ deadCodeScript =
   ]
     <> [(lensBrief l, advocateAnswer l) | l <- debateRoster]
   where
-    -- fixture bytes, not prose: fake linter stdout.
+    -- fixture bytes, not prose: fake linter stdout. The fence carries the exact
+    -- bytes, one diagnostic a line.
     analyzed =
-      "src/legacy.py:12:1: F401 'os' imported but unused\n\
-      \src/legacy.py:44:1: unused function `render_v1`"
+      [wft|
+      src/legacy.py:12:1: F401 'os' imported but unused
+      src/legacy.py:44:1: unused function `render_v1`|]
 
     discovered =
       [wft|
@@ -1160,22 +1162,24 @@ deadCodeScript =
       migrations/ (every file load-bearing), src/models.py (SQLAlchemy
       declarative base), tests/fixtures/ (named from CI by filename).|]
 
-    -- fixture bytes, not prose: a unified diff.
+    -- fixture bytes, not prose: a unified diff. The fence carries the exact
+    -- bytes: a marker line is one long line here because it is one long line in
+    -- the diff, and the context lines keep their leading space because the `@@`
+    -- lines set the common prefix at the fence margin.
     markerDiff =
-      "--- a/src/legacy.py\n\
-      \+++ b/src/legacy.py\n\
-      \@@ -10,6 +10,8 @@\n\
-      \+# DCE-BEGIN id=001 kind=import class=safe name=os evidence=\"no refs \
-      \(rg, all variants); zero refs (pyright)\"\n\
-      \ import os\n\
-      \+# DCE-END id=001\n\
-      \@@ -38,6 +40,8 @@\n\
-      \+# DCE-BEGIN id=002 kind=symbol class=ambiguous name=render_v1 \
-      \evidence=\"no static refs; named in a template string\"\n\
-      \ def render_v1(ctx):\n\
-      \+# DCE-END id=002\n\
-      \--- /dev/null\n\
-      \+++ b/.dce-pass-1/candidates.json"
+      [wft|
+      --- a/src/legacy.py
+      +++ b/src/legacy.py
+      @@ -10,6 +10,8 @@
+      +# DCE-BEGIN id=001 kind=import class=safe name=os evidence="no refs (rg, all variants); zero refs (pyright)"
+       import os
+      +# DCE-END id=001
+      @@ -38,6 +40,8 @@
+      +# DCE-BEGIN id=002 kind=symbol class=ambiguous name=render_v1 evidence="no static refs; named in a template string"
+       def render_v1(ctx):
+      +# DCE-END id=002
+      --- /dev/null
+      +++ b/.dce-pass-1/candidates.json|]
 
     series =
       "a1b2c3d chore: remove unused import os (no refs per ruff + rg, debate: remove)"

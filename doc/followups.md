@@ -146,3 +146,75 @@ lightly compressed — each is a decision, not just a chore:
   Bytes win over beauty: convert one only with its bytes compared, never
   assumed. The convertible idioms (412 `wfText [wf|…|]` compositions, two
   prefix-concatenations) are all gone.
+
+## From the duet landing (2026-08-20)
+
+The design of record is `doc/research/duet-design.md`. Everything in §1–§5 and
+§6.2 landed; §6.1 is agent-cat's. Three items are recorded here rather than
+absorbed, because each is somebody's decision and not a chore.
+
+**One thing landed wider than the design wrote it, and the design is left as
+written.** §2.2's `judgeIsElsewhere` takes a single work pin and compares three
+backends; the code takes a *list* and compares the judge against every one of
+them. The design's own §2.3 row 7 is what exposed the gap: if a judge on the
+**default** must be refused because borrowed callees land there, then a judge
+sharing a pane with a borrowed callee's *own pin* must be refused for the same
+reason, and `--route opus=deck:<judge>` is that invocation — accepted by the
+three-backend comparison, refused by the list. The ten-row table is unchanged
+row for row (none of its rows routes a ladder rung), which is why the widening is
+a strict tightening and not a re-decision. §2.2 is not edited: a design of record
+rewritten to match the code stops being a record.
+
+- **The tagged reply, deferred with the ledger the design wrote.** A message the
+  owner submits into a pane while `wf` is waiting on that pane can be read as
+  `wf`'s own answer: the freshness test compares against *one* timestamp taken
+  before the send, so it cannot tell two new replies apart. The window is one
+  poll interval and nothing in the transport reports it. The fix that would
+  actually close it is a per-question nonce in the rendered answer-format line,
+  and it was rejected for this piece of work for three reasons together —
+  `renderQ` is cited *verbatim* against agent-cat's Lean source and `ci/citations.sh`
+  gates that citation, so appending a nonce renegotiates it rather than editing
+  it; it changes what is on the wire for every deck run and perturbs every
+  `ci/deck.sh` scenario and the stub's `answer_for`; and a model that forgets the
+  tag burns a re-ask. Two cheaper ideas were considered and rejected: reading
+  `session output` on every poll catches a *second* new stamp but not the case
+  that bites (where the owner's reply is the first), and a `DeckInterleaved`
+  error on any ambiguity has the same blind spot. **The order that makes sense:**
+  run the duet against two real panes, then decide whether the window was ever
+  hit. `--poll 250` is the mitigation, and `doc/wiggum-two-sessions.md` states
+  the hazard plainly, which is the minimum a design that knows about a silent
+  failure owes its operator.
+- **`--route` on a refusing row is refused in the CLI's words, not the gate's.**
+  `Agentic.Cli`'s check that a routed name is a name the program pins runs against
+  the program the *run facts built* — and on a refusing invocation those facts
+  have already selected `duetRefusalTable`, whose only ask is a tool. So a routed
+  refusal never reaches `judgeIsElsewhere`'s *words* — decision-table rows 5 and
+  7, the judge on the work's pane and the inverted split, and now a third
+  spelling: a ladder rung routed alongside the judge
+  (`--route partner=deck:J --route opus=deck:J`), which is the invocation the
+  two-name predicate used to accept. The operator is told "`--route` names the
+  model 'partner', which this workflow never pins; it pins no model at all" —
+  true of what was built, misleading about the row, which pins six. The gate is
+  not bypassed: its verdict is what selected the program that pins nothing, so
+  the parser's complaint is downstream of the refusal, and the predicate's own
+  verdict on all three is `False`. Nothing is spent either way — measured, and no
+  stub state directory is created — and the fix is the same one the guide's table
+  gives. **The decision is agent-cat's**, because the two candidate fixes are
+  both over there: compute `pinnedModels` from the row's *unrefused* elaboration,
+  or say "the program this run's facts built" in the message. The toolbox-side
+  alternative — declaring model asks in the refusal table so that it pins
+  something — is a refusal made larger than a refusal in order to improve an
+  error message, and is refused here. `ci/workflows.sh` pins the behaviour that
+  actually happens, so a change to it is a change somebody notices.
+- **`M-x wf-run` cannot drive a routed run.** `wf--read-transport` emits exactly
+  one backend and contains no `--route`, so `wiggum-duet` is a shell invocation.
+  The requirement is one sentence long and is recorded as a TODO above that
+  function, including the trap: `list --json`'s `pins` array is *every* pinned
+  serving model the program reaches, borrowed callees and ladder rungs included
+  (six at `wiggum-duet`, of which two are the row's own), and a picker that
+  offered a pane for each would invite a split **the gate refuses** — since
+  `judgeIsElsewhere` compares the judge's backend against every one of the other
+  five and against the default, a rung sent to the judge's pane is a refused run
+  rather than a silently contaminated one. The picker's job is therefore to make
+  the safe invocation easy and not to make the unsafe one unreachable: name which
+  pins are the row's own and default every field to blank.

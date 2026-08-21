@@ -71,6 +71,7 @@ import Workflows.Confer
   )
 import Workflows.DeadCode (deadCodeDoc, deadCodeProgram, deadCodeScript)
 import Workflows.Denote (denoteDoc, denoteProgram, denoteScript)
+import Workflows.Duet (duetDoc, duetProgram, duetScript)
 -- Qualified, alone in this block, and for a reason worth one line: both
 -- "Workflows.Effort" and "Workflows.Review.Ladder" call their rung type @Tier@
 -- and both have a @Heavy@ rung, which is not a collision to rename away —
@@ -322,7 +323,20 @@ registry =
           -- It is also the row that carries the wave's gate: `wf cost wiggum`
           -- reports a finite worst case over finitely many paths, which is the
           -- one number an autonomous loop must have before it starts.
-          ("wiggum", Row (Needs wiggumProgram) wiggumDoc wiggumScript)
+          ("wiggum", Row (Needs wiggumProgram) wiggumDoc wiggumScript),
+          -- The same loop across two live panes ("Workflows.Duet"), and a row
+          -- rather than a flag on the one above it for the naming rule's own
+          -- reason: a row is one SHAPE, and this shape has a bind `wiggum` does
+          -- not have — the partner's observations feed round two inside the
+          -- term. It is priced accordingly, and the two prices side by side in
+          -- `wf list` are what an operator reads before choosing.
+          --
+          -- Last in the table because it is last to land and because it sits on
+          -- top of `wiggum`, which sits on top of everything else: five of its
+          -- eight declared callees belong to other rows, and the three that are
+          -- its own are `wiggum`'s three bodies with one pin moved plus the
+          -- four-seat review between the rounds.
+          ("wiggum-duet", Row (Needs duetProgram) duetDoc duetScript)
         ]
     }
   where

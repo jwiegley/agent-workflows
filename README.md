@@ -163,19 +163,32 @@ named; `plan` and `cost` bind `""` for an input nobody gave, so the price above
 is the price of the default roster. `--input-arg NAME=VALUE` for a phrase,
 `--input-file NAME=PATH` for a diff.
 
-**Three input names are the runner's.** `run.backends`, `run.engine` and
-`run.sentinel` are *run facts* — how many answerers this run reached and which,
-whether each question got a session of its own or they all shared one, and a
-line generated for this run and put nowhere else. `run` binds all three from the
+**Four input names are the runner's.** `run.backends`, `run.engine`,
+`run.routes` and `run.sentinel` are *run facts* — how many answerers this run
+reached and which, whether each question got a session of its own or they all
+shared one, which *pin* reaches which of those answerers, and a
+line generated for this run and put nowhere else. `run` binds all four from the
 run it is making and a flag naming one is refused, because a command line cannot
 say what a run did: they are not part of the count when a row says how many
 inputs it takes, and `--input FILE` still means the one input that is yours.
-Twelve rows declare one or more of them, and what each does with a fact is its
+Thirteen rows declare one or more of them, and what each does with a fact is its
 own business — `confer` and `partner-reviewer` quote the engine in their provenance
 so a reader can see whether the answerers shared a conversation, while `wiggum`
-*refuses to start* when they did. `plan` and `cost` make no run, so all three
+*refuses to start* when they did. `plan` and `cost` make no run, so all four
 come out empty there, which is why the numbers pinned in `ci/workflows.sh` are
 the numbers of a run whose engine is not yet known.
+
+`run.routes` is the newest of the four and the only one that is a *mapping*
+rather than a count: one line per answerer, `LABEL = BACKEND`, the `(default)`
+line first and then each `--route` in the order it was typed, in the backend's
+own spelling — the same table the run's header prints. `run.backends` cannot
+substitute for it, because that roster is deduplicated and carries no names, and
+no arithmetic over it can answer *does the judge share a conversation with the
+worker*. `wiggum-duet` is its first consumer: it reads the table and the engine
+together and refuses, before spending anything, any invocation where the judge's
+backend is the backend of **any** other pin the row reaches — or is the
+**default**, which is where every borrowed callee lands when no `--route` names
+it.
 
 ## The Emacs interface
 
@@ -217,6 +230,7 @@ and each is annotated with its price and its blurb:
 
 ```
 wiggum                branch · at most 44 over 34 paths  —  wiggum/SKILL.md: two work rounds, …
+wiggum-duet           branch · at most 50 over 34 paths  —  wiggum's loop across two panes: the work …
 review-quick          branch · at most 6 over 3 paths    —  one lens over a frozen snapshot: …
 ```
 
@@ -233,7 +247,7 @@ completion after the `@` — so `@notes.md` becomes `--input-file NAME=notes.md`
 and anything else becomes `--input-arg NAME=VALUE`. The file is named *on the
 machine `wf` will run on*: `@~/notes.md` from a hera buffer is hera's home, and
 naming this machine's file there is refused rather than sent along to fail. The
-three run facts are never asked for; the runner binds those.
+four run facts are never asked for; the runner binds those.
 
 **The price gate.** Asked last — after the inputs *and* after the transport,
 never before — because a ceiling means one thing over `acp` and nothing at all
@@ -329,13 +343,15 @@ Emacs records no minibuffer history — exercise those once interactively.
 
 ## What replaces what
 
-The seventy-one rows that exist today stand for **eleven more files** of the
+The seventy-two rows that exist today stand for **eleven more files** of the
 corpus than the sixty-one did — ninety-one, plus wave 5's nine, plus the two the
-last row absorbs (`skills/wiggum` and `commands/run-orchestrator`) — plus one PAL
-MCP tool that is not a file at all and one external skill (`translate-en`) whose
-edge is transplanted and whose text is not. Each program module's haddock carries
-its own map in full, with the reason for every cell; this is the index across all
-thirty-four.
+last two rows absorb (`skills/wiggum` and `commands/run-orchestrator`) — plus one
+PAL MCP tool that is not a file at all and one external skill (`translate-en`)
+whose edge is transplanted and whose text is not. The seventy-second, `wiggum-duet`,
+stands for no new file at all: it is the same two files across two panes, which is
+the owner's own ruling and not a corpus document. Each program module's haddock
+carries its own map in full, with the reason for every cell; this is the index
+across all thirty-four.
 
 | `~/src/nix/config/ai` | row | note |
 |---|---|---|
@@ -382,7 +398,7 @@ thirty-four.
 | `commands/report.md` | `account-report` | seven categories as seven panel members, and the estimate as a separate question on a different engine over the fold |
 | `commands/narrative.md` | `account-narrative` | **reworked**: a receipt dossier, a chronology over it, a writer over that, and "distinguish fact from inference" as a sourcing gate on a third engine |
 | `commands/journal.md` | `journalFn` | called by `account-halt`, read as a `cat` receipt by `account-narrative` — a function, not a program (§7.1 row 30) |
-| `commands/partner-reviewer.md` | `partner-reviewer` | `heavy-review`'s seven passes, which is the review command that file names, and the observation count as a `find` receipt. `ideas=off` is one fewer consultation in `ci/workflows.sh` — 11 against 12 — because that file has no ideation section and this row therefore asks no ideation question. **Run it somewhere else than the work**: `--session <pane>` in an `agent-deck` pane that is not the one doing the work, or an `--engine acp` invocation of its own, which opens a session per question. A partner review put down the same conversation as the work is the work reviewing itself, and `run.engine` in the report says which you did |
+| `commands/partner-reviewer.md` | `partner-reviewer` | `heavy-review`'s seven passes, which is the review command that file names, and the observation count as a `find` receipt. `ideas=off` is one fewer consultation in `ci/workflows.sh` — 11 against 12 — because that file has no ideation section and this row therefore asks no ideation question. **Run it somewhere else than the work**: `--session <pane>` in an `agent-deck` pane that is not the one doing the work, or an `--engine acp` invocation of its own, which opens a session per question. A partner review put down the same conversation as the work is the work reviewing itself, and `run.engine` in the report says which you did. That last sentence is advice this row cannot check; `wiggum-duet` is where it became a refusal a program computes |
 | `commands/partner-collaborator.md` | `partner-collaborator` | `deep-review`'s roster plus "three wild ideas" as `drawing 3` on one lateral party; one contract with the `Idea` category **derived**, ending an enum that had already drifted |
 | `commands/partner-cleanup.md` | `partner-cleanup` | two drain rounds, each behind a free test over a `find` receipt, then exactly one `commitFn` call — and the ending its prose loop cannot have |
 | `commands/breakdown.md`, `agents/task-breakdown.md` | `org-tasks-breakdown` | `[ATOMIC]`, `[AMBIGUOUS]` and `[NO-EXPERTISE]` as three deciders and three arms, and the completeness check asked of somebody else |
@@ -420,11 +436,12 @@ thirty-four.
 | `agents/prd-architect.md` | `prd-draft`, `prd-critique` | **the rework is the split.** One file was two agents selected by an unstated condition; §6's own "if one doesn't already exist" is the condition, and a `test -f` decides it — so the two rows are each other's arms. `prd-draft` puts the owner in binding position and reads `[TODO:` for nothing, sending an incomplete draft back to him rather than to a reviewer; `prd-critique` contains no `act` but the report |
 | `skills/node-red` | `nodered` | the three-signature admin boundary **is** the argv — no `curl`, no HTTP client, no flow-file path, no credential read, so six prohibitions become commands that do not exist. The `FLOW_ID` regex is checked in Haskell before the program exists; "zero rows → upstream issue" is a free decider over `psql`'s own footer; "don't fabricate entity IDs" is a `jq` receipt; and the put is the single node with write authority |
 | `skills/wiggum`, `commands/run-orchestrator.md` | `wiggum` | **the loop's inner step, priced** — two work rounds, one checkpoint audit and a bounded done-criteria verdict at `minFold 2, maxFold 44, over 34 paths`, which is wave 5's gate. It is *not* the skill's unbounded continuation: the rounds are unrolled at the program level (a bounded revision's body reviews and amends and holds no other statement, so the work cannot loop inside one), and the unroll count — two — is a design decision the gate records in its own words: "a third round would be a design decision and would show here." A long session is several `wf run wiggum` invocations, each re-priced — continuation, compaction refresh and the cross-session durable files stay with the skill. What the program wins: the frozen plan is an *input* ("read-only for the purpose of lowering the bar" becomes true rather than requested); the loop will not start at all under an engine whose questions share one conversation — that is `run.engine` read in Haskell, so it costs no question and no path, and it is the gate the sentinel probe could never be, since a session already carrying the work answers `PARENT_HISTORY_ABSENT` truthfully; the probe is then the *first* question and gates every path, over the residual the engine fact cannot see; the evaluator answered none of the work's questions by construction; "Do NOT submit or push" becomes an **absence** — there is no push argv reachable from the module, verified transitively. `run-orchestrator`'s steps 5–6 are a layered topological sort in Haskell, so the fan-out cap is computed where `parallelize` guesses 3–5 |
+| the owner's ruling of 2026-08-20 (no corpus file) | `wiggum-duet` | **the same loop across two live panes**, and the row that made `run.routes` worth having. Its two pins are `worker` and `partner`, neither with a fall-back — a dead pane is a dead question, not a question that silently tries the pane about to judge it — and everything it does not pin itself stays on the default, which is the work's pane. The partner's four seats review round one *inside the term* and round two reads their observations, which is the bind `wiggum` does not have: the old guide's copy-paste between two invocations, priced at `minFold 2, maxFold 50, over 34 paths`. Its gate is `judgeIsElsewhere` over `run.routes`, `run.engine` and the row's own list of work-side pins, shared with `wiggum` so the two cannot drift; it refuses the *inverted* split as well as the shared one, and it refuses a borrowed callee's pin routed at the judge's pane, which is the same contamination spelled as an extra `--route` |
 
 **The full triage — all 119 files, each marked T (its own program), R (rework
 first), F (folds into a named host) or K (honestly Markdown) — is
 [`doc/design.md` §7](doc/design.md), with §7.5's tally.** Twenty-five programs and
-roughly sixty rows sit behind the corpus; **seventy-one** rows exist today, and
+roughly sixty rows sit behind the corpus; **seventy-two** rows exist today, and
 with `wiggum` landed the roadmap's five waves are complete. §7.5's "roughly sixty"
 was an underestimate rather than a target that has
 been met, and the reason is the naming rule doing its job: a rung whose roster,
@@ -721,8 +738,10 @@ autonomous work→checkpoint→verify loop must have and the one
 bounded number of attempts (default 3)", "roughly 3–5 at a time", "every four
 hours or so"), and all three are numbers here.
 
-**44 is now the widest ceiling in `ci/workflows.sh`**, past
-`retest-categorical`'s 37 and `productize`'s 31, and that is the right shape
+**44 is the second widest ceiling in `ci/workflows.sh`** — past
+`retest-categorical`'s 37 and `productize`'s 31, and displaced only by
+`wiggum-duet`'s 50, which is this same loop run across two panes — and that is
+the right shape
 rather than a worrying one: five of the row's seven declared callees belong to
 other rows — `commitFn`, `resolveFn`, `cleanupRoundFn`, `fessReportFn`, and the
 eleven `fess` stances by way of `Rubrics.Fess` — so what the top of the loop costs
@@ -767,6 +786,56 @@ the working policies (`CARGO_TARGET_DIR`, `~/Products`, `direnv exec .`,
 `proc` and never a shell), "do not enter this mode on your own", the four-hour
 clock, and conferring through PAL.
 
+### The seventy-second row: `wiggum-duet`, two panes and one command
+
+```sh
+wf cost wiggum-duet
+#   minFold 2, maxFold 50, over 34 paths
+```
+
+The owner's own ruling, and the shape it asks for: **two `agent-deck` sessions he
+primes himself, one `wf run` that starts a work loop in the first and a review in
+the second, and no ownership of either.** `wf` is the driver and not the
+governor — nothing in the deck transport can start, stop or kill a session, so a
+run that finishes leaves both panes attached and his, and the next run picks them
+up where they are.
+
+```sh
+wf run wiggum-duet --session "$PANE_W" --route "partner=deck:$PANE_R" --poll 250 \
+   --input-arg goal='…' --input-arg base=main \
+   --input-arg observations= --input-arg parity=
+```
+
+**Three of the four numbers are `wiggum`'s to the digit** — `branch`, 34 paths, a
+minimum of 2 — because the duet adds one `call` and no branch, and a call is
+consultations rather than paths. The one that moves is the ceiling, and it is
+exactly the review: four partner seats, one publishing act, one directory
+receipt, bought once and only on the two-round arm. `50` is now the widest in the
+table.
+
+**What it buys is a judge that provably is not the worker under a transport that
+shares one conversation** — which is the combination the old gate had to refuse
+outright, and the only combination a two-pane workflow can be. The mechanism is
+the fourth run fact: `run.routes` and `run.engine` read together, in ordinary
+Haskell, before the program exists. So the refusal is finer than `wiggum`'s and
+sharper: it fires when the judge's backend is the backend of **any** of the five
+other pins this row reaches, and it fires when the judge's backend is the
+**default**, because everything this row does not pin itself — every borrowed
+callee, every tool, every person — lands on the default and is work. Writing the
+split the other way round is therefore refused rather than accepted, which is the
+mistake worth catching: it *looks* like the split. So is routing a borrowed
+callee's own pin at the judge's pane (`--route opus=deck:<judge>` beside the
+judge's own route), which looks harmless and is the same contamination by another
+route.
+
+**What it deletes** is the hand-carried loop the guide used to teach: three
+commands and a copy-paste between two invocations become one command and a bind,
+and the coupling is priced. **What it does not close** is a one-poll-interval
+window in which a message the owner submits while `wf` is waiting on that pane
+can be read as `wf`'s own answer. `--poll 250` shrinks it fourfold, the guide
+states it plainly, and [`doc/wiggum-two-sessions.md`](doc/wiggum-two-sessions.md)
+is where an operator should start.
+
 ## Building it
 
 Two build paths, and they answer different questions.
@@ -774,7 +843,7 @@ Two build paths, and they answer different questions.
 ```sh
 nix develop            # the devShell: GHC, cabal, HLS
 cabal build all        # this package AND ../agent-cat/haskell, from the working tree
-./ci/workflows.sh      # the gate: 71 rows, priced and run
+./ci/workflows.sh      # the gate: 72 rows, priced and run
 ./ci/emacs.sh          # the Emacs gate: compile, checkdoc, smoke over the binary
 ```
 

@@ -91,6 +91,7 @@ library
     Workflows.Confer
     Workflows.DeadCode
     Workflows.Denote
+    Workflows.Duet
     Workflows.Effort
     Workflows.Expense
     Workflows.Fix.Green

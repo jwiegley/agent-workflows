@@ -519,11 +519,49 @@ machine-local pins; anything else is taken as a path to a program."
   (completing-read (format-prompt "ACP adapter (or a path)" "claude")
                    '("claude" "codex") nil nil nil nil "claude"))
 
+;; TODO: per-pin pane selection, for a routed run.
+;;
+;; A row whose `wf plan <row> --json' reports a non-empty `pins' array declares
+;; serving models that `--route NAME=deck:ID' may name — `wiggum-duet' names its
+;; own two `worker' and `partner', and the whole point of that row is that the
+;; judgment lands in a pane the work never reaches.  This function emits exactly
+;; one backend and contains no `--route' anywhere, so the duet is not reachable
+;; from `M-x wf-run' today: it has to be typed at a shell.
+;;
+;; One trap for whoever builds it: `pins' is EVERY pinned serving model the
+;; program reaches, borrowed callees included — at `wiggum-duet' it is six, of
+;; which `fable', `opus', `gpt-5.5-pro' and `gemini-3.1-pro-preview' are the
+;; fail-over ladder's rungs and belong on the default.  Routing a ladder rung
+;; away moves borrowed work into somebody else's pane, and if that pane is the
+;; judge's then THE GATE REFUSES IT: `Workflows.Deciders.judgeIsElsewhere'
+;; compares the judge's backend against every other pin's and against the
+;; default, so a picker that filled all six fields with panes would produce
+;; refused runs rather than contaminated ones.  Offer them, but say which are the
+;; row's own, and default every one of them to blank — a filled field the operator
+;; did not mean is a run that will not start.
+;;
+;; What it wants, in one sentence: after the default transport has been chosen,
+;; offer one agent-deck session completion per declared pin name — reusing
+;; `wf--read-session' for each — and emit the resulting `--route NAME=deck:ID'
+;; flags alongside the default `--session', skipping any pin the operator leaves
+;; blank so that a partially-routed run stays expressible.  `wf--transport-label'
+;; then has to name both panes, because the price gate's question is about a run
+;; and a routed run is two answerers.
+;;
+;; Deliberately not built with the row: the design of record
+;; (`doc/research/duet-design.md' §5.2) states it as a requirement and the row
+;; landed with the shell invocation as its interface, so this comment is the
+;; requirement recorded where whoever implements it will be standing, rather
+;; than a half-built picker nobody has driven.
+
 (defun wf--read-transport ()
   "Read how the run should be answered, and return the flags that say so.
 `scripted' answers from the row's canned table and reaches nobody,
 `acp' starts an adapter of its own, and `deck' sends every question to a
-live agent-deck session somebody else started."
+live agent-deck session somebody else started.
+
+A routed run — one default answerer plus a `--route' per declared pin —
+is not offered here yet; see the TODO above this function."
   (pcase (completing-read (format-prompt "Transport" "scripted")
                           '("scripted" "acp" "deck") nil t nil nil "scripted")
     ("scripted" (list "--scripted"))

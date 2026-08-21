@@ -463,7 +463,7 @@ per tree.
 
 ---
 
-## 6. The flagship five
+## 6. The flagship five, and the sixth that was ruled later
 
 Unanimous across the three proposals on four: `review`, `green`, `commit`, and
 the `fess`/`audit` program. The fifth is `stack` (A and C's `restack`) over B's
@@ -476,6 +476,13 @@ exercises a handle bound before a destruction and read after it. **The disk:**
 were stopped. `forge` is a near-literal transplant of a workflow already written
 as prose; it lands in wave 2 (§8), where pricing six phases across three models
 is the demo.
+
+**§6.6 was added after the roadmap closed** and is not a sixth flagship: it is
+one row, `wiggum-duet`, ruled by the owner on 2026-08-20 and designed in full in
+`doc/research/duet-design.md`. It sits here rather than in §8 because what it
+demonstrates is a *language* capability the other five have no use for — a
+program reading where its own questions land — and a reader comparing the six
+sketches should see it beside them.
 
 House conventions in every sketch: one import (`Workflows.Prelude`), rubric text
 from `Workflows.Rubrics.*` named after its md source, and a decision's tier named
@@ -776,6 +783,79 @@ trip, and a revision body holds one review and one amendment, so the
 verification lives in the amendment's prompt and the real build gate stands
 outside the loop. That is written above, not hidden.
 
+### 6.6 `wiggum-duet` — the loop across two panes *(row: `wiggum-duet`)*
+
+**Serves** the owner's ruling of 2026-08-20, which is not a corpus file: two
+`agent-deck` sessions he primes himself, one `wf run` that starts a work loop in
+the first and a partner review in the second, and no ownership of either.
+**Calls** `commitFn`, `cleanupRoundFn`, `resolveFn` and `fessReportFn`, exactly as
+`wiggum` does, plus `wiggum`'s own three bodies with one pin moved in each.
+**Added after the five**, because it is the first row whose shape is a fact about
+the *invocation* and not about a Markdown file.
+
+The load-bearing paragraph is a gate, and it is the sharpest one in the tree:
+*the judge must be reachable in a conversation no work-side question touches.*
+`wiggum` could only ever refuse that outright — its judge and its round account
+are one serving model, so no route table can separate them — and under a
+two-pane split the refusal became wrong. What settles it is a **fourth run
+fact**, `run.routes`: the route table as the runner resolved it, one line per
+answerer, in the backend's own spelling. Read with `run.engine` it is decidable,
+in ordinary Haskell, before the `Program` exists.
+
+```haskell
+-- src/Workflows/Deciders.hs — one predicate, two callers, so they cannot drift
+judgeIsElsewhere :: Text -> Text -> Text -> [Text] -> Bool
+judgeIsElsewhere routes engine judgePin workPins =
+  not (sharesOneSession engine) || (judge `notElem` works && judge /= dflt)
+  where judge = routedBackend routes judgePin
+        works = map (routedBackend routes) workPins
+        dflt  = routedBackend routes routeDefaultLabel
+
+-- src/Workflows/Duet.hs — the pins, and the bind that is the whole row
+duetWorkPins :: [Text]   -- every pin the WORK reaches: the roster less the
+duetWorkPins =           -- judge's own, so a rung cannot be routed at the judge
+  filter (/= partnerPin) routablePins
+
+duetRoster :: Roster   -- review-heavy's four lenses, re-pinned; `servedBy`
+duetRoster =           -- replaces the chain, so the ladder is dropped with it
+  [l {lensParty = onPartner (lensParty l)} | l <- [alexeyLens, …]]
+
+case judgeIsElsewhere routes engine partnerPin duetWorkPins of
+  False -> defining duetRefusalTable  W.do …stop     -- one function, one act
+  True  -> defining (duetTable …) W.do
+    …
+    first  <- call (duetRoundFn trunk) (arg goal :> arg orchestration :> noArgs)
+    …
+    review <- call (duetReviewFn dir)  (arg first :> noArgs)   -- THE DUET
+    second <- call (duetRoundFn trunk) (arg goal :> arg review  :> noArgs)
+```
+
+**What this proves that the other five do not:** that a program can assert
+something about *where its own questions land* — which is a property of the
+command line and was previously invisible to every program in the tree — and
+refuse before spending on it. Three consequences are worth stating plainly. The
+second conjunct is not belt-and-braces: this row's reach is only its own asks,
+every borrowed callee takes the **default**, and a judge sitting on the default
+read the commit decomposition, the conflict resolution and the cleanup review —
+so the *inverted* split is refused as firmly as the shared one, and it is the
+inversion an operator will actually type. The fourth argument is a **list** for
+the same reason one step further out: a borrowed callee arrives on the ladder's
+own name, so `--route opus=deck:<judge>` beside `--route partner=deck:<judge>`
+puts those same three questions in the judging pane with the judge on neither the
+default nor `worker`, and a gate comparing two names accepts it. The list is
+static because the gate runs before the `Program` exists; `ci/workflows.sh` holds
+it against `list --json`'s `pins`, which is `Agentic.Chains.servedChains` over the
+built program, so the one part that could rot silently does not. What the check
+*cannot* see is that `agent-deck` takes `<id|title>` for every verb, so one pane
+under two selectors is two texts here — recorded in the predicate's haddock and in
+the guide as a rule for the operator, not as machinery. And neither pin takes a
+`fallingBackTo`: a ladder relabels the model axis on the next rung, so a dead
+partner pane would move the judgment to whatever answers the next rung, which
+resolves through the default, which is the work's pane. A dead pane is a dead
+question. The price is `minFold 2, maxFold 50, over 34 paths` — `wiggum`'s shape
+to the digit but for the four-seat review, which is bought once and only on the
+two-round arm.
+
 ---
 
 ## 7. The triage
@@ -987,12 +1067,14 @@ wf cost wiggum
   minFold 2, maxFold 44, over 34 paths
 ```
 
-`ci/workflows.sh` pins it at `branch, 34 paths, ceiling 44` and reports **71
+`ci/workflows.sh` pins it at `branch, 34 paths, ceiling 44` and reports **72
 workflows pinned, 0 failed**; every earlier row's numbers are unmoved. Five things
 about that row are amendments to what this section and §7.2/§7.4 predicted, and
 each is recorded rather than absorbed:
 
-1. **44 is the widest ceiling in the table**, past `retest-categorical`'s 37. That
+1. **44 is the second widest ceiling in the table**, past `retest-categorical`'s
+   37 and displaced only by §6.6's `wiggum-duet` at 50, which is this same loop
+   across two panes. That
    is §7.4 row 1's "it calls almost everything" showing up as arithmetic: five of
    the row's seven declared callees are other rows' functions (`commitFn`,
    `resolveFn`, `cleanupRoundFn`, `fessReportFn`, and the eleven `fess` stances by

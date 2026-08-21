@@ -221,6 +221,20 @@ inputsFor() {
     wiggum)
       ins=(--input-arg plan= --input-arg base= --input-arg observations= --input-arg parity=)
       ;;
+    # The same loop across two panes. Same four inputs and the same reading of
+    # every empty one, with `plan=` renamed `goal=` — which is the word an owner
+    # types beside two pane ids, and which reaches the same two places: the
+    # audit's request fold and the judge's frozen criteria.
+    #
+    # NONE of the four is a run fact, and the two that decide this row's SHAPE
+    # are: `run.routes` and `run.engine` are bound by `run` and by nothing else,
+    # so the numbers pinned below are the numbers of the LOOP — the shape a run
+    # with an unknown table takes. The refusal arm is a different and much
+    # smaller program and is not reachable from here; the block at the end of
+    # this file is where it is reached.
+    wiggum-duet)
+      ins=(--input-arg goal= --input-arg base= --input-arg observations= --input-arg parity=)
+      ;;
     *) ins=() ;;
   esac
 }
@@ -247,7 +261,7 @@ pin() {
 # into a document, one report call: no branch and no loop, so its price is exact
 # and the ceiling is the price.
 #
-# TWENTY of the seventy-one rows price exactly — minFold equals maxFold, so
+# TWENTY of the seventy-two rows price exactly — minFold equals maxFold, so
 # `wf cost` answers with a number and not a range — and they are `hello`,
 # `fess`, `confer`, `confer-bare`, `debate`, `second-opinion`, `teams`,
 # `notes`, `issue-worktree`, `account-halt`, `account-sitrep`,
@@ -706,8 +720,10 @@ pin nodered             branch        4      17
 # ("a bounded number of attempts (default 3)", "roughly 3-5 at a time", "every
 # four hours or so"); all three are numbers here, and 44 is what they add up to.
 #
-# 44 IS NOW THE WIDEST CEILING IN THIS TABLE, wider than `retest-categorical`'s
-# 37 and `productize`'s 31, and that is correct rather than alarming: five of the
+# 44 IS THE SECOND WIDEST CEILING IN THIS TABLE — wider than
+# `retest-categorical`'s 37 and `productize`'s 31, and displaced only by
+# `wiggum-duet`'s 50, which is this row's loop with a four-seat review between
+# the rounds — and that is correct rather than alarming: five of the
 # row's seven declared callees belong to other rows, so what it costs is what the
 # toolbox it sits on top of costs. Read it against the minFold of 2, which is the
 # refusal to start — the parent-history sentinel probe did not pass, so no round
@@ -720,6 +736,33 @@ pin nodered             branch        4      17
 # three report arms — 1 + 15 twice, plus the two early refusals. A third round
 # would be a design decision and would show here.
 pin wiggum              branch       34      44
+
+# The same loop across two live panes (`Workflows.Duet`). THREE OF THE FOUR
+# NUMBERS ARE `wiggum`'s TO THE DIGIT — `branch`, 34 paths, and a minFold of 2 —
+# and that is the whole claim the row makes about itself: it adds one `call` and
+# NO branch, and a call is consultations rather than paths.
+#
+# The one number that moves is the ceiling, 44 -> 50, and it is exactly
+# `duetReviewFn`: four partner seats, one publishing act, one directory receipt,
+# bought ONCE and only on the two-round arm, which is the arm the maximum lives
+# on. The one-round arm prices exactly as `wiggum`'s does, because a review whose
+# findings nothing could consume is spend with no consumer — read the two fold
+# lists side by side and the six shows up in four places and nowhere else:
+#
+#   wiggum       2, 3, 11, 16, 35 (x6), 37 (x6), 39 (x3), 40 (x6), 42 (x6), 44 (x3)
+#   wiggum-duet  2, 3, 11, 22, 35 (x6), 37 (x6), 39 (x3), 46 (x6), 48 (x6), 50 (x3)
+#
+# 50 IS NOW THE WIDEST CEILING IN THIS TABLE, displacing `wiggum`'s 44, and for
+# the same reason that one was honest: what a loop costs is what the toolbox it
+# sits on top of costs, and this one sits on top of `wiggum`.
+#
+# The four partner seats are a DESIGN DECISION and this is where it is recorded:
+# `review-heavy`'s roster has seven, which would price this row at 53. A review
+# that runs inside a bounded loop is a different economic object from
+# `partner-reviewer`, which runs once beside it, and three more opinions on a
+# round that is about to be revised anyway are three consultations. Seven is a
+# decision the owner may take with `wf cost` in hand; four is what is pinned.
+pin wiggum-duet         branch       34      50
 
 # ---------------------------------------------------------------------------
 # The binary, resolved once
@@ -769,6 +812,51 @@ for n in "${names[@]}"; do
   echo "$registered" | grep -qx "$n" \
     || bad "$n" registry "a registered workflow" "pinned here, and registered nowhere"
 done
+
+# ---------------------------------------------------------------------------
+# The pin rosters `judgeIsElsewhere` is given, held to the program's own answer
+# ---------------------------------------------------------------------------
+#
+# `Workflows.Deciders.judgeIsElsewhere` compares the judge's backend against the
+# backend of every pin the WORK reaches, and the list of those pins is STATIC —
+# `Workflows.Parties.ladderPins`, and `routablePins` less the judge's own at
+# `Workflows.Duet.duetWorkPins`. It has to be static: the gate is tier 1 and runs
+# before the `Program` exists, so it cannot ask the program. That makes the list
+# the one part of the gate that could rot silently — a rung added to the ladder
+# and not to the list would be a name the judge is never compared against, which
+# is a hole shaped exactly like the one this check exists to keep shut.
+#
+# So it is checked from OUTSIDE the source, against `pinnedModels` — the primaries
+# and their spares off the built program's own served chains, published by
+# `list --json` under `pins`, which is also exactly the set `--route` will accept.
+# A name in one and not the other fails here.
+"$wf" list --json > "$work/list.json" 2>&1
+
+# The `pins` array of one row, comma-separated, in `pinnedModels`' own sorted
+# order. `tr '{'` puts one row per line; nothing here needs a JSON parser, and a
+# gate that needed `jq` would need a tool `flake.nix` does not promise.
+pinsOf() {
+  tr '{' '\n' < "$work/list.json" \
+    | grep "\"name\":\"$1\"" \
+    | sed -n 's/.*"pins":\[\([^]]*\)\].*/\1/p' \
+    | tr -d '"'
+}
+
+# `Workflows.Parties.routablePins` — the four ladder rungs and the two pins.
+duetPins="fable,gemini-3.1-pro-preview,gpt-5.5-pro,opus,partner,worker"
+# `Workflows.Parties.ladderPins` — this row pins no pane, so the rungs are all of
+# it, and `opus` among them is BOTH its judge's pin and its round account's.
+wiggumPins="fable,gemini-3.1-pro-preview,gpt-5.5-pro,opus"
+
+got=$(pinsOf wiggum-duet)
+[ "$got" = "$duetPins" ] \
+  || bad wiggum-duet "routablePins against the program's pins" "$duetPins" "$got"
+got=$(pinsOf wiggum)
+if [ "$got" = "$wiggumPins" ]; then
+  note "the gate's pin rosters match the programs': 6 at wiggum-duet, 4 at wiggum"
+else
+  bad wiggum "ladderPins against the program's pins" "$wiggumPins" "$got"
+fi
 
 # Every row's one line, because `wf list` is what an operator browses and a blank
 # line is a row nobody can choose.
@@ -838,6 +926,184 @@ if grep -q "no workflow named" "$work/refusal"; then
   note "wf refuses in its own noun: two registries, one CLI"
 else
   bad wf "the registry's noun" "no workflow named …" "$(cat "$work/refusal")"
+fi
+
+# ---------------------------------------------------------------------------
+# The one thing a scripted run cannot prove: `wiggum-duet`'s refusal arm
+# ---------------------------------------------------------------------------
+#
+# The loop above pins the SHAPE and the PRICE of every row and nothing else, and
+# for `wiggum-duet` that is deliberately not enough. Its first gate is
+# `Workflows.Deciders.judgeIsElsewhere` over `run.routes` and `run.engine`, and
+# ONLY `run` binds a run fact — so `plan`, `cost` and `--scripted` all take the
+# loop, which is right (an unknown table must price as the shape that keeps every
+# check) and means the refusal is reachable from a command line and from nowhere
+# else. So two command lines are run here, and between them they cover both
+# refusing rows of the design's decision table.
+#
+# THREE DEPARTURES FROM THE DESIGN'S §6.2, RECORDED RATHER THAN GLOSSED.
+#
+#   1. It said "no adapter and no session needed, because the gate fires before
+#      the first question". The gate does fire first, but the refusing program is
+#      not empty: it calls `duetReportFn`, which is an `act`, which is a
+#      question — so a live-shaped transport IS needed for the one turn the
+#      refusal spends. That is agent-cat's deck STUB, pointed at by `--binary`,
+#      the same fixture `agent-cat/haskell/ci/deck.sh` runs; it answers an `ack`
+#      question with `DONE` and reaches no network and no agent.
+#
+#   2. It said row 7 — the inverted split — was "the one worth pinning, since it
+#      is the one an operator will type". It is pinned, but NOT as the program's
+#      own refusal, because it cannot be: `Agentic.Cli`'s `--route` check runs
+#      against the program the run facts BUILT, and on a refusing row those facts
+#      have already selected the refusal program, whose only ask is a tool. A
+#      program that pins no model refuses every `--route` by name, so NO routed
+#      refusal — row 5, row 7, or the ladder-rung attack below — ever reaches
+#      `judgeIsElsewhere`'s WORDS. It reaches the predicate: the gate is what
+#      selected the refusal program, and the CLI's complaint is downstream of
+#      that verdict rather than instead of it. The operator is still refused
+#      before anything is spent, which is the guarantee that matters, but in the
+#      CLI's words and not the gate's, and the CLI's words ("it pins no model at
+#      all") are true of the refusal program and misleading about the row, which
+#      pins six. That is agent-cat's to settle if it is worth settling; here it is
+#      pinned as the behaviour that actually happens, so a change to it is a
+#      change somebody notices.
+#
+#   3. Row 4 — an unrouted `--session` run, where judge and work both fall to the
+#      default — is therefore the ONLY reachable spelling of the program's own
+#      refusal, and it is where the gate's own words are checked.
+#
+# `cabal.project` already requires the sibling tree, so the fixture is present
+# whenever this gate can build at all; it is guarded anyway, because a gate that
+# dies on a missing fixture teaches nothing.
+
+stub="../agent-cat/haskell/test/stub-deck.sh"
+
+# The row's inputs from the one place that spells them, so a fifth input reaches
+# these two command lines by being added there and nowhere else.
+inputsFor wiggum-duet
+
+if [ ! -x "$stub" ]; then
+  bad wiggum-duet "the deck stub" "an executable at $stub" "missing or not executable"
+else
+  # DECISION-TABLE ROW 4. One pane, no route: J == W == D, and the run refuses in
+  # the program's own words, having put exactly one question — the report every
+  # ending owes its operator.
+  DECK_STUB_STATE="$work/one-pane" \
+    "$wf" run wiggum-duet \
+      --session one-pane \
+      --binary "$stub" --poll 20 --timeout 30000 \
+      "${ins[@]}" \
+      < /dev/null > "$work/row4.run" 2>&1
+  code=$?
+  [ "$code" = 0 ] || {
+    bad wiggum-duet "row 4's exit" 0 "$code"
+    tail -20 "$work/row4.run" >&2
+  }
+
+  # The gate-unique sentence, not the shared banner: the probe-failure ending
+  # also prints WORK BLOCKED, so matching that alone cannot tell the two apart.
+  grep -q "This run puts the judgment in a conversation the work also reaches" \
+    "$work/row4.run" \
+    || bad wiggum-duet "row 4: the refusal's wording" \
+         "the gate's own sentence" "not in the run's output"
+
+  # The fact the refusal is made of, quoted into the report by the run rather
+  # than described: `run.routes`, in the header's own spelling.
+  grep -q "(default) = deck:one-pane" "$work/row4.run" \
+    || bad wiggum-duet "row 4: run.routes in the report" \
+         "(default) = deck:one-pane" "not in the run's output"
+
+  # A refusal the size of a refusal: ONE question put, and it is the report. A run
+  # that had started the loop would have put the sentinel probe first.
+  put=$(grep -c '^  ack -> tool write-report' "$work/row4.run")
+  [ "$put" = 1 ] \
+    || bad wiggum-duet "row 4: questions put" 1 "$put report act(s)"
+  if grep -q "model independence" "$work/row4.run"; then
+    bad wiggum-duet "row 4: the refused run" "no probe" "the sentinel probe was put"
+  fi
+
+  # DECISION-TABLE ROW 7. The inversion, refused earlier and by somebody else —
+  # see departure 2 above. Nonzero, and no question at all.
+  DECK_STUB_STATE="$work/inverted" \
+    "$wf" run wiggum-duet \
+      --session judge-pane \
+      --route worker=deck:work-pane \
+      --binary "$stub" --poll 20 --timeout 30000 \
+      "${ins[@]}" \
+      < /dev/null > "$work/row7.run" 2>&1
+  code=$?
+  [ "$code" = 0 ] && bad wiggum-duet "row 7's exit" "nonzero" 0
+  grep -q "never pins" "$work/row7.run" \
+    || bad wiggum-duet "row 7: the refusal" \
+         "--route names the model 'worker', which this workflow never pins" \
+         "$(head -1 "$work/row7.run")"
+  [ -d "$work/inverted" ] \
+    && bad wiggum-duet "row 7: what was spent" "nothing" "the stub was reached"
+
+  # A LADDER RUNG ROUTED ALONGSIDE THE JUDGE, which is the invocation a
+  # two-name gate accepted. `partner` and `opus` on one pane leaves the judge
+  # off the default and off `worker`, so the old predicate said "elsewhere" and
+  # the loop STARTED — with `model "decompose"`, `model "resolve"`,
+  # `model "cleanup-review"` and the audit's `reasoning` stances answering in the
+  # pane about to judge them. Every one of the four rungs is a spelling of it,
+  # and every one of the four is run here: the roster check above compares a
+  # pinned literal against the program, so it structurally cannot see a rung
+  # dropped from the SOURCE list — a perturbation trial proved a binary built
+  # without gemini in ladderPins sailed through everything but this loop. Two
+  # extra stub runs buy the only coverage that direction has.
+  #
+  # Refused now, and refused by the CLI for departure 2's reason — the gate's
+  # verdict is what selected the program that pins nothing, and the message is
+  # about the flag. What is checked is therefore what is guaranteed: NONZERO, and
+  # nothing reached. A stub that was never run leaves no state directory, which is
+  # the strongest statement this gate can make about spend.
+  for rung in opus fable gpt-5.5-pro gemini-3.1-pro-preview; do
+    DECK_STUB_STATE="$work/rung-$rung" \
+      "$wf" run wiggum-duet \
+        --session work-pane \
+        --route partner=deck:judge-pane \
+        --route "$rung=deck:judge-pane" \
+        --binary "$stub" --poll 20 --timeout 30000 \
+        "${ins[@]}" \
+        < /dev/null > "$work/rung-$rung.run" 2>&1
+    code=$?
+    [ "$code" = 0 ] \
+      && bad wiggum-duet "the $rung rung on the judge's pane: exit" "nonzero" 0
+    grep -q "never pins" "$work/rung-$rung.run" \
+      || bad wiggum-duet "the $rung rung on the judge's pane: the refusal" \
+           "a --route refused by name" "$(head -1 "$work/rung-$rung.run")"
+    [ -d "$work/rung-$rung" ] \
+      && bad wiggum-duet "the $rung rung on the judge's pane: what was spent" \
+           "nothing" "the stub was reached"
+    if grep -q "model independence" "$work/rung-$rung.run"; then
+      bad wiggum-duet "the $rung rung on the judge's pane" "no probe" "the loop started"
+    fi
+  done
+
+  # AND THE SPLIT ITSELF STILL RUNS, which is the other half of the claim: the
+  # list the judge is compared against must refuse a rung routed onto the judge's
+  # pane WITHOUT refusing the two-pane invocation the row exists for. Decision
+  # table row 6, the owner's own command line, reaching the probe.
+  DECK_STUB_STATE="$work/split" \
+    "$wf" run wiggum-duet \
+      --session work-pane \
+      --route partner=deck:judge-pane \
+      --binary "$stub" --poll 20 --timeout 30000 \
+      "${ins[@]}" \
+      < /dev/null > "$work/row6.run" 2>&1
+  code=$?
+  [ "$code" = 0 ] || {
+    bad wiggum-duet "row 6's exit" 0 "$code"
+    tail -20 "$work/row6.run" >&2
+  }
+  grep -q "text -> model independence" "$work/row6.run" \
+    || bad wiggum-duet "row 6: the gate accepted" \
+         "the sentinel probe put" "no probe in the run's output"
+  grep -q "This run puts the judgment in a conversation the work also reaches" \
+    "$work/row6.run" \
+    && bad wiggum-duet "row 6: the gate accepted" "no refusal" "the gate refused the split"
+
+  note "wiggum-duet: row 4 refuses in the gate's own words; row 7, and a rung on the judge's pane, never start; row 6 runs"
 fi
 
 # ---------------------------------------------------------------------------

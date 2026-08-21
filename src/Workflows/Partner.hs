@@ -180,6 +180,13 @@ module Workflows.Partner
     observationCategories,
     observationContract,
 
+    -- * The three defines a review that publishes observations elsewhere holes
+    --
+    -- $borrowed
+    defectClosing,
+    publishBrief,
+    publishedBrief,
+
     -- * The roster each reviewing role fans out over
     partnerRoster,
 
@@ -202,6 +209,18 @@ import Workflows.Git.Commit (commitFn)
 import Workflows.Prelude
 import Workflows.Review.Ladder (Tier (Deep, Heavy), tierRoster)
 import Prelude
+
+-- $borrowed
+--
+-- The observation-file contract is already this module's to state once
+-- ('observationContract'); these three are the rest of the same contract — what
+-- a defect pass is told to report, what the publishing act is told above the
+-- contract, and how the directory is read back. "Workflows.Duet" runs a
+-- four-seat review /inside/ a work loop and publishes through exactly this
+-- protocol, so it holes these three rather than saying the same thing again in
+-- its own words: two spellings of one contract is a contract that drifts, and
+-- the drift would be invisible because each spelling would pass its own canned
+-- table.
 
 -- ---------------------------------------------------------------------------
 -- The roles

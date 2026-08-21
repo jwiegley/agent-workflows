@@ -112,7 +112,7 @@ the listing says on each of its two streams."
        (wiggum (seq-find (lambda (r) (equal (alist-get 'name r) "wiggum")) rows))
        (hello (seq-find (lambda (r) (equal (alist-get 'name r) "hello")) rows)))
 
-  (wf-smoke-assert (= (length rows) 71)
+  (wf-smoke-assert (= (length rows) 72)
                    "%d rows, parsed from --json and nothing else"
                    (length rows))
   (wf-smoke-assert wiggum "the listing has a `wiggum' row to ask about")
@@ -121,7 +121,8 @@ the listing says on each of its two streams."
                    "wiggum declares the inputs %S"
                    (alist-get 'inputs wiggum))
   (wf-smoke-assert (equal (alist-get 'runFacts wiggum)
-                          '("run.backends" "run.engine" "run.sentinel"))
+                          '("run.backends" "run.engine" "run.routes"
+                            "run.sentinel"))
                    "wiggum's run facts %S are never prompted for"
                    (alist-get 'runFacts wiggum))
   (wf-smoke-assert (equal (wf--price wiggum)

@@ -233,6 +233,27 @@ module Workflows.Wiggum
     wiggumReportFn,
     wiggumTable,
 
+    -- * The three bodies a second loop over the same shape borrows
+    loopRoundFn,
+    loopCheckpointFn,
+    loopReportFn,
+
+    -- * The defines a second loop's own term holes
+    restacker,
+    verdictTrips,
+    orchestration,
+    baselineBrief,
+    currencyBrief,
+    markersBrief,
+    doneCriteriaBrief,
+    continuationBrief,
+    brokenBaseNote,
+    conflictNote,
+    notIndependentNote,
+    doneNote,
+    stillRemainsNote,
+    cannotJudgeNote,
+
     -- * The two places an absent input is given a meaning
     trunkOf,
     parityClause,
@@ -847,6 +868,23 @@ continuationBrief =
 -- fan-out that leaks one prompt into another. So the order is the honest one —
 -- the engine first, for nothing, and the probe only for the runs the engine
 -- cleared.
+--
+-- __What the gate reads now, and why the words did not change.__ The @case@ at
+-- the top of 'wiggumProgram' calls
+-- @'Workflows.Deciders.judgeIsElsewhere'@ — the general form, over
+-- @run.routes@ as well as @run.engine@ and over the whole of
+-- @'Workflows.Parties.ladderPins'@, shared with "Workflows.Duet" so the two rows
+-- cannot drift. For /this/ row it computes the same answer for every command line
+-- there is, because @opus@ serves both the judge and the round account, so the
+-- judge's pin is itself one of the work-side pins the predicate compares against
+-- and the whole thing reduces to @'Agentic.Workflow.sharesOneSession'@ exactly.
+-- __That is a stronger statement than it looks__: it is what makes
+-- @--route opus=deck:\<elsewhere\>@ a refusal here too, rather than a way to
+-- move this row's judge into a pane of its own while its round account follows it
+-- there. The sentence below is therefore still true of every run that reaches it,
+-- and rewording it to mention a table this row cannot act on would be a note
+-- saying something new about the work. A row that /can/ separate judge from work
+-- says so in its own words; that is @'Workflows.Duet.duetProgram'@.
 sharedSessionNote :: Text
 sharedSessionNote =
   "Outcome: WORK BLOCKED, AND NOTHING WAS STARTED. This run's engine puts every \
@@ -1072,9 +1110,35 @@ wiggumReportBrief =
 -- here and 'wiggumTable' is a function of it too — which is
 -- @'Workflows.Expense.expenseBuildFn'@'s arrangement.
 wiggumRoundFn :: Text -> Fn '[ 'CodeText, 'CodeText] 'CodeText
-wiggumRoundFn trunk =
+wiggumRoundFn = loopRoundFn "wiggum.round" reasoning
+
+-- | 'wiggumRoundFn''s body, with the function's name and the account's rung as
+-- parameters.
+--
+-- __Why the body is a parameter of two things and not two bodies.__
+-- "Workflows.Duet" is the same round put to a /routed/ pane: one pin changes and
+-- nothing else does. Two copies of these four statements would be two copies of
+-- four briefs' call sites, and the drift would be silent because each copy would
+-- pass its own canned table. @'Workflows.Report.reportFn'@'s argument at a
+-- different granularity: the second call site is free and the two rounds cannot
+-- disagree.
+--
+-- __@wiggum@'s own elaboration is untouched by this__, which is the thing to
+-- check rather than assume: 'wiggumRoundFn' passes the name it always had and
+-- @'Workflows.Parties.reasoning'@, which is the party it always pinned, so the
+-- printed program, its @askNodes@, its paths and its price are the same values
+-- they were.
+loopRoundFn ::
+  -- | the name this loop's round is declared under
+  Text ->
+  -- | the rung the round's account is put on
+  (Party 'IsModel -> Party 'IsModel) ->
+  -- | the base @git log@'s range is taken against
+  Text ->
+  Fn '[ 'CodeText, 'CodeText] 'CodeText
+loopRoundFn name rung trunk =
   function
-    "wiggum.round"
+    name
     ( takes @"plan" Text
         . takes @"standing" Text
         $ noParams
@@ -1098,7 +1162,7 @@ wiggumRoundFn trunk =
       -- What the world now holds. The account below is written over these bytes.
       series <- ask (gitLogSeries trunk) [wf|{roundSeriesBrief}|]
 
-      account <- ask (reasoning (model "round-account")) [wf|
+      account <- ask (rung (model "round-account")) [wf|
           {roundAccountBrief}
 
           The frozen plan:
@@ -1149,9 +1213,31 @@ wiggumRoundFn trunk =
 -- function. Folded in before the 'Agentic.Builder.Program' exists, like the
 -- trunk and the roster beside it, so it costs the same nothing they do.
 wiggumCheckpointFn :: Text -> Text -> Roster -> Text -> Fn '[ 'CodeText] 'CodeText
-wiggumCheckpointFn trunk dir roster provenance =
+wiggumCheckpointFn = loopCheckpointFn "wiggum.checkpoint" reasoning
+
+-- | 'wiggumCheckpointFn''s body, with the function's name and the handoff's rung
+-- as parameters. See 'loopRoundFn' for why the body is shared rather than
+-- copied.
+--
+-- __The rung is the handoff's and not the audit's__, and that asymmetry is
+-- deliberate where a routed loop takes it: the eleven @fess@ stances inside keep
+-- their own three serving rungs and therefore land on the run's default, while
+-- the handoff is a /judgment about/ the work. The audit is evidence-gathering
+-- and reads the work in the pane that did it; the verdict the definition of done
+-- turns on is the thing that must be elsewhere, and only that is pinned there.
+loopCheckpointFn ::
+  -- | the name this loop's checkpoint is declared under
+  Text ->
+  -- | the rung the handoff is assembled on
+  (Party 'IsModel -> Party 'IsModel) ->
+  Text ->
+  Text ->
+  Roster ->
+  Text ->
+  Fn '[ 'CodeText] 'CodeText
+loopCheckpointFn name rung trunk dir roster provenance =
   function
-    "wiggum.checkpoint"
+    name
     (takes @"standing" Text $ noParams)
     \standing -> W.do
       -- Loop item 4: the observations directory, as bytes, and the cycle the
@@ -1177,7 +1263,7 @@ wiggumCheckpointFn trunk dir roster provenance =
       findings <- panelText (zip (lensNames roster) (withEvidence roster fessClosing changes evidence))
       call_ fessReportFn (arg findings :> arg evidence :> arg provenance :> noArgs)
 
-      handoff <- ask (reasoning (model "handoff")) [wf|
+      handoff <- ask (rung (model "handoff")) [wf|
           {handoffBrief}
 
           Where the last round left the work:
@@ -1213,9 +1299,19 @@ wiggumCheckpointFn trunk dir roster provenance =
 -- 'wiggumTable', because the ending the engine fact closes is a program of its
 -- own and still owes its operator an account.
 wiggumReportFn :: Fn '[ 'CodeText, 'CodeText] 'CodeAck
-wiggumReportFn =
+wiggumReportFn = loopReportFn "wiggum.report"
+
+-- | 'wiggumReportFn''s body, with the function's name as its one parameter. See
+-- 'loopRoundFn' for why the body is shared rather than copied.
+--
+-- No rung here: the report is an @'Agentic.Workflow.act'@ through
+-- @'Workflows.Parties.reporter'@, which is a /tool/, and a tool is not served by
+-- a model — so a routed loop's report lands on the default, with the work, which
+-- is where the artefact belongs.
+loopReportFn :: Text -> Fn '[ 'CodeText, 'CodeText] 'CodeAck
+loopReportFn name =
   function
-    "wiggum.report"
+    name
     ( takes @"provenance" Text
         . takes @"state" Text
         $ noParams
@@ -1291,8 +1387,8 @@ verdictTrips = atMost 2
 -- | The loop: one free gate, a probe, a baseline, two rounds, one currency step,
 -- one checkpoint, one bounded verdict, seven endings.
 --
--- Four inputs the operator gives, and three the runner gives
--- (@run.backends@, @run.engine@, @run.sentinel@).
+-- Four inputs the operator gives, and four the runner gives
+-- (@run.backends@, @run.engine@, @run.routes@, @run.sentinel@).
 -- @plan@ is the frozen plan and its done-criteria — read-only by
 -- construction, since it is an input; @base@ is what the branch is measured
 -- against and brought up to date with (@main@ when absent); @observations@ is
@@ -1301,8 +1397,9 @@ verdictTrips = atMost 2
 -- missing one ('parityClause').
 --
 -- __The first gate is not a step and costs nothing.__ 'sharedSessionNote' is
--- taken in ordinary Haskell, over the @run.engine@ input, before this function
--- has built a 'Agentic.Builder.Program' at all — so it is not a path through the
+-- taken in ordinary Haskell, over the @run.engine@ and @run.routes@ inputs,
+-- before this function has built a 'Agentic.Builder.Program' at all — so it is
+-- not a path through the
 -- loop, it is a different and much smaller program. Read that note for why the
 -- loop needs it and why the probe underneath cannot do its job. The consequence
 -- for the numbers is that there are two programs here and @wf plan@ prints
@@ -1338,10 +1435,11 @@ wiggumProgram =
         :> input "parity"
         :> input "run.backends"
         :> input "run.engine"
+        :> input "run.routes"
         :> input "run.sentinel"
         :> noInputs
     )
-    \plan base obs parity backends engine sentinel ->
+    \plan base obs parity backends engine routes sentinel ->
       -- Tier 1, all of them: the argv, the directory, the roster the audit
       -- fans out over with the frozen plan folded in, the last conjunct of
       -- the definition of done, the probe's prompt at this run's own sentinel,
@@ -1358,18 +1456,39 @@ wiggumProgram =
           -- two facts the checkpoint's audit states about itself.
           provenance = verifiedIndependence engine
        in -- The first gate, and it asks nobody. `run.engine` says whether every
-          -- question of this run lands in one conversation, which is the fact
-          -- that decides whether a separate evaluator is reachable at all --
-          -- and it is read here, in Haskell, so the refusing arm is a program
-          -- with one function in it rather than a path with a cost.
-          -- `sharedSessionNote` is why the probe below cannot answer this.
+          -- question of this run lands in one conversation and `run.routes` says
+          -- which pin reaches which backend; between them they decide whether a
+          -- separate evaluator is reachable at all -- and they are read here, in
+          -- Haskell, so the refusing arm is a program with one function in it
+          -- rather than a path with a cost. `sharedSessionNote` is why the probe
+          -- below cannot answer this.
+          --
+          -- `Workflows.Deciders.judgeIsElsewhere` is the general form, shared
+          -- with `Workflows.Duet` for `sharesOneSession`'s own reason: two gates
+          -- spelled twice are two gates that stop agreeing, and the drift would
+          -- be silent because each spelling would pass its own tests. HERE IT
+          -- COMPUTES EXACTLY WHAT THE BLANKET REFUSAL DID, and that is checkable
+          -- rather than hopeful: this row's judge is `model "done-criteria"` and
+          -- its round account is `model "round-account"`, both on `reasoning`,
+          -- both therefore served by `opus` -- so the judge's pin is ALSO a
+          -- work-side pin, it is in the list below, `judge` is one of `works`
+          -- under every route table there is, and the predicate reduces to
+          -- `not (sharesOneSession engine)`. `ci/workflows.sh` pins the
+          -- consequence: 34 paths and a ceiling of 44, unmoved.
+          --
+          -- `ladderPins` and not `[opus]`, though the two compute the same answer
+          -- here: it is the four names `wf list --json` reports under `pins` for
+          -- this row, so the list says what it means -- every pin this row's work
+          -- reaches -- rather than the one name that happens to be sufficient
+          -- while the round account sits on `reasoning`. `ci/workflows.sh` checks
+          -- the list against that array, which the shorter one would fail.
           --
           -- A `case` and not an `if`, because under `RebindableSyntax` an `if`
           -- in this module is `Agentic.Workflow.ifThenElse` and takes a flag
           -- bound in a program. This choice is between two *programs*, and
           -- there is no program yet for a flag to live in.
-          case sharesOneSession engine of
-            True -> defining wiggumRefusalTable W.do
+          case judgeIsElsewhere routes engine opus ladderPins of
+            False -> defining wiggumRefusalTable W.do
               call_
                 wiggumReportFn
                 ( arg (onThisRun sharedSessionNote)
@@ -1377,7 +1496,7 @@ wiggumProgram =
                     :> noArgs
                 )
               stop
-            False -> defining (wiggumTable trunk dir roster provenance) W.do
+            True -> defining (wiggumTable trunk dir roster provenance) W.do
               -- The second precondition, over the residual the engine fact
               -- cannot see: an adapter that resumed a conversation behind the
               -- client's back, or a fan-out that leaked one prompt into

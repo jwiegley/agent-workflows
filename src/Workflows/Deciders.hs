@@ -48,6 +48,7 @@ module Workflows.Deciders
   ( -- * Tier 1 — decided in Haskell, before the program exists
     pathsOf,
     touches,
+    judgeIsElsewhere,
 
     -- * Tier 2 — decided over a receipt, for zero questions
     saysDone,
@@ -88,7 +89,12 @@ module Workflows.Deciders
   )
 where
 
-import Agentic.Workflow (Decider (..))
+import Agentic.Workflow
+  ( Decider (..),
+    routeDefaultLabel,
+    routedBackend,
+    sharesOneSession,
+  )
 import Data.Text (Text)
 import qualified Data.Text as T
 
@@ -112,6 +118,105 @@ pathsOf = filter (not . T.null) . map T.strip . T.lines
 -- only caller and the glob column is its only argument.
 touches :: [Text] -> Text -> Bool
 touches ps suffix = any (suffix `T.isSuffixOf`) ps
+
+-- | __Is the judge reachable in a conversation no work-side question touches?__
+--
+-- The arguments are @run.routes@, @run.engine@, the judge's pin and __every pin
+-- the work reaches__. Tier 1 throughout: ordinary Haskell over two run facts and
+-- a list of names fixed at compile time, taken before the
+-- 'Agentic.Builder.Program' exists, so it costs zero questions and zero paths
+-- and selects between two /programs/ rather than two paths.
+--
+-- Two clauses, and the first is the one that has always been there.
+--
+--   (a) No answerer this run reaches shares one conversation with the rest of
+--       it. Under @--engine acp@ every question opens a session of its own, so
+--       the judge has read nothing whatever the routes say — and an /unbound/
+--       fact reads as 'False' here, which is what lets @plan@, @cost@ and
+--       @--scripted@ price and rehearse the loop rather than the refusal.
+--
+--   (b) The judge's backend is the backend of __no__ work-side pin, and is not
+--       the default. Both halves are load-bearing and neither implies the other.
+--       The default carries every question the row does not pin itself — every
+--       borrowed callee's unpinned ask, every tool, every person, every unrouted
+--       receipt — so a judge on the default is a judge that read the commit
+--       decomposition, the conflict resolution and the cleanup review. And a pin
+--       the row /does/ reach can be moved onto the judge's backend one
+--       @--route@ at a time: @--route opus=deck:\<judge\>@ carries
+--       @model \"decompose\"@, @model \"resolve\"@, @model \"cleanup-review\"@
+--       and the audit's @reasoning@ stances into the judge's pane while leaving
+--       the judge off the default and off the worker's pin — which a comparison
+--       against two names accepts, and which this one refuses. That is why the
+--       fourth argument is a list.
+--
+--       An /empty/ list reduces the clause to @judge \/= dflt@, and that is the
+--       right reading rather than a degenerate one: a row with no work-side pin
+--       has all of its work on the default.
+--
+-- __Where the list comes from, and why it is a list of names rather than the
+-- program's own answer.__ Every literal any @'Agentic.Workflow.servedBy'@ in
+-- this tree is given is one of six names, and all six are spelled in
+-- "Workflows.Parties" — @'Workflows.Parties.ladderPins'@ and the two pins beside
+-- them, together @'Workflows.Parties.routablePins'@ — so a list assembled there
+-- is complete by construction: a pin cannot enter the tree without a name
+-- entering that module. The other candidate is the /program's/ own answer,
+-- @Agentic.Chains.servedChains@, published as @wf list --json@'s @pins@ array,
+-- and it is rejected twice over: it needs a built 'Agentic.Builder.Program',
+-- which is exactly what this gate runs before — reading it here would cost the
+-- tier and with it the property that the refusing arm is a smaller /program/ —
+-- and it knows pins and not roles, so it cannot say which of them carries work.
+-- It is used as the __check__ instead: @ci\/workflows.sh@ holds each caller's
+-- list against that array, so a name in one and not the other fails a gate
+-- rather than opening a hole.
+--
+-- __The judge's own pin belongs in the list whenever the row's work is on it__,
+-- and that is why the caller states the list rather than this function deriving
+-- it by deleting the judge's name. @wiggum@'s judge is @model \"done-criteria\"@
+-- and its round account is @model \"round-account\"@, both on
+-- @'Workflows.Parties.reasoning'@, both therefore served by @opus@ — so @opus@ is
+-- a work-side pin /and/ the judge's pin, @judge@ is in @works@ under every table
+-- there is, and the predicate reduces to
+-- @not ('Agentic.Workflow.sharesOneSession' engine)@: the blanket refusal that
+-- row had before, word for word. A gate that deleted the judge's pin from the
+-- list would instead have accepted
+-- @wf run wiggum --session \<W\> --route opus=deck:\<J\>@, which puts the judge
+-- and the round account in one pane and is the very thing being refused.
+--
+-- __Why the two facts are both needed and neither derives the other.__
+-- @run.routes@ says where a question goes; @run.engine@ says whether going
+-- there means /sharing/. Two pins routed to one @acp:@ adapter share a process
+-- and not a conversation, so the route table alone cannot answer this, and the
+-- engine fact alone carries no names.
+--
+-- __The comparison is over backend /spellings/, and cannot be otherwise.__
+-- @run.routes@ carries each backend as the runner resolved it — @deck:@ followed
+-- by whatever the operator typed — and @agent-deck@ takes @\<id|title\>@ for
+-- every one of the three verbs this tree uses (@session send@, @session show@,
+-- @session output@). So one pane named by its id in one @--route@ and by its
+-- title in another is /two texts/ here, and this predicate reads them as two
+-- panes and accepts. There is no resolution machinery on this side and there
+-- should not be: resolving a selector means calling @agent-deck@, which would
+-- cost the purity and the tier that make the refusing arm a different program.
+-- __Give the gate one selector vocabulary — ids everywhere or titles
+-- everywhere__; a textual check cannot know that two names for one pane are one
+-- pane, and an operator who mixes them has defeated it without being told.
+--
+-- __Two constraints it inherits__, stated so nobody has to rediscover them.
+-- Clause (a) rests on an ACP adapter opening a fresh session per question; if a
+-- flag ever exposed the contrary, @run.engine@ would say so, @S@ would flip and
+-- clause (b) would carry the whole gate — which it can, because two @acp:@
+-- routes are two distinct backends. Clause (b) rests on there being no
+-- backend-level fail-over: a route is a total function of the pin, fixed for the
+-- run, and a route whose backend is dead is a dead question rather than a
+-- question that silently tries elsewhere.
+judgeIsElsewhere :: Text -> Text -> Text -> [Text] -> Bool
+judgeIsElsewhere routes engine judgePin workPins =
+  not (sharesOneSession engine)
+    || (judge `notElem` works && judge /= dflt)
+  where
+    judge = routedBackend routes judgePin
+    works = map (routedBackend routes) workPins
+    dflt = routedBackend routes routeDefaultLabel
 
 -- ---------------------------------------------------------------------------
 -- Tier 2

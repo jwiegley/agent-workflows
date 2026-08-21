@@ -46,6 +46,14 @@ module Workflows.Parties
     reasoning,
     broad,
     lateral,
+    ladderPins,
+
+    -- * The two pins a routed run moves, and the ladder they refuse
+    workerPin,
+    partnerPin,
+    onWorker,
+    onPartner,
+    routablePins,
 
     -- * The specialists
     haskellPro,
@@ -131,6 +139,92 @@ broad p = p `servedBy` fable `fallingBackTo` gemini `fallingBackTo` opus
 -- confer member wants, and the reason its primary is not the house model.
 lateral :: Party 'IsModel -> Party 'IsModel
 lateral p = p `servedBy` gemini `fallingBackTo` gpt5Pro `fallingBackTo` opus
+
+-- | __Every name the three rungs above put on a question__, primaries and spares
+-- together: the whole of what a @--route@ can claim in a row that pins no pane.
+--
+-- Not decoration. A rung is what a /borrowed/ callee is pinned with — @commitFn@
+-- carries @model \"decompose\"@ on 'reasoning', the audit's stances carry their
+-- own three-rung split — so these four names are the names under which another
+-- row's questions arrive in this run, and a @--route@ naming one of them moves
+-- work. @'Workflows.Deciders.judgeIsElsewhere'@ is the reason this list is
+-- written down: a gate that must know its judge is somewhere its workers are not
+-- has to compare against every one of them.
+--
+-- __Complete by construction, and checked besides.__ Every literal any
+-- @'servedBy'@ in this tree is given is one of the six names this module spells —
+-- these four and the two pins below — so a name cannot enter the tree without
+-- entering this module. @ci\/workflows.sh@ holds the list against
+-- @wf list --json@'s @pins@ array, which is @Agentic.Chains.servedChains@ over
+-- the built program, so a rung added here and not there (or there and not here)
+-- is a failed check rather than a silent hole.
+ladderPins :: [Text]
+ladderPins = [fable, opus, gpt5Pro, gemini]
+
+-- ---------------------------------------------------------------------------
+-- The two pins a routed run moves
+-- ---------------------------------------------------------------------------
+
+-- $duet
+--
+-- The three rungs above are about /how/ a question should be answered. These two
+-- are about /where/: they exist so that a run may put the work in one live
+-- @agent-deck@ pane and the judgment in another, with
+-- @--route worker=deck:\<W\> --route partner=deck:\<R\>@ (or, more usually, the
+-- default for the work and one @--route@ for the judge).
+
+-- | The serving model the __work__ side of a routed run is pinned to.
+--
+-- __A name and not a model.__ Nothing validates a serving model against a
+-- provider, and both live transports carry the model axis as one prose line in
+-- the rendered question's header rather than as a protocol call. So an unrouted
+-- run states @model: worker@ to whatever adapter answers, which is true and
+-- harmless, and a routed one dispatches on it, which is the point.
+workerPin :: Text
+workerPin = "worker"
+
+-- | The serving model the __judging__ side of a routed run is pinned to.
+partnerPin :: Text
+partnerPin = "partner"
+
+-- | Pin an addressee to the work's pane.
+--
+-- __Neither of these takes a @'fallingBackTo'@, and that is a decision rather
+-- than an omission.__ A ladder relabels the question's model axis on the next
+-- rung, so a @worker@ pin falling back to @opus@ would, on a dead worker pane,
+-- re-route the /work/ to whatever answers @opus@ — which under the owner's own
+-- invocation is the default, which is the worker's pane, but under a mixed table
+-- is the ACP adapter and under a mistyped one could be the judge's pane. A duet
+-- whose worker pane died must fail, not silently move the work into the pane
+-- that is about to judge it. @Agentic.Route@'s own doctrine is that a route
+-- whose backend is dead is a dead question, and these two take it deliberately.
+--
+-- __Applying either to an already-laddered party drops the ladder.__
+-- @'servedBy'@ replaces the whole served chain, spares included, so
+-- @onPartner ('reasoning' p)@ is @p@ pinned to @partner@ with no alternates —
+-- which is how a roster written for another row is re-pinned here without
+-- inheriting a fail-over this row must not have.
+onWorker :: Party 'IsModel -> Party 'IsModel
+onWorker p = p `servedBy` workerPin
+
+-- | Pin an addressee to the judge's pane. See 'onWorker' for why there is no
+-- ladder.
+onPartner :: Party 'IsModel -> Party 'IsModel
+onPartner p = p `servedBy` partnerPin
+
+-- | __Every name a @--route@ may claim in this tree__: the four ladder rungs and
+-- the two pins.
+--
+-- This is the /roster/ and not a row's work-side list. Which of these names
+-- carries __work__ is a question about a row and not about this module — for
+-- @wiggum-duet@ it is every one of them but @partner@, and for @wiggum@ it is
+-- 'ladderPins', whose @opus@ is both the round account's pin and the judge's.
+-- @'Workflows.Deciders.judgeIsElsewhere'@ takes the list from its caller for
+-- exactly that reason, and this is the roster each caller draws from.
+--
+-- Order is not meaningful: every consumer is a membership test.
+routablePins :: [Text]
+routablePins = ladderPins <> [workerPin, partnerPin]
 
 -- ---------------------------------------------------------------------------
 -- The specialists

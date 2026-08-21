@@ -64,8 +64,12 @@ agent-workflows/
   README.md                    the toolbox card and the five house rules
   doc/
     design.md                  this file
-    research/                  the four inventories, three proposals, foundation
-                               report — moved out of the public repo (§5, step 2)
+    research/                  both what this design was decided from and what
+                               is being decided next: the four inventories,
+                               three proposals and foundation report moved out
+                               of the public repo (§5, step 2), and alongside
+                               them the designs authored here since, for work
+                               this file does not yet cover
   src/
     Workflows/                 …exactly the tree agent-cat/workflows/Workflows/
       Prose.hs  Prelude.hs     held at migration time, moved unchanged
@@ -75,7 +79,12 @@ agent-workflows/
       Review/Ladder.hs  Fix/Green.hs  Git/{Commit,Stack}.hs  Audit/Fess.hs
       Hello.hs  Registry.hs
   bin/Main.hs                  `wf`, two lines over Agentic.Cli
+  emacs/
+    wf.el                      the Emacs interface: the same verbs over
+                               `--json` alone, and the price gate as a question
+    wf-smoke.el                its batch smoke, against the real binary
   ci/workflows.sh              this repository's own gate (§9)
+  ci/emacs.sh                  the Emacs gate: compile, checkdoc, smoke
 ```
 
 `hs-source-dirs: src` and `hs-source-dirs: bin`. **The symlink and the

@@ -24,7 +24,8 @@ three competing architectures it was judged from are under `doc/research/`.
 agent-workflows.cabal   the library, the `wf` executable, one common stanza
 cabal.project           the dev loop: this package + ../agent-cat/haskell
 flake.nix               the pinned build
-ci/workflows.sh         this repository's gate
+ci/workflows.sh         this repository's gate: every row, priced and run
+ci/emacs.sh             the Emacs gate: compile, checkdoc, smoke
 src/
   Workflows/
     Prose.hs            the four mechanics: bullets, numbered, fenceOf, tshow
@@ -85,6 +86,8 @@ src/
     Hello.hs            the smoke row         (hello)
     Registry.hs         the index: name -> program, blurb, canned table
 bin/Main.hs             `wf`, two lines over Agentic.Cli
+emacs/wf.el             the Emacs interface, over `--json` and nothing else
+emacs/wf-smoke.el       …and its batch smoke, run by ci/emacs.sh
 ```
 
 ## Using it
@@ -173,6 +176,156 @@ so a reader can see whether the answerers shared a conversation, while `wiggum`
 *refuses to start* when they did. `plan` and `cost` make no run, so all three
 come out empty there, which is why the numbers pinned in `ci/workflows.sh` are
 the numbers of a run whose engine is not yet known.
+
+## The Emacs interface
+
+`emacs/wf.el` is the same three verbs with a minibuffer in front of them: pick a
+row, give it its inputs, pick a transport, **read the price and say yes**, and
+watch the run in a buffer of its own. No external packages — Emacs 29.1 and what
+ships with it.
+
+```elisp
+(use-package wf
+  :load-path "~/src/agent-workflows/emacs"
+  :commands (wf-run wf-plan wf-cost wf-refresh))
+```
+
+Or, without `use-package`:
+
+```elisp
+(add-to-list 'load-path "~/src/agent-workflows/emacs")
+(autoload 'wf-run "wf" nil t)
+(autoload 'wf-plan "wf" nil t)
+(autoload 'wf-cost "wf" nil t)
+```
+
+Four commands to start from, none bound to a key (the run buffer binds two more
+of its own, below):
+
+| command | what it does |
+| --- | --- |
+| `M-x wf-run` | pick, price, confirm, run |
+| `M-x wf-plan` | read `wf plan` for a row, run nothing |
+| `M-x wf-cost` | read `wf cost` for a row, run nothing |
+| `M-x wf-refresh` | forget the cached listing (`C-u` on the other three does the same) |
+
+Three options: `wf-program` (default `"wf"`), `wf-agent-deck-program` (default
+`"agent-deck"`) and `wf-confirm-function` (default `yes-or-no-p`).
+
+**Picking.** The candidates come from `wf list --json`, cached for the session,
+and each is annotated with its price and its blurb:
+
+```
+wiggum                branch · at most 44 over 34 paths  —  wiggum/SKILL.md: two work rounds, …
+review-quick          branch · at most 6 over 3 paths    —  one lens over a frozen snapshot: …
+```
+
+That is `completing-read` with an `annotation-function`, so it reads the same
+under vanilla completion, `icomplete`, or whatever else is installed.
+
+**Inputs.** Every input the row *declares* is asked for, one at a time, in
+order. Each keeps a minibuffer history of its own — `M-p` recalls what *this*
+input was given before, and the last answer is offered as the default, so a
+second run of `wiggum` in an afternoon is four `RET`s rather than four paths
+retyped. Empty is allowed and passes an empty value, where there is no default
+to take instead. An answer beginning with `@` is a file — with file-name
+completion after the `@` — so `@notes.md` becomes `--input-file NAME=notes.md`
+and anything else becomes `--input-arg NAME=VALUE`. The file is named *on the
+machine `wf` will run on*: `@~/notes.md` from a hera buffer is hera's home, and
+naming this machine's file there is refused rather than sent along to fail. The
+three run facts are never asked for; the runner binds those.
+
+**The price gate.** Asked last — after the inputs *and* after the transport,
+never before — because a ceiling means one thing over `acp` and nothing at all
+under `scripted`, and a question answered first would have priced a run nobody
+had described yet. So the question names the transport it is the price of:
+
+```
+Run wiggum via acp:claude (branch, at most 44 consultations over 34 paths)? (yes or no)
+Run wiggum via agent-deck session 9f3a2b-1747051200 (branch, at most 44 consultations over 34 paths)? (yes or no)
+Run wiggum as a rehearsal (scripted): consults nobody (branch, 34 paths)? (yes or no)
+```
+
+The rehearsal quotes no ceiling, because it would be the one false number in the
+sentence: a `--scripted` run answers from the row's own table and consults
+nobody, whatever its paths could have cost. `g` in the run buffer asks the same
+question again, naming the same transport, before repeating a run.
+
+The word is typed out on purpose. The plan is on screen beside the question,
+and `SPC` — the key you reach for to read on — is `act` in `query-replace-map`,
+which `y-or-n-p` remaps to `y`; one thumb-twitch would start 44 consultations.
+Set `wf-confirm-function` to `y-or-n-p` to trade that back for one key.
+
+The prose in the plan buffer is for reading. The number in the question is read
+from `wf plan NAME --json` under the inputs just given — this package parses the
+JSON contract and nothing else, so no CLI wording is load-bearing here. A
+program with no path through it has no ceiling, and the question says `—` there,
+as the CLI does.
+
+**Driving hera over TRAMP.** Every subprocess is started with `process-file` or
+`start-file-process`, which honour the calling buffer's `default-directory`. So:
+
+```
+C-x C-f /ssh:hera:~/src/my-project/    RET
+M-x wf-run                             RET
+```
+
+and `wf` runs *on hera*, in that repository, listing hera's rows, completing
+hera's file names after an `@`, and offering the agent-deck sessions hera can
+see. There is nothing else to configure — only that `wf` be found on the remote
+PATH, which for TRAMP means `tramp-remote-path` reaching it (`(add-to-list
+'tramp-remote-path 'tramp-own-remote-path)` is the usual answer) — and when it
+is not there, the command says so and names both variables rather than raising
+`file-missing`. This is the intended way to drive remote agent-deck sessions;
+the local case is the same command from a local buffer.
+
+**The run buffer.** `*wf: ROW*`, in `wf-run-mode` — read-only, colours applied
+rather than shown, `C-c C-k` to interrupt, `g` to ask the price again and rerun,
+`q` to bury. A run over TRAMP names its host, `*wf: hera:wiggum*`, so the same
+row driven here and on hera gets a buffer each — the listing is cached per
+connection and so are the buffers holding what came back. Scrolling back to
+re-read a consultation holds: a window follows the output only while it is
+already at the end.
+
+**Deck sessions** come from `agent-deck list -json` when that answers, and from
+a lenient parse of its plain table when it does not: the field that is a *whole*
+session id is the id and the rest of the line is the title. Whole, because the
+plain table ellipsizes that column and a truncated id selects nothing — a line
+without one is skipped rather than guessed at. Both calls keep the two streams
+apart, as every other call to a binary here does: with stderr merged into the
+parsed output, one narrated line about a stale profile would make the JSON
+unreadable and cost every session silently. If neither source works the prompt
+degrades to reading an id as a string — and says why in the prompt, quoting
+agent-deck's first line of stderr, or `agent-deck listed no sessions` when it
+said nothing at all. It never raises.
+
+**Why no transient.** The interaction is a straight line — row, inputs,
+transport, price, go — with each step's choices decided by the last. A transient
+prefix would be a menu over four questions that have to be asked in order
+anyway, so it does not earn the dependency on a second UI model.
+
+**The gate.** `./ci/emacs.sh`, from the repository root, is three passes over
+`emacs/wf.el` and `emacs/wf-smoke.el`: byte-compilation with
+`byte-compile-error-on-warn` so that a warning *is* the failure, `checkdoc` with
+`arguments-in-order` and `package-keywords` — the two the defaults leave off —
+and then the smoke, which loads the package and asks the real `wf` binary for
+its listing. It finds Emacs at `$EMACS` or on `PATH` and the binary at `$WF` or
+under `dist-newstyle`, and says which sentence to fix when it finds neither.
+
+```sh
+./ci/emacs.sh
+EMACS=/path/to/emacs WF=$PWD/dist-newstyle/…/wf ./ci/emacs.sh
+```
+
+The smoke asserts what the JSON contract promises and the wording that spends
+money: the row count and `wiggum`'s declared inputs, the per-connection cache,
+that `@` hands off to file-name completion *after* the `@`, that the agent-deck
+listing keeps its two streams apart so a line of stderr costs no session, that a
+missing agent-deck degrades to nil *and* says why, and both shapes of the price
+gate's question — including that a rehearsal says `consults nobody` instead of
+quoting a ceiling it will not spend. One thing it does not cover: the per-input
+`M-p` history and the last-answer default are verified structurally, since batch
+Emacs records no minibuffer history — exercise those once interactively.
 
 ## What replaces what
 
@@ -622,6 +775,7 @@ Two build paths, and they answer different questions.
 nix develop            # the devShell: GHC, cabal, HLS
 cabal build all        # this package AND ../agent-cat/haskell, from the working tree
 ./ci/workflows.sh      # the gate: 71 rows, priced and run
+./ci/emacs.sh          # the Emacs gate: compile, checkdoc, smoke over the binary
 ```
 
 ```sh

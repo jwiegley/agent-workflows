@@ -92,6 +92,17 @@ is *one conversation*, and an autonomous loop whose judge has read the work
 it is judging is the thing this program exists to refuse. The pane hosts
 the driver; the answering fans out to fresh sessions.
 
+**Pane W does not have to be a pane.** Pane W is only a terminal hosting the
+`wf` process — nothing about it answers a question. So `M-x wf-run` from an
+Emacs buffer is the same job: pick `wiggum`, answer its four inputs (`@` for
+the plan file), choose the `acp` transport with the `claude` adapter, read
+the price the command puts in front of you — *run wiggum (branch, at most 44
+consultations over 34 paths)?* — and the run lands in `*wf: wiggum*` instead
+of a tmux pane. From a TRAMP buffer on the host (`/ssh:hera:~/src/my-project/`)
+it runs on the host, beside pane R and the sessions it can see, with nothing
+configured. See "The Emacs interface" in the README. Pane R is unaffected:
+it is an answerer, not a driver, and `--session <pane-R-id>` still names it.
+
 **A long session is several invocations.** One `wf run wiggum` is two work
 rounds and a verdict — K = 2 by design, so the price stays finite. When the
 verdict says WORK REMAINS, you (or your loop) invoke it again, re-priced

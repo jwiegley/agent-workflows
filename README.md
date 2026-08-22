@@ -135,6 +135,11 @@ each is its own row and not a flag:
 $ for r in review-quick review-deep review-sec review-heavy; do wf cost $r; done
 ```
 
+**[`doc/cookbook.md`](doc/cookbook.md) is the per-row guide**: all seventy-two,
+by family, each with its price, what each of its inputs means, one worked command
+line, and the `--scripted` rehearsal to try it dry. This section is the grammar;
+that page is what to type for a given row.
+
 ### The three transports
 
 ```sh
@@ -838,7 +843,16 @@ is where an operator should start.
 
 ## Building it
 
-Two build paths, and they answer different questions.
+```sh
+nix build              # -> ./result/bin/wf
+./result/bin/wf list
+```
+
+That is the whole of a first build: no devShell, nothing installed, and the
+binary it drops at `result/bin/wf` is the one every command on this page and in
+[`doc/cookbook.md`](doc/cookbook.md) is written against.
+
+Beyond that there are two build paths, and they answer different questions.
 
 ```sh
 nix develop            # the devShell: GHC, cabal, HLS
@@ -849,7 +863,8 @@ cabal build all        # this package AND ../agent-cat/haskell, from the working
 
 ```sh
 nix flake check
-nix build .#default    # the pinned build: agent-cat at the revision flake.lock names
+nix build .#default    # the same pinned build, named: agent-cat at the revision
+                       # flake.lock names. `nix build` above is this by default
 ```
 
 > **The pin and the build agree whenever the lock is current.** When

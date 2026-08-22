@@ -140,6 +140,7 @@ module Workflows.Review.Ladder
     -- * The program
     reviewLadder,
     reviewDoc,
+    reviewHelp,
     reviewScript,
 
     -- * The lenses the corpus keeps in skill files
@@ -197,6 +198,165 @@ reviewDoc Quick = "one lens over a frozen snapshot: the fastest rung, priced exa
 reviewDoc Deep = "the language roster, perf and the four required skill lenses, over receipts"
 reviewDoc Sec = "the language roster plus the security lens, over the same receipts"
 reviewDoc Heavy = "the seven independent passes of `heavy-review`, over one snapshot"
+
+-- | The page @wf help \<rung\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- One text at four settings, exactly as 'reviewDoc' and 'tierRoster' are: the
+-- invocation, the transport and the sentinel ending are the ladder's, and what
+-- differs is the opening, what @paths@ actually /selects/ at this rung, and the
+-- one caveat that separates this rung from its neighbours. Four copies of the
+-- shared paragraphs would be four things to keep true about one program.
+--
+-- __It states no price.__ The header above it carries @level@, @cost@,
+-- @inputs@, @runFacts@ and @pins@ off the same 'Agentic.Plan.Facts' @wf list@
+-- publishes, so a number written here could only ever disagree with it.
+--
+-- __The @paths@ paragraph is per-rung because the truth is.__ At @Deep@ and
+-- @Sec@ the file list selects both the reviewer roster and the linter receipts;
+-- at @Heavy@ 'tierRoster' ignores it and only 'tierDossier' reads it; at
+-- @Quick@ /neither/ reads it, which is why this rung's price does not move with
+-- the file list at all. A shared paragraph claiming otherwise would be wrong
+-- three times out of four.
+reviewHelp :: Tier -> Text
+reviewHelp t =
+  [wft|
+  {opening}
+
+  **Inputs.**
+
+  * `scope` — what to review: a git ref, a range, or empty for the uncommitted
+    changes. It becomes the *argv* of the snapshot command and not a phrase a
+    model interprets, so `HEAD~3..HEAD` means to `git diff` what it means to
+    you. The snapshot is bound once and every reviewer below reads that one
+    handle, so no two of them can be looking at different trees.
+  {pathsInput}
+
+  **Transport.** An adapter of the run's own, one fresh session per question.
+  This rung reports rather than refuses, and what it reports about itself is
+  read off `run.engine`: under one shared `--session` the provenance line says
+  in as many words that the passes were not reached independently, however
+  clean each block reads. It writes no file of yours, so `--scratch` changes
+  nothing about what it means.
+
+  ```sh
+  wf run {row} --engine acp --adapter claude --require-pinned \
+     --input-arg scope={scopeEg} --input-file paths=changed.txt
+  ```
+
+  **Rehearsal.** Both inputs named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run {row} --scripted --input-arg scope= --input-arg paths=
+  ```
+
+  **Caveats.**
+
+  {caveat}
+  * The cheapest ending reviews nothing, and it is the honest one. The
+    parent-history sentinel probe is asked first and decided for free; if the
+    line this run planted for itself comes back, no reviewer is asked, the
+    report names the scope un-reviewed and it does not characterise the code.
+  * The other short ending is the fan-out's own: the consolidation must account
+    for every block it was promised, and a document that came back short is
+    reported as incomplete rather than ranked.
+  * An empty `paths=` is never an empty panel — it is the roster this rung has
+    in the source. So the numbers above are a real program, and a file list
+    that touches four languages is a wider fan-out and a different bill;
+    `wf cost {row} --input-file paths=changed.txt` is the verb that answers
+    that before anything is spent.
+  |]
+  where
+    row = tierName t
+
+    opening = case t of
+      Quick ->
+        [wft|
+        `commands/quick-review.md` as a program: one lens over a frozen scope
+        snapshot, and the floor of a four-rung ladder that exists so the four
+        bills can be read against each other before one is chosen.|]
+      Deep ->
+        [wft|
+        `commands/deep-review.md` as a program: the language roster the file
+        list selects, the performance pass, and the four lenses that file calls
+        required — built from one list, so a run cannot quietly do three of
+        them.|]
+      Sec ->
+        [wft|
+        `commands/sec-audit.md` as a program: the language roster plus the one
+        cross-cutting lens that file says is the whole of a security review,
+        over the same frozen snapshot and the same command receipts
+        `review-deep` reads.|]
+      Heavy ->
+        [wft|
+        `commands/heavy-review.md` as a program: seven independent passes over
+        one frozen snapshot — the deep pass, Alexey's discipline, abstraction
+        alignment, the validated multi-model pass, ponytail, dead code and the
+        comment audit — folded into a document whose synthesis must account
+        for every block it was promised before it may rank anything.|]
+
+    -- A whole bullet and not a clause, because what the file list selects is
+    -- the one thing this page must not generalise: at `Quick` neither
+    -- 'tierRoster' nor 'tierDossier' reads it, at `Heavy` only the dossier
+    -- does, and only at `Deep` and `Sec` is the familiar sentence true.
+    pathsInput = case t of
+      Quick ->
+        [wft|
+        * `paths` — the changed-file list, one path per line, and
+          `git diff --name-only > changed.txt` is the usual way to make one.
+          At this rung it selects **nothing**: the roster is one lens and the
+          dossier is the diff-name receipt alone, so the file list is declared
+          — the four rungs share one invocation — and read by neither. That is
+          also why this rung's price does not move with it.|]
+      Heavy ->
+        [wft|
+        * `paths` — the changed-file list, one path per line, and
+          `git diff --name-only > changed.txt` is the usual way to make one.
+          At this rung it selects the linter receipts and nothing else: the
+          roster is `heavy-review.md`'s own fixed seven. `plan` still wants the
+          same `paths=` the run will use, because a receipt is a question.|]
+      _ ->
+        [wft|
+        * `paths` — the changed-file list, one path per line, and
+          `git diff --name-only > changed.txt` is the usual way to make one.
+          At this rung it selects both the language reviewers and the
+          `## Tool integration` receipt of each language it touches, in
+          ordinary Haskell before the program exists — so `plan` must be given
+          the same `paths=` the run will use or it prices a different
+          program.|]
+
+    -- One `git diff` argv per rung, and the empty one at `Quick` is the
+    -- uncommitted changes rather than an omission.
+    scopeEg :: Text
+    scopeEg = case t of
+      Quick -> ""
+      Deep -> "HEAD~3..HEAD"
+      _ -> "origin/main..HEAD"
+
+    caveat = case t of
+      Quick ->
+        [wft|
+        * One lens, and it is `quick-review.md`'s own: no language roster, no
+          performance pass, none of the four required lenses, and no linter
+          receipt. The floor of the ladder is a floor in coverage as well as
+          in price.|]
+      Deep ->
+        [wft|
+        * The security lens is deliberately absent. `deep-review.md` says not
+          to run one by default and `sec-audit.md` says it is the whole of one,
+          so the sentence became the difference between two rows: `review-sec`
+          is that row, and running both is how you get both.|]
+      Sec ->
+        [wft|
+        * This is not `review-deep` with security added. The performance pass
+          and the four required lenses are not in it — it is the language
+          roster plus one lens — so a change that wants both wants two runs.|]
+      Heavy ->
+        [wft|
+        * It does not consult the language reviewers at all: the seven passes
+          are the whole roster, by `heavy-review.md`'s own count. A wider
+          `paths=` therefore buys linter receipts and never a reviewer.|]
 
 -- ---------------------------------------------------------------------------
 -- The roster a rung selects

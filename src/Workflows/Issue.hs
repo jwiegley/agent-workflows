@@ -106,6 +106,7 @@ module Workflows.Issue
     IssueRung (..),
     issueRungName,
     issueDoc,
+    issueHelp,
 
     -- * The program
     issueProgram,
@@ -161,6 +162,101 @@ issueDoc Fix =
   "fix.md: three cheap gates, the fix, `commitFn`, a pull request, and the bot sweep over it"
 issueDoc Worktree =
   "fix-github-issue.md: the fix in its own worktree, left uncommitted, and a receipt that says so"
+
+-- | The page @wf help \<rung\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- One text at two settings. Both rungs take the same two inputs and read
+-- @issue@ the same way — as the argv of four different commands — so the inputs
+-- paragraph is written once; what differs is the opening, the ending each rung
+-- is /for/, and the one caveat that decides which of the two an operator wants.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+issueHelp :: IssueRung -> Text
+issueHelp r =
+  [wft|
+  {opening}
+
+  **Inputs.**
+
+  * `issue` — the issue number, and it is the *argv* of `gh issue view`, the
+    `--search` term the open-pull-request gate uses, the worktree's computed
+    name and the path of the confirmation test. One flag names all four, which
+    is what makes the naming scheme checkable instead of described. An empty one
+    becomes a name nothing answers to: `wf plan {row} --raw` prints
+    `gh issue view <no issue given>` and an operator who forgot the flag learns
+    it from the plan rather than from a run that fixed something else.
+  * `paths` — the changed-file list, one path per line, and
+    `git diff --name-only > changed.txt` is the usual way to make one. It
+    selects the persona spliced into the work — the Emacs persona when the list
+    touches `.el`, for instance — in ordinary Haskell before the program exists,
+    so `plan` must be given the same `paths=` the run will use or it prices a
+    different program. An empty list is the general shape and never an empty
+    roster.
+
+  **Transport.** Unattended, with somewhere to write: an adapter of the run's
+  own and `--scratch "$PWD"`, because this row edits your tree and the scratch
+  directory is the only place an acting turn may write. Without the flag the
+  fix repairs a copy in a temporary directory.
+
+  ```sh
+  wf run {row} --engine acp --adapter claude --require-pinned --scratch "$PWD" \
+     --input-arg issue=412 --input-file paths=changed.txt
+  ```
+
+  **Rehearsal.** Both inputs named empty, every question answered from the row's
+  own canned table, consulting nobody:
+
+  ```sh
+  wf run {row} --scripted --input-arg issue= --input-arg paths=
+  ```
+
+  **Caveats.**
+
+  {caveat}
+  * The three cheap gates are the reason the floor above is so far below the
+    ceiling, and they decide before anything expensive is asked: an open pull
+    request already addressing the issue is a `gh` receipt read by a decider for
+    nothing; whether the issue is still live is one flag, because that one *is*
+    a judgment; and whether a confirmation test is waiting is `test -f` and not
+    a model's opinion. The first gate's other arm ends the run, and there is no
+    reachable statement after it.
+  * The confirmation-test promotion happens only for an issue whose test is
+    actually there. Both arms call one fixing function with a different guidance
+    argument, so the two cannot drift apart.
+  |]
+  where
+    row = issueRungName r
+
+    opening = case r of
+      Fix ->
+        [wft|
+        `commands/fix.md` as a program: three cheap gates, the fix under the
+        fix-all discipline, the confirmation-test promotion, the commit
+        discipline called as a function, the push, the pull request, and the bot
+        sweep over it. Three of its callees belong to other rows, so what it
+        costs is largely what the toolbox under it costs.|]
+      Worktree ->
+        [wft|
+        `commands/fix-github-issue.md` as a program: the same fix in a worktree
+        whose branch name is *computed* from the issue number rather than
+        described, ending deliberately uncommitted — and a receipt that checks
+        it really did, because "leave the work for review" is a postcondition
+        and not a hope.|]
+
+    caveat = case r of
+      Fix ->
+        [wft|
+        * It commits, pushes and opens a pull request. If what you want is the
+          work left in a tree for you to read, that is `issue-worktree`, and it
+          is a different row because it is a different ending.|]
+      Worktree ->
+        [wft|
+        * It prices exactly, and the reason is that it *ends* rather than loops:
+          no commit, no push, no pull request and therefore no bot sweep. The
+          run stops with a worktree and a receipt saying the tree is dirty on
+          purpose.|]
 
 -- ---------------------------------------------------------------------------
 -- The naming scheme, computed

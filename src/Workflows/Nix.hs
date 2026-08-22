@@ -141,6 +141,7 @@ module Workflows.Nix
     NixRung (..),
     nixName,
     nixDoc,
+    nixHelp,
 
     -- * The programs
     nixProgram,
@@ -208,6 +209,116 @@ nixDoc Alert =
   "fix-alert.md: the alert routed by its own labels for free, and diagnosed whole rather than compressed"
 nixDoc Integration =
   "fix-integration.md: the failing output as an input whose default carries the error the file hard-codes"
+
+-- | The page @wf help \<rung\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- One text at three settings, and the three /price identically/ — which is the
+-- fact that makes them one family and is worth an operator's attention when he
+-- is choosing between them: what differs is which failure the run is about, not
+-- how much finding out costs. So the inputs, the transport and the invocation
+-- are written once, and only the opening and the last caveat are per-rung.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+nixHelp :: NixRung -> Text
+nixHelp r =
+  [wft|
+  {opening}
+
+  **Inputs.**
+
+  * `subject` — what is wrong, in your own words. It is the subject of the
+    diagnosis and rides into every question, and empty is legal — the run is
+    then about whatever the build driver's own output says.
+  * `output` — the failing output. `--input-file output=build.log` is the
+    natural spelling, because a build log is a file and its contents are what
+    the diagnosis reads. An empty one falls back to the error the source file
+    hard-codes, which is a default worth knowing about: it means a run given no
+    log is still diagnosing *something*.
+  * `host` — the machine, which decides the build flags. Empty is the
+    unconstrained default. This is tier-1 — it changes an argv and a define,
+    never a question — so the numbers above hold either way.
+
+  **Transport.** Unattended, with somewhere to write: an adapter of the run's
+  own and `--scratch "$PWD"`, because the repair edits the host's declarations
+  in your configuration tree and the scratch directory is the only place an
+  acting turn may write.
+
+  ```sh
+  wf run {row} --engine acp --adapter claude --require-pinned --scratch "$PWD" \
+     --input-arg subject={subjectEg} \
+     --input-file output=build.log --input-arg host=vulcan
+  ```
+
+  **Rehearsal.** All three inputs named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run {row} --scripted --input-arg subject= --input-arg output= --input-arg host=
+  ```
+
+  **Caveats.**
+
+  {caveat}
+  * The receipt is the host's own build driver, run as a command, and the
+    verification at the end is that same command again. So "it is fixed" is an
+    exit code rather than a claim, and a repair that did not take is reported as
+    not having taken.
+  * All three rungs price the same. Choosing between them is choosing which
+    failure you are describing, and the price is not part of that choice — which
+    is also why there is no bare `nix` row: a family with no cheap rung has no
+    default.
+  |]
+  where
+    row = nixName r
+
+    opening = case r of
+      Rebuild ->
+        [wft|
+        `skills/nixos/SKILL.md` and `commands/nix-rebuild.md` as a program: the
+        host's own build driver run as the receipt, then diagnose, repair and
+        verify with the same command. Here **the failure is the subject**, so an
+        approving baseline means there is nothing to diagnose and the run says
+        so.|]
+      Alert ->
+        [wft|
+        `commands/fix-alert.md` as a program: the alert routed by its own labels
+        for *free* — the routing is ordinary Haskell over the label set, before
+        the program exists — and then diagnosed whole rather than compressed
+        into a summary somebody else has to expand again.|]
+      Integration ->
+        [wft|
+        `commands/fix-integration.md` as a program: the failing integration
+        output as the input, diagnosed against the host's declarations, repaired
+        and re-verified. The one of the three whose subject arrives as *bytes*
+        rather than as a symptom described in a sentence.|]
+
+    subjectEg :: Text
+    subjectEg = case r of
+      Rebuild -> "'vulcan will not switch after the Grafana bump'"
+      Alert -> "'PostgresBackupStale has been firing since Tuesday'"
+      Integration -> "'the Home Assistant bridge drops its websocket at start-up'"
+
+    caveat = case r of
+      Rebuild ->
+        [wft|
+        * The cheapest ending diagnoses nothing, and it is the correct one: the
+          build driver approves, so the failure this run was about is not
+          reproducible from here, and the report says that instead of
+          manufacturing a cause.|]
+      Alert ->
+        [wft|
+        * The routing costs nothing and happens before anything is asked, so an
+          alert whose labels name the wrong subsystem is routed wrongly for
+          free — which is cheaper to notice than to argue with, and
+          `wf plan nix-alert` prints where it went.|]
+      Integration ->
+        [wft|
+        * An empty `output=` is not an empty diagnosis: the source file's
+          hard-coded error stands in, and the run diagnoses *that*. Give the
+          flag, or read the plan to see what you would otherwise be asking
+          about.|]
 
 -- ---------------------------------------------------------------------------
 -- The one party that is this program's own

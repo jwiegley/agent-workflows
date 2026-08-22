@@ -90,6 +90,7 @@ module Workflows.Git.Commit
     -- * The programs
     commitProgram,
     commitDoc,
+    commitHelp,
     commitScript,
   )
 where
@@ -531,6 +532,188 @@ commitDoc Recommit =
   "recommit.md: the same series, each commit held to standalone CI (three repair trips)"
 commitDoc Bankruptcy =
   "bankruptcy.md: recommit an unwound branch, and check the tree really did not move"
+
+-- | The page @wf help \<rung\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- One text at four settings, for 'commitProgram''s own reason: the four rungs
+-- are one body, and what separates them is 'rungStyle', 'rungTrips' and
+-- 'commitTail'. So the shared paragraphs are written once and the rung supplies
+-- the opening, which tree object to pass, the trip count and its own caveat.
+--
+-- __The @tree@ paragraph is the one an operator needs and the cookbook is thin
+-- on.__ 'treeNeedle' turns an absent input into @\<no tree given\>@, which no
+-- receipt can match — so an empty @tree=@ does not skip the postcondition, it
+-- /fails/ it, and the run ends in the tree-moved report. At @commit-push@ that
+-- means the push and the pull request never happen. The two spellings that
+-- produce a real tree object differ by rung, and both are here.
+--
+-- __It states no price.__ The header above carries the numbers.
+commitHelp :: CommitRung -> Text
+commitHelp r =
+  [wft|
+  {opening}
+
+  **Inputs.**
+
+  * `scope` — what is being committed: a branch name, a task description, a
+    paste of `git status`. It is *data* in the decomposition's prompt, not an
+    argv, and it is the only thing that tells the series what story it is
+    telling.
+  * `tree` — the tree object this run must end at, tested by a free decider
+    over `git rev-parse`. An empty one becomes the needle `<no tree given>`,
+    which no receipt matches — so the run ends in the tree-moved report rather
+    than skipping the check, and `wf plan {row} --raw` prints
+    that needle before you spend anything. Which object to pass is a fact
+    about the rung:
+    {treeIs}
+
+  **Transport.** A watched pane. The decomposition is of *your* working tree
+  and the staging is an act, so `--session <pane>` is the shape this row is for:
+  the pane is where you can see what it is proposing to commit before it is
+  history.
+  {paneNote}
+  Under `--engine acp` it works and nobody is looking, which for a row whose
+  whole job is rewriting your index is a choice and not a default.
+
+  ```sh
+  wf run {row} --session "$PANE" --require-pinned \
+     --input-arg scope={scopeEg} \
+     --input-arg tree={treeEg}
+  ```
+
+  **Rehearsal.** Both inputs named empty, and the canned table approves on the
+  first trip, so the run walks the gate's settled arm and then the tree-moved
+  ending — which is the correct ending for an unnamed tree. To rehearse the
+  *intact* arm instead, pass the object the row's own table answers the
+  postcondition receipt with:
+  `--input-arg tree=4b825dc642cb6eb9a060e54bf8d69288fbee4904`.
+
+  ```sh
+  wf run {row} --scripted --input-arg scope= --input-arg tree=
+  ```
+
+  **Caveats.**
+
+  {trips}
+  * The gate is `make test`, asked of the suite and not of the agent that just
+    wrote the commits — `commit.md`'s own quality checklist item 4, and the
+    objection each repair reads is the suite's first failing line.
+  * When the trips run out the tree keeps every edit the repairs made and the
+    run reports the series it is holding. That is `commit.md`'s "prefer a
+    slightly larger commit over a broken repository", as an ending rather than
+    as advice.
+  {ending}
+  |]
+  where
+    row = commitRungName r
+
+    opening = case r of
+      Commit ->
+        [wft|
+        `commands/commit.md`, whole, as a program: the working tree decomposed
+        into an atomic, ordered series, staged and committed, then held to the
+        repository's own tests.|]
+      Push ->
+        [wft|
+        `commands/commit.md` and `push.md` as one program: the same series,
+        then `git push --force-with-lease` and `gh pr create` — so the last
+        commit's message is written knowing a reviewer reads it first.|]
+      Recommit ->
+        [wft|
+        `commands/recommit.md` as a program: the same series again, with every
+        commit held to standalone CI rather than only the tip, which is the
+        expensive claim in this family and the reason it gets the largest
+        repair budget.|]
+      Bankruptcy ->
+        [wft|
+        `commands/bankruptcy.md` as a program: recommit a branch whose history
+        has already been unwound, and then check that the tree really did not
+        move. The postcondition that file asks for is tested here, not hoped
+        for.|]
+
+    treeIs = case r of
+      Commit -> newWork
+      Push -> newWork
+      Recommit -> rewrite
+      Bankruptcy -> rewrite
+
+    -- A rung that commits new work ends at the working tree; a history-only
+    -- rewrite ends where it began. Two commands, and which one is right is a
+    -- fact about the rung rather than about the operator.
+    -- Authored with a hanging indent, so that the spliced continuation lines
+    -- land at the bullet's own two columns: the fence strips the COMMON
+    -- margin, so a second line written two further in stays two further in.
+    newWork :: Text
+    newWork =
+      [wft|
+      this rung commits new work, so it ends at the working tree, and
+        `git add -A && git write-tree` prints the object to pass.|]
+
+    rewrite :: Text
+    rewrite =
+      [wft|
+      this rung is a history-only rewrite, so it ends where it began — run
+        `git rev-parse 'HEAD^{{tree}'` *before* the unwind and pass that.|]
+
+    -- The shell that prints a tree object for this rung, in the live line. The
+    -- history-only rungs must run theirs BEFORE the unwind, which is why the
+    -- input paragraph above says so in words as well.
+    treeEg :: Text
+    treeEg = case r of
+      Commit -> "\"$(git add -A && git write-tree)\""
+      Push -> "\"$(git add -A && git write-tree)\""
+      Recommit -> "\"$(git rev-parse 'HEAD^{tree}')\""
+      Bankruptcy -> "\"$(git rev-parse 'HEAD^{tree}')\""
+
+    scopeEg :: Text
+    scopeEg = case r of
+      Commit -> "'the token-refresh work'"
+      Push -> "'the token-refresh work'"
+      Recommit -> "'the token-refresh branch, re-cut'"
+      Bankruptcy -> "'forty-one commits down to nine'"
+
+    trips = case r of
+      Commit -> tripNote "One repair trip"
+      Push -> tripNote "One repair trip"
+      Recommit ->
+        [wft|
+        * Three repair trips, the largest in the family, and they are what this
+          rung's claim costs: every commit standalone-green is a harder thing
+          to reach than a green tip.|]
+      Bankruptcy -> tripNote "Two repair trips"
+
+    tripNote :: Text -> Text
+    tripNote n =
+      [wft|
+      * {n}, printed before the first one. The comparison this
+        family exists for is `wf cost {row}` beside
+        `wf cost commit-recommit`.|]
+
+    ending = case r of
+      Commit ->
+        [wft|
+        * It commits and stops. Nothing is pushed and no pull request is opened
+          — `commit-push` is the row that does that, and it is a different row
+          because it is two more acts.|]
+      Push ->
+        [wft|
+        * The tail is two acts: a lease push and `gh pr create`. Both are
+          downstream of the tree check, so an empty `tree=` means neither
+          happens — the run reports the tree moved and publishes nothing.|]
+      Recommit ->
+        [wft|
+        * Each commit is written to be submitted as its own pull request in a
+          stack, which is a constraint on the *decomposition* and not only on
+          the gate: a commit that only builds once its successor lands is
+          refused by the style this rung asks for.|]
+      Bankruptcy ->
+        [wft|
+        * It assumes the unwind already happened — the work sitting uncommitted
+          and the old history gone — and it tells the decomposition not to
+          reproduce the old commit boundaries, because those are what was
+          wrong. Capture the tree object before you unwind, or the
+          postcondition has nothing to be checked against.|]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

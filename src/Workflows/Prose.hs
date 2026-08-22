@@ -65,6 +65,13 @@
 -- names are the split: the /mechanics/ are here and every foundation module
 -- imports them directly; the /one import an author writes/ is
 -- "Workflows.Prelude", and only the programs use it.
+--
+-- __And one fragment that is not a prompt's at all__ ('paneNote'). It is a
+-- sentence eight authoring modules splice into a help page, and it is here for
+-- the reason the four above are: it would otherwise be written once per module,
+-- and the copies would drift. A help page is the only thing in this tree that
+-- is prose about the /command line/ rather than prose sent to a model, so it is
+-- kept in its own section below rather than filed with the mechanics.
 {-# LANGUAGE OverloadedStrings #-}
 
 module Workflows.Prose
@@ -73,6 +80,9 @@ module Workflows.Prose
     numbered,
     fenceOf,
     tshow,
+
+    -- * The one help-page fragment more than one page needs
+    paneNote,
   )
 where
 
@@ -108,3 +118,22 @@ fenceOf n body = "<" <> n <> ">\n" <> body <> "\n</" <> n <> ">"
 -- it is one of.
 tshow :: Int -> Text
 tshow = T.pack . show
+
+-- | Where the pane id in a worked command line comes from.
+--
+-- Fourteen rows' worked lines spell @--session \"$PANE\"@ (or @$PANE_R@ and
+-- @$PANE_W@, where the row wants two), and a page that names a shell variable
+-- without saying what to put in it has handed its reader a line they cannot
+-- run. __A help page has to stand alone__ — it is what @wf help \<row\>@ prints
+-- into a terminal, with nothing else on the screen — so the answer belongs on
+-- the page rather than in a document the page could point at.
+--
+-- Written once because it is a fact about @agent-deck@ and not about any row:
+-- fourteen copies would be fourteen chances for one of them to name a command
+-- that has been renamed. Spliced into each such page's @**Transport.**@
+-- paragraph, which is the paragraph the reader is already in when they meet the
+-- pane, __on a line of its own__ — a hole splices verbatim, so a fragment long
+-- enough to be a sentence has to be its own line or it makes one that runs past
+-- the width the rest of the page is wrapped to.
+paneNote :: Text
+paneNote = "The pane id is an `agent-deck` session id; `agent-deck list` prints them."

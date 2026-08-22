@@ -103,6 +103,7 @@ module Workflows.Transcribe
   ( -- * The program
     transcribeProgram,
     transcribeDoc,
+    transcribeHelp,
     transcribeScript,
 
     -- * The tier-1 readings of an invocation
@@ -531,6 +532,68 @@ reviewOver manifest =
 transcribeDoc :: Text
 transcribeDoc =
   "transcribe-image.md: an `ls` receipt over the pages, one transcription, and a second engine re-reading them under a bound"
+
+-- | The page @wf help transcribe@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __The @images@ bullet carries a reading with a mechanical reason__, which is
+-- worth an operator's attention because the failure it prevents is silent: an
+-- empty list is /one placeholder path/, not zero, because a zero-operand @ls@
+-- lists the working directory and exits @0@ — a receipt that succeeds and says
+-- nothing about your pages. Naming that here is what makes the empty
+-- invocation's numbers the numbers of a real program.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+transcribeHelp :: Text
+transcribeHelp =
+  [wft|
+  `commands/transcribe-image.md` as a program: an `ls` receipt over the pages,
+  one transcription into paragraph-form Markdown, and a **second engine**
+  re-reading the same images against that transcription under a bound — because
+  the party that read a word one way is the last one to ask whether it read it
+  right.
+
+  **Inputs.**
+
+  * `images` — the image paths, one per line, and `--input-file images=pages.txt`
+    is the natural spelling. An empty one is **one placeholder path** rather
+    than the empty list, so the argv never degenerates into a bare `ls` that
+    lists the working directory and exits happily.
+  * `subject` — what the notes are about. It is the one input that turns an
+    unreadable word into a readable one: a page of a denotational-design
+    notebook and a page of a shopping list are read differently by anybody, and
+    this is where the run is told which it has.
+
+  **Transport.** Fine anywhere: it reads images, transcribes, re-reads and
+  writes one artefact. An adapter of the run's own is the usual shape, and
+  `--scratch "$PWD"` is worth giving if you mean to keep the Markdown.
+
+  ```sh
+  wf run transcribe --engine acp --adapter claude --require-pinned \
+     --input-file images=pages.txt \
+     --input-arg subject='the denotational design notebook'
+  ```
+
+  **Rehearsal.** Both inputs named empty, every question answered from the row's
+  own canned table, consulting nobody:
+
+  ```sh
+  wf run transcribe --scripted --input-arg images= --input-arg subject=
+  ```
+
+  **Caveats.**
+
+  * The re-reading is on a second engine by construction, and under one shared
+    pane it is not. The run keeps its shape and produces the same document; what
+    it loses is the only reason to pay for the second pass.
+  * It is bounded. A page that two readings cannot agree on ends as a page two
+    readings could not agree on, marked, rather than as an argument that runs
+    until the budget does.
+  * The transcription is of what is *written*, and `subject=` is the whole of
+    what the run knows about why. A wrong subject produces confident and wrong
+    expansions of the same handwriting.
+  |]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

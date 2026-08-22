@@ -125,9 +125,11 @@ inputsFor() {
     prose-proofread) ins=(--input-arg scope=) ;;
     prose-smooth | prose-compress) ins=(--input-arg text=) ;;
     prose-transcript) ins=(--input-arg transcript= --input-arg vocabulary=) ;;
-    # Wave 4, the audits and the specialists. `dead-code` is the one row in the
-    # table whose PRICE depends on an input: `cap=` empty is `capBound ""`, which
-    # is two repair trips, and `--input-arg cap=4` would price four. That is
+    # Wave 4, the audits and the specialists. `dead-code` is one of six rows whose
+    # PRICE depends on an input (the others: review-deep, review-sec and
+    # partner-collaborator at `paths=`, translate and translate-en at `text=`):
+    # `cap=` empty is `capBound ""`, which is two repair trips, and
+    # `--input-arg cap=4` would price four. That is
     # `doc/design.md` §10's third risk showing on purpose, and it is why the
     # ceiling below is pinned at the shape this line runs.
     dead-code) ins=(--input-arg scope= --input-arg paths= --input-arg cap=) ;;
@@ -867,6 +869,293 @@ while read -r n; do
 done <<< "$registered"
 
 # ---------------------------------------------------------------------------
+# No row's name is a verb
+# ---------------------------------------------------------------------------
+#
+# `Agentic.Cli`'s parse order decides a verb in head position BEFORE a row name
+# is ever looked up, so a row named `plan` would not be ambiguous — it would be
+# unreachable by name, which is exactly the kind of thing a gate should shout
+# about rather than a thing to discover. Checked against the real registry, not
+# against a literal transcribed from it.
+while read -r n; do
+  [ -n "$n" ] || continue
+  case "$n" in
+    list | plan | cost | run | help)
+      bad "$n" "the reserved verbs" "a name that is not a verb" "$n"
+      ;;
+  esac
+done <<< "$registered"
+
+# ---------------------------------------------------------------------------
+# Every row's page
+# ---------------------------------------------------------------------------
+#
+# `wf help <row>` is HALF COMPUTED AND HALF AUTHORED, and this block holds the
+# authored half to the shape `doc/research/help-design.md` §3 specifies while
+# leaving the computed half to the pins above. Eight things, per row:
+#
+#   1. `help NAME` exits 0 and says something.
+#   2. `NAME --help` — the owner's own spelling, and the ruling's — is BYTE
+#      IDENTICAL to it. Two spellings, one renderer, one thing to keep true.
+#   3. The body carries the four headings a page is made of. A page missing
+#      `**Transport.**` is a page that does not answer the question the ruling
+#      asked ("which arguments and patterns would be useful").
+#   4. Every declared input is named in the body as `` `name` ``, and no
+#      `--input-arg X=` or `--input-file X=` in the body names an X the row does
+#      not declare. THAT is the check that catches a renamed input against a
+#      stale page, in the direction that actually happens.
+#   5. Two fenced blocks at least: the first is a live line and must NOT carry
+#      `--scripted`, the last is the rehearsal and must begin exactly
+#      `wf run NAME --scripted`. The guard is not decorative — a live line
+#      pasted into a rehearsal block is what a reader would copy.
+#   6. The body restates NO price. `minFold`, `maxFold` and `over N paths` are
+#      the header's, computed from the same `Facts` the pins above read, and a
+#      hand-copied number in the prose could only ever disagree with them; and
+#      no page claims a place in the table's PRICE ORDER, which is the same
+#      defect written in words instead of digits.
+#   7. THE PRINTED LIVE LINE PARSES, AND NAMES ONE TRANSPORT. Run against a row
+#      name no registry holds, so it stops at the registry lookup — see
+#      `targetCheck`.
+#   8. THE PRINTED REHEARSAL RUNS. Not `inputsFor`'s spelling of it: the printed
+#      one, word for word, at exit 0 — and its input names are still compared
+#      against `list --json`'s `inputs`, because a rehearsal can run green while
+#      naming the wrong things.
+#
+# WHY 7 AND 8 ARE BOTH HERE. A page is a thing a reader PASTES, so the evidence
+# that has to exist is that the bytes on it work — not that a command spelled
+# elsewhere in this file works. Held to `inputsFor`, a page could print any
+# transport at all and stay green: that is how `account-halt` came to print
+# `--session "$PANE" --scratch "$PWD"`, which the CLI refuses, for as long as it
+# did.
+
+# The `inputs` array of one row, comma-separated, in the program's own order.
+# `pinsOf`'s method exactly, and for its reason: no `jq`, because `flake.nix`
+# does not promise one.
+inputsOf() {
+  tr '{' '\n' < "$work/list.json" \
+    | grep "\"name\":\"$1\"" \
+    | sed -n 's/.*"inputs":\[\([^]]*\)\].*/\1/p' \
+    | tr -d '"'
+}
+
+# The authored half of a page: everything below the computed header and above
+# the footer. Both ends are `Agentic.Cli`'s and neither is a row's, so neither
+# may be held to a row's rules.
+helpBody() { sed -e '1,/^  pins /d' -e '/^  wf --help lists the flags/,$d' "$1"; }
+
+# The nth fenced `sh` block of a body, whole — continuation lines included,
+# because a rehearsal that wraps is still one command line.
+fenceAt() { tail -n +"$(($2 + 1))" "$1" | sed -n '1,/^```$/p' | sed '$d'; }
+
+# A fenced block as ONE line: the trailing backslashes dropped and the newlines
+# closed up, which is what the shell does with a continuation and therefore what
+# a reader who pasted the block would get.
+oneLine() { fenceAt "$1" "$2" | sed -e 's/[[:space:]]*\\$//' | tr '\n' ' '; }
+
+# A row name no registry holds, and the three pane ids the pages spell.
+#
+# The panes are set because a page's live line is written for an operator who
+# HAS two panes — `--route "partner=deck:$PANE_R"` against an unset variable is
+# `deck:` and refuses for a reason that is about this gate's environment rather
+# than about the page. Standing in as that operator is the point.
+sentinel="ci-no-such-row-and-never-will-be"
+export PANE=ci-pane PANE_R=ci-pane-reviewer PANE_W=ci-pane-work
+
+if echo "$registered" | grep -qx "$sentinel"; then
+  # Not a `bad`: if this name were ever registered the check below would RUN a
+  # row live, which is the one thing no gate here may do by accident.
+  echo "ci/workflows: '$sentinel' is a registered row; pick another sentinel" >&2
+  exit 1
+fi
+
+# THE PRINTED LIVE LINE, RUN — against the sentinel name, so that it stops.
+#
+# `Agentic.Cli.parseCommand` chooses the run's TARGET while it is still parsing:
+# `chooseTarget` decides which of the three transports a combination of flags
+# names, and refuses every combination that names two — `--scratch` under
+# `--session`, `--adapter` under a deck run, `--scripted` beside either. Only
+# after that does the command look the row up. So a live line typed with a name
+# no registry holds is driven through every one of those refusals and then stops
+# at `no workflow named`, having started no adapter, opened no session and spent
+# nothing.
+#
+# That is the whole check: a line that could not run refuses in the TRANSPORT's
+# words, and a line that could refuses in the registry's. Appending `--json`
+# instead was considered and does not work — `--json` is refused by the option
+# loop, several arms before `chooseTarget` is reached, so it passes a line the
+# CLI would refuse.
+#
+# `eval`, because the page is quoted the way a command line is (`--scratch
+# "$PWD"`, `--input-arg trip='Boston, June 2026'`) and word-splitting would tear
+# those apart. Two things are done to the line first, and both are the
+# difference between reading a command line's SHAPE and obeying it.
+#
+#   * EVERY COMMAND SUBSTITUTION IS REPLACED BY A PLACEHOLDER. Eight pages spell
+#     a value as one — `--input-arg tree="$(git add -A && git write-tree)"` is
+#     the commit family's, and running it would stage this gate's own working
+#     tree. A substitution is a hole the reader fills, not part of the line's
+#     shape, and what is under test here is which transport the FLAGS name.
+#   * WHAT IS LEFT MUST BE A PLAIN COMMAND LINE. After the holes are out, a
+#     page carrying a `;`, a pipe, a redirect or a backtick is a page this gate
+#     fails rather than executes.
+targetCheck() {
+  local n="$1" line="$2" rest out code
+
+  line=$(printf '%s' "$line" | sed -e 's/\$([^)]*)/SUBSTITUTION/g' -e 's/`[^`]*`/SUBSTITUTION/g')
+
+  case "$line" in
+    *';'* | *'|'* | *'&'* | *'`'* | *'$('* | *'>'* | *'<'*)
+      bad "$n" "the page's live line" "a plain command line" "it carries a shell metacharacter"
+      return
+      ;;
+  esac
+
+  rest=${line#wf run $n }
+  out=$(eval "$(printf '%q' "$wf") run $(printf '%q' "$sentinel") $rest" < /dev/null 2>&1)
+  code=$?
+
+  if [ "$code" != 1 ]; then
+    bad "$n" "the page's live line, parsed" "exit 1 at the registry" "$code"
+    echo "  $line" >&2
+    echo "  $out" | head -3 >&2
+  elif ! echo "$out" | grep -q "no workflow named"; then
+    # It got as far as a transport refusal, which means the flags on the page
+    # do not name a transport this CLI will take. The refusal says which.
+    bad "$n" "the page's live line" "a transport the CLI takes" "$(echo "$out" | head -1)"
+    echo "  $line" >&2
+  fi
+
+  # THE ONE FLAG ON THE LINE THAT IS THE ROW'S AND NOT THE TRANSPORT'S.
+  # `--require-pinned` refuses the program unless every model ask names the
+  # model that serves it, and whether it does is a fact about THIS row — which
+  # is exactly what the sentinel above cannot see, because it stops before the
+  # row is looked up. `plan` is the verb that answers it: same check, before
+  # anything is printed, started or spent. A page that prints the flag against a
+  # row that cannot satisfy it prints a line that does not run, which is the
+  # defect this whole block is about, wearing a different flag.
+  case "$line" in
+    *--require-pinned*)
+      "$wf" plan "$n" --require-pinned > /dev/null 2>&1 \
+        || bad "$n" "the page's live line" "--require-pinned, which this row satisfies" "the program is refused under it"
+      ;;
+  esac
+}
+
+helpCheck() {
+  local n="$1" page="$work/$1.help" alt="$work/$1.help.alt" body="$work/$1.helpbody"
+  local code declared given fences first last firstLine lastLine want got
+  local -a rehearsal
+
+  "$wf" help "$n" > "$page" 2>&1
+  code=$?
+  [ "$code" = 0 ] || { bad "$n" "help exit" 0 "$code"; return; }
+  [ -s "$page" ] || { bad "$n" "help" "a page" "empty"; return; }
+
+  # The ruling's own spelling, and the verb-first one, are one renderer.
+  "$wf" "$n" --help > "$alt" 2>&1
+  cmp -s "$page" "$alt" \
+    || bad "$n" "help NAME against NAME --help" "byte-identical" "they differ"
+
+  helpBody "$page" > "$body"
+  for want in '\*\*Inputs\.\*\*' '\*\*Transport\.\*\*' '\*\*Rehearsal\.\*\*' '\*\*Caveats\.\*\*'; do
+    grep -q "$want" "$body" \
+      || bad "$n" "the page's sections" "$(echo "$want" | tr -d '\\')" "absent"
+  done
+
+  # A price is the header's to state. `over N path` is spelled as the summary
+  # spells it, so a body that quoted the line would be caught by any of three.
+  for want in minFold maxFold; do
+    grep -q "$want" "$body" \
+      && bad "$n" "the page's prose" "no price restated" "it names $want"
+  done
+  grep -qE ' over [0-9]+ path' "$body" \
+    && bad "$n" "the page's prose" "no price restated" "it names a path count"
+
+  # And no page claims a rank in the table's price order. "the cheapest ending"
+  # is a claim about THIS row's own paths and is fine — the header's two bounds
+  # are exactly that claim's evidence. "the cheapest command in the toolbox" is
+  # a claim about seventy-one other rows, nothing in the header can check it,
+  # and re-pricing any one of them falsifies it silently. That is a hand-copied
+  # price with the digits left out, so it is banned where the digits are.
+  grep -qiE '(cheapest|costliest|priciest|dearest|most expensive)[^.]*(in the (toolbox|table)|of the (seventy-two|rows)|of any (row|workflow)|registered row)' "$body" \
+    && bad "$n" "the page's prose" "no rank in the price order" "a superlative across the table"
+  grep -qiE "(toolbox|table)'s [a-z]* ?(cheapest|costliest|priciest|dearest|most expensive)" "$body" \
+    && bad "$n" "the page's prose" "no rank in the price order" "a superlative across the table"
+
+  # Every declared input named, and no flag naming an input that is not one.
+  declared=$(inputsOf "$n" | tr ',' ' ')
+  for want in $declared; do
+    grep -q '`'"$want"'`' "$body" \
+      || bad "$n" "the page's inputs" "\`$want\` named in the prose" "absent"
+  done
+  given=$(grep -oE -- '--input-(arg|file) [A-Za-z0-9_]+=' "$body" \
+            | sed -e 's/^--input-[a-z]* //' -e 's/=$//' | sort -u)
+  for got in $given; do
+    echo " $declared " | grep -q " $got " \
+      || bad "$n" "the page's flags" "only declared inputs" "--input-… $got="
+  done
+
+  # Two blocks: a live line, then the rehearsal. The order is the page's, and
+  # the guard on the last one is what keeps a live command out of a block a
+  # reader is invited to paste.
+  fences=$(grep -c '^```sh$' "$body")
+  if [ "$fences" -lt 2 ]; then
+    bad "$n" "the page's blocks" "at least 2" "$fences"
+    return
+  fi
+  first=$(grep -n '^```sh$' "$body" | head -1 | cut -d: -f1)
+  last=$(grep -n '^```sh$' "$body" | tail -1 | cut -d: -f1)
+  firstLine=$(fenceAt "$body" "$first" | head -1)
+  lastLine=$(fenceAt "$body" "$last" | head -1)
+
+  case "$firstLine" in
+    "wf run $n "*) ;;
+    *) bad "$n" "the page's live line" "wf run $n …" "$firstLine" ;;
+  esac
+  case "$firstLine" in
+    *--scripted*) bad "$n" "the page's live line" "a live transport" "--scripted" ;;
+  esac
+  case "$lastLine" in
+    "wf run $n --scripted"*) ;;
+    *) bad "$n" "the page's rehearsal" "wf run $n --scripted …" "$lastLine" ;;
+  esac
+
+  # The live line, driven through `chooseTarget` and stopped at the registry.
+  targetCheck "$n" "$(oneLine "$body" "$first")"
+
+  # The rehearsal names exactly the row's inputs, each `--input-arg NAME=` and
+  # empty — and then it is RUN, as printed. `inputsFor` above spells the same
+  # command for the same row, and for a while that was taken as reason enough
+  # not to run this one; but `inputsFor` is a table in this file and the
+  # rehearsal is bytes on a page, and the whole claim a page makes is that its
+  # bytes work. The naming check stays beside the run, because a rehearsal can
+  # be green and still name the wrong inputs.
+  fenceAt "$body" "$last" | grep -q -- '--input-file' \
+    && bad "$n" "the page's rehearsal" "--input-arg NAME= for every input" "--input-file"
+  fenceAt "$body" "$last" | grep -qE -- '--input-arg [A-Za-z0-9_]+=[^ \\]' \
+    && bad "$n" "the page's rehearsal" "every input empty" "a value"
+  want=$(echo "$declared" | tr ' ' '\n' | grep -v '^$' | sort -u | tr '\n' ' ')
+  got=$(fenceAt "$body" "$last" \
+          | grep -oE -- '--input-(arg|file) [A-Za-z0-9_]+=' \
+          | sed -e 's/^--input-[a-z]* //' -e 's/=$//' | sort -u | tr '\n' ' ')
+  [ "$want" = "$got" ] \
+    || bad "$n" "the page's rehearsal inputs" "$want" "$got"
+
+  # Run it. Every value is empty and there is no `--input-file` — both asserted
+  # just above — so the printed block splits into words on whitespace and no
+  # `eval` is wanted here: unlike the live line, this one carries no quoting to
+  # preserve. stdin is /dev/null, for the reason the priced run has it: a
+  # scripted run asks nobody, and this is what makes that a fact.
+  read -r -a rehearsal <<< "$(oneLine "$body" "$last")"
+  "$wf" "${rehearsal[@]:1}" < /dev/null > "$work/$n.rehearsal" 2>&1
+  code=$?
+  [ "$code" = 0 ] || {
+    bad "$n" "the page's rehearsal, run as printed" "exit 0" "$code"
+    tail -5 "$work/$n.rehearsal" >&2
+  }
+}
+
+# ---------------------------------------------------------------------------
 # Every row, field by field
 # ---------------------------------------------------------------------------
 
@@ -909,8 +1198,12 @@ for n in "${names[@]}"; do
     tail -20 "$work/$n.run" >&2
   }
 
+  helpCheck "$n"
+
   note "$n: ${pinLevel[$n]}, ${got_paths} path(s), costMax $got_max of ${pinCeiling[$n]}; scripted exit $code"
 done
+
+note "help: ${#names[@]} page(s) checked — sections, both spellings, no price restated, and both printed command lines run"
 
 # ---------------------------------------------------------------------------
 # The `Agentic.Cli` contract

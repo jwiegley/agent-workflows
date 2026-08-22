@@ -92,6 +92,7 @@ module Workflows.Teams
   ( -- * The program
     teamsProgram,
     teamsDoc,
+    teamsHelp,
     teamsScript,
 
     -- * The roster, and the two questions above it
@@ -511,6 +512,67 @@ teamsProgram = taking (input "problem" :> input "context" :> noInputs) teamsOver
 teamsDoc :: Text
 teamsDoc =
   "teams.md: ten angles on one problem, a devil's advocate over the fold, and a review of all of it"
+
+-- | The page @wf help teams@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __A row that prices exactly is a row whose page can say what the money buys__,
+-- member by member, and that is what this one does: ten angles, the advocate,
+-- the synthesis and the artefact. There is no loop and no branch to hedge
+-- about, so the caveats are about what the row /will not/ do rather than about
+-- how much it might cost.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+teamsHelp :: Text
+teamsHelp =
+  [wft|
+  `commands/teams.md` as a program: ten angles on one problem — research, prior
+  art, user experience, architecture, planning, testing and the rest — a devil's
+  advocate over the fold of them, and a review of all of it. It has no loop and
+  no branch, so what it costs is exactly the roster plus the three questions
+  that close it.
+
+  **Inputs.**
+
+  * `problem` — the thing being explored, in your own words
+    (`how should the registry be split?`). Every angle reads this one sentence,
+    so it is worth writing carefully: ten seats each answering a slightly
+    different question is what a vague problem buys.
+  * `context` — the background it is explored against, and `--input-file
+    context=doc/design.md` is the natural spelling. It reaches every member as
+    data, which is why the row does not open by asking a tool to go and read
+    your design.
+
+  **Transport.** Fine anywhere: ten readings, a fold, and one artefact. An
+  adapter of the run's own is the usual shape, and its fresh session per
+  question is worth something here — ten angles taken in one pane are ten turns
+  of one conversation, each having read the last.
+
+  ```sh
+  wf run teams --engine acp --adapter claude --require-pinned \
+     --input-arg problem='how should the registry be split?' \
+     --input-file context=doc/design.md
+  ```
+
+  **Rehearsal.** Both inputs named empty, every question answered from the row's
+  own canned table, consulting nobody:
+
+  ```sh
+  wf run teams --scripted --input-arg problem= --input-arg context=
+  ```
+
+  **Caveats.**
+
+  * **It explores; it decides nothing.** The artefact is a document, and the
+    devil's advocate is there to keep the fold from reading like agreement. If
+    what you want is a decision argued to a verdict, the confer family is
+    cheaper and shaped for it.
+  * Ten angles is the roster and not a setting. A problem that wants three
+    opinions wants `confer`; this row is the one that is deliberately broad.
+  * It prices exactly, which means the number above is what it costs every time
+    — there is no cheap ending to hope for.
+  |]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

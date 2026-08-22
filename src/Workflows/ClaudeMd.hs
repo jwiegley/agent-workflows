@@ -99,6 +99,7 @@ module Workflows.ClaudeMd
     ClaudeMdRung (..),
     claudeMdName,
     claudeMdDoc,
+    claudeMdHelp,
 
     -- * The program
     claudeMdProgram,
@@ -151,6 +152,144 @@ claudeMdDoc Initialize =
   "initialize.md: one `ls` receipt decides it -- write the file, or critique the one already there"
 claudeMdDoc Advise =
   "prepare-with.md: the named specialists advise, then a different engine audits the draft"
+
+-- | The page @wf help \<rung\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- One text at two settings. Both rungs declare @scope@ and @agents@ and __each
+-- ignores one of them__, which is the fact this page exists to carry: the two
+-- share one invocation, so the input a rung does not read is still named on its
+-- command line, and @wf plan@ says which. A shared inputs paragraph would be
+-- half wrong at each rung, so both bullets are per-rung.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+claudeMdHelp :: ClaudeMdRung -> Text
+claudeMdHelp r =
+  [wft|
+  {opening}
+
+  **Inputs.**
+
+  {scopeInput}
+  {agentsInput}
+
+  **Transport.** {transport}
+
+  ```sh
+  wf run {row} {live} \
+     --input-arg scope={scopeEg} --input-arg agents={agentsEg}
+  ```
+
+  **Rehearsal.** Both inputs named empty, every question answered from the row's
+  own canned table, consulting nobody:
+
+  ```sh
+  wf run {row} --scripted --input-arg scope= --input-arg agents=
+  ```
+
+  **Caveats.**
+
+  {caveat}
+  * The eight usage notes are one define in this module and not eight rules
+    repeated in two prompts, so a note edited once is a note edited for both
+    rungs.
+  |]
+  where
+    row = claudeMdName r
+
+    opening = case r of
+      Initialize ->
+        [wft|
+        `commands/initialize.md` as a program, reworked: one `ls` receipt
+        decides which of *two named outcomes* the run has — write the briefing
+        file, or critique the one already there. In the corpus that is a clause
+        under `Usage notes` that silently changes the output's kind; here they
+        are two functions with two terminals, and neither can be reached by
+        accident.|]
+      Advise ->
+        [wft|
+        `commands/prepare-with.md` as a program: the specialists the operator
+        names advise on what the briefing file should say, and then a
+        *different* engine audits the draft against the eight usage notes —
+        which in the corpus are eight rules nothing checks.|]
+
+    scopeInput = case r of
+      Initialize ->
+        [wft|
+        * `scope` — what the file should emphasise: the build and test commands,
+          the architecture, the house rules. It is an input and therefore a
+          define, so it reaches both outcomes as data. Empty is legal and is the
+          general briefing.|]
+      Advise ->
+        [wft|
+        * `scope` — what the advice should emphasise, and **this rung reads it
+          only as the subject of the advice**: the roster is `agents`' to
+          select. Empty is legal, and the specialists then advise on the
+          repository as they find it.|]
+
+    agentsInput = case r of
+      Initialize ->
+        [wft|
+        * `agents` — the specialist roster `claude-md-advise` is given, and
+          **this rung does not read it**. The two rows share one invocation, so
+          the input is declared here and consumed nowhere; `wf plan claude-md`
+          says as much.|]
+      Advise ->
+        [wft|
+        * `agents` — `prepare-with.md`'s own `$ARGUMENTS`: the specialists to
+          consult, named as the operator would name them (`haskell-pro nix-pro`).
+          It selects the roster in ordinary Haskell before the program exists,
+          so `plan` must be given the same `agents=` the run will use or it
+          prices a different panel. An empty list is one general seat and never
+          an empty panel.|]
+
+    transport = case r of
+      Initialize ->
+        [wft|
+        Unattended, with somewhere to write: an adapter of the run's own and
+        `--scratch "$PWD"`, because the write outcome puts a file in your
+        repository and the scratch directory is the only place an acting turn
+        may write.|]
+      Advise ->
+        [wft|
+        Fine anywhere: it consults, drafts and audits, and the artefact is a
+        document. `--scratch` is worth giving only if you mean to keep the file.
+        The audit is on a *different* engine by construction, which is worth
+        something only if the transport does not collapse the two into one pane.|]
+
+    live = case r of
+      Initialize -> [wft|--engine acp --adapter claude --require-pinned --scratch "$PWD"|]
+      Advise -> [wft|--engine acp --adapter claude --require-pinned|]
+
+    scopeEg :: Text
+    scopeEg = case r of
+      Initialize -> "'the build and test commands'"
+      Advise -> ""
+
+    agentsEg :: Text
+    agentsEg = case r of
+      Initialize -> ""
+      Advise -> "'haskell-pro nix-pro'"
+
+    caveat = case r of
+      Initialize ->
+        [wft|
+        * Which of the two outcomes you get is not yours to choose from the
+          command line: an `ls` receipt decides it. If a `CLAUDE.md` already
+          stands, the run critiques it and overwrites nothing — so a rewrite
+          means moving the old file yourself first, deliberately.
+        * The mandatory prefix of the written file is a literal and cannot be
+          paraphrased by whoever writes the rest.|]
+      Advise ->
+        [wft|
+        * It advises; it does not install. The artefact is a draft and a
+          critique of it, and putting the result in `CLAUDE.md` is yours — which
+          is why `claude-md` is the row that writes and this one is the row that
+          consults.
+        * The audit's value is the second engine. Under one shared pane the
+          party that drafted is the party that audited, and the run reads the
+          same either way.|]
 
 -- ---------------------------------------------------------------------------
 -- The eight usage notes, once

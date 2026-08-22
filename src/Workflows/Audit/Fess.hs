@@ -101,6 +101,7 @@ module Workflows.Audit.Fess
     -- * The program
     fessAudit,
     fessDoc,
+    fessHelp,
     fessScript,
 
     -- * The pieces the header argues about
@@ -394,6 +395,78 @@ fessAudit =
 fessDoc :: Text
 fessDoc =
   "fess-auditor.md: eleven sin categories as eleven independent stances over three receipts"
+
+-- | The page @wf help fess@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __Two things this page is careful about, both of which a paraphrase gets
+-- wrong.__ First, the branch is on the /probe/ alone: 'fessAudit' tests
+-- @historyAbsent@ over the attestation and nothing else, and @run.engine@ is
+-- spliced into the passing arm's wording by 'verifiedIndependence' rather than
+-- branched on — so the transport changes what the passing report /claims/, not
+-- which arm is taken. Second, 'auditBase' turns an absent @base@ into @HEAD@,
+-- which is @git diff HEAD@ — the uncommitted work — and not the whole change.
+--
+-- __It states no price.__ The header above carries the numbers, and this row is
+-- one of the ones whose two bounds coincide: nothing in it loops, and its one
+-- branch chooses a provenance line rather than a question.
+fessHelp :: Text
+fessHelp =
+  [wft|
+  `agents/fess-auditor.md` as a program: eleven sin categories as eleven
+  independent stances over three receipts — the diff, the worktree and the
+  history — folded into one report that must account for every category it was
+  promised.
+
+  **Inputs.**
+
+  * `request` — the original request or plan the work is being audited against,
+    folded verbatim into *every* stance's brief. That is what lets the spec-drift
+    category walk it point by point instead of guessing what was asked; the
+    natural spelling is `--input-file request=doc/REQUEST.md`. Empty is legal and
+    costs nothing: the eleven stances get their bare rubrics and the audit is
+    then about the change alone.
+  * `base` — the revision the diff and the log are measured against, as the
+    *argv* of `git diff` and `git log`. Empty is `HEAD`, which is the
+    uncommitted-work case this file was written for — so name a base explicitly
+    when the work is already committed.
+
+  **Transport.** An adapter of the run's own, one fresh session per question.
+  The transport is part of the audit here: the report's provenance paragraph
+  quotes `run.engine`, so under one shared `--session` it says that a stance may
+  have read the work it is auditing, and under a session per question it says
+  the opposite. Either way it downgrades and never refuses, so the price does
+  not move.
+
+  ```sh
+  wf run fess --engine acp --adapter claude --require-pinned \
+     --input-file request=doc/REQUEST.md --input-arg base=origin/main
+  ```
+
+  **Rehearsal.** Both inputs named empty, one canned reply answering the whole
+  eleven-stance panel because they share an opening:
+
+  ```sh
+  wf run fess --scripted --input-arg request= --input-arg base=
+  ```
+
+  **Caveats.**
+
+  * The branch is the parent-history sentinel probe's, and it is the probe's
+    alone. It asks whether a line this run planted for itself was already in the
+    answerer's context; that finds contamination *this* toolbox could cause and
+    no other kind, which is why the passing arm states the engine fact beside
+    the probe's answer and lets the reader draw the conclusion.
+  * Both endings write the same report through the same callee, one argument
+    apart. There is no arm in which the audit is skipped — the file says
+    downgrade, so it downgrades.
+  * Each stance reports only its own category and cites `file:line`, and says
+    `none` only for what it actually checked. A category with nothing to say is
+    an answer, and the report accounts for it.
+  * The eleventh category was missing until the landing verification found it.
+    A category added to the rubric is one more question and no more paths, so
+    what moves is the ceiling above and never the shape.
+  |]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

@@ -97,6 +97,7 @@ module Workflows.Threads
     ThreadRung (..),
     threadRungName,
     threadsDoc,
+    threadsHelp,
 
     -- * The program
     threadsProgram,
@@ -146,6 +147,116 @@ threadsDoc Respond =
   "respond.md: one answer per open colleague comment, as a report, with nothing posted back"
 threadsDoc Assess =
   "assess.md: the language specialists read the comments first, then an approach to answering them"
+
+-- | The page @wf help \<rung\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- One text at two settings, as 'threadsDoc' and 'assessRoster' are. The two
+-- rungs read /one/ ledger and take /one/ pair of inputs, so the invocation, the
+-- transport and the never-posting paragraph are written once; what differs is
+-- the opening and what @paths@ actually selects, which at @Respond@ is nothing
+-- at all.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+threadsHelp :: ThreadRung -> Text
+threadsHelp r =
+  [wft|
+  {opening}
+
+  **Inputs.**
+
+  * `pr` — the pull request number, and it is the *argv* of `gh pr view` rather
+    than a phrase a model interprets. The comment inventory is built from that
+    command's own JSON and bound once, so a comment that arrives mid-run belongs
+    to the next run and a comment nobody left cannot be answered.
+  {pathsInput}
+
+  **Transport.** Fine anywhere: it reads a ledger, fans out over it and writes
+  one report. An adapter of the run's own is the usual shape, and `--scratch` is
+  worth giving only if you mean to keep the report file.
+
+  **Nothing is posted back, and that is an absence rather than a rule.** Every
+  question here is asked at `text` or folded from `text` answers, and only an
+  act at `ack` carries write authority — of which this program has exactly one,
+  and it writes the report. There is no `gh pr comment` in the tree's evidence
+  module for a run to reach for, so no member *can* post.
+
+  ```sh
+  wf run {row} --engine acp --adapter claude --require-pinned \
+     --input-arg pr=1487 --input-file paths=changed.txt
+  ```
+
+  **Rehearsal.** Both inputs named empty, every question answered from the row's
+  own canned table, consulting nobody:
+
+  ```sh
+  wf run {row} --scripted --input-arg pr= --input-arg paths=
+  ```
+
+  **Caveats.**
+
+  {caveat}
+  * The cheapest ending answers nobody. A pull request with no open human
+    comment is one free test over the inventory, one arm, and the specialists
+    are never asked — which is the correct bill for a page of answers to
+    nothing.
+  * Bot comments are deliberately not in this ledger. The inventory excludes
+    every bot author and names `green-ci` as where they are swept, because a
+    third rung here would be `green-ci` with its gate removed.
+  |]
+  where
+    row = threadRungName r
+
+    opening = case r of
+      Respond ->
+        [wft|
+        `commands/respond.md` as a program: the pull request's own comment
+        ledger, one drafted answer per open colleague comment, and a Markdown
+        report carrying them — the whole file, which is one sentence, with the
+        finding of the comments done by a command instead of by whoever read
+        it.|]
+      Assess ->
+        [wft|
+        `commands/assess.md` as a program: the same ledger, read *first* by the
+        language specialists that file's "haskell-pro and/or cpp-pro and/or
+        rust-pro" names, and then folded into an approach for answering rather
+        than into the answers themselves.|]
+
+    -- A whole bullet per rung, because what the file list selects is the one
+    -- thing this page must not generalise: only 'assessRoster' reads it, so at
+    -- `Respond` the input is declared — the two rungs share one invocation —
+    -- and read by nobody.
+    pathsInput = case r of
+      Respond ->
+        [wft|
+        * `paths` — the changed-file list, one path per line, and
+          `git diff --name-only > changed.txt` is the usual way to make one. At
+          this rung it selects **nothing**: the answers are drafted against the
+          comments, so the file list is declared and read by neither the roster
+          nor a receipt. That is also why this rung's price does not move with
+          it.|]
+      Assess ->
+        [wft|
+        * `paths` — the changed-file list, one path per line, and
+          `git diff --name-only > changed.txt` is the usual way to make one. At
+          this rung it selects the specialist roster in ordinary Haskell before
+          the program exists, so `plan` must be given the same `paths=` the run
+          will use or it prices a different panel. An empty list is *one general
+          seat* and never an empty panel.|]
+
+    caveat = case r of
+      Respond ->
+        [wft|
+        * It drafts answers; it does not research them. A comment whose answer
+          needs a specialist's reading is the reason `pr-threads-assess` exists,
+          and running both is how you get both.|]
+      Assess ->
+        [wft|
+        * It produces an *approach* and not the replies. That is the file's own
+          shape — read the comments and their implications, then say how a
+          response would be formulated — so a run that ends with nothing to
+          paste has not failed.|]
 
 -- ---------------------------------------------------------------------------
 -- The roster assess.md's and/or becomes

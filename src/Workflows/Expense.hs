@@ -102,6 +102,7 @@ module Workflows.Expense
   ( -- * The program
     expenseProgram,
     expenseDoc,
+    expenseHelp,
     expenseScript,
 
     -- * The free test this module owns
@@ -795,6 +796,72 @@ expenseProgram =
 expenseDoc :: Text
 expenseDoc =
   "expense-report.md: receipts as a `find` receipt, one extracted table, and the owner's answer as the loop's verdict"
+
+-- | The page @wf help expense@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __The transport paragraph is the one that must not be skimmed.__ This row's
+-- verdict is a /person's answer/, and @--scripted@ answers a flag while an
+-- adapter of the run's own has nobody to ask — so an unattended run of this row
+-- keeps its shape, reaches its expensive arm and satisfies nothing. The page
+-- says which pane and why, in the same breath as saying that the expensive arms
+-- are unreachable without him.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+expenseHelp :: Text
+expenseHelp =
+  [wft|
+  `commands/expense-report.md` as a program: the receipt directory as a `find`
+  receipt, one extracted table over it, and **the owner's answer as the loop's
+  verdict**. Of its endings, exactly two build anything, and neither is
+  reachable without an approval or a yes — which is a property of the printed
+  program rather than a rule in a prompt.
+
+  **Inputs.**
+
+  * `receipts` — the directory the receipt files are in, as the argv of the
+    `find`. What a tilde becomes depends on your shell: write `"$HOME/Documents/receipts/…"`.
+  * `trip` — the trip's name. In the corpus this is a quoted string a model has
+    to spot inside `$ARGUMENTS`; here it is its own flag, so a trip whose name
+    contains a comma is not a parsing problem.
+  * `script` — the filler's absolute path: the program that actually fills the
+    expense form. It is argv, and it is the one input whose value decides what
+    the building arms can do.
+
+  **Transport.** A watched pane. The verdict here is a person's, and an
+  unattended run reaches nobody: `--scripted` answers a flag *yes* and an
+  adapter of the run's own has no one to put the question to. Give it the pane
+  you are sitting in front of.
+  {paneNote}
+
+  ```sh
+  wf run expense --session "$PANE" --require-pinned \
+     --input-arg receipts="$HOME/Documents/receipts/2026-06-boston" \
+     --input-arg trip='Boston, June 2026' \
+     --input-arg script="$HOME/bin/fill-expense-report"
+  ```
+
+  **Rehearsal.** All three inputs named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run expense --scripted --input-arg receipts= --input-arg trip= --input-arg script=
+  ```
+
+  **Caveats.**
+
+  * A rehearsal is not a check of the gate. `--scripted` answers the owner's
+    question from the row's own table, so it exercises the *loop* and tells you
+    nothing about what a person would have said. That is correct — a canned yes
+    is not consent — and it is why the transport paragraph above is a
+    requirement and not advice.
+  * The receipt directory is read by a command, so an empty or wrong directory
+    is visible in the run rather than inferred from a thin table.
+  * It fills a form; it does not submit anything on your behalf beyond running
+    the filler you named. The path in `script=` is the whole of what it can
+    reach.
+  |]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

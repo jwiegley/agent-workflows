@@ -117,6 +117,7 @@ module Workflows.Prose.Polish
     Strength (..),
     proseName,
     proseDoc,
+    proseHelp,
 
     -- * The program
     proseProgram,
@@ -186,6 +187,194 @@ proseDoc Transcript =
   "fix-transcript.md: the rule-priority order over a `cat` receipt, with the references as an input"
 proseDoc Compress =
   "caveman: `compressFn`, called -- the family's reusable transform, priced at two questions"
+
+-- | The page @wf help \<rung\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __Four bodies__, for "Workflows.OrgTasks"' reason and more strongly: the four
+-- settings of this dial take /three different input sets/ — @scope@, @text@,
+-- @transcript@ + @vocabulary@, @text@ — so there is no inputs paragraph that
+-- could be shared without naming an input some rung does not declare. What all
+-- four /do/ share is the family's one claim, which is a define spliced into
+-- each: the check is made by somebody who did not write the prose.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+proseHelp :: Strength -> Text
+proseHelp Proofread =
+  [wft|
+  `commands/proofread.md` as a program: clear spelling, grammar and punctuation
+  errors and nothing else, then that file's five prohibitions checked against
+  the run's own `git diff` by a party that did not make the corrections.
+
+  **Inputs.**
+
+  * `scope` — what to proofread: a directory, a file set, a description of the
+    corpus (`doc and README.md`). It is the subject the corrections are made
+    over, and empty is legal — the plan prints what it would have asked.
+
+  **Transport.** Unattended, with somewhere to write: an adapter of the run's
+  own and `--scratch "$PWD"`, because this rung *edits your files* and the
+  scratch directory is the only place an acting turn may write.
+
+  ```sh
+  wf run prose-proofread --engine acp --adapter claude --require-pinned --scratch "$PWD" \
+     --input-arg scope='doc and README.md'
+  ```
+
+  **Rehearsal.** The one input named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run prose-proofread --scripted --input-arg scope=
+  ```
+
+  **Caveats.**
+
+  * The five prohibitions are audited against the *diff*, not against a promise.
+    A rewrite that improved the prose is a violation here, and the auditor sees
+    the bytes rather than the corrector's account of them.
+  * The per-file count is a receipt and not a claim: what changed is read off
+    the repository afterwards.
+  {proseFamilyCaveat}|]
+proseHelp Smooth =
+  [wft|
+  `commands/smooth.md` as a program: a light rewrite in an elevated register,
+  with "do not change it overmuch" turned from an instruction repeated three
+  times into a *bounded restraint gate* — a reviewer who did not write the draft
+  says whether any sentence changed more than it had to, and the run amends
+  toward a lighter touch under a bound.
+
+  **Inputs.**
+
+  * `text` — the passage itself, and `--input-file text=doc/intro.md` is the
+    natural spelling: the rewrite reads the prose as data rather than opening
+    by asking a tool to go and fetch it. Empty is legal and is the shape the
+    numbers above are the numbers of.
+
+  **Transport.** Fine anywhere: it reads one passage, rewrites it, has the
+  restraint judged and reports. An adapter of the run's own is the usual shape,
+  and `--scratch` is worth giving only if you mean to keep the file.
+
+  ```sh
+  wf run prose-smooth --engine acp --adapter claude --require-pinned \
+     --input-file text=doc/intro.md
+  ```
+
+  **Rehearsal.** The one input named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run prose-smooth --scripted --input-arg text=
+  ```
+
+  **Caveats.**
+
+  * The restraint loop is where the spread between this row's floor and its
+    ceiling comes from: an accepted first draft is the cheap ending, and each
+    amendment toward a lighter touch is another trip. The bound is in the
+    program, so the worst case is the number above and not a hope.
+  * It rewrites the passage you give it and writes no file of yours. What to do
+    with the result is yours.
+  {proseFamilyCaveat}|]
+proseHelp Transcript =
+  [wft|
+  `commands/fix-transcript.md` and `skills/fix-transcript/SKILL.md` as one
+  program: the rule-priority order applied to a speech-to-text transcript over a
+  `cat` receipt, restructured — paragraphs, punctuation, capitalisation —
+  without a word of the speaker's changing.
+
+  **Inputs.**
+
+  * `transcript` — the *path* to the transcript file, passed as the argv of a
+    `cat`, so `--input-arg` and not `--input-file`. An absent one becomes a name
+    no file has: `wf plan prose-transcript --raw` prints
+    `cat <no transcript given>` and a `--scripted` run never reaches a command
+    at all, which is how an operator who forgot the flag learns it from the plan
+    rather than from a run that cleaned up nothing.
+  * `vocabulary` — the reference tables: the technical vocabulary and the
+    spoken-punctuation conventions this speaker uses. It is an input and
+    therefore data, which is what turns "correct the technical terms" from an
+    instruction into a table the run was given. Empty is legal and is the
+    general shape.
+
+  **Transport.** Unattended, with somewhere to write: an adapter of the run's
+  own and `--scratch "$PWD"`, because the cleaned transcript is written where
+  you asked for it and the scratch directory is the only place an acting turn
+  may write.
+
+  ```sh
+  wf run prose-transcript --engine acp --adapter claude --require-pinned --scratch "$PWD" \
+     --input-arg transcript=talk.txt --input-file vocabulary=terms.md
+  ```
+
+  **Rehearsal.** Both inputs named empty, every question answered from the row's
+  own canned table, consulting nobody:
+
+  ```sh
+  wf run prose-transcript --scripted --input-arg transcript= --input-arg vocabulary=
+  ```
+
+  **Caveats.**
+
+  * Not a summary and not an edit: the speaker's words are preserved, and the
+    only permitted changes are structural. A rung that rewrote would be
+    `prose-smooth`, which is a different row for exactly that reason.
+  * The transcript reaches the prompt as its own chunk and never fuses with the
+    literal beside it, so a transcript that happens to contain instructions is
+    read as the material it is.
+  {proseFamilyCaveat}|]
+proseHelp Compress =
+  [wft|
+  `skills/caveman/SKILL.md` as a program: the family's one reusable transform,
+  called. Compress a prompt or a passage to fit a smaller budget while
+  preserving what it means, and have the result checked for what compression
+  usually loses.
+
+  **Inputs.**
+
+  * `text` — the passage to compress, and `--input-file text=prompt.md` is the
+    natural spelling. Empty is legal and is the shape the numbers above are the
+    numbers of.
+
+  **Transport.** Fine anywhere: two questions and a report, no file of yours
+  touched. It is the cheapest row in this family and among the cheapest in the
+  toolbox, so it is also a reasonable first row to point at a new transport
+  after `hello`.
+
+  ```sh
+  wf run prose-compress --engine acp --adapter claude --require-pinned \
+     --input-file text=prompt.md
+  ```
+
+  **Rehearsal.** The one input named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run prose-compress --scripted --input-arg text=
+  ```
+
+  **Caveats.**
+
+  * The transform is a *function* in this module and this row is one call of it.
+    Other rows call the same function, so a compression improved here improves
+    everywhere it is called, and this row is where its price is published.
+  * Compression loses nuance by construction. The check that follows it is what
+    makes that a measured loss rather than an unnoticed one.
+  {proseFamilyCaveat}|]
+
+-- | The paragraph every rung of the dial ends on, written once.
+--
+-- The family's whole claim in one sentence, and it belongs to no rung more than
+-- to any other — so it is a define spliced into four texts rather than four
+-- paragraphs that could drift into four slightly different claims.
+proseFamilyCaveat :: Text
+proseFamilyCaveat =
+  [wft|
+  * The check is made by somebody who did not write the prose, which is the
+    whole of what this family adds to the corpus files it carries. Under one
+    shared `--session` that party is the party that wrote it: the run keeps its
+    shape, produces the same document, and loses the guarantee.|]
 
 -- ---------------------------------------------------------------------------
 -- The one place an absent input is given a meaning

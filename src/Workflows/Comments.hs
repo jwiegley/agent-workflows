@@ -133,6 +133,7 @@ module Workflows.Comments
   ( -- * The program
     commentsProgram,
     commentsDoc,
+    commentsHelp,
     commentsScript,
 
     -- * The rubrics, transplanted
@@ -942,6 +943,68 @@ commentsProgram =
 commentsDoc :: Text
 commentsDoc =
   "comment-audit: the extractor as three receipts, the manifest read back off disk, and a false-positive guard on another engine"
+
+-- | The page @wf help comments@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __The @extractor@ bullet is the one an operator actually needs__, and it is
+-- the reason this page exists: the input is a /path passed as argv/, not a
+-- file's contents, so @--input-file@ is the wrong flag and the failure is
+-- silent — a run given the script's text would put the whole script on a
+-- command line. The bullet says which flag and why, and names what an empty one
+-- becomes.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+commentsHelp :: Text
+commentsHelp =
+  [wft|
+  `skills/comment-audit/SKILL.md` as a program: the audit's own extractor run as
+  three command receipts, the manifest it writes read back *off disk* rather
+  than remembered, and a false-positive guard put to another engine — because
+  the party that called a comment stale is the last one to ask whether it was.
+
+  **Inputs.**
+
+  * `extractor` — the installed *path* of the audit's `inventory_comments.py`.
+    It is passed as **argv**, so this is `--input-arg` and never
+    `--input-file`: the run needs the script's name, not its text. An empty one
+    becomes a name no file has, which is what `wf plan comments --raw` prints
+    and why a `--scripted` run never reaches a command at all. What a tilde becomes depends on
+    your shell — write `"$HOME/…"` and it arrives the same either way.
+  * `base` — the diff base, as the *argv* of the git commands. Empty means the
+    whole project rather than a change set, which is a much larger audit and the
+    right default for a first pass over an unfamiliar tree.
+
+  **Transport.** Unattended, with somewhere to write: an adapter of the run's
+  own and `--scratch "$PWD"`, because the extractor writes its manifest into the
+  run's directory and the audit reads it back from there.
+
+  ```sh
+  wf run comments --engine acp --adapter claude --require-pinned --scratch "$PWD" \
+     --input-arg extractor="$HOME/.claude/skills/comment-audit/scripts/inventory_comments.py" \
+     --input-arg base=origin/main
+  ```
+
+  **Rehearsal.** Both inputs named empty, every question answered from the row's
+  own canned table, consulting nobody:
+
+  ```sh
+  wf run comments --scripted --input-arg extractor= --input-arg base=
+  ```
+
+  **Caveats.**
+
+  * The manifest is read back off disk and not carried in a model's head. That
+    is what makes "every comment was accounted for" checkable: the reconciliation
+    is against bytes the answering party did not write.
+  * The false-positive guard is on another engine by construction. Under one
+    shared pane the guard and the auditor are the same party, and a comment
+    wrongly called stale stays wrongly called stale.
+  * A comment audit over a whole project is a large read. `base=` is the flag
+    that makes it a change audit instead, and it is worth setting before the
+    first run rather than after.
+  |]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

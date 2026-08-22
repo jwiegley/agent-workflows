@@ -218,6 +218,7 @@ module Workflows.Wiggum
   ( -- * The program
     wiggumProgram,
     wiggumDoc,
+    wiggumHelp,
     wiggumScript,
 
     -- * @run-orchestrator.md@'s dependency graph, sorted in Haskell
@@ -1627,6 +1628,93 @@ wiggumProgram =
 wiggumDoc :: Text
 wiggumDoc =
   "wiggum/SKILL.md: two work rounds, one checkpoint audit, and a bounded done-criteria verdict"
+
+-- | The page @wf help wiggum@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __The caveat about the two cheapest endings is load-bearing__, and it is the
+-- reason this row's floor is worth as much to an operator as its ceiling: the
+-- two are a sentinel probe that says this runner cannot be held to a parent
+-- history, and a baseline that was already red. Both report and stop, and
+-- neither touches the tree — so a number near the floor is not a cheap run of
+-- the loop, it is a run that did not happen.
+--
+-- __And the @--session@ refusal is not in that range at all.__ It is taken in
+-- ordinary Haskell over @run.engine@ and @run.routes@ before a
+-- 'Agentic.Builder.Program' exists, and only @run@ binds a run fact — so @plan@,
+-- @cost@ and every @--scripted@ run price the /loop/, which is the shape a run
+-- with an unknown table keeps every check for. Saying so is this page's job,
+-- because no number above it can.
+--
+-- __It states no price.__ The header carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+wiggumHelp :: Text
+wiggumHelp =
+  [wft|
+  `skills/wiggum/SKILL.md` as a program: two work rounds with a checkpoint audit
+  between them, and a bounded verdict against done-criteria the run froze before
+  it started. Four of its seven callees are other rows' own — the commit
+  discipline, the partner cleanup round, the audit's report and the shared
+  conflict resolution — so what it costs is largely what the toolbox under it
+  costs.
+
+  **Inputs.**
+
+  * `plan` — the frozen plan and its done-criteria. It is an input and therefore
+    a define, so it reaches every prompt as data and no turn can rewrite it;
+    `--input-file plan=doc/PLAN.md` is the natural spelling. An empty one is the
+    sentence a run with no frozen criteria earns, and `wf plan wiggum --raw`
+    prints it, so an operator who forgot the flag learns it from the plan rather
+    than from the report.
+  * `base` — what the branch is measured against and brought up to date with. It
+    is the argv of the git commands and not a phrase a model interprets. Empty
+    is `main`.
+  * `observations` — the partner directory the cleanup round drains. Empty is
+    `doc/observations`.
+  * `parity` — the reference target the last done-criterion is about. An absent
+    one is a *different* last conjunct rather than a missing one.
+
+  **Transport.** Unattended, with somewhere to write: an adapter of the run's
+  own, and `--scratch "$PWD"`, because every round edits your tree and the
+  scratch directory is the only place an acting turn may write.
+
+  **It refuses every `--session` run, flat.** Its judge and its workers are one
+  serving model and no route table can separate them, so one shared pane means
+  the party that would have judged the work is the party that did it. Two panes
+  is `wiggum-duet`, which is a different row because it is a different shape.
+
+  ```sh
+  wf run wiggum --engine acp --adapter claude --require-pinned --scratch "$PWD" \
+     --input-file plan=doc/PLAN.md --input-arg base=main \
+     --input-arg observations= --input-arg parity=
+  ```
+
+  **Rehearsal.** Every input named empty, answered from the row's own table,
+  consulting nobody:
+
+  ```sh
+  wf run wiggum --scripted --input-arg plan= --input-arg base= \
+     --input-arg observations= --input-arg parity=
+  ```
+
+  **Caveats.**
+
+  * The floor above is worth as much as the ceiling. The two cheapest endings in
+    that range change your tree not at all: a sentinel probe that says this
+    runner cannot be held to a parent history, and a baseline that was already
+    red. Both report and stop.
+  * The `--session` refusal is not in that range at all. It is taken in ordinary
+    Haskell over `run.engine` before the program exists, and only `run` binds a
+    run fact — so `plan`, `cost` and `--scripted` all price the **loop**, which
+    is the shape a run with an unknown table keeps every check for. The refusing
+    arm is a different and much smaller program, reachable from a command line
+    and from nowhere else.
+  * Two rounds is a design decision and not a setting: a third would move the
+    path count above, and the gate pins it.
+  * The verdict is bounded and three-way. *Done*, *still remains*, and *cannot
+    judge* are three endings and not two, and the third is the one an operator
+    should read hardest — it means the criteria as frozen could not be decided.
+  |]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

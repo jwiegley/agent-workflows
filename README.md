@@ -26,9 +26,12 @@ cabal.project           the dev loop: this package + ../agent-cat/haskell
 flake.nix               the pinned build
 ci/workflows.sh         this repository's gate: every row, priced and run
 ci/emacs.sh             the Emacs gate: compile, checkdoc, smoke
+ci/cookbook.sh          the cookbook gate: regeneration is a no-op
+tools/cookbook-gen.sh   …and the generator it holds doc/cookbook.md to
 src/
   Workflows/
-    Prose.hs            the four mechanics: bullets, numbered, fenceOf, tshow
+    Prose.hs            the four mechanics — bullets, numbered, fenceOf, tshow
+                        — and the one help-page fragment more than one page needs
     Prelude.hs          the one import an authoring module writes
 
     Parties.hs          who answers: the pins, and the three fail-over ladders
@@ -108,10 +111,17 @@ Then, from whatever repository the work is in:
 
 ```sh
 wf list                                    # the toolbox, one line per row
+wf review-deep --help                      # the row's page; `wf help review-deep`
 wf plan review-deep                        # level, size, askNodes, codes, cost
 wf plan review-deep --raw                  # …and the program itself
 wf cost review-deep                        # the price, path by path
 ```
+
+`wf <row> --help` is the per-row page: what the row is for, what each of its
+inputs means, which transport it wants, one worked command line and one
+rehearsal, under a header computed from the same folds `wf list` publishes. It
+spends nothing and asks nobody. `wf help <row>` prints the same bytes, and
+`wf --help` lists the flags every row shares.
 
 `plan` and `cost` are decided by the elaborated term alone and are answered
 **before** anything is asked of anybody. That is the point of the exercise: the
@@ -197,7 +207,7 @@ it.
 
 ## The Emacs interface
 
-`emacs/wf.el` is the same three verbs with a minibuffer in front of them: pick a
+`emacs/wf.el` is the same verbs with a minibuffer in front of them: pick a
 row, give it its inputs, pick a transport, **read the price and say yes**, and
 watch the run in a buffer of its own. No external packages — Emacs 29.1 and what
 ships with it.
@@ -205,7 +215,7 @@ ships with it.
 ```elisp
 (use-package wf
   :load-path "~/src/agent-workflows/emacs"
-  :commands (wf-run wf-plan wf-cost wf-refresh))
+  :commands (wf-run wf-plan wf-cost wf-help wf-refresh))
 ```
 
 Or, without `use-package`:
@@ -215,9 +225,10 @@ Or, without `use-package`:
 (autoload 'wf-run "wf" nil t)
 (autoload 'wf-plan "wf" nil t)
 (autoload 'wf-cost "wf" nil t)
+(autoload 'wf-help "wf" nil t)
 ```
 
-Four commands to start from, none bound to a key (the run buffer binds two more
+Five commands to start from, none bound to a key (the run buffer binds two more
 of its own, below):
 
 | command | what it does |
@@ -225,7 +236,8 @@ of its own, below):
 | `M-x wf-run` | pick, price, confirm, run |
 | `M-x wf-plan` | read `wf plan` for a row, run nothing |
 | `M-x wf-cost` | read `wf cost` for a row, run nothing |
-| `M-x wf-refresh` | forget the cached listing (`C-u` on the other three does the same) |
+| `M-x wf-help` | read the row's page — inputs, transport, a worked line, a rehearsal |
+| `M-x wf-refresh` | forget the cached listing (`C-u` on the other four does the same) |
 
 Three options: `wf-program` (default `"wf"`), `wf-agent-deck-program` (default
 `"agent-deck"`) and `wf-confirm-function` (default `yes-or-no-p`).
@@ -859,7 +871,13 @@ nix develop            # the devShell: GHC, cabal, HLS
 cabal build all        # this package AND ../agent-cat/haskell, from the working tree
 ./ci/workflows.sh      # the gate: 72 rows, priced and run
 ./ci/emacs.sh          # the Emacs gate: compile, checkdoc, smoke over the binary
+./ci/cookbook.sh       # the cookbook gate: regenerating doc/cookbook.md is a no-op
 ```
+
+`doc/cookbook.md`'s per-row sections are **generated** from the help texts by
+`./tools/cookbook-gen.sh`; edit the text in the module that owns the row and
+regenerate. `ci/cookbook.sh` refuses any difference, which is what keeps the
+page and `wf help` from ever saying different things.
 
 ```sh
 nix flake check

@@ -37,6 +37,7 @@ module Workflows.Hello
   ( helloWorkflow,
     helloScript,
     helloDoc,
+    helloHelp,
   )
 where
 
@@ -49,6 +50,64 @@ import Prelude
 -- | The one line @wf list@ prints beside this row.
 helloDoc :: Text
 helloDoc = "the smoke row: two cross-cutting lenses over one scrap, folded and reported"
+
+-- | The page @wf help hello@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __The one row in the table that declares no input__, and its @Inputs@ section
+-- says @none.@ rather than being absent: an operator comparing pages should see
+-- the same six headings everywhere, and \"this row takes nothing\" is a fact
+-- worth reading, not a section worth omitting. It is also what the help gate
+-- checks for.
+--
+-- __The advice this page carries is unlike every other row's__, because this
+-- row's job is unlike every other row's: it is the one to run first against a
+-- new transport, and what it tells you is whether the wiring works — not
+-- anything about your repository.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+helloHelp :: Text
+helloHelp =
+  [wft|
+  The smoke row: one scrap of code asked for, two cross-cutting lenses over it,
+  folded and reported. It exists to prove the *wiring* — the registry, the
+  shared CLI, the roster, the panel fold, the report — rather than to do any of
+  the owner's work, and it is the row to run first against a transport you have
+  not used before.
+
+  **Inputs.** none.
+
+  **Transport.** Anywhere, and that is the point: this is the row whose only job
+  is to answer the question "does this transport work at all". Run it against a
+  fresh adapter, a new pane, or a stub before pointing anything expensive at
+  them. It writes no file of yours, so `--scratch` changes nothing about what it
+  means.
+
+  ```sh
+  wf run hello --engine acp --adapter claude
+  ```
+
+  **Rehearsal.** No input to name, every question answered from the row's own
+  canned table, consulting nobody — and a complete test of the binary, the
+  registry and the CLI in one line. Rows that price lower than this one exist;
+  none of them is *for* this:
+
+  ```sh
+  wf run hello --scripted
+  ```
+
+  **Caveats.**
+
+  * A green `hello` says the transport works. It says nothing about a row that
+    edits, refuses on a run fact, or puts a question to a person — those are
+    facts about the rows that do them.
+  * It prices exactly and has no branch, so its number never moves for a reason
+    that is about your repository. If it moves, the language did.
+  * `--require-pinned` is deliberately absent from the line above: this row is
+    what you reach for when the pinning story is what you are trying to
+    establish.
+  |]
 
 -- | What the opening question asks for.
 --

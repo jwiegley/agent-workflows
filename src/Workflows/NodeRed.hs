@@ -141,6 +141,7 @@ module Workflows.NodeRed
   ( -- * The program
     noderedProgram,
     noderedDoc,
+    noderedHelp,
     noderedScript,
 
     -- * The tier-1 readings of an invocation
@@ -1079,6 +1080,87 @@ noderedProgram =
 noderedDoc :: Text
 noderedDoc =
   "node-red/SKILL.md: the three-signature admin boundary as argv, six house-style seats over one fetched tab, and a put only through a validator"
+
+-- | The page @wf help nodered@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __Two of its five inputs are validated in Haskell before the program
+-- exists__, and that is the fact this page has to carry: a malformed flow or
+-- node id does not become a failing command, it becomes a name nothing has, so
+-- a @--scripted@ run never reaches a command at all and @wf plan --raw@ shows
+-- the omission. An operator who does not know that will read a clean plan as a
+-- working invocation.
+--
+-- __It is deeply host-specific and says so.__ The paths, the database, the
+-- config-node ids and the entity families are one machine's, and a page that
+-- did not open with that would be advertising a row nobody else can run.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+noderedHelp :: Text
+noderedHelp =
+  [wft|
+  `skills/node-red/SKILL.md` as a program, and **the one row in the table whose
+  world is one machine's**: the three-signature admin boundary as argv, six
+  house-style seats over one fetched tab, one staged edit, and a put that
+  happens only through a validator. Two of its endings put nothing, and each is
+  more useful than a failed put — an envelope that does not validate names its
+  own defect.
+
+  **Inputs.**
+
+  * `request` — what the session is for: `the Office lights fire twice at dusk`.
+    It is the subject every seat reads.
+  * `flow` — the tab's flow id. It is **validated in Haskell** against the
+    skill's own identifier shape before the program exists, so a malformed one
+    becomes a name nothing has: the plan prints
+    `node-red-admin flow get <no valid flow id given>` and a rehearsal never
+    reaches a command.
+  * `node` — the node whose history is being explained, validated the same way
+    and with the same consequence.
+  * `scripts` — where the skill's Python lives, as argv. What a tilde becomes depends on your shell:
+    write `"$HOME/…"` and it arrives the same either way.
+  * `references` — the skill's reference files as an `--input-file`: the house
+    conventions, the plugin set, the naming style, as data the six seats are
+    held to.
+
+  **Transport.** Fine anywhere in the sense that matters — it fetches, reads,
+  stages, validates and puts through the admin API rather than by editing files
+  of yours. An adapter of the run's own is the usual shape. What it does reach
+  is a **live automation host**, so read the caveats before pointing it at one.
+
+  ```sh
+  wf run nodered --engine acp --adapter claude --require-pinned \
+     --input-arg request='the Office lights fire twice at dusk' \
+     --input-arg flow=a1b2c3d4e5f60789 --input-arg node=4f8a1c2d.9be03a \
+     --input-arg scripts="$HOME/.claude/skills/node-red/scripts" \
+     --input-file references=doc/nodered-references.md
+  ```
+
+  **Rehearsal.** All five inputs named empty, every question answered from the
+  row's own canned table, consulting nobody — and, because two of them are
+  validated, reaching no command at all:
+
+  ```sh
+  wf run nodered --scripted --input-arg request= --input-arg flow= --input-arg node= \
+     --input-arg scripts= --input-arg references=
+  ```
+
+  **Caveats.**
+
+  * **It changes a running automation host.** The put is guarded by a validator
+    and by a refetch that confirms what landed, but what lands is live: a flow
+    that fires the lights fires them.
+  * One of the four endings is "the node had never fired in the last day", and
+    this host's own debugging rule reads that as an upstream problem — so the
+    report says the change may not be the fix rather than claiming a repair.
+  * The narrow spread above is what a program looks like when almost nothing in
+    it is a judgment: four receipts, six seats, one edit, one validator, one put
+    and one refetch. The only spread is the put and its confirming refetch,
+    which only the arm that validated ever reaches.
+  * The ids, the paths and the entity families are one machine's. This row is
+    not portable and does not pretend to be.
+  |]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

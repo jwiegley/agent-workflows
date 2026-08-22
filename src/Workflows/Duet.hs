@@ -156,6 +156,7 @@ module Workflows.Duet
   ( -- * The program
     duetProgram,
     duetDoc,
+    duetHelp,
     duetScript,
 
     -- * The partner's seats, re-pinned rather than re-written
@@ -749,6 +750,95 @@ duetProgram =
 duetDoc :: Text
 duetDoc =
   "wiggum's loop across two panes: the work in one, a four-seat review and the done-criteria judge in the other"
+
+-- | The page @wf help wiggum-duet@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __The order of the two pane flags is the whole operating instruction__, and it
+-- is the one thing an operator gets wrong: @--session@ names the __work__ pane
+-- and becomes the default, so every borrowed callee, tool and person lands
+-- there, and @--route partner=deck:\<pane\>@ moves only the judgment. Written
+-- the other way round the judge inherits the commit decomposition, the conflict
+-- resolution and the cleanup review — which is exactly what
+-- 'Workflows.Deciders.judgeIsElsewhere' refuses, before anything is spent.
+--
+-- __And the refusal an operator will actually meet is often the CLI's, not this
+-- row's.__ A refusing invocation carrying a @--route@ is stopped earlier,
+-- because the program the run facts selected is 'duetRefusalTable''s, whose only
+-- ask is a tool and which therefore pins nothing — so every @--route@ is refused
+-- by name. The operator is still refused before a token is spent, which is the
+-- guarantee; the words differ. Saying so here is cheaper than the alternative,
+-- which is a refusal made larger than a refusal to improve an error message.
+--
+-- __It states no price.__ The header carries the numbers, and the difference
+-- between this row's ceiling and @wiggum@'s is exactly the review the duet buys.
+duetHelp :: Text
+duetHelp =
+  [wft|
+  `wiggum`'s loop across two panes: the work in one, and in the other a
+  four-seat review and the judge that holds the run to its frozen done-criteria.
+  The one-round arm prices exactly as `wiggum`'s does — a review whose findings
+  nothing could consume is spend with no consumer — so what the duet buys shows
+  up only on the arm that has a second round to spend it on.
+
+  **Inputs.**
+
+  * `goal` — the frozen plan and its done-criteria, and the one place this row's
+    vocabulary departs from `wiggum`'s on purpose: a duet is started from a
+    sentence about what to achieve, typed beside two pane ids. It reaches the
+    same two places `plan` reaches — the audit's request fold and the judge's
+    frozen criteria — and the judge is held to it verbatim.
+  * `base` — what the branch is measured against and brought up to date with,
+    as an argv. Empty is `main`.
+  * `observations` — the directory the partner publishes into and the checkpoint
+    drains. Empty is `doc/observations`.
+  * `parity` — the reference target the last done-criterion is about. An absent
+    one is a *different* last conjunct rather than a missing one.
+
+  **Transport.** Two live panes, and the flags are not interchangeable.
+  `--session` names the **work** pane and becomes the default, so everything
+  this row does not pin itself — every borrowed callee and every tool among them
+  — lands there; `--route partner=deck:<pane>` moves the judgment and only the
+  judgment. Written the other way round the run refuses before anything is
+  spent.
+  {paneNote}
+  `doc/wiggum-two-sessions.md` is the full walkthrough: standing the panes up,
+  what flows between them, and what to do when you have none.
+
+  ```sh
+  wf run wiggum-duet --session "$PANE_W" --route "partner=deck:$PANE_R" \
+     --poll 250 --require-pinned \
+     --input-arg goal='Bring the token-refresh path under test.' \
+     --input-arg base=main --input-arg observations= --input-arg parity=
+  ```
+
+  **Rehearsal.** Every input named empty. A rehearsal takes the *loop* and never
+  the refusal: `--scripted` reaches no session, and the gate is chosen from the
+  run facts in Haskell before the program exists.
+
+  ```sh
+  wf run wiggum-duet --scripted --input-arg goal= --input-arg base= \
+     --input-arg observations= --input-arg parity=
+  ```
+
+  **Caveats.**
+
+  * The refusal is sharper than `wiggum`'s and narrower. It fires when the
+    judge's backend is the backend of *any* work-side pin — the worker's, or one
+    of the four rungs the borrowed callees arrive on — or when it is the
+    default. The second is the inverted split an operator types by accident; the
+    third is a rung routed alongside the judge, which is the one an operator
+    types deliberately, believing it harmless.
+  * Only the *unrouted* `--session <pane>` reaches this row's own refusal
+    wording. A refusing invocation that carries a `--route` is stopped one step
+    earlier by the CLI, because the program the run facts selected pins nothing
+    and so refuses every routed name. Refused either way, before anything is
+    spent; the words differ.
+  * `--poll` is worth setting on a live pane. The run is long and every question
+    is a round trip through somebody's terminal.
+  * Two rounds is a design decision and not a setting, exactly as in `wiggum`,
+    and the gate pins the path count that says so.
+  |]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

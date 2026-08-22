@@ -127,6 +127,7 @@ module Workflows.Prd
     Mode (..),
     prdName,
     prdDoc,
+    prdHelp,
 
     -- * The tier-1 readings of an invocation
     prdPath,
@@ -185,6 +186,108 @@ prdDoc Draft =
   "prd-architect.md (the generator): the owner's answers in binding position, eight sections as a roster, and the checklist applied elsewhere"
 prdDoc Critique =
   "prd-architect.md §4 (the critic): seven analysis axes over a document nothing in the row can write to"
+
+-- | The page @wf help \<mode\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __Two bodies, because the split is what the rework bought.__ One file was two
+-- agents; splitting it at the mode boundary gave them different inputs — the
+-- generator needs the goals and the format authority, the critic needs a path —
+-- and a shared inputs paragraph would be the fused file's one number for both
+-- jobs, in prose.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+prdHelp :: Mode -> Text
+prdHelp Draft =
+  [wft|
+  `agents/prd-architect.md` as a program, the generator half: the owner's
+  answers to seven discovery questions **in binding position**, eight sections
+  written as a roster over them, and the format checklist applied by somebody
+  who did not write the document.
+
+  **Inputs.**
+
+  * `goals` — the design goals the document is *for*, and `--input-file
+    goals=doc/GOALS.md` is the natural spelling. They are data the discovery
+    questions are asked against, so an empty one is a discovery from nothing.
+  * `template` — the format authority, as a file **in your own project**. This
+    is what makes "follow the house format" a table the run was given rather
+    than a convention it half-remembers.
+  * `prd` — where the document goes, as a path. Empty is the source file's own
+    default, which the plan prints, so a run that would have written somewhere
+    unexpected says so before it starts.
+
+  **Transport.** A watched pane. It asks the owner seven discovery questions in
+  binding position — the document is written *from* his answers — and an
+  unattended run reaches nobody: `--scripted` answers them from a table and an
+  adapter of the run's own has no one to ask.
+  {paneNote}
+
+  ```sh
+  wf run prd-draft --session "$PANE" --require-pinned \
+     --input-file goals=doc/GOALS.md \
+     --input-file template=.taskmaster/templates/example_prd.txt \
+     --input-arg prd=.taskmaster/docs/prd.txt
+  ```
+
+  **Rehearsal.** All three inputs named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run prd-draft --scripted --input-arg goals= --input-arg template= --input-arg prd=
+  ```
+
+  **Caveats.**
+
+  * **The cheapest ending is a refusal to overwrite.** A `test -f` says a
+    document already stands at that path, and the run reports it and names
+    `prd-critique` instead of writing over work somebody did. Moving the old
+    file is a deliberate act and is yours.
+  * There are two other cheap endings — a discovery the owner did not confirm,
+    and open questions he could not settle — and both are honest stopping points
+    rather than failures.
+  * A rehearsal exercises the loop and not the discovery. Canned answers are not
+    the owner's, which is why the pane above is a requirement rather than
+    advice.
+  |]
+prdHelp Critique =
+  [wft|
+  `agents/prd-architect.md` §4 as a program, the critic half: seven analysis
+  axes over a requirements document that **nothing in this row can write to**.
+  It reads, it judges, and the artefact is the critique.
+
+  **Inputs.**
+
+  * `prd` — the path to the document under critique. It is the *only* input this
+    row declares, and it is argv rather than contents: the run probes for the
+    file, so a path that names nothing is an ending rather than an empty
+    reading. Empty is the source file's own default path, printed by the plan.
+
+  **Transport.** Fine anywhere: it reads one document, runs seven axes over it
+  and writes a critique. An adapter of the run's own is the usual shape.
+
+  ```sh
+  wf run prd-critique --engine acp --adapter claude --require-pinned \
+     --input-arg prd=.taskmaster/docs/prd.txt
+  ```
+
+  **Rehearsal.** The one input named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run prd-critique --scripted --input-arg prd=
+  ```
+
+  **Caveats.**
+
+  * **Nothing here can revise the document**, which is correct for a row whose
+    whole job is to read: there is no revision loop, because there is nothing in
+    the row that could write. Acting on the critique is `prd-draft`'s or yours.
+  * The cheapest ending is the probe finding no document at the path — seven
+    analysis axes over a file that does not exist were not run, and the run says
+    which path it looked at.
+  |]
 
 -- ---------------------------------------------------------------------------
 -- The tier-1 readings of an invocation

@@ -124,6 +124,7 @@ module Workflows.Fix.Green
     Rung (..),
     rungName,
     greenDoc,
+    greenHelp,
 
     -- * The program
     greenProgram,
@@ -180,6 +181,166 @@ greenDoc :: Rung -> Text
 greenDoc Ci = "sweep the bot threads, then repair until `gh pr checks` exits 0"
 greenDoc Tree = "repair the working tree until `nix flake check` exits 0"
 greenDoc Flaky = "three drawn runs, a repair loop, and a fourth draw that says flaky or broken"
+
+-- | The page @wf help \<rung\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- One text at three settings, for 'greenProgram''s own reason: the three rungs
+-- are one shape and what separates them is 'rungCheck', 'rungBudget' and what
+-- happens either side of the loop. So the shared paragraphs are written once
+-- and the rung supplies the four things that actually differ — what @target@
+-- /is/, which command decides, how many trips it is given, and the ending worth
+-- warning about.
+--
+-- __The one input's meaning is the thing to get right.__ At @Ci@ it is the
+-- /argv/ of both @gh@ commands and therefore a number; at @Tree@ and @Flaky@ it
+-- is data inside a prompt and therefore a sentence. An operator who has that
+-- backwards has a run that fails at the command line or a run that repairs the
+-- wrong thing, and no price can tell them so.
+--
+-- __It states no price.__ The header above carries the numbers, off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+greenHelp :: Rung -> Text
+greenHelp r =
+  [wft|
+  {opening}
+
+  **Inputs.**
+
+  {targetIs}
+
+  **Transport.** Unattended, with somewhere to write: an adapter of the run's
+  own, and `--scratch "$PWD"`, because every repair trip edits your tree and
+  the scratch directory is the only place an acting turn may write. Without it
+  the loop repairs a copy in a temporary directory and reports success about
+  it.
+
+  ```sh
+  wf run {row} --engine acp --adapter claude --require-pinned \
+     --scratch "$PWD" \
+     --input-arg target={targetEg}
+  ```
+
+  **Rehearsal.** The one input named empty, and the canned table approves on
+  the first trip so the run walks the settled arm end to end:
+
+  ```sh
+  wf run {row} --scripted --input-arg target=
+  ```
+
+  **Caveats.**
+
+  {deciding}
+  {budget}
+  {ending}
+  |]
+  where
+    row = rungName r
+
+    opening = case r of
+      Ci ->
+        [wft|
+        `commands/fix-ci.md` and `commands/bugbot.md` as one program: build the
+        inventory of unresolved bot items from the pull request's own record,
+        run `bugbot`'s five phases as a called function rather than a copied
+        paragraph, then repair until the checks exit 0.|]
+      Tree ->
+        [wft|
+        The four corpus files that all say "get the tree green", as one
+        program: take `git status` as a receipt, then repair until
+        `nix flake check` exits 0 — a review clause that is a real exit code
+        and a trip count printed before the first trip.|]
+      Flaky ->
+        [wft|
+        `commands/flaky-rust.md` as a program: three draws of the suite, a
+        triage report written from all three, a repair loop, and an
+        independent fourth draw that decides *flaky* from *broken*.|]
+
+    -- A whole bullet and not a clause. What @target@ IS differs by rung in the
+    -- one way that decides whether a command line works at all: at 'Ci' it is
+    -- an argv and must be a number, and at the other two it is data inside a
+    -- prompt and must be a sentence.
+    targetIs = case r of
+      Ci ->
+        [wft|
+        * `target` — the pull request. It is the *argv* of both `gh` commands
+          — `gh pr view` for the inventory and `gh pr checks` for the gate — so
+          it must be the number and nothing else. A phrase here reaches a
+          command line, not a model, and `gh` will say so.|]
+      Tree ->
+        [wft|
+        * `target` — one line saying what green means for this tree. It is
+          *data* inside the prompt and not an argv: `nix flake check` is the
+          whole of the objection, and this sentence only tells each repair what
+          it was supposed to be aiming at. Empty is legal and reads as a tree
+          with no stated goal.|]
+      Flaky ->
+        [wft|
+        * `target` — the failing-test report: what was seen red, and how often.
+          It is *data* inside the triage prompt and not an argv — `make test`
+          is the command drawn four times, and this text is what the triage is
+          written against.|]
+
+    targetEg :: Text
+    targetEg = case r of
+      Ci -> "1487"
+      Tree -> "'nix flake check is green on this tree'"
+      Flaky -> "'tests::token_refresh::race is red about one run in five'"
+
+    deciding = case r of
+      Ci ->
+        [wft|
+        * The inventory is bound once, before the first repair, so a bot
+          comment that arrives mid-run has no way into it. That is `bugbot`'s
+          scoping rule made structural rather than requested, and it is why a
+          sweep can be said to be complete.|]
+      Tree ->
+        [wft|
+        * `nix flake check` is the reviewer, and it is the only reviewer.
+          Nothing here asks a model whether the tree is green, which is the
+          whole difference between this row and the paragraph it replaces.|]
+      Flaky ->
+        [wft|
+        * Four draws of one suite, not one. Three before the loop — two draws
+          of one prompt are two questions and are billed as two — and an
+          independent fourth after it, so the *flaky* / *broken* call is an
+          exit code and not a claim by the party that just did the fixing.|]
+
+    budget = case r of
+      Ci -> tripNote "Three"
+      Tree -> tripNote "Three"
+      Flaky ->
+        [wft|
+        * Two repair trips, the smallest budget in the family, because a flake
+          that needs a third is a bug with a stable cause. Exhausted, the run
+          reports the state it is holding and calls the suite unfixed.|]
+
+    tripNote :: Text -> Text
+    tripNote n =
+      [wft|
+      * {n} repair trips, and the number is printed before the first one. When
+        they run out the run reports the state it is holding and says
+        still-red; it does not claim green and it does not throw the repairs
+        away.|]
+
+    ending = case r of
+      Ci ->
+        [wft|
+        * The sweep is an act and not an ask: it pushes commits, posts replies
+          and resolves threads. Under `--engine acp` nobody is between it and
+          your pull request, so `--scratch "$PWD"` and a branch you are willing
+          to have written to are both part of the invocation.|]
+      Tree ->
+        [wft|
+        * `--input-arg target=` empty still runs: the gate is the command, so
+          an unstated goal costs the repairs their aim and not the run its
+          ending. Say what green means.|]
+      Flaky ->
+        [wft|
+        * A settled gate is not a green report. The fourth draw can disagree
+          with the third, and that ending says GREEN ONCE, NOT STEADY and names
+          what the two runs disagreed about — which is the finding, not a
+          failure of the run.|]
 
 -- | How many repair trips a rung is given.
 --

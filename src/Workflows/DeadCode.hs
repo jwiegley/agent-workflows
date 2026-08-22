@@ -143,6 +143,7 @@ module Workflows.DeadCode
   ( -- * The program
     deadCodeProgram,
     deadCodeDoc,
+    deadCodeHelp,
     deadCodeScript,
 
     -- * The three advocates
@@ -1100,6 +1101,92 @@ deadCodeProgram =
 deadCodeDoc :: Text
 deadCodeDoc =
   "eliminate-dead-code: four phases, two gates before anything is asked, and a three-advocate debate no majority can win"
+
+-- | The page @wf help dead-code@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __This is the one row in the table whose price moves with an input__, and the
+-- page's job is to say so without saying a number: 'capBound' reads @cap@ in
+-- ordinary Haskell into the ACT gate's bound, so a run at @cap=4@ is a
+-- different program with more paths than the one the header above prices. The
+-- caveat therefore names @wf cost dead-code --input-arg cap=4@ — the verb whose
+-- whole job is that question — and quotes nothing. A number written here could
+-- only be the number of one @cap@, and it would go stale the first time
+-- somebody chose another.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes, at @cap@ empty.
+deadCodeHelp :: Text
+deadCodeHelp =
+  [wft|
+  `skills/eliminate-dead-code/SKILL.md` as a program: four phases that cannot
+  interleave, two gates decided before anything is asked of anybody, and a
+  three-advocate debate whose verdict no majority can win — removal needs
+  independent evidence, not a vote.
+
+  **Inputs.**
+
+  * `scope` — the skill's own `$ARGUMENTS`: a path, a kind of dead thing, a
+    language name, or empty for the whole repository. It is the subject of the
+    marking phase and rides into every advocate's brief.
+  * `paths` — the changed-file list, one path per line, and
+    `git diff --name-only > changed.txt` is the usual way to make one. It
+    selects which static analyzers are run *and* decides whether the
+    two-evidence rule binds — the rule arrives in the debate's briefs when the
+    list touches Python and does not when it touches Rust, decided in Haskell
+    before the program exists. So `plan` must be given the same `paths=` the run
+    will use.
+  * `cap` — the blast-radius cap, and **this row's price-moving input**: at
+    `cap=` the row is 11 paths and a ceiling of 18, at `cap=4` it is 17 and 22,
+    so price what you will run. (Five other rows have one too — `review-deep`,
+    `review-sec` and `partner-collaborator` at `paths`, `translate` and
+    `translate-en` at `text` — and each says so on its own page.) It is read
+    in Haskell into the ACT gate's bound
+    and rides into the acting brief as the commit ceiling, so one number does
+    both jobs. Empty is *two* repair trips — deliberately not the skill's own
+    default of twenty, because twenty rounds of a priced loop is a plan nobody
+    would read. `cap=0` is not unbounded here; an unbounded loop has no price.
+
+  **Transport.** Unattended, with somewhere to write: an adapter of the run's
+  own and `--scratch "$PWD"`, because the ACT phase removes code from your tree
+  and the scratch directory is the only place an acting turn may write. Without
+  the flag it deletes from a copy.
+
+  ```sh
+  wf run dead-code --engine acp --adapter claude --require-pinned --scratch "$PWD" \
+     --input-arg scope=src/Workflows --input-file paths=changed.txt --input-arg cap=4
+  ```
+
+  **Rehearsal.** All three inputs named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run dead-code --scripted --input-arg scope= --input-arg paths= --input-arg cap=
+  ```
+
+  **Caveats.**
+
+  * **`plan` and `cost` must be given the same `cap=` the run will use**, or
+    they price a different program. `wf cost dead-code --input-arg cap=4` is how
+    to see the cost of your own cap before spending it, and the difference
+    between that and `wf cost dead-code` is the whole argument for the input
+    being read in Haskell rather than in a prompt. The rehearsal above is the
+    empty-`cap` shape, which is also the shape the gate pins — rehearsing at
+    `cap=4` is the cheapest way to watch the paths multiply.
+  * The two gates come first and cost nothing. A dirty working tree is
+    `git status --porcelain` read by a decider; a red test suite is the
+    repository's own gate read as an exit code. Both have an arm, and the arm
+    reports and stops — which is where the cheapest ending comes from, and it
+    changes your tree not at all.
+  * MARK, DEBATE, ACT and VERIFY are binds in one block, each reading the handle
+    the last one bound. There is no order in which they could run but this one,
+    which is what "four phases that cannot interleave" means when it is a type
+    rather than a heading.
+  * The sidecar candidate manifest is asked for and never read back. It exists
+    for you — it is what `git diff --stat` shows at the end of the marking phase
+    — and this program's honesty about it is that it does not pretend to have
+    parsed it.
+  |]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

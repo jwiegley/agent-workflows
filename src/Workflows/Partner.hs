@@ -170,6 +170,7 @@ module Workflows.Partner
     PartnerRole (..),
     partnerRoleName,
     partnerDoc,
+    partnerHelp,
     ideasOn,
 
     -- * The program
@@ -253,6 +254,154 @@ partnerDoc Collaborator =
   "partner-collaborator.md: deep-review's roster plus three drawn ideas, as observation files"
 partnerDoc Cleanup =
   "partner-cleanup.md: two drain rounds behind a free `find` test, then one `commitFn` call"
+
+-- | The page @wf help \<role\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- One text at three settings, as 'partnerDoc' and 'ideasOn' are. All three take
+-- the same three inputs and publish into or drain from one directory, so the
+-- inputs paragraph is written once.
+--
+-- __The transport paragraph is per-role because the truth is.__ Two of the
+-- three are worth having only because they are /not/ the party that wrote the
+-- code, and nothing in the program can secure that; the third edits, so it
+-- belongs in the work's own tree. A shared paragraph would give exactly the
+-- wrong advice to one of the three.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+partnerHelp :: PartnerRole -> Text
+partnerHelp r =
+  [wft|
+  {opening}
+
+  **Inputs.**
+
+  * `commit` — the revision under review, as the *argv* of the git commands and
+    not a phrase a model interprets. Empty is `HEAD`.
+  * `observations` — the directory observation files are published into, or
+    drained from. It is an argv too. Empty is `doc/observations`, which is where
+    all three look by default, so the reviewing half and the draining half meet
+    without either being told twice.
+  {pathsInput}
+
+  **Transport.** {transport}
+  {paneNote}
+
+  ```sh
+  wf run {row} {live} \
+     --input-arg commit=HEAD --input-arg observations=doc/observations \
+     {pathsFlag}
+  ```
+
+  **Rehearsal.** All three inputs named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run {row} --scripted --input-arg commit= --input-arg observations= \
+     --input-arg paths=
+  ```
+
+  **Caveats.**
+
+  {caveat}
+  * One observation file per finding is the contract, and it is one contract for
+    all three rows rather than one per command: the category vocabulary is
+    derived from the single setting that distinguishes reviewer from
+    collaborator, so a category added reaches both by being added.
+  |]
+  where
+    row = partnerRoleName r
+
+    opening = case r of
+      Reviewer ->
+        [wft|
+        `commands/partner-reviewer.md` as a program: the observation contract
+        over `heavy-review`'s seven passes — which is the review command that
+        file names — publishing one file per actionable finding, and priced
+        exactly because it neither loops nor branches.|]
+      Collaborator ->
+        [wft|
+        `commands/partner-collaborator.md` as a program: the same contract over
+        `deep-review`'s roster — which is the review command *that* file names —
+        with the ideation pass beside it as three drawn ideas. The one setting
+        that separates it from `partner-reviewer` also adds the `Idea` category,
+        so the two vocabularies cannot drift.|]
+      Cleanup ->
+        [wft|
+        `commands/partner-cleanup.md` as a program: the other half of the
+        partnership. Two drain rounds, each behind a *free* test over a `find`
+        receipt — bytes the answering model did not write — and then one call of
+        the commit discipline.|]
+
+    pathsInput = case r of
+      Collaborator ->
+        [wft|
+        * `paths` — the changed-file list, one path per line, and
+          `git diff --name-only > changed.txt` is the usual way to make one. At
+          this role it *widens the roster* with the language reviewers the
+          commit touches, in ordinary Haskell before the program exists, so
+          `plan` must be given the same `paths=` the run will use. An empty list
+          is the required lenses and the performance pass — never an empty
+          panel.|]
+      Reviewer ->
+        [wft|
+        * `paths` — the changed-file list, one path per line. At this role the
+          roster is `heavy-review`'s own fixed seven, so the file list selects
+          **nothing** and this row's price does not move with it. It is declared
+          because the three roles share one invocation.|]
+      Cleanup ->
+        [wft|
+        * `paths` — the changed-file list, one path per line. This role reads no
+          reviewer roster at all — it drains a directory and commits — so the
+          file list selects **nothing** here. It is declared because the three
+          roles share one invocation.|]
+
+    transport = case r of
+      Cleanup ->
+        [wft|
+        The work's own pane, or an adapter with `--scratch "$PWD"`. This is the
+        role of the three that *edits*: it drains the observation files into
+        changes and calls the commit discipline, so it belongs in the tree the
+        observations are about.|]
+      _ ->
+        [wft|
+        Somewhere that is **not** the work. A partner review is worth having
+        because it is not the party that wrote the code, and nothing in the
+        program can secure that — so name a pane that is not the work's, or use
+        `--engine acp`, whose fresh session per question is the stronger of the
+        two. Naming the working pane is the quiet failure: the run succeeds and
+        reads like a review. Every ending quotes `run.engine`, so the report
+        says which you did.|]
+
+    live = case r of
+      Reviewer -> [wft|--session "$PANE_R" --require-pinned|]
+      Collaborator -> [wft|--engine acp --adapter claude --require-pinned|]
+      Cleanup -> [wft|--session "$PANE_W" --require-pinned|]
+
+    pathsFlag = case r of
+      Cleanup -> [wft|--input-arg paths=|]
+      _ -> [wft|--input-file paths=changed.txt|]
+
+    caveat = case r of
+      Reviewer ->
+        [wft|
+        * It publishes; it does not fix. The files it writes are consumed by
+          `partner-cleanup`, and running the reviewer without ever draining the
+          directory is how an observations directory becomes an archive.|]
+      Collaborator ->
+        [wft|
+        * The three drawn ideas are drawn rather than ranked, and they are the
+          only difference in kind from `partner-reviewer`. If ideas are not
+          wanted, the cheaper row is the other one.|]
+      Cleanup ->
+        [wft|
+        * The cheapest ending is the honest one and it costs almost nothing: a
+          `find` over the observations directory comes back empty, so there is
+          nothing to drain, nobody is consulted about the work, and the run says
+          so.
+        * It commits. The decomposition is the commit discipline's, called as a
+          function, so what lands is what that row would have landed.|]
 
 -- | @ideas=on@, the first of the two settings @doc\/design.md@ §8 names.
 --

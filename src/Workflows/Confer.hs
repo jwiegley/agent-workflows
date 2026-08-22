@@ -128,6 +128,7 @@ module Workflows.Confer
     ConferRung (..),
     conferRungName,
     conferDoc,
+    conferHelp,
     conferProgram,
     conferScript,
 
@@ -392,6 +393,164 @@ conferDoc Confer = "three stances over one decision, folded to a document and sy
 conferDoc Bare = "the same three stances, written down and deliberately not reconciled"
 conferDoc Debate = "for and against only: the pair, synthesised, with no middle seat"
 conferDoc Second = "one contrary party under the anti-sycophancy rubric, and an artefact"
+
+-- | The page @wf help \<row\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- One text at four settings, for 'conferProgram''s own reason: a variant is the
+-- same program at a different roster, so a page per row would be four things to
+-- keep true about one shape.
+--
+-- __The routing paragraph is the whole point of the family and is shared.__
+-- The seats are pinned to distinct primaries so that a route table /can/ put
+-- them on distinct providers; unrouted they are fresh sessions of one model,
+-- which is independence of context and not of judgment. The three rows that
+-- carry a provenance paragraph say which you got, from @run.backends@ and
+-- @run.engine@ — and @second-opinion@ declares neither run fact, because one
+-- block has nothing to be independently confirmed by. That is why its
+-- @runFacts@ line in the header above is empty, and it is a fact worth seeing.
+--
+-- __It states no price.__ The header above carries the numbers, and for all
+-- four rows the two bounds coincide: nothing branches and nothing loops, so
+-- @wf cost@ answers before a word of the decision has been written.
+conferHelp :: ConferRung -> Text
+conferHelp r =
+  [wft|
+  {opening}
+
+  **Inputs.**
+
+  * `decision` — the question being conferred over, stated as a decision and
+    not as a topic. It reaches every seat as *data*, so no turn can rewrite it
+    and all of them are answering the same question.
+  * `context` — the material it is decided against, and
+    `--input-file context=doc/design.md` is the natural spelling: the operator's
+    text arrives as data, which is why this row does not open by asking a tool
+    to go and read a file. Empty is legal and the brief says so in as many
+    words, so nobody has to invent a placeholder.
+
+  **Transport.** An adapter of the run's own, and a `--route` per pinned seat
+  whenever you want a seat served by somebody other than the house model.
+  {routing}
+
+  ```sh
+  wf run {row} --engine acp --adapter claude --require-pinned \
+     --route gemini-3.1-pro-preview=acp:codex \
+     --input-arg decision={decisionEg} \
+     --input-file context=doc/design.md
+  ```
+
+  **Rehearsal.** Both inputs named empty, every seat answered from the row's own
+  canned table:
+
+  ```sh
+  wf run {row} --scripted --input-arg decision= --input-arg context=
+  ```
+
+  **Caveats.**
+
+  {rowCaveat}
+  {unrouted}
+  * It writes a document and touches nothing else, so `--scratch` changes
+    nothing about what it means.
+  * There is no Markdown behind these rows. They are the workflow-native
+    counterpart of a consensus tool, and what they add is a price before the
+    spend and a trace after it.
+  |]
+  where
+    row = conferRungName r
+
+    opening = case r of
+      Confer ->
+        [wft|
+        Three stances over one decision — the case for, what breaks and traced
+        to a mechanism, and which claims the context actually settles — folded
+        into a document and then synthesised.|]
+      Bare ->
+        [wft|
+        The same three stances, written down and deliberately *not* reconciled.
+        This is the row for when the reconciliation is yours to do and a
+        synthesis would be a fourth opinion wearing the other three's clothes.|]
+      Debate ->
+        [wft|
+        For and against only: the standing roster with the middle seat filtered
+        out, synthesised. A debate is what it is by not having an assessor, and
+        the two seats' briefs are told so.|]
+      Second ->
+        [wft|
+        One contrary party under the anti-sycophancy rubric, and an artefact.
+        It is the smallest shape in the confer family: one seat, told to argue
+        with the decision rather than agree with it, where `confer` seats a
+        panel and `debate` seats two sides.|]
+
+    routing = case r of
+      Second ->
+        [wft|
+        This row asks one party, and it is deliberately not the house model:
+        the whole value of a second opinion is that it comes from somewhere
+        else, so a route that sends it back to the primary undoes the row.|]
+      Debate ->
+        [wft|
+        Two seats, two pins. Routing them apart is what turns "they agreed"
+        from a fact about one model's temperature into a fact about two.|]
+      _ ->
+        [wft|
+        Three seats, three pins, and the report's provenance paragraph is
+        derived from where they actually landed.|]
+
+    -- The seat count is the row's, so this cannot be one shared sentence:
+    -- 'debateRoster' filters the middle seat out and @second-opinion@ asks one
+    -- party, and a caveat that said "three" at all four would be false at two
+    -- of them.
+    unrouted = case r of
+      Second ->
+        [wft|
+        * Unrouted under one adapter the contrary party is a fresh session of
+          the house model. It will still argue — the rubric is what makes it
+          argue — but an objection from the model that produced the thing being
+          objected to is worth less than one from somewhere else, which is why
+          this row's one seat is pinned away from the primary.|]
+      Debate ->
+        [wft|
+        * Unrouted under one adapter the two seats are two fresh sessions of
+          one model. That is independence of context and not of judgment; the
+          report says which you got rather than letting the reader assume.|]
+      _ ->
+        [wft|
+        * Unrouted under one adapter the three seats are three fresh sessions
+          of one model. That is independence of context and not of judgment,
+          and it is not what agreement across three providers would mean; the
+          report says which you got rather than letting the reader assume.|]
+
+    decisionEg :: Text
+    decisionEg = case r of
+      Debate -> "'Should ci/workflows.sh pin costMax by equality?'"
+      Second -> "'I am about to fold the two registries into one.'"
+      _ -> "'Should the registry be one table or two?'"
+
+    rowCaveat = case r of
+      Confer ->
+        [wft|
+        * The synthesis is a fourth question, and it is where this row's price
+          differs from `confer-bare`'s. If you want the three stances and none
+          of the reconciling, that row is a smaller bill and a different
+          artefact.|]
+      Bare ->
+        [wft|
+        * Nothing reconciles the three blocks, on purpose. The document is the
+          deliverable and the disagreement in it is the finding — do not read
+          the last block as a conclusion.|]
+      Debate ->
+        [wft|
+        * It *filters* the standing roster rather than copying it, which is why
+          a fourth seat added to `confer` moves `confer` and `confer-bare` and
+          leaves this row exactly where it is.|]
+      Second ->
+        [wft|
+        * It carries no provenance paragraph and declares no run facts, because
+          one block cannot be independently confirmed by anything. What it buys
+          is an argument and not a consensus, and reading it as a consensus is
+          the one way to misuse it.|]
 
 -- | The inputs the three rows with a provenance paragraph take.
 --

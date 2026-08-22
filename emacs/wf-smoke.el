@@ -40,6 +40,9 @@
 
 (require 'seq)
 (require 'subr-x)
+;; For `cl-letf' alone: one command here reads its row from the minibuffer, and
+;; batch has no minibuffer to read from.  `wf.el' itself requires neither.
+(require 'cl-lib)
 
 ;; An error out of `wf.el' itself — no binary, no JSON — is a sentence that
 ;; package took care to write, and batch Emacs would otherwise bury it under a
@@ -290,6 +293,30 @@ the listing says on each of its two streams."
      (and buf (with-current-buffer buf
                 (string-match-p "hello, as elaborated:" (buffer-string))))
      "the plan buffer holds `wf plan' prose, which is read and never scraped"))
+
+  ;; `wf-help' is the same arrangement over the fifth verb: the binary's own
+  ;; stdout in a read-only buffer, displayed and never parsed.  The page has no
+  ;; `--json' spelling by design, so a front end that scraped it would be
+  ;; reading the one output in this CLI that is explicitly not a contract.
+  ;;
+  ;; The row is picked interactively, which batch cannot do, so the picker is
+  ;; answered by binding it — what is under test is what `wf-help' does with the
+  ;; row, which is the half a person cannot check by reading the code.
+  (cl-letf (((symbol-function 'wf--read-row) (lambda (&rest _) hello)))
+    (let ((buf (save-window-excursion (wf-help))))
+      (wf-smoke-assert
+       (buffer-live-p buf)
+       "wf-help leaves a buffer behind")
+      (with-current-buffer buf
+        (wf-smoke-assert
+         (string-match-p "\\*\\*Transport\\.\\*\\*" (buffer-string))
+         "…holding the row's page, `wf help' \\='s own bytes")
+        (wf-smoke-assert
+         buffer-read-only
+         "…read-only, like the plan and cost buffers")
+        (wf-smoke-assert
+         (eq major-mode 'special-mode)
+         "…in special-mode, so q buries it"))))
 
   (princ (format "\nwf-smoke: %d facts, 0 failed\n" wf-smoke-checks)))
 

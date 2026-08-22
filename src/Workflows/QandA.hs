@@ -111,6 +111,7 @@ module Workflows.QandA
   ( -- * The program
     qandaProgram,
     qandaDoc,
+    qandaHelp,
     qandaScript,
 
     -- * The tier-1 readings of an invocation
@@ -528,6 +529,66 @@ qandaProgram =
 qandaDoc :: Text
 qandaDoc =
   "qanda.md: an agenda from --input-file, the full background before the first question, and the owner's answer as the loop's verdict"
+
+-- | The page @wf help qanda@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __The @decisions@ bullet carries the one reading an operator cannot guess__:
+-- an empty agenda is /one placeholder decision/ and never the empty list,
+-- because a walkthrough of nothing is a question put to the owner about
+-- nothing — and, structurally, because a panel with no members is an error on a
+-- CAF. That is house rule WR-1 as it shows at this row, and it is the reason
+-- the header's numbers are the numbers of a real program.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+qandaHelp :: Text
+qandaHelp =
+  [wft|
+  `commands/qanda.md` as a program: an agenda of decisions, the *full*
+  background produced before the first question is put, and then the owner's
+  answer as the loop's verdict. The corpus file is three lines with no named
+  input; this row is those three lines with an agenda, a bound, and an ending
+  for a person who walks away.
+
+  **Inputs.**
+
+  * `decisions` — the agenda, one decision per line, and `--input-file
+    decisions=doc/agenda.md` is the natural spelling. An empty one is **one
+    placeholder decision** and never the empty list, because an empty agenda
+    would ask the owner to walk through nothing.
+  * `context` — the background the decisions are made against: the design, the
+    constraints, what has already been settled. It is an input and therefore
+    data, so the run does not open by asking a tool to go and read it.
+
+  **Transport.** A watched pane. The judge here is a person, and an unattended
+  run reaches nobody: `--scripted` answers a flag and an adapter of the run's
+  own has no one to ask. Give it the pane you are sitting in front of.
+  {paneNote}
+
+  ```sh
+  wf run qanda --session "$PANE" --require-pinned \
+     --input-file decisions=doc/agenda.md --input-file context=doc/design.md
+  ```
+
+  **Rehearsal.** Both inputs named empty, every question answered from the row's
+  own canned table, consulting nobody:
+
+  ```sh
+  wf run qanda --scripted --input-arg decisions= --input-arg context=
+  ```
+
+  **Caveats.**
+
+  * The background is produced **before** the first question, which is the whole
+    of what this row adds: a walkthrough that researches as it goes asks the
+    owner to wait, and asks the third question with more context than the first.
+  * There is an ending for a person who walks away, and it is not a failure. The
+    loop is bounded, so an unanswered agenda ends with what was settled and what
+    was not.
+  * A rehearsal exercises the loop and not the judgment. A canned yes is not a
+    decision, which is why the pane is a requirement here rather than advice.
+  |]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

@@ -121,6 +121,7 @@ module Workflows.Productize
     ProductizeRung (..),
     productizeName,
     productizeDoc,
+    productizeHelp,
 
     -- * The programs
     productizeProgram,
@@ -176,6 +177,95 @@ productizeDoc Full =
   "productize.md: twenty-one deliverables as a roster priced at twenty-one, then `nix flake check` as the gate"
 productizeDoc Lefthook =
   "lefthook.md: the pre-commit slice of `productize`, as a call rather than a prose reference"
+
+-- | The page @wf help \<rung\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- One text at two settings. The two rungs take the same two inputs and read
+-- them the same way — a whole rung is a /slice/ of the other, called rather
+-- than described — so the inputs and the transport are written once; what
+-- differs is the opening, the worked example's scope, and the caveat that says
+-- which of the two an operator wants.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes. The one number worth an operator's
+-- attention is this row's /floor/, which is unusually high — the deliverables
+-- are a fixed roster, so even the cheapest run writes all of them — and the
+-- caveat says so in words rather than repeating the header.
+productizeHelp :: ProductizeRung -> Text
+productizeHelp r =
+  [wft|
+  {opening}
+
+  **Inputs.**
+
+  * `paths` — the file list, one path per line, and
+    `git diff --name-only > changed.txt` is the usual way to make one. It
+    decides the preferences table and the per-language tool seats in ordinary
+    Haskell before the program exists, so `plan` must be given the same `paths=`
+    the run will use. An empty list collapses the per-language seats to *one
+    general seat* rather than to none.
+  * `scope` — what the operator says the repository is **for**, in his own
+    words. It rides into the specification, because a README and a fuzz harness
+    both need to know what the thing is. Empty is legal and is a
+    productionisation of a repository described only by its files.
+
+  **Transport.** Unattended, with somewhere to write: an adapter of the run's
+  own and `--scratch "$PWD"`, because this row *writes files into your
+  repository* — that is the whole of what it is for — and the scratch directory
+  is the only place an acting turn may write.
+
+  ```sh
+  wf run {row} --engine acp --adapter claude --require-pinned --scratch "$PWD" \
+     --input-file paths=changed.txt --input-arg scope='a Haskell library and its CLI'
+  ```
+
+  **Rehearsal.** Both inputs named empty, every question answered from the row's
+  own canned table, consulting nobody:
+
+  ```sh
+  wf run {row} --scripted --input-arg paths= --input-arg scope=
+  ```
+
+  **Caveats.**
+
+  {caveat}
+  * **The floor above is high, and it is a floor rather than an estimate.** The
+    deliverables are a *fixed roster*, so the cheapest run is one that wrote all
+    of them and passed the gate first time; there is no arm in which fewer are
+    written. Read the floor before starting, not the spread.
+  * The gate at the end is `nix flake check`, which is an exit code and not an
+    opinion. A repository that cannot be checked that way gets a run that
+    reports it rather than one that claims success.
+  |]
+  where
+    row = productizeName r
+
+    opening = case r of
+      Full ->
+        [wft|
+        `commands/productize.md` as a program: twenty-one deliverables — README,
+        licence, dev shell, formatting, linting, coverage, CI, pre-commit hooks
+        and the rest — as a roster priced at twenty-one, and then
+        `nix flake check` as the gate the whole thing is held to.|]
+      Lefthook ->
+        [wft|
+        `commands/lefthook.md` as a program: the pre-commit slice of
+        `productize`, as a **call** rather than as a prose reference to another
+        command. Formatting, a warning-free build, tests, linting and coverage,
+        wired into `lefthook.yml` and held to the same gate.|]
+
+    caveat = case r of
+      Full ->
+        [wft|
+        * If what you want is only the pre-commit wiring, `productize-lefthook`
+          is the cheaper row and it is the same code: the slice is a function
+          call here, so the two cannot drift apart.|]
+      Lefthook ->
+        [wft|
+        * It is a slice and says so. There is no README, no licence and no CI
+          workflow in this rung — `productize` is the row that writes those, and
+          this one is a call inside it.|]
 
 -- ---------------------------------------------------------------------------
 -- The one party that is this program's own

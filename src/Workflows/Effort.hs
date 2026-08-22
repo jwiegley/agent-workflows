@@ -171,6 +171,7 @@ module Workflows.Effort
     Tier (..),
     effortName,
     effortDoc,
+    effortHelp,
     effortGate,
 
     -- * The program
@@ -278,6 +279,148 @@ effortDoc :: Tier -> Text
 effortDoc Medium = "medium.md: the standard toolkit — plan, execute, and hold the tree to its own gate"
 effortDoc Heavy = "heavy.md: the same, plus the two pinned partners and the Positron context, decided free"
 effortDoc Forge = "forge/SKILL.md: the six phases, the approval pause, and a remediation loop with three endings"
+
+-- | The page @wf help \<rung\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- One text at three settings. The three rungs share a shape and two inputs and
+-- differ in exactly what the skills say they differ in, so the inputs are
+-- written once — with one exception that has to be per-rung.
+--
+-- __@worktree@ is read by one rung of the three__, which is the fact this page
+-- exists to carry: it decides whether the run is under one of the owner's
+-- Positron directories, and only the @Heavy@ rung consults that. At the other
+-- two the input is declared, because the three share one invocation, and read
+-- by nobody — a shared bullet would be wrong twice out of three times.
+--
+-- __The transport is per-rung too__, because the heaviest one puts an approval
+-- to a person and an unattended run reaches nobody.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+effortHelp :: Tier -> Text
+effortHelp t =
+  [wft|
+  {opening}
+
+  **Inputs.**
+
+  * `task` — what all three entry points spell `$ARGUMENTS`: the thing to be
+    planned and done, in your own words. It is the subject of every phase, and
+    an empty one is a plan about nothing — which the plan prints.
+  {worktreeInput}
+
+  **Transport.** {transport}
+
+  ```sh
+  wf run {row} {live} \
+     --input-arg task={taskEg} --input-arg worktree={worktreeEg}
+  ```
+
+  **Rehearsal.** Both inputs named empty, every question answered from the row's
+  own canned table, consulting nobody:
+
+  ```sh
+  wf run {row} --scripted --input-arg task= --input-arg worktree=
+  ```
+
+  **Caveats.**
+
+  {caveat}
+  * The three rungs are a ladder the owner already had as an unpriced cost model
+    — medium inside heavy inside forge — and the point of them being three rows
+    is that the three bills sit side by side in `wf list` before one is chosen.
+  * Every rung ends by holding the tree to a gate that is a *command's exit
+    code*, not a party's opinion. Which command differs between the rungs, and
+    the skills state the difference.
+  |]
+  where
+    row = effortName t
+
+    opening = case t of
+      Medium ->
+        [wft|
+        `commands/medium.md` as a program: the standard toolkit at its first
+        setting — plan, execute, and hold the tree to its own lint and
+        type-check gate. The floor of the ladder, and the rung to reach for when
+        the work is understood and the question is only whether it was done
+        properly.|]
+      Heavy ->
+        [wft|
+        `commands/heavy.md` as a program: the same shape, plus the two pinned
+        partners and the Positron context — the latter decided for *free*, in
+        ordinary Haskell over the worktree path, before the program exists.|]
+      Forge ->
+        [wft|
+        `skills/forge/SKILL.md` as a program: the six phases, the approval pause
+        in the middle, and a remediation loop with three endings. The top of the
+        ladder, and the only rung that stops and asks.|]
+
+    worktreeInput = case t of
+      Heavy ->
+        [wft|
+        * `worktree` — the path read to decide whether this is one of the
+          owner's Positron directories, which selects the extra context this
+          rung carries. It is read in ordinary Haskell — tier 1, zero questions
+          — so it changes a define rather than a path, and an empty one is
+          simply the non-Positron shape.|]
+      _ ->
+        [wft|
+        * `worktree` — the path `effort-heavy` reads to decide whether it is
+          under a Positron directory, and **this rung does not read it**. The
+          three rows share one invocation, so it is declared here and consumed
+          nowhere; that is also what makes it free at this rung.|]
+
+    transport = case t of
+      Forge ->
+        [wft|
+        A watched pane. This rung puts an approval to the owner in binding
+        position — the phases after it are reached only through his answer — and
+        an unattended run reaches nobody: `--scripted` answers the confirmation
+        from a table and an adapter of the run's own has no one to ask.
+        {paneNote}|]
+      _ ->
+        [wft|
+        Unattended, with somewhere to write: an adapter of the run's own and
+        `--scratch "$PWD"`, because this rung edits your tree and the scratch
+        directory is the only place an acting turn may write.|]
+
+    live = case t of
+      Forge -> [wft|--session "$PANE" --require-pinned|]
+      _ -> [wft|--engine acp --adapter claude --require-pinned --scratch "$PWD"|]
+
+    taskEg :: Text
+    taskEg = case t of
+      Medium -> "'add the missing --dry-run flag'"
+      Heavy -> "'bring the token-refresh path under test'"
+      Forge -> "'design the retry policy'"
+
+    worktreeEg :: Text
+    worktreeEg = case t of
+      Heavy -> "\"$HOME/src/positron/my-project\""
+      _ -> ""
+
+    caveat = case t of
+      Medium ->
+        [wft|
+        * No partners, no multi-model consensus, no approval pause. If the work
+          needs an argument before it is done, that is `effort-heavy` or
+          `effort-forge`, and the difference in price is the difference in what
+          is asked.|]
+      Heavy ->
+        [wft|
+        * The Positron context is decided for nothing and is either there or
+          not. An empty `worktree=` is the non-Positron shape, which is a
+          smaller define and the same program — so this rung does not become
+          `effort-medium` when the flag is missing.|]
+      Forge ->
+        [wft|
+        * The approval pause is a real gate only when somebody is watching. A
+          rehearsal answers it from the row's own table, which exercises the
+          loop and tells you nothing about what you would have said.
+        * The remediation loop has three endings and the third is the one to
+          read hardest: it means the work could not be brought to the standard
+          the plan set, which is a result and not a crash.|]
 
 -- | Which command decides that a rung's work is green.
 --

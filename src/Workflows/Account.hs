@@ -136,6 +136,7 @@ module Workflows.Account
     AccountKind (..),
     accountName,
     accountDoc,
+    accountHelp,
 
     -- * The program
     accountProgram,
@@ -214,6 +215,161 @@ accountDoc Report =
   "report.md: seven categories as seven panel members, and the estimate on a different engine"
 accountDoc Narrative =
   "narrative.md: a receipt dossier, a chronology, a writer over it, and a sourcing gate elsewhere"
+
+-- | The page @wf help \<kind\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- One text at four settings, as 'accountDoc' and 'accountDossier' are. The four
+-- kinds take the /same two inputs/ and answer one question — where does the
+-- work stand — so the inputs paragraph is written once; what differs is the
+-- opening, the transport (one of the four commits and pushes), and the caveat
+-- that says what this kind will not do.
+--
+-- __@journal@ is read by one of the four, and the page says which.__ That is
+-- the fact an operator most needs from this family: three of the rows declare
+-- an input they do not read, because the four share one invocation, and
+-- @wf plan@ says so. A shared paragraph claiming all four read it would be
+-- wrong three times out of four.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+accountHelp :: AccountKind -> Text
+accountHelp k =
+  [wft|
+  {opening}
+
+  **Inputs.**
+
+  * `scope` — what the account is *about*: a branch, a milestone, a week. It is
+    an input and therefore a define, so it rides into every member's closing
+    line for zero extra questions. Empty is legal and costs nothing — the
+    account is then about the work the receipts found.
+  {journalInput}
+
+  **Transport.** {transport}
+
+  ```sh
+  wf run {row} {live} \
+     --input-arg scope={scopeEg} --input-arg journal={journalEg}
+  ```
+
+  **Rehearsal.** Both inputs named empty, every question answered from the row's
+  own canned table, consulting nobody:
+
+  ```sh
+  wf run {row} --scripted --input-arg scope= --input-arg journal=
+  ```
+
+  **Caveats.**
+
+  {caveat}
+  * Every one of the four is built on *receipts* — the working tree, the
+    branch's log, the diff — collected before anything is asked, so an account
+    is about the repository rather than about what a model remembers of it. A
+    run in the wrong directory writes a confident account of the wrong project,
+    and no gate in the program can catch that.
+  |]
+  where
+    row = accountName k
+
+    opening = case k of
+      Halt ->
+        [wft|
+        `commands/halt.md` as a program: its four numbered steps in order — the
+        journal written as a function call, the commit discipline called as
+        another, the push, the remaining-scope panel, and one act that writes
+        the handoff where the next session will find it.|]
+      Sitrep ->
+        [wft|
+        `commands/sitrep.md` as a program: eight sections over a dossier of four
+        command receipts, with the filename scheme computed in Haskell instead
+        of described in prose. It prices exactly, because it has no loop and no
+        branch — it reads, it folds, it writes.|]
+      Report ->
+        [wft|
+        `commands/report.md` as a program: seven categories as seven panel
+        members over one dossier, and the estimate asked as a *separate*
+        question on another engine — because the party that planned the work is
+        the last one to ask how long it will take.|]
+      Narrative ->
+        [wft|
+        `commands/narrative.md` as a program, reworked: a receipt dossier, a
+        chronology over it whose every claim carries the receipt it came from, a
+        writer over the chronology and nothing else, and a sourcing gate
+        elsewhere. "Distinguish fact from inference" stops being an instruction
+        and becomes a party that did not write the prose it is checking.|]
+
+    journalInput = case k of
+      Narrative ->
+        [wft|
+        * `journal` — the path to the journal file, and it is the *argv* of a
+          `cat` rather than the file's contents. This is the one kind of the
+          four that reads it, and it is the earliest receipt in the dossier: the
+          chronology is built over it. Empty is a narrative written from the
+          repository's own history alone.|]
+      _ ->
+        [wft|
+        * `journal` — the path `account-narrative` reads, and **this kind does
+          not read it**. The four rows share one invocation, so the input is
+          declared here and consumed nowhere; `wf plan {row}` says as much. A
+          value given here changes nothing about what is asked.|]
+
+    transport = case k of
+      Halt ->
+        [wft|
+        A watched pane, which is what the line below spells. This kind is the
+        one of the four that *acts on your repository*: it calls the commit
+        discipline, it pushes, and it writes a handoff outside the tree, and
+        in a pane all of that happens where you can watch it.
+        {paneNote}
+        Under `--engine acp` instead, give it `--scratch "$PWD"` so the run
+        edits the tree you meant. The two are not interchangeable flags:
+        `--scratch` is `acp`'s, and a run that names it beside `--session` is
+        refused before anything starts.|]
+      _ ->
+        [wft|
+        Fine anywhere: it reads receipts, fans out over them and writes one
+        report. An adapter of the run's own is the usual shape, and `--scratch`
+        is worth giving only if you mean to keep the file.|]
+
+    live = case k of
+      Halt -> [wft|--session "$PANE" --require-pinned|]
+      _ -> [wft|--engine acp --adapter claude --require-pinned|]
+
+    scopeEg :: Text
+    scopeEg = case k of
+      Halt -> "'stopping for the week'"
+      Sitrep -> "'the token-refresh branch'"
+      Report -> "'what remains before the release'"
+      Narrative -> "'the last three weeks'"
+
+    journalEg :: Text
+    journalEg = case k of
+      Narrative -> "doc/journal.md"
+      _ -> ""
+
+    caveat = case k of
+      Halt ->
+        [wft|
+        * It is the only one of the four that changes anything. The other three
+          write a document; this one commits, pushes and leaves a handoff, so
+          run it when you mean to stop rather than when you want to look.|]
+      Sitrep ->
+        [wft|
+        * Eight sections, and the eighth is not an estimate. If what you want is
+          "how much is left and how long", that is `account-report`, whose
+          estimate is a separate question on a separate engine.|]
+      Report ->
+        [wft|
+        * The estimate is deliberately not the panel's. Seven category members
+          write what remains; a different engine prices it, so the party that
+          enumerated the work is not the party that says how long it takes.|]
+      Narrative ->
+        [wft|
+        * The sourcing gate is on another engine, and it is the point of the
+          rework: the chronology's claims are checked by a party that did not
+          write them. A run that puts writer and checker in one shared pane
+          keeps the shape and loses the guarantee.|]
 
 -- ---------------------------------------------------------------------------
 -- The dossier each kind reads

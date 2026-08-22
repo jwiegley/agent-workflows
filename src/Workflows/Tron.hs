@@ -110,6 +110,7 @@ module Workflows.Tron
   ( -- * The program
     tronProgram,
     tronDoc,
+    tronHelp,
     tronScript,
 
     -- * The four IR boundaries
@@ -899,6 +900,69 @@ irDossier =
 tronDoc :: Text
 tronDoc =
   "tron-debug.md: the control, the ingest, the compile and the run as four receipts, and a diagnosis only reachable through all four"
+
+-- | The page @wf help tron@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __The @model@ bullet is the one that saves a wasted run__: it names /both/
+-- sides of the differential, because the control's name is computed from it —
+-- so one flag is two arguments and an operator who expected to name the control
+-- separately will look for a flag that is deliberately not there.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+tronHelp :: Text
+tronHelp =
+  [wft|
+  `commands/tron-debug.md` as a program: the control, the ingest, the compile
+  and the run as four command receipts, and a diagnosis reachable **only**
+  through all four. Several of its endings are "a command did not do what this
+  run needed", and each of those is better localised than the diagnosis it
+  replaces.
+
+  **Inputs.**
+
+  * `problem` — the symptom, in your own words, spliced into all four lenses.
+    One description, four readings of it.
+  * `model` — the model under test, and it names **both** sides of the
+    differential: the control's name is *computed* from this value, so one flag
+    is two arguments and there is deliberately no second flag for the control.
+    Empty is the corpus's own default, which the plan prints.
+  * `trace` — the Torch export directory. Empty is the corpus's own default,
+    again printed by the plan. What a tilde becomes depends on your shell: write `"$HOME/…"`.
+
+  **Transport.** Unattended, with somewhere to write: an adapter of the run's
+  own and `--scratch "$PWD"`, because the run compiles and executes in a
+  directory and the scratch directory is the only place an acting turn may
+  write.
+
+  ```sh
+  wf run tron --engine acp --adapter claude --require-pinned --scratch "$PWD" \
+     --input-arg problem='the plugin emits zeros for the attention block' \
+     --input-arg model=llama_3p1_8b_torch --input-arg trace="$HOME/exports/llama-3p1-8b"
+  ```
+
+  **Rehearsal.** All three inputs named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run tron --scripted --input-arg problem= --input-arg model= --input-arg trace=
+  ```
+
+  **Caveats.**
+
+  * A diagnosis is only reachable through the arms in which the commands
+    actually ran, and that is the shape of this row rather than a caution about
+    it. The cheap endings are the control's ingest failing — the run refuses to
+    diagnose at all — and each of them names *which* command did not do what was
+    needed.
+  * It is one machine's pipeline. The IR stages, the build targets and the
+    export layout are the Torch Fx ingest path's, and a run pointed at anything
+    else will report four failing receipts, correctly.
+  * A wrong `model=` is a wrong *control*, silently: the differential is then
+    between two things you did not mean to compare. `wf plan tron --raw` prints
+    both names, which is the cheapest way to check before spending.
+  |]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

@@ -139,6 +139,7 @@ module Workflows.Retest
     Tier (..),
     retestName,
     retestDoc,
+    retestHelp,
 
     -- * The override table
     Battery (..),
@@ -210,6 +211,126 @@ retestDoc Hf =
   "retest/SKILL.md: the model-support battery against the HuggingFace forward pass — one exhaustive sweep, five endings, priced first"
 retestDoc Categorical =
   "retest-categorical.md: the same battery against the legacy ingest path, over the fixed eight-model roster — an FPGA sweep priced before a card is opened"
+
+-- | The page @wf help \<rung\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- One text at two settings: __one body, two oracles__, which is exactly what
+-- 'battery' is. The inputs and the transport are the same at both rungs and are
+-- written once.
+--
+-- __The @models@ bullet is per-rung, because the truth is.__ At @Categorical@
+-- the input is /ignored/ by that file's own ruling — the ship gate is always
+-- all supported models — so a value given there is a claim the run does not
+-- honour, and a shared bullet saying "the model set" would be wrong at one of
+-- the two rungs. 'retestSibling' makes the same fact reachable from inside a
+-- run; this makes it reachable before one.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+retestHelp :: Tier -> Text
+retestHelp t =
+  [wft|
+  {opening}
+
+  **Inputs.**
+
+  * `spec` — the skill's own procedure, as an `--input-file`. It is
+    *authoritative data* and not prompt bulk: the battery's steps, its ordering
+    and its success words come from those bytes, so a procedure edited in the
+    skill reaches this row by being passed to it.
+  * `base` — the diff base, as the argv of the git commands. It is what the
+    branch's model set is derived from and what the audit reads.
+  {modelsInput}
+  * `paths` — the changed-file list, one path per line. It selects the audit's
+    language roster in ordinary Haskell before the program exists, so `plan`
+    must be given the same `paths=` the run will use. An empty list is one
+    general seat and never an empty panel.
+
+  **Transport.** Unattended, with somewhere to write: an adapter of the run's
+  own and `--scratch "$PWD"`. It builds, runs a gate and writes reports, and the
+  scratch directory is the only place an acting turn may write.
+
+  ```sh
+  wf run {row} --engine acp --adapter claude --require-pinned --scratch "$PWD" \
+     --input-file spec="$HOME/.claude/skills/retest/references/spec.md" \
+     --input-arg base=origin/main --input-arg models={modelsEg} \
+     --input-file paths=changed.txt
+  ```
+
+  **Rehearsal.** All four inputs named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run {row} --scripted --input-arg spec= --input-arg base= \
+     --input-arg models= --input-arg paths=
+  ```
+
+  **Caveats.**
+
+  {caveat}
+  * **There is no early exit anywhere in the sweep.** That is the battery's
+    defining property and the reason its ceiling is what it is: a red case does
+    not stop the run, because a battery that stopped at the first failure would
+    report one defect where there were four.
+  * The cheapest ending is a refusal to start — the tree is the *other* rung's,
+    decided by a build target that does not exist here — and the report names
+    the sibling rung rather than making you go and find it.
+  |]
+  where
+    row = retestName t
+
+    opening = case t of
+      Hf ->
+        [wft|
+        `skills/retest/SKILL.md` as a program: the full model-support battery —
+        rebuild, unit tests, correctness against the HuggingFace forward pass as
+        the source of truth, code review, comment audit and a performance pass —
+        as one exhaustive sweep with five endings, priced before it starts.|]
+      Categorical ->
+        [wft|
+        `commands/retest-categorical.md` as a program: the *same* battery
+        against the legacy ingest path, over the **fixed eight-model roster**
+        that file's ship gate insists on. One body, one override table, and a
+        different oracle — which is why the two are two rows whose prices can be
+        read against each other.|]
+
+    modelsInput = case t of
+      Hf ->
+        [wft|
+        * `models` — the model set, one per line. An empty one is **one model**
+          — the spec's own — and never the empty list, so the numbers above are
+          a real sweep. A wider set is a wider bill, and
+          `wf cost retest --input-arg models=…` answers that before anything is
+          built.|]
+      Categorical ->
+        [wft|
+        * `models` — **ignored at this rung, by that file's own ruling.** The
+          ship gate is always all supported models, so the roster is the fixed
+          eight whatever this flag says; a value here would be a claim the run
+          does not honour. Name it empty. It is declared because the two rungs
+          share one invocation, and `wf plan retest-categorical` prints the
+          roster it will actually sweep.|]
+
+    modelsEg :: Text
+    modelsEg = case t of
+      Hf -> "llama_3p1_8b"
+      Categorical -> ""
+
+    caveat = case t of
+      Hf ->
+        [wft|
+        * The oracle is the HuggingFace forward pass, and correctness means
+          agreement with it. A model whose reference implementation this tree
+          cannot run is a model this rung cannot grade, and it says so rather
+          than grading it anyway.|]
+      Categorical ->
+        [wft|
+        * **This is the row that prices an eight-model FPGA sweep before a card
+          is opened**, and the whole gap between it and `retest` is that fixed
+          roster: eight gate processes and two performance trials per model
+          instead of one and one. What such a sweep costs is eight models' worth
+          of processes, and the header says so honestly.|]
 
 -- ---------------------------------------------------------------------------
 -- The models a rung sweeps

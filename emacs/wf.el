@@ -29,13 +29,16 @@
 ;; A front end for the `wf' binary of the agent-workflows repository, which
 ;; is agent-cat's CLI over that repository's registry of priced programs.
 ;;
-;; Six commands.  Four of them are entry points, and this file binds no key
-;; to any of the four:
+;; Seven commands.  Five of them are entry points, and this file binds no key
+;; to any of the five:
 ;;
 ;;   `wf-run'      pick a row, give it its inputs, pick a transport, read the
 ;;                 price, confirm it, and watch the run in its own buffer.
 ;;   `wf-plan'     pick a row and read `wf plan' for it.
 ;;   `wf-cost'     pick a row and read `wf cost' for it.
+;;   `wf-help'     pick a row and read its page — what it is for, what each
+;;                 input means, which transport it wants, a worked command
+;;                 line and a rehearsal.
 ;;   `wf-refresh'  forget the cached row listing.
 ;;
 ;; The other two belong to the run buffer and are bound there, by
@@ -597,11 +600,11 @@ last branch here for a mangled `wf--args' and nothing else."
 
 (defun wf--buffer-name (what name)
   "The name of the WHAT buffer for the row NAME, on this connection.
-WHAT is the kind of buffer — \"wf\", \"wf plan\", \"wf cost\".  The row
-listing is cached per connection, and the buffers holding what came
-back are named per connection for the same reason: a row run here and
-on a remote host must not collide, and the buffer should say which
-host answered."
+WHAT is the kind of buffer — \"wf\", \"wf plan\", \"wf cost\",
+\"wf help\".  The row listing is cached per connection, and the
+buffers holding what came back are named per connection for the
+same reason: a row run here and on a remote host must not collide,
+and the buffer should say which host answered."
   (let ((host (file-remote-p default-directory 'host)))
     (format "*%s: %s%s*" what (if host (concat host ":") "") name)))
 
@@ -872,6 +875,22 @@ A prefix argument, REFRESH, fetches the row listing again."
     (pop-to-buffer
      (wf--show (wf--buffer-name "wf cost" (alist-get 'name row))
                (wf--call "cost" (alist-get 'name row))
+               default-directory))))
+
+;;;###autoload
+(defun wf-help (&optional refresh)
+  "Pick a workflow and read its page, without running anything.
+A prefix argument, REFRESH, fetches the row listing again.
+
+The page is `wf help' \\='s stdout, shown as the binary printed it.  It is
+prose and has no machine-readable spelling — there is no `help --json' —
+so this displays the text and never parses it, which is the same
+arrangement `wf-plan' and `wf-cost' have with theirs."
+  (interactive "P")
+  (let ((row (wf--read-row "Help on workflow: " refresh)))
+    (pop-to-buffer
+     (wf--show (wf--buffer-name "wf help" (alist-get 'name row))
+               (wf--call "help" (alist-get 'name row))
                default-directory))))
 
 (provide 'wf)

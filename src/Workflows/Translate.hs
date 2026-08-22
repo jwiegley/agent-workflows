@@ -156,6 +156,7 @@ module Workflows.Translate
     Direction (..),
     translateName,
     translateDoc,
+    translateHelp,
 
     -- * The tier-1 readings of an invocation
     shortSource,
@@ -226,6 +227,129 @@ translateDoc En =
   "translate-en: Persian or Arabic into English in Shoghi Effendi's register — the same six seats, the directions swapped"
 translateDoc Es =
   "prompts/spanish.md: English into elevated Latin-American Spanish — one call of `translateFn`, whose answer is the artefact"
+
+-- | The page @wf help \<direction\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __Three rows, two shapes, and therefore two bodies.__ @Fa@ and @En@ are one
+-- program with the languages swapped and take three inputs; @Es@ takes
+-- @text@ alone, because @prompts\/spanish.md@ names no glossary and no
+-- reference corpus and the row does not pretend to. A single shared text could
+-- only be written by naming inputs @translate-es@ does not declare, which is
+-- what the help gate refuses — and would also be the row borrowing its
+-- siblings' apparatus, which its price is written to deny.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+translateHelp :: Direction -> Text
+translateHelp Es =
+  [wft|
+  `prompts/spanish.md` as a program: English into elevated Latin-American
+  Spanish, as **one call** of the same translating function its siblings use,
+  whose answer is the artefact. There is no review team here because that file
+  names none, and the row's price says so rather than borrowing an apparatus it
+  was not given.
+
+  **Inputs.**
+
+  * `text` — the source passage. It is the **only** input this row declares, so
+    `--input essay.md` names it without a `NAME=` — which is also why a path
+    containing `=` is never misread here.
+
+  **Transport.** Fine anywhere: one question and a delivery. It is among the
+  smallest rows in the toolbox, which makes it a reasonable second row to point
+  at a new transport after `hello`.
+
+  ```sh
+  wf run translate-es --engine acp --adapter claude --require-pinned --input essay.md
+  ```
+
+  **Rehearsal.** The one input named empty, answered from the row's own canned
+  table, consulting nobody:
+
+  ```sh
+  wf run translate-es --scripted --input-arg text=
+  ```
+
+  **Caveats.**
+
+  * **No glossary, no reference corpus, no reviewer.** That is the source file's
+    shape and this row's honesty about it. A translation that must be held to a
+    terminology table wants `translate` or `translate-en`, whose prices say what
+    that costs.
+  * The register is elevated by instruction rather than by a reviewer checking
+    it, so what comes back is one party's reading of "elevated".
+  |]
+translateHelp d =
+  [wft|
+  {opening}
+
+  **Inputs.**
+
+  * `text` — the source passage, and `--input-file text=source.txt` is the
+    natural spelling. An empty `text` is **not a short source** — it is an
+    unknown one — so the empty invocation is the full six-seat team rather than
+    one seat, which is what makes the numbers above the numbers of a real
+    program.
+  * `glossary` — the terminology table, and it is **authoritative**: where the
+    reviewers disagree with it, it wins. `TERMS.csv` is the usual file, and
+    `--input-file glossary=TERMS.csv` the usual spelling.
+  * `references` — the reference letters and translations. This is what "the
+    target style and standards" means concretely: a register is learned from a
+    corpus, so the corpus is an input rather than an adjective.
+
+  **Transport.** Fine anywhere: it reads three texts, runs a review team over a
+  draft and delivers. An adapter of the run's own is the usual shape, and the
+  six seats are worth more when they are six sessions rather than one pane's six
+  turns.
+
+  ```sh
+  wf run {row} --engine acp --adapter claude --require-pinned \
+     --input-file text={textEg} --input-file glossary=TERMS.csv \
+     --input-file references=refs.md
+  ```
+
+  **Rehearsal.** All three inputs named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run {row} --scripted --input-arg text= --input-arg glossary= --input-arg references=
+  ```
+
+  **Caveats.**
+
+  * The six reviewers are folded **in the priority order the source file
+    resolves conflicts by**, so a disagreement between two seats has a settled
+    answer rather than a majority. That order is in the program, not in a
+    reader's memory of the file.
+  * The revision loop is bounded, and the bound is where the spread above comes
+    from: a draft the team settles on at the first round is the floor, and a
+    second full round is most of the rest. The source file states that bound
+    without a number ("run that phase again, then come back"); here it is one.
+  * `glossary` beats the reviewers, so a wrong entry in it is a wrong term
+    everywhere, confidently. It is the input worth checking before the run
+    rather than after.
+  |]
+  where
+    row = translateName d
+
+    opening = case d of
+      En ->
+        [wft|
+        `translate-en` as a program: Persian or Arabic into English in Shoghi
+        Effendi's register — the same six seats as `translate`, with the
+        directions swapped. One body, two rows, and the two prices are
+        identical, which is the claim the pair makes about itself.|]
+      _ ->
+        [wft|
+        `skills/persian/SKILL.md` as a program: English into Persian, with six
+        reviewers folded in the priority order that file resolves conflicts by,
+        under a bound the file itself states only in words.|]
+
+    textEg :: Text
+    textEg = case d of
+      En -> "source.txt"
+      _ -> "essay.md"
 
 -- | The language a rung translates __into__.
 targetLanguage :: Direction -> Text

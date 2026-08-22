@@ -127,6 +127,7 @@ module Workflows.Query
   ( -- * The program
     queryProgram,
     queryDoc,
+    queryHelp,
     queryScript,
 
     -- * The free test this module owns
@@ -565,6 +566,69 @@ auditFor dialect = auditBrief <> "\n\nThe SQL dialect: " <> dialect
 queryDoc :: Text
 queryDoc =
   "query-builder.md: a query written against a schema receipt by parties that cannot reach the data, audited on another engine"
+
+-- | The page @wf help query@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __The claim worth carrying is a claim about the /type/__: there is no @act@
+-- in this program except the report, so "a query I can run myself" is a
+-- property of the printed program rather than a sentence in a prompt. An
+-- operator can check it — @wf plan query --raw@ — and the page says so, because
+-- a guarantee nobody knows how to verify is a guarantee nobody trusts.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+queryHelp :: Text
+queryHelp =
+  [wft|
+  `commands/query-builder.md` as a program: a SQL query written against a schema
+  receipt by parties that **cannot reach the data**, and audited on another
+  engine before it is handed back. A draft whose first statement is a write verb
+  is refused by a free decider before the audit is asked anything at all.
+
+  **Inputs.**
+
+  * `question` — what the query must answer, in your own words
+    (`which accounts had no activity last quarter`). It is the subject of the
+    drafting and of the audit.
+  * `schema` — the *path* to the exported schema, as the argv of the command
+    that reads it. The schema is the only thing the drafting parties see of your
+    database, which is the point: they write against structure and never against
+    rows.
+  * `dialect` — which SQL. Empty is the corpus's own default, which the plan
+    prints, so a run that meant T-SQL and did not say so is visible before it
+    starts.
+
+  **Transport.** Fine anywhere: it reads a schema, drafts, audits and reports,
+  and it runs nothing. An adapter of the run's own is the usual shape.
+
+  ```sh
+  wf run query --engine acp --adapter claude --require-pinned \
+     --input-arg question='which accounts had no activity last quarter' \
+     --input-arg schema=schema.sql --input-arg dialect=tsql
+  ```
+
+  **Rehearsal.** All three inputs named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run query --scripted --input-arg question= --input-arg schema= --input-arg dialect=
+  ```
+
+  **Caveats.**
+
+  * **Nothing here can run the query it wrote, and that is a type rather than a
+    promise.** The program contains no acting turn except the one that writes
+    the report; `wf plan query --raw` is where an operator can see that for
+    himself, and it is a better guarantee than any sentence in a prompt.
+  * The cheapest ending is a refusal: a draft beginning with a write verb is
+    caught by a decider for zero questions, and the audit is never asked. That
+    is the ending the corpus file cannot have, because nothing there reads the
+    answer.
+  * No data is ever read, so a query that is *valid* and *wrong for your rows*
+    is a possible outcome. The audit checks the query against the schema and the
+    question; it cannot check it against facts it is forbidden to see.
+  |]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

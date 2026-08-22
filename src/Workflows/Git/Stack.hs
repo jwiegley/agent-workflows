@@ -150,6 +150,7 @@ module Workflows.Git.Stack
     -- * The programs
     stackProgram,
     stackDoc,
+    stackHelp,
     stackScript,
   )
 where
@@ -1036,6 +1037,164 @@ stackDoc RebaseFix =
   "rebase-and-fix.md: stack-rebase, then the PR's checks green, then the bot sweep"
 stackDoc Cleanup =
   "cleanup.md: `lefthook run --all-files pre-commit` green on every branch, then `gt restack`"
+
+-- | The page @wf help \<rung\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- One text at four settings, for 'stackProgram''s own reason: the four rungs
+-- are one body and everything that separates them is a tier-1 function of the
+-- rung. So the shared paragraphs — the four inputs, the transport, the proof,
+-- the two loops — are written once, and the rung supplies its opening, its sync
+-- command, whether @pr@ is read at all, and its own caveat.
+--
+-- __Two of the four inputs have a meaning an operator cannot guess.__ 'tipRef'
+-- turns an absent @tip@ into @\<no tip given\>@, which becomes the /argv/ of the
+-- @git rev-parse@ in step 1 and of the @git cherry@ that proves nothing was
+-- lost: so an empty one does not weaken the proof, it removes it, and it does so
+-- before the first act. 'rungSpecialists' turns an absent @agents@ into the
+-- rung's own default doctrine and never into an empty table. Both are here.
+--
+-- __It states no price.__ The header above carries the numbers, and the two
+-- rungs whose numbers are identical are identical programs at a different argv.
+stackHelp :: StackRung -> Text
+stackHelp r =
+  [wft|
+  {opening}
+
+  **Inputs.**
+
+  * `trunk` — what the rewrite is brought up to date with. It is the *argv* of
+    the advancing command, and empty is `main`.
+  * `tip` — this branch's tip *before* the run, and the input the proof is made
+    of. It is resolved in step 1, before the first act, so a run that cannot
+    name where it started never starts; it is then the argv of the `git cherry`
+    the loss decider reads. An empty one is `<no tip given>`, which is a
+    revision nothing resolves — so take it first:
+    `--input-arg tip="$(git rev-parse HEAD)"`.
+  * `agents` — the routing table the shared `resolve` step is called with: which
+    specialist resolves what. Empty is not an empty table, it is this rung's own
+    default doctrine, and `wf plan {row} --raw` prints it.
+  {prInput}
+
+  **Transport.** Unattended, with somewhere to write: an adapter of the run's
+  own, and `--scratch "$PWD"`, because the sync and the publish are acts against
+  your history and the scratch directory is the only place an acting turn may
+  write. A watched pane also works and is the choice to make when you want to
+  see a rewrite as it happens.
+
+  ```sh
+  wf run {row} --engine acp --adapter claude --require-pinned \
+     --scratch "$PWD" \
+     --input-arg trunk={trunkEg} --input-arg tip="$(git rev-parse HEAD)" \
+     --input-arg agents={agentsEg} --input-arg pr={prEg}
+  ```
+
+  **Rehearsal.** All four inputs named empty; the canned table settles both
+  loops on the first trip and reports no commit lost, so the run walks the
+  publishing arm end to end:
+
+  ```sh
+  wf run {row} --scripted --input-arg trunk= --input-arg tip= \
+     --input-arg agents= --input-arg pr=
+  ```
+
+  **Caveats.**
+
+  {rungCaveat}
+  * The proof is read by a decider and not by a reader. `git cherry` is asked
+    as a receipt and a free test over it decides whether a commit was lost; the
+    losing arm reports the loss and publishes *nothing*, and it costs no
+    question, which is why it adds a path and not a consultation.
+  * There are two bounded loops, not one: the advancing command to a fixpoint,
+    and then `nix flake check` over the settled result. Either can run out, and
+    each has its own ending that keeps the work and says which one it was.
+  * Conflict resolution is one called function shared with three other files.
+    What `agents=` changes is the doctrine that function is called with — a
+    define, decided before the program exists — and never the shape of the run.
+  |]
+  where
+    row = stackRungName r
+
+    opening = case r of
+      Restack ->
+        [wft|
+        `commands/restack.md` as a program: `gt restack` to a fixpoint, every
+        conflict through one shared resolution step, then prove no commit was
+        lost with `git cherry` rather than with a reading, then submit.|]
+      Rebase ->
+        [wft|
+        `commands/rebase.md` as a program: the same shape with `git` deciding
+        instead of `gt` — rebase onto the trunk to a fixpoint, prove nothing was
+        lost, push with a lease.|]
+      RebaseFix ->
+        [wft|
+        `commands/rebase-and-fix.md` as a program: `stack-rebase`, and then that
+        file's second half — push, watch the pull request's checks to green,
+        and sweep the bot threads the rewrite invalidated.|]
+      Cleanup ->
+        [wft|
+        `commands/cleanup.md` as a program: `lefthook run --all-files
+        pre-commit` green on every branch in the stack, then the closing
+        `gt restack` — which is the step that can conflict here.|]
+
+    -- A whole bullet, because the honest sentence is opposite at the two
+    -- settings: 'RebaseFix' makes it the argv of two @gh@ commands, and the
+    -- other three never read it at all.
+    prInput = case r of
+      RebaseFix ->
+        [wft|
+        * `pr` — the pull request, and this is the one rung that reads it:
+          after the push it is the argv of `gh pr checks` and of the
+          `gh pr view` the bot sweep's inventory is built from, so it must be
+          the number. Empty leaves both commands without an operand.|]
+      _ ->
+        [wft|
+        * `pr` — declared, because the four rungs share one invocation, and
+          *ignored* by this rung: only `stack-rebase-fix` watches a pull
+          request afterwards. Name it empty and nothing is lost.|]
+
+    trunkEg :: Text
+    trunkEg = case r of
+      Restack -> "main"
+      Cleanup -> "main"
+      _ -> "origin/main"
+
+    agentsEg :: Text
+    agentsEg = case r of
+      Rebase -> "'haskell-pro for .hs, nix-pro for .nix'"
+      RebaseFix -> "'haskell-pro for .hs'"
+      _ -> ""
+
+    prEg :: Text
+    prEg = case r of
+      RebaseFix -> "1487"
+      _ -> ""
+
+    rungCaveat = case r of
+      Restack ->
+        [wft|
+        * It is the same program as `stack-rebase` — the header's numbers are
+          identical — and the only difference is which command advances the
+          stack. Choose by which tool owns your branches, not by price.|]
+      Rebase ->
+        [wft|
+        * It is the same program as `stack`, at a different advancing command,
+          and the header's numbers say so. The publish is a lease push, which
+          is an act against a remote branch somebody else may have moved.|]
+      RebaseFix ->
+        [wft|
+        * The most expensive rung in the family, and the difference is exactly
+          `rebase-and-fix.md`'s second half: a second gate over the pull
+          request's checks and a bot sweep after it. The sweep's inventory is
+          bound once and after the push, so a comment arriving during it has no
+          way in.|]
+      Cleanup ->
+        [wft|
+        * This rung resolves no conflicts of its own — it runs the hooks over
+          every branch and then restacks — so its default doctrine says in as
+          many words that there may be nothing to resolve at all. Its fixer is
+          addressed by a different name, which is what makes a trace say which
+          job it was doing.|]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

@@ -95,6 +95,7 @@ module Workflows.Notes
   ( -- * The program
     notesProgram,
     notesDoc,
+    notesHelp,
     notesScript,
 
     -- * The two rosters
@@ -563,6 +564,61 @@ notesProgram =
 notesDoc :: Text
 notesDoc =
   "meeting-notes.md: ten sections over one notes receipt, and five fact-only checkpoints on another engine"
+
+-- | The page @wf help notes@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __One input, and the flag for it is the one worth spelling out__: @notes@ is
+-- a /path/ read as the argv of a @cat@, so @--input FILE@ — which is the
+-- natural thing to reach for on a one-input row — binds the file's contents
+-- where this row wants its name. The bullet says so in as many words, because
+-- the mistake produces a run that succeeds against a filename nothing has.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+notesHelp :: Text
+notesHelp =
+  [wft|
+  `commands/meeting-notes.md` as a program: ten sections — metadata, themes,
+  decisions, action items, open questions, the timeline and the rest — over one
+  notes receipt, with five fact-only checkpoints put to **another engine**,
+  because a fact-only discipline audited by the model that wrote the prose is
+  not audited.
+
+  **Inputs.**
+
+  * `notes` — the *path* to the notes file, which becomes the argv of a `cat`.
+    Use `--input-arg notes=PATH`. **`--input FILE` is the wrong flag here**: it
+    would bind the file's contents where the row wants its name, and the run
+    would read a filename that does not exist.
+
+  **Transport.** Fine anywhere: one receipt, ten sections, five checkpoints and
+  one report. An adapter of the run's own is the usual shape, and `--scratch` is
+  worth giving only if you mean to keep the file.
+
+  ```sh
+  wf run notes --engine acp --adapter claude --require-pinned \
+     --input-arg notes=doc/meeting-2026-08-12.md
+  ```
+
+  **Rehearsal.** The one input named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run notes --scripted --input-arg notes=
+  ```
+
+  **Caveats.**
+
+  * The five checkpoints are on a different engine by construction, and under
+    one shared pane they are not. The report keeps its shape and reads the same;
+    what it loses is the only thing that made "fact-only" more than a heading.
+  * **Fact-only means fact-only.** Nothing here infers what somebody meant, so
+    a set of notes that recorded no decision produces a report with an empty
+    decisions section rather than a plausible one.
+  * It prices exactly: ten sections and five checkpoints every time, with no
+    cheap ending to hope for.
+  |]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

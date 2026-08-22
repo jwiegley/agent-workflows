@@ -101,6 +101,7 @@ module Workflows.OrgTasks
     OrgRung (..),
     orgRungName,
     orgDoc,
+    orgHelp,
 
     -- * The program
     orgProgram,
@@ -146,6 +147,120 @@ orgDoc Breakdown =
   "breakdown.md: analyse, decompose, format -- with [ATOMIC], [AMBIGUOUS] and [NO-EXPERTISE] as arms"
 orgDoc Infer =
   "infer-tasks.md: extract a flat list, decide the nesting rule for free, and have a second party judge it"
+
+-- | The page @wf help \<rung\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __Two bodies and not one at two settings__, which is the departure from the
+-- families above and is forced by the truth: these two rungs take /different
+-- inputs/. One decomposes a named headline against its background, the other
+-- extracts from unstructured text, and a shared inputs paragraph could only be
+-- written by naming inputs one of the two rows does not declare — which is
+-- exactly what the help gate refuses. What they do share is the closing
+-- paragraph, and it is spliced.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+orgHelp :: OrgRung -> Text
+orgHelp Breakdown =
+  [wft|
+  `commands/breakdown.md` and `agents/task-breakdown.md` as one program: the
+  analysis framework as the first question, the decomposition, the formatting
+  rules, and that file's three special cases as three free deciders with three
+  terminals of their own.
+
+  **Inputs.**
+
+  * `task` — the one Org-mode headline being decomposed, as the operator would
+    write it: `* TODO Bring token refresh under test`. It is the subject of
+    every question in the run, so an empty one asks a panel to decompose
+    nothing; the plan prints what it would have asked.
+  * `context` — the background the headline is decomposed *against*: the design
+    document, the ticket, the surrounding plan. It is an input and therefore a
+    define, so it reaches the analysis as data rather than as a file somebody is
+    asked to go and read. Empty is legal and is a decomposition from the
+    headline alone.
+
+  **Transport.** Fine anywhere: it reads two texts, asks a small chain and
+  writes one document. An adapter of the run's own is the usual shape.
+
+  ```sh
+  wf run org-tasks-breakdown --engine acp --adapter claude --require-pinned \
+     --input-arg task='* TODO Bring token refresh under test' \
+     --input-file context=doc/design.md
+  ```
+
+  **Rehearsal.** Both inputs named empty, every question answered from the row's
+  own canned table, consulting nobody:
+
+  ```sh
+  wf run org-tasks-breakdown --scripted --input-arg task= --input-arg context=
+  ```
+
+  **Caveats.**
+
+  * `[ATOMIC]`, `[AMBIGUOUS]` and `[NO-EXPERTISE]` are three *endings* and not
+    three shapes of one answer. Each is decided for free over the answer already
+    given, each has its own terminal and its own provenance line, so a task that
+    could not be decomposed is reported as such rather than as a short list.
+  * The completeness check is asked of somebody else. "If all subtasks are
+    completed, will the parent be fully done?" is one confirmation on a party
+    whose primary the decomposer did not use — which is only a real check if the
+    transport keeps them apart.
+  {sharedOrgCaveat}|]
+orgHelp Infer =
+  [wft|
+  `commands/infer-tasks.md` as a program: a flat list of independently
+  committable headlines extracted from unstructured text, that file's
+  `NO-OVERLAP RULE` decided for free over the extraction, and its two judgments
+  put to a second party rather than to the extractor.
+
+  **Inputs.**
+
+  * `text` — the unstructured source: meeting notes, a mail thread, a paste of
+    somebody's plan. It is the *only* input this rung declares, and
+    `--input-file text=notes.md` is the natural spelling, because the source is
+    usually a file and its contents are what the extraction reads. Empty is
+    legal and is the shape the price above is the price of.
+
+  **Transport.** Fine anywhere: it reads one text, extracts, judges and writes.
+  An adapter of the run's own is the usual shape.
+
+  ```sh
+  wf run org-tasks-infer --engine acp --adapter claude --require-pinned \
+     --input-file text=notes.md
+  ```
+
+  **Rehearsal.** The one input named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run org-tasks-infer --scripted --input-arg text=
+  ```
+
+  **Caveats.**
+
+  * It extracts and does **not** decompose. A headline that wants subtasks is
+    `org-tasks-breakdown`'s job, and running one after the other is how you get
+    both — which is also why these are two rows and not one flag.
+  * The no-overlap rule costs nothing and is checked rather than requested: it
+    is decided over the list that came back, so a run cannot both violate it and
+    claim to have followed it.
+  {sharedOrgCaveat}|]
+
+-- | The paragraph both Org rungs end on, written once.
+--
+-- It is the family's one cross-cutting fact — the output is Org-mode text and
+-- not a file in your agenda — and it belongs in neither rung more than in the
+-- other, so it is a define spliced into both rather than two paragraphs that
+-- could drift.
+sharedOrgCaveat :: Text
+sharedOrgCaveat =
+  [wft|
+  * The artefact is Org-mode text in a report, and nothing here writes into your
+    agenda files. What lands where is yours to decide, which is deliberate: a
+    run that edited `~/org` would be a run whose blast radius is your whole
+    task history.|]
 
 -- ---------------------------------------------------------------------------
 -- The prompts, transplanted

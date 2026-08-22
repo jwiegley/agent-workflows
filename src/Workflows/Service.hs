@@ -133,6 +133,7 @@ module Workflows.Service
     ServiceOp (..),
     serviceName,
     serviceDoc,
+    serviceHelp,
 
     -- * The programs
     serviceProgram,
@@ -190,6 +191,112 @@ serviceDoc Install =
   "install-service.md: nine obligations as nine calls behind a consent file the run cannot create, then two health receipts"
 serviceDoc Remove =
   "remove-service.md: twelve read-only discovery questions, then one act that writes a script rather than running one"
+
+-- | The page @wf help \<op\>@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- One text at two settings. The pair shares three inputs and one machine, so
+-- the inputs paragraph is written once; what differs is the opening, /why/ each
+-- wants a watched pane — one has a person's gate and the other does not — and
+-- the caveat that names what the run will and will not do to the host.
+--
+-- __The consent file is the paragraph that matters__, and it is @Install@'s
+-- alone: the run cannot create it, so an operator who has not put it there gets
+-- the cheapest ending and nothing on the machine changed. Saying so here is
+-- what stops that ending being read as a failure.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+serviceHelp :: ServiceOp -> Text
+serviceHelp o =
+  [wft|
+  {opening}
+
+  **Inputs.**
+
+  * `service` — the service's name, and it names **both** the consent file and
+    the systemd unit, so one flag is two arguments. An empty one names
+    `.consent/service-unnamed`, which is exactly what a plan should print for an
+    operator who forgot the flag — and what a run against it will fail to find.
+  * `domain` — the virtual host, which names the health URL the run checks
+    afterwards. Empty is legal and leaves the health check pointed at nothing
+    useful, which the plan prints.
+  * `host` — the machine the declarations belong to.
+
+  **Transport.** {transport}
+  {paneNote}
+
+  ```sh
+  wf run {row} --session "$PANE" --require-pinned \
+     --input-arg service=grafana --input-arg domain=grafana.example.com \
+     --input-arg host=vulcan
+  ```
+
+  **Rehearsal.** All three inputs named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run {row} --scripted --input-arg service= --input-arg domain= --input-arg host=
+  ```
+
+  **Caveats.**
+
+  {caveat}
+  * Both rows edit a host's declarations, which is to say they edit *your
+    configuration repository* and not the running machine directly. What
+    switches the machine is still yours to run, which is the boundary this pair
+    keeps on purpose.
+  |]
+  where
+    row = serviceName o
+
+    opening = case o of
+      Install ->
+        [wft|
+        `commands/install-service.md` as a program: nine obligations as nine
+        calls behind a consent file **the run cannot create**, and then two
+        health receipts. The consent gate is a person's decision expressed as a
+        file on disk, so a run that reaches it without one ends at your desk.|]
+      Remove ->
+        [wft|
+        `commands/remove-service.md` as a program: twelve read-only discovery
+        questions — what the unit is, what it owns, what points at it — and then
+        exactly one act, which **writes a removal script rather than running
+        one**. The asymmetry with installing is deliberate: taking a service
+        away is where a wrong answer costs the most.|]
+
+    transport = case o of
+      Install ->
+        [wft|
+        A watched pane. Its consent gate is a *person's*, and an unwatched run
+        reaches nobody: `--scripted` answers a flag and an adapter of the run's
+        own has no one to ask. Give it the pane you are sitting in front of.|]
+      Remove ->
+        [wft|
+        A watched pane, for a different reason: there is no person gate here.
+        It edits the host's declarations and writes a script you will want to
+        read before running it, so the pane is where you can see both as they
+        happen.|]
+
+    caveat = case o of
+      Install ->
+        [wft|
+        * The cheapest ending finds no consent file, changes nothing on the
+          machine, and stops. That is not a failure — it is the gate working,
+          and the fix is to put the file there deliberately rather than to
+          re-run with a flag.
+        * The two health receipts are commands, so "it came up" is an exit code.
+          A unit that installed and did not start is reported as such.|]
+      Remove ->
+        [wft|
+        * **It writes a removal script; it does not remove.** The one act in the
+          program produces a file for you to read and run, which is why the
+          twelve discovery questions are worth paying for: their whole output is
+          a script whose every line you can check against what they found.
+        * Twelve read-only questions are its floor, and there is no arm in which
+          fewer are asked. Discovery is not conditional here, because a removal
+          script built from partial discovery is the failure this row exists to
+          avoid.|]
 
 -- ---------------------------------------------------------------------------
 -- The two parties that are this program's own

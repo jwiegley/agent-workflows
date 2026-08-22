@@ -125,6 +125,7 @@ module Workflows.Denote
   ( -- * The program
     denoteProgram,
     denoteDoc,
+    denoteHelp,
     denoteScript,
 
     -- * The tier-1 readings of an invocation
@@ -1252,6 +1253,74 @@ denoteProgram =
 denoteDoc :: Text
 denoteDoc =
   "denotational-design/SKILL.md: the meaning first, its exit tests judged elsewhere, and representations reachable only through them"
+
+-- | The page @wf help denote@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __The @realization@ bullet states a fact about the /shape/ of the run__, not
+-- about a default: an empty one is a design in which the last phase does not
+-- exist, which is a different program and not a phase quietly skipped. An
+-- operator who reads it as "left blank, so it will do something sensible" will
+-- expect a bisimulation that was never in the plan, and @wf plan denote --raw@
+-- is where he could have seen so.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+denoteHelp :: Text
+denoteHelp =
+  [wft|
+  `skills/denotational-design/SKILL.md` as a program: the meaning first, its
+  exit tests judged by somebody who did not propose it, and the representation
+  tower reachable **only** through those tests. The phases are a chain and not
+  ten independent loops, which is what keeps a ten-phase design method finite.
+
+  **Inputs.**
+
+  * `subject` — the API sketch, the library, or the codebase being retrofitted:
+    what is to be given a meaning. It is the subject of every phase.
+  * `method` — the skill's reference files and worksheet skeleton as an
+    `--input-file`: *data* the phases are held to, not bulk prepended to a
+    prompt. This is what makes "follow the method exactly" checkable.
+  * `prover` — Lean 4, Rocq or Agda. It is read **once**, in ordinary Haskell,
+    so the choice cannot be re-litigated mid-dialog by a party that would rather
+    use something else. Empty is the corpus's own default, printed by the plan.
+  * `realization` — the foreign language the last phase would bisimulate the
+    design against. An empty one is a design in which **that phase does not
+    exist** — a different program, not a skipped step.
+
+  **Transport.** Fine anywhere: it is a long dialog that produces documents and
+  proof obligations, and it writes no file of yours unless you give it
+  `--scratch "$PWD"` and mean to keep the worksheet. An adapter of the run's own
+  is the usual shape.
+
+  ```sh
+  wf run denote --engine acp --adapter claude --require-pinned \
+     --input-arg subject='the workflow cost algebra' \
+     --input-file method="$HOME/.claude/skills/denotational-design/SKILL.md" \
+     --input-arg prover=lean --input-arg realization=rust
+  ```
+
+  **Rehearsal.** All four inputs named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run denote --scripted --input-arg subject= --input-arg method= \
+     --input-arg prover= --input-arg realization=
+  ```
+
+  **Caveats.**
+
+  * **The cheapest ending is the admission test answering *no*.** A subject this
+    method should not be applied to costs two questions and stops there, which
+    is the correct answer and the one the skill's own "when not to use it"
+    section is written to produce. Read it as the method working.
+  * A retrofit whose own defect inventory says to start over is a **successful**
+    retrofit here, and it is nearly as cheap. Neither of those endings is a
+    failed run.
+  * The phases are a chain: each reads the handle the last one bound, so there
+    is no order in which they could run but this one, and a representation
+    cannot be reached without the exit tests that admit it.
+  |]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

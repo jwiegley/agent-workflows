@@ -99,6 +99,7 @@ module Workflows.Checklist
   ( -- * The program
     checklistProgram,
     checklistDoc,
+    checklistHelp,
     checklistScript,
 
     -- * The round two call sites share
@@ -451,6 +452,67 @@ checklistProgram =
 checklistDoc :: Text
 checklistDoc =
   "process-checklist.md: two rounds over a Markdown checklist, each behind a free unchecked-box test"
+
+-- | The page @wf help checklist@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __The @checklist@ bullet names a flag, and it is the flag operators get
+-- wrong__: the input is a /path passed as argv/, so @--input-file@ binds the
+-- file's contents where the row wants its name, and the run then reads a
+-- checklist called "- [ ] …". 'checklistFile' gives the empty one a meaning so
+-- that the mistake is visible in the plan rather than in a run that ticked
+-- nothing.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+checklistHelp :: Text
+checklistHelp =
+  [wft|
+  `commands/process-checklist.md` as a program: two rounds over a Markdown
+  checklist, each behind a **free** unchecked-box test — a grep over bytes the
+  answering model did not write, so "there is still work" is a fact about the
+  file rather than a party's account of it.
+
+  **Inputs.**
+
+  * `checklist` — the *path* to the checklist file, passed as the argv of a
+    `cat`, so `--input-arg` and **not** `--input-file`: the run wants the name,
+    not the contents. An absent path becomes a name no file has, which
+    `wf plan checklist --raw` prints and which is why a `--scripted` run never
+    reaches a command at all.
+  * `scope` — what the round is about: the release blockers, one section, the
+    whole list. It is an input and therefore a define, so it rides into both
+    rounds as data.
+
+  **Transport.** Unattended, with somewhere to write: an adapter of the run's
+  own and `--scratch "$PWD"`, because working through a checklist means editing
+  the tree it is about and the scratch directory is the only place an acting
+  turn may write.
+
+  ```sh
+  wf run checklist --engine acp --adapter claude --require-pinned --scratch "$PWD" \
+     --input-arg checklist=doc/TODO.md --input-arg scope='the release blockers'
+  ```
+
+  **Rehearsal.** Both inputs named empty, every question answered from the row's
+  own canned table, consulting nobody:
+
+  ```sh
+  wf run checklist --scripted --input-arg checklist= --input-arg scope=
+  ```
+
+  **Caveats.**
+
+  * **The cheapest ending is a list with nothing left on it**: two questions,
+    no consultation about the work, and a run that says so. That is the free
+    test doing its job, and it is why pointing this row at a finished list costs
+    almost nothing.
+  * Two rounds is the shape and not a setting. A list that needs more is a list
+    to run this row against again, and the second run's free test is what
+    decides whether that is worth anything.
+  * It ticks boxes in the file it was given. Point it at a copy if you want the
+    original untouched.
+  |]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

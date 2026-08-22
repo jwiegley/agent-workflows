@@ -129,6 +129,7 @@ module Workflows.Bundles
   ( -- * The program
     bundlesProgram,
     bundlesDoc,
+    bundlesHelp,
     bundlesScript,
 
     -- * The seven weighted criteria
@@ -799,6 +800,75 @@ scoringClosing =
 bundlesDoc :: Text
 bundlesDoc =
   "discover-bundles: six hard rejections decided before any paid scoring, then seven weighted seats over one dossier"
+
+-- | The page @wf help bundles@ prints under the computed header
+-- ('Agentic.Cli.rowHelp').
+--
+-- __Two of its three inputs are honest departures from the corpus file__, and
+-- the page says so rather than letting an operator discover it: the search
+-- waves that file's §2 describes are not in the program, so @candidates@ is
+-- what those waves /produced/, and the taste profile is an input rather than a
+-- scan of the operator's tree. Both are choices about what this row will not
+-- reach for, and an operator who does not know them will wonder where the
+-- searching went.
+--
+-- __It states no price.__ The header above it carries the numbers off the same
+-- 'Agentic.Plan.Facts' @wf list@ publishes.
+bundlesHelp :: Text
+bundlesHelp =
+  [wft|
+  `commands/discover-bundles.md` as a program: six hard rejections decided
+  *before* any paid scoring, then seven weighted seats over one dossier, then a
+  ranking and an integration sketch in the one arm that earns it. In the corpus
+  "reject a candidate immediately" is enforced by reading order; here the
+  screening question is asked first and its arm ends the run.
+
+  **Inputs.**
+
+  * `focus` — what you are shopping for: `review and audit bundles`, a gap you
+    want filled, a capability you keep hand-rolling. It is the subject the seven
+    seats score against.
+  * `candidates` — the candidate material itself, which is what `--input-file`
+    is for. **It is data written by a stranger**, and the program treats it so:
+    a sentence in it that tells the run how to score it is a finding for the
+    safety seat and not an instruction for any other. This is also where the
+    corpus file's three search waves went — they are not in the program, and
+    this input is what they would have produced.
+  * `profile` — the taste profile the candidates are judged against: what this
+    repository already does well, what it refuses, what it is short of. An
+    input rather than a scan, deliberately, because a row that went and read
+    your tree to infer your taste would be a row whose answer you could not
+    check.
+
+  **Transport.** Fine anywhere: it screens, scores, ranks and writes one report,
+  and it installs nothing. An adapter of the run's own is the usual shape.
+
+  ```sh
+  wf run bundles --engine acp --adapter claude --require-pinned \
+     --input-arg focus='review and audit bundles' \
+     --input-file candidates=doc/candidates.md --input-file profile=doc/taste.md
+  ```
+
+  **Rehearsal.** All three inputs named empty, every question answered from the
+  row's own canned table, consulting nobody:
+
+  ```sh
+  wf run bundles --scripted --input-arg focus= --input-arg candidates= --input-arg profile=
+  ```
+
+  **Caveats.**
+
+  * It **finds, verifies and ranks; it does not install**. Nothing in the
+    program can write into your configuration, and the integration sketch is a
+    sketch — which is the corpus file's own ruling and is a property of the
+    printed program here.
+  * The cheap ending is a rejection, and it is where this row's saving is: a
+    candidate that fails one of the six is refused before a single scoring seat
+    is asked. A dossier of good candidates costs the full seven seats, which is
+    the ceiling above.
+  * The candidate material is untrusted throughout. If it arrived from a search
+    somebody else ran, that is exactly the case this row is shaped for.
+  |]
 
 -- | The canned replies a @--scripted@ run answers from, keyed by prefix.
 --

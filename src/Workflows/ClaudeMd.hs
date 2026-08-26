@@ -724,7 +724,7 @@ claudeMdCritiqueFn =
 -- | @claude-md-advise@'s artefact, which carries the audit's verdict.
 --
 -- The middle parameter is a @'Agentic.Workflow.Verdict'@ for
--- 'Workflows.Notes.notesReportFn''s reason: the objecting arm splices the
+-- 'Workflows.MeetingNotes.notesReportFn''s reason: the objecting arm splices the
 -- audit's own lines rather than a paraphrase, and the writing act reads the
 -- provenance to decide which file it is allowed to write.
 claudeMdAdviseFn :: Fn '[ 'CodeText, 'CodeVerdict, 'CodeText] 'CodeAck

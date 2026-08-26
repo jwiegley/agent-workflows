@@ -76,7 +76,7 @@ agent-workflows/
       Parties.hs  Evidence.hs
       Rubrics/{Finding,Reviewers,Fess,Discipline,Ladder}.hs
       Panels.hs  Deciders.hs  Gates.hs  Escalation.hs  Report.hs
-      Review/Ladder.hs  Fix/Green.hs  Git/{Commit,Stack}.hs  Audit/Fess.hs
+      Review/Ladder.hs  Fix/Green.hs  Git/{Commit,Stack}.hs  Fess.hs
       Hello.hs  Registry.hs
   bin/Main.hs                  `wf`, two lines over Agentic.Cli
   emacs/
@@ -121,7 +121,6 @@ assumption:
 **1.5 What is on disk and is NOT known to stand.** Four modules were written
 after the foundation report's gates ran, by builders that were stopped mid-write:
 `Review/Ladder.hs` (927), `Fix/Green.hs` (567), `Git/Commit.hs` (642),
-`Audit/Fess.hs` (392). Two facts are certain without building:
 
 1. **The tree does not build.** `agentic.cabal`'s `library workflows` stanza
    lists `Workflows.Git.Stack` in `exposed-modules` and there is no
@@ -131,7 +130,7 @@ after the foundation report's gates ran, by builders that were stopped mid-write
    `green-*`). The gate fails in both directions at once — seven rows registered
    and pinned nowhere.
 
-`Git/Commit.hs` and `Audit/Fess.hs` are written and **not registered**, so
+`Git/Commit.hs` and `Fess.hs` are written and **not registered**, so
 nothing prices them. They are treated as drafts of flagships 3 and 4 in §6 and
 are re-derived there against the foundation's actual signatures rather than
 adopted sight-unseen.
@@ -674,7 +673,7 @@ Because a branch is terminal, both arms must be written — and the shared tail 
 one function both arms call, one argument apart.
 
 ```haskell
--- src/Workflows/Audit/Fess.hs
+-- src/Workflows/Fess.hs
 fessAudit :: Parameterized
 fessAudit = taking (input "change" noInputs) \change ->
   defining [SomeFn fessReportFn] W.do
@@ -811,7 +810,7 @@ judgeIsElsewhere routes engine judgePin workPins =
         works = map (routedBackend routes) workPins
         dflt  = routedBackend routes routeDefaultLabel
 
--- src/Workflows/Duet.hs — the pins, and the bind that is the whole row
+-- src/Workflows/WiggumDuet.hs — the pins, and the bind that is the whole row
 duetWorkPins :: [Text]   -- every pin the WORK reaches: the roster less the
 duetWorkPins =           -- judge's own, so a rung cannot be routed at the judge
   filter (/= partnerPin) routablePins

@@ -430,7 +430,7 @@ resolveRule =
 --
 -- /Source:/ @commands\/restack.md@ step 5 and @commands\/resolve.md@'s closing
 -- clause. It is in the prompt even though it is also a type, for the reason
--- @'Workflows.Audit.Fess.fessAudit'@ keeps Operating Rule 1: a model that knows
+-- @'Workflows.Fess.fessAudit'@ keeps Operating Rule 1: a model that knows
 -- it is not the thing advancing the rebase writes a different answer.
 stagingRule :: Text
 stagingRule =

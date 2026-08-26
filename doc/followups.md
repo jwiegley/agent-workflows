@@ -176,7 +176,7 @@ lightly compressed — each is a decision, not just a chore:
   8 states the ruling; `Workflows.Prose`'s header carries the history.
 
   **Two prose blocks are fences that are deliberately not re-wrapped**, and
-  say so: `DeadCode.hs`'s advocate `OBJECTION` and `Nix.hs`'s `baseline`, both
+  say so: `EliminateDeadCode.hs`'s advocate `OBJECTION` and `Nix.hs`'s `baseline`, both
   answers to *verdict* questions, where `Agentic.Text.decodeVerdict` makes one
   objection **per line** — a wrap would have turned one objection into three.
   That is the one failure the word-preserving re-wrap could still cause, and

@@ -91,7 +91,7 @@
 --      committing, twice, in two sections. Here each round is entered behind
 --      'Workflows.Deciders.observationsPending' over a fresh @find@ receipt —
 --      zero questions per round — which is
---      "Workflows.Checklist"'s shape and, as there, the honest reading of a
+--      "Workflows.ProcessChecklist"'s shape and, as there, the honest reading of a
 --      design cell that sketched a @revisingOn@. See the note below.
 --
 -- == How to invoke it so the review is somebody else's
@@ -128,7 +128,7 @@
 -- __@partner-cleanup@ is not a @revisingOn@, and §7.2 row 37 sketches one.__ That
 -- cell reads \"the drain loop is @revisingOn@ settled by an @ls@ receipt read by
 -- a decider\". It is not writable, for the reason
--- "Workflows.Checklist"'s header sets out at length and
+-- "Workflows.ProcessChecklist"'s header sets out at length and
 -- "Workflows.Gates"' haddock states as grammar: a bounded revision's review
 -- clause is a __verdict__ question, so a @'Agentic.Workflow.decide'@ — which
 -- yields a flag — cannot be one, and a revision's body is exactly one review and
@@ -216,7 +216,7 @@ import Prelude
 -- The observation-file contract is already this module's to state once
 -- ('observationContract'); these three are the rest of the same contract — what
 -- a defect pass is told to report, what the publishing act is told above the
--- contract, and how the directory is read back. "Workflows.Duet" runs a
+-- contract, and how the directory is read back. "Workflows.WiggumDuet" runs a
 -- four-seat review /inside/ a work loop and publishes through exactly this
 -- protocol, so it holes these three rather than saying the same thing again in
 -- its own words: two spellings of one contract is a contract that drifts, and

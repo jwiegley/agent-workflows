@@ -413,7 +413,7 @@ teamsWriteBrief =
 
 -- | One act, two provenance lines.
 --
--- Three parameters, provenance last for 'Workflows.Audit.Fess.fessReportFn''s
+-- Three parameters, provenance last for 'Workflows.Fess.fessReportFn''s
 -- reason — it is the argument the two arms differ in and the reader of the call
 -- site should meet it where the difference is — and first in the prompt, because
 -- it is the thing an artefact must not omit.

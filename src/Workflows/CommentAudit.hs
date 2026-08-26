@@ -1,5 +1,5 @@
 -- |
--- Module      : Workflows.Comments
+-- Module      : Workflows.CommentAudit
 -- Description : The comment audit — a manifest read back off disk, and a
 --               false-positive guard that is not the auditor.
 --
@@ -129,7 +129,7 @@
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Workflows.Comments
+module Workflows.CommentAudit
   ( -- * The program
     commentsProgram,
     commentsDoc,

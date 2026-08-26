@@ -414,7 +414,7 @@ trunk = "main"
 -- | The journal file @account-narrative@ reads, and the one place an absent
 -- input is given a meaning.
 --
--- __Tier 1__: 'Workflows.Checklist.checklistFile''s rule, and
+-- __Tier 1__: 'Workflows.ProcessChecklist.checklistFile''s rule, and
 -- @narrative.md@'s own escalation is what makes it right here — that file says
 -- \"if there is no clear candidate, ask for the journal path before writing the
 -- narrative\", and a @cat@ of a name no file has abandons the run with exactly
@@ -499,7 +499,7 @@ reportCategories =
 -- that has to hold an order in its head and goes to
 -- 'Workflows.Parties.reasoning'. The category's own paragraph opens each brief,
 -- so the seven do not share a leading chunk — which is
--- 'Workflows.Notes.sectionRoster''s rule and what lets a scripted table tell
+-- 'Workflows.MeetingNotes.sectionRoster''s rule and what lets a scripted table tell
 -- them apart.
 reportRoster :: Roster
 reportRoster =
@@ -1131,7 +1131,7 @@ accountWriteFn =
 -- | @account-narrative@'s artefact, which carries a __verdict__.
 --
 -- The middle parameter is a @'Agentic.Workflow.Verdict'@ and not a text for
--- 'Workflows.Notes.notesReportFn''s reason: a verdict interpolates into a
+-- 'Workflows.MeetingNotes.notesReportFn''s reason: a verdict interpolates into a
 -- prompt, so the objecting arm splices the audit's own objection lines rather
 -- than a paraphrase of them. That is why the sourcing gate is asked
 -- @'Agentic.Workflow.answering' Verdict@ and not tested with a decider.

@@ -1,5 +1,5 @@
 -- |
--- Module      : Workflows.Prd
+-- Module      : Workflows.PrdArchitect
 -- Description : The requirements agent, split at the mode boundary — one program
 --               that drafts, one that critiques.
 --
@@ -122,7 +122,7 @@
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Workflows.Prd
+module Workflows.PrdArchitect
   ( -- * The two modes
     Mode (..),
     prdName,
@@ -1301,7 +1301,7 @@ prdProgram Critique =
 -- without one; adding one is how that ending is rehearsed.
 --
 -- The two verdict rows are the bare word, for
--- @'Workflows.Transcribe.transcribeScript'@'s reason: @Agentic.Text.approvesB@
+-- @'Workflows.TranscribeImage.transcribeScript'@'s reason: @Agentic.Text.approvesB@
 -- approves only a reply that /is/ an approve word and nothing else.
 prdScript :: Mode -> [(Text, Text)]
 prdScript Draft =

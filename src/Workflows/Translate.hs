@@ -1274,7 +1274,7 @@ translateProgram d =
 -- and runs one seat instead, whose key is in this table already.
 --
 -- __The seats' rows are @APPROVE@ and are written rather than defaulted__, for
--- @'Workflows.Comments.commentsScript'@'s reason: a table that relies on
+-- @'Workflows.CommentAudit.commentsScript'@'s reason: a table that relies on
 -- @'Agentic.Exec.scriptedDefault'@ cannot be edited into the other two arms in one
 -- line. An @OBJECTION:@ on any seat reaches @UnsettledOn@ and an empty answer
 -- reaches @AbandonedOn@; all three exit 0.
@@ -1283,7 +1283,7 @@ translateProgram d =
 -- that /is/ an approve word and nothing else, so a row carrying the word and a
 -- sentence would be read as an objection carrying that sentence — and this table
 -- would rehearse the unsettled arm while claiming the approved one.
--- "Workflows.Transcribe" records the same fact at its own verdict row.
+-- "Workflows.TranscribeImage" records the same fact at its own verdict row.
 translateScript :: Direction -> [(Text, Text)]
 translateScript Es =
   [(registerBrief Es, "La casa de la justicia ha escrito a los amigos.")]

@@ -57,11 +57,11 @@ src/
     Fix/Green.hs        the gated fix loop    (green-ci|tree|flaky)
     Git/Commit.hs       the commit pipeline   (commit|-push|-recommit|-bankruptcy)
     Git/Stack.hs        the git family        (stack|-rebase|-rebase-fix|-cleanup)
-    Audit/Fess.hs       the audit             (fess)
+    Fess.hs             the audit             (fess)
     Confer.hs           the confer family     (confer|confer-bare|debate|second-opinion)
-    Checklist.hs        the warm-up           (checklist)
+    ProcessChecklist.hs the warm-up           (checklist)
     Teams.hs            the ten angles        (teams)
-    Notes.hs            the meeting report    (notes)
+    MeetingNotes.hs     the meeting report    (notes)
     Effort.hs           the effort ladder     (effort-medium|-heavy|-forge)
     Threads.hs          the PR comments       (pr-threads|-assess)
     Issue.hs            the issue drivers     (issue|issue-worktree)
@@ -70,21 +70,21 @@ src/
     OrgTasks.hs         the Org-mode pair     (org-tasks-breakdown|-infer)
     ClaudeMd.hs         the briefing file     (claude-md|claude-md-advise)
     Prose/Polish.hs     the prose dial        (prose-proofread|-smooth|-transcript|-compress)
-    DeadCode.hs         the dead-code pass    (dead-code)
-    Comments.hs         the comment audit     (comments)
-    Bundles.hs          external bundles      (bundles)
+    EliminateDeadCode.hs the dead-code pass   (dead-code)
+    CommentAudit.hs     the comment audit     (comments)
+    DiscoverBundles.hs  external bundles      (bundles)
     Productize.hs       the deliverables      (productize|productize-lefthook)
     Nix.hs              the NixOS host        (nix-rebuild|-alert|-integration)
     Service.hs          services on the host  (service-install|-remove)
-    Query.hs            the SQL query builder (query)
-    Expense.hs          receipts to a sheet   (expense)
-    QandA.hs            the decision walk     (qanda)
-    Transcribe.hs       handwriting to Markdown (transcribe)
-    Tron.hs             the Torch Fx pipeline (tron)
+    QueryBuilder.hs     the SQL query builder (query)
+    ExpenseReport.hs    receipts to a sheet   (expense)
+    Qanda.hs            the decision walk     (qanda)
+    TranscribeImage.hs  handwriting to Markdown (transcribe)
+    TronDebug.hs        the Torch Fx pipeline (tron)
     Retest.hs           the model battery     (retest|retest-categorical)
-    Denote.hs           denotational design   (denote)
+    DenotationalDesign.hs denotational design (denote)
     Translate.hs        the translation team  (translate|translate-en|translate-es)
-    Prd.hs              the requirements pair (prd-draft|prd-critique)
+    PrdArchitect.hs     the requirements pair (prd-draft|prd-critique)
     NodeRed.hs          flows on vulcan       (nodered)
     Hello.hs            the smoke row         (hello)
     Registry.hs         the index: name -> program, blurb, canned table
@@ -92,6 +92,12 @@ bin/Main.hs             `wf`, two lines over Agentic.Cli
 emacs/wf.el             the Emacs interface, over `--json` and nothing else
 emacs/wf-smoke.el       …and its batch smoke, run by ci/emacs.sh
 ```
+
+Workflow-definition modules with one canonical source follow that source's name
+mechanically: `foo-bar-baz` becomes `FooBarBaz.hs` and
+`Workflows.FooBarBaz`. A module that deliberately implements several commands
+through one shared program keeps its aggregate family name (`Git.Commit`,
+`Review.Ladder`, and their peers) rather than pretending one source owns it.
 
 ## Using it
 
@@ -368,7 +374,7 @@ whose edge is transplanted and whose text is not. The seventy-second, `wiggum-du
 stands for no new file at all: it is the same two files across two panes, which is
 the owner's own ruling and not a corpus document. Each program module's haddock
 carries its own map in full, with the reason for every cell; this is the index
-across all thirty-four.
+across all thirty-five.
 
 | `~/src/nix/config/ai` | row | note |
 |---|---|---|

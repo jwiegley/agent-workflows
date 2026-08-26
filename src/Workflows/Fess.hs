@@ -1,5 +1,5 @@
 -- |
--- Module      : Workflows.Audit.Fess
+-- Module      : Workflows.Fess
 -- Description : Flagship 4 — the fess-style audit.
 --
 -- __What this replaces.__ One file, which @catalog.nix@ projects under two
@@ -93,7 +93,7 @@
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Workflows.Audit.Fess
+module Workflows.Fess
   ( -- * The report every arm calls
     fessReportFn,
     fessTable,

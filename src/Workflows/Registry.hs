@@ -52,9 +52,9 @@ import Workflows.Account
     accountProgram,
     accountScript,
   )
-import Workflows.Audit.Fess (fessAudit, fessDoc, fessHelp, fessScript)
-import Workflows.Bundles (bundlesDoc, bundlesHelp, bundlesProgram, bundlesScript)
-import Workflows.Checklist (checklistDoc, checklistHelp, checklistProgram, checklistScript)
+import Workflows.Fess (fessAudit, fessDoc, fessHelp, fessScript)
+import Workflows.DiscoverBundles (bundlesDoc, bundlesHelp, bundlesProgram, bundlesScript)
+import Workflows.ProcessChecklist (checklistDoc, checklistHelp, checklistProgram, checklistScript)
 import Workflows.ClaudeMd
   ( ClaudeMdRung (Advise, Initialize),
     claudeMdDoc,
@@ -63,7 +63,7 @@ import Workflows.ClaudeMd
     claudeMdProgram,
     claudeMdScript,
   )
-import Workflows.Comments (commentsDoc, commentsHelp, commentsProgram, commentsScript)
+import Workflows.CommentAudit (commentsDoc, commentsHelp, commentsProgram, commentsScript)
 import Workflows.Confer
   ( ConferRung (Bare, Confer, Debate, Second),
     conferDoc,
@@ -72,16 +72,16 @@ import Workflows.Confer
     conferRungName,
     conferScript,
   )
-import Workflows.DeadCode (deadCodeDoc, deadCodeHelp, deadCodeProgram, deadCodeScript)
-import Workflows.Denote (denoteDoc, denoteHelp, denoteProgram, denoteScript)
-import Workflows.Duet (duetDoc, duetHelp, duetProgram, duetScript)
+import Workflows.EliminateDeadCode (deadCodeDoc, deadCodeHelp, deadCodeProgram, deadCodeScript)
+import Workflows.DenotationalDesign (denoteDoc, denoteHelp, denoteProgram, denoteScript)
+import Workflows.WiggumDuet (duetDoc, duetHelp, duetProgram, duetScript)
 -- Qualified, alone in this block, and for a reason worth one line: both
 -- "Workflows.Effort" and "Workflows.Review.Ladder" call their rung type @Tier@
 -- and both have a @Heavy@ rung, which is not a collision to rename away —
 -- @review-heavy@ and @effort-heavy@ are two of the owner's own words and each is
 -- right in its own module. The qualifier is where the two meet.
 import qualified Workflows.Effort as Effort
-import Workflows.Expense (expenseDoc, expenseHelp, expenseProgram, expenseScript)
+import Workflows.ExpenseReport (expenseDoc, expenseHelp, expenseProgram, expenseScript)
 import Workflows.Fix.Green
   ( Rung (Ci, Flaky, Tree),
     greenDoc,
@@ -124,7 +124,7 @@ import Workflows.Nix
     nixScript,
   )
 import Workflows.NodeRed (noderedDoc, noderedHelp, noderedProgram, noderedScript)
-import Workflows.Notes (notesDoc, notesHelp, notesProgram, notesScript)
+import Workflows.MeetingNotes (notesDoc, notesHelp, notesProgram, notesScript)
 import Workflows.OrgTasks
   ( OrgRung (Breakdown, Infer),
     orgDoc,
@@ -138,7 +138,7 @@ import Workflows.OrgTasks
 -- neither is the one to rename — @stack-cleanup@ and @partner-cleanup@ are two
 -- of the owner's own words and each is right in its own module.
 import qualified Workflows.Partner as Partner
-import Workflows.Prd
+import Workflows.PrdArchitect
   ( Mode (Critique, Draft),
     prdDoc,
     prdHelp,
@@ -162,8 +162,8 @@ import Workflows.Prose.Polish
     proseProgram,
     proseScript,
   )
-import Workflows.QandA (qandaDoc, qandaHelp, qandaProgram, qandaScript)
-import Workflows.Query (queryDoc, queryHelp, queryProgram, queryScript)
+import Workflows.Qanda (qandaDoc, qandaHelp, qandaProgram, qandaScript)
+import Workflows.QueryBuilder (queryDoc, queryHelp, queryProgram, queryScript)
 -- Qualified, for the reason "Workflows.Effort" is: this module's rung type is
 -- also called @Tier@, and neither name is the one to rename — @review-deep@ and
 -- @retest@ are two of the owner's own words and each is right in its own module.
@@ -194,7 +194,7 @@ import Workflows.Threads
     threadsProgram,
     threadsScript,
   )
-import Workflows.Transcribe (transcribeDoc, transcribeHelp, transcribeProgram, transcribeScript)
+import Workflows.TranscribeImage (transcribeDoc, transcribeHelp, transcribeProgram, transcribeScript)
 import Workflows.Translate
   ( Direction (En, Es, Fa),
     translateDoc,
@@ -203,7 +203,7 @@ import Workflows.Translate
     translateProgram,
     translateScript,
   )
-import Workflows.Tron (tronDoc, tronHelp, tronProgram, tronScript)
+import Workflows.TronDebug (tronDoc, tronHelp, tronProgram, tronScript)
 import Workflows.Wiggum (wiggumDoc, wiggumHelp, wiggumProgram, wiggumScript)
 
 -- | The toolbox, in the order @wf list@ prints it.
@@ -340,7 +340,7 @@ registry =
           -- reports a finite worst case over finitely many paths, which is the
           -- one number an autonomous loop must have before it starts.
           ("wiggum", Row (Needs wiggumProgram) wiggumDoc wiggumHelp wiggumScript),
-          -- The same loop across two live panes ("Workflows.Duet"), and a row
+          -- The same loop across two live panes ("Workflows.WiggumDuet"), and a row
           -- rather than a flag on the one above it for the naming rule's own
           -- reason: a row is one SHAPE, and this shape has a bind `wiggum` does
           -- not have — the partner's observations feed round two inside the

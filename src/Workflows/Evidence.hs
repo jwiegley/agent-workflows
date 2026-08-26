@@ -537,7 +537,7 @@ dceMarkers =
 -- @show \<id\>@ is deliberately __absent__: its argument is an id that exists
 -- only inside the @pending@ receipt, and a receipt can never become an argv —
 -- the argv is part of the printed program, which is what makes it
--- program-authored. "Workflows.Comments" reads the batch through the acting
+-- program-authored. "Workflows.CommentAudit" reads the batch through the acting
 -- agent instead, and its header says so.
 
 -- | @python3 SCRIPT inventory [--diff-base BASE]@ — build or refresh the

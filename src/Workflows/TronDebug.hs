@@ -1,5 +1,5 @@
 -- |
--- Module      : Workflows.Tron
+-- Module      : Workflows.TronDebug
 -- Description : The Torch Fx ingest pipeline, debugged against runs that
 --               actually happened.
 --
@@ -106,7 +106,7 @@
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Workflows.Tron
+module Workflows.TronDebug
   ( -- * The program
     tronProgram,
     tronDoc,

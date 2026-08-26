@@ -114,3 +114,21 @@ The one mechanism that closes three followups at once, all recorded in doc/follo
 ]
 #+end_src
 
+* DONE [#C] Rename workflow modules after source skills and commands
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-t47
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-08-25 Tue 21:23]
+:MODIFIED: [2026-08-25 Tue 21:37]
+:CREATED_BY: johnw
+:FINISHED: [2026-08-25 Tue 21:37]
+:CLOSE_REASON: Renamed one-to-one workflow modules to canonical PascalCase skill/command names, updated all current references and Cabal wiring, preserved aggregate families, and verified byte-identical registry behavior plus all available gates.
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+Rename one-to-one workflow-definition Haskell modules to the PascalCase form of their canonical hyphenated skill, command, agent, or native workflow name; update imports, Cabal metadata, docs, and gates without changing registry rows or behavior.
+

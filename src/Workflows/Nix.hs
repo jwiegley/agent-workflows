@@ -326,7 +326,7 @@ nixHelp r =
 
 -- | The party that edits the configuration.
 --
--- A @tool@ with __no__ argv, for 'Workflows.Checklist.worker'\''s reason: which
+-- A @tool@ with __no__ argv, for 'Workflows.ProcessChecklist.worker'\''s reason: which
 -- Nix files a repair touches is whatever the diagnosis says, and an
 -- @'Agentic.Workflow.act'@ at @'Agentic.Raw.CodeAck'@ is the only kind of answer
 -- the ACP transport grants write authority to. Everything this module /can/ name
@@ -570,7 +570,7 @@ searchStrategy =
 -- __One receipt, three rungs, two meanings.__ At @Rebuild@ a pass means there is
 -- nothing to diagnose; at the other two a pass is the expected baseline and a
 -- /failure/ means the configuration was already broken before this run touched
--- anything — which is the distinction @'Workflows.DeadCode.deadCodeProgram'@'s
+-- anything — which is the distinction @'Workflows.EliminateDeadCode.deadCodeProgram'@'s
 -- red-baseline gate makes for the same reason, and which decides whether a later
 -- failure is attributable to this run's own edit.
 buildBrief :: Text
@@ -657,7 +657,7 @@ nothingWrongNote =
 -- Reachable at @Alert@ and @Integration@ only, and it is the arm that keeps the
 -- verification honest: a repair applied on top of an already-failing
 -- configuration cannot be verified by a build, because the build was going to fail
--- either way. @'Workflows.DeadCode.deadCodeProgram'@ refuses to start for the same
+-- either way. @'Workflows.EliminateDeadCode.deadCodeProgram'@ refuses to start for the same
 -- reason and in the same words.
 redBaselineNote :: Text
 redBaselineNote =
@@ -773,7 +773,7 @@ nixReportBrief =
 -- __The third parameter is a @verdict@ and not a @text@__, which is what lets
 -- every arm splice the driver's own first failing line rather than a paraphrase
 -- of it. A verdict interpolates into a prompt; that is the same property
--- @'Workflows.Notes.notesReportFn'@ turns on, and here it is the reason all five
+-- @'Workflows.MeetingNotes.notesReportFn'@ turns on, and here it is the reason all five
 -- endings can share one report function.
 nixReportFn :: Fn '[ 'CodeText, 'CodeText, 'CodeVerdict] 'CodeAck
 nixReportFn =

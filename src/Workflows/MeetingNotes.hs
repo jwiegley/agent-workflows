@@ -1,5 +1,5 @@
 -- |
--- Module      : Workflows.Notes
+-- Module      : Workflows.MeetingNotes
 -- Description : Meeting notes to a structured report — ten sections, and five
 --               checkpoints audited by somebody else.
 --
@@ -91,7 +91,7 @@
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Workflows.Notes
+module Workflows.MeetingNotes
   ( -- * The program
     notesProgram,
     notesDoc,
@@ -504,7 +504,7 @@ notesTable = [SomeFn notesReportFn]
 -- meaning.
 --
 -- __Tier 1__: the fact is in the invocation. An absent input becomes a name no
--- file has, which is 'Workflows.Checklist.checklistFile''s rule and
+-- file has, which is 'Workflows.ProcessChecklist.checklistFile''s rule and
 -- 'Workflows.Git.Commit.treeNeedle''s before it: @wf plan notes --raw@ prints
 -- @cat \<no notes file given\>@, so an operator who forgot the flag learns it
 -- from the plan.

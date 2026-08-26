@@ -427,7 +427,7 @@ respondBrief =
 -- /Source:/ @commands\/assess.md@ — \"deeply research and analyze the comments
 -- they've left (and their implications)\". The language name opens the brief so
 -- that the seats do not share a leading chunk, which is
--- 'Workflows.Notes.sectionRoster'\''s rule and the reason a scripted table can
+-- 'Workflows.MeetingNotes.sectionRoster'\''s rule and the reason a scripted table can
 -- tell them apart.
 assessBrief :: Text -> Text
 assessBrief lang =

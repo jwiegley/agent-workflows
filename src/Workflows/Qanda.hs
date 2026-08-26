@@ -1,5 +1,5 @@
 -- |
--- Module      : Workflows.QandA
+-- Module      : Workflows.Qanda
 -- Description : A decision walkthrough whose questions are the owner's binds.
 --
 -- == The map: old Markdown -> new program
@@ -107,7 +107,7 @@
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Workflows.QandA
+module Workflows.Qanda
   ( -- * The program
     qandaProgram,
     qandaDoc,
@@ -457,7 +457,7 @@ qandaTable = [SomeFn qandaRecordFn]
 -- here is a person. The three arms are the same three, and the generalisation is
 -- one word in "Workflows.Escalation"'s signature — reported rather than made,
 -- because that module is the foundation's and this is the second row to want it
--- ("Workflows.Expense" is the first).
+-- ("Workflows.ExpenseReport" is the first).
 qandaProgram :: Parameterized
 qandaProgram =
   taking (input "decisions" :> input "context" :> noInputs) \decisionsArg context ->
@@ -600,7 +600,7 @@ qandaHelp =
 -- __The owner's row is the load-bearing one.__ A verdict question's scripted
 -- default is @APPROVE@, so the run would settle on the first round with or without
 -- this table; the row is written with the approving answer anyway, for
--- @'Workflows.Comments.commentsScript'@'s reason — a table that relies on a default
+-- @'Workflows.CommentAudit.commentsScript'@'s reason — a table that relies on a default
 -- cannot be edited into the other two arms in one line. An @OBJECTION:@ here
 -- reaches @UnsettledOn@ after the rounds run out and an empty answer reaches
 -- @AbandonedOn@, and all three exit 0.

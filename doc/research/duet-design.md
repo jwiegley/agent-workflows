@@ -458,7 +458,7 @@ put this row's ceiling past 60 (§3.5).
 ### 3.4 The skeleton
 
 ```haskell
--- src/Workflows/Duet.hs
+-- src/Workflows/WiggumDuet.hs
 -- One import, per §6: `Workflows.Prelude`.
 
 -- | The partner's four seats, this row's own so that the pins can be `onPartner`
@@ -738,7 +738,7 @@ take with the number in hand, which is what pricing is for.
 
 | file | change |
 |---|---|
-| `src/Workflows/Duet.hs` | new: the program, `duetDoc`, `duetScript` |
+| `src/Workflows/WiggumDuet.hs` | new: the program, `duetDoc`, `duetScript` |
 | `src/Workflows/Deciders.hs` | `judgeIsElsewhere`, exported |
 | `src/Workflows/Parties.hs` | `workerPin`, `partnerPin`, `onWorker`, `onPartner` |
 | `src/Workflows/Wiggum.hs` | `input "run.routes"`; `judgeIsElsewhere routes engine opus opus` at `:1371`; the haddock at `:1294-1295` ("three the runner gives" → four) |

@@ -300,7 +300,7 @@ pin commit-push         branch        6       9
 pin commit-recommit     branch       12      12
 pin commit-bankruptcy   branch        9      10
 
-# The audit (`Workflows.Audit.Fess`). Eleven stances over three receipts, and one
+# The audit (`Workflows.Fess`). Eleven stances over three receipts, and one
 # of the six rows whose minimum equals its maximum — the only one of the six that
 # gets there with more than one path: nothing in it is a loop, and the one branch
 # chooses which provenance the report carries rather than how much is asked.
@@ -342,7 +342,7 @@ pin confer-bare         pipeline      1       4
 pin debate              pipeline      1       4
 pin second-opinion      pipeline      1       2
 
-# The wave-1 warm-up (`Workflows.Checklist`), landed with wave 2's residue. Two
+# The wave-1 warm-up (`Workflows.ProcessChecklist`), landed with wave 2's residue. Two
 # rounds, each entered behind a `decide` over a `cat` receipt, and four endings:
 # nothing to do (2), cleared after one round (5), and the two after the
 # self-verification round (8 each). The number to watch is `paths`: a third
@@ -350,7 +350,7 @@ pin second-opinion      pipeline      1       2
 pin checklist           branch        4       8
 
 # The two most literal panels in the corpus (`Workflows.Teams`,
-# `Workflows.Notes`). Both price EXACTLY, which is the point of writing them
+# `Workflows.MeetingNotes`). Both price EXACTLY, which is the point of writing them
 # next to each other: nothing in either loops, and the one branch each carries
 # chooses which provenance the artefact opens with rather than how much is
 # asked.
@@ -490,7 +490,7 @@ pin prose-compress      branch        2       2
 # the ceilings are correspondingly the widest in the table — 31 and 23 — because
 # what a specialist costs is the size of the thing it is specialising in.
 
-# The dead-code pass (`Workflows.DeadCode`). Eleven paths, and every one of them is
+# The dead-code pass (`Workflows.EliminateDeadCode`). Eleven paths, and every one of them is
 # a place the corpus says "abort" or "stop": a dirty tree, a red baseline, a marker
 # that escaped, a gate that never came back. Two of the eleven cost 2 and 3 -- the
 # two refusals to start -- which is the whole argument for putting them first.
@@ -502,7 +502,7 @@ pin prose-compress      branch        2       2
 # spent. Raising the DEFAULT would be a design decision and would show here.
 pin dead-code           branch       11      18
 
-# The comment audit (`Workflows.Comments`). Seventeen paths is the largest count in
+# The comment audit (`Workflows.CommentAudit`). Seventeen paths is the largest count in
 # the whole table, and it is the false-positive guard's arithmetic:
 # `Workflows.Escalation`'s three-way loop replicates its tail 2n+1 times in the
 # plan, and at `atMost 2` with three endings under two completion gates that is
@@ -511,7 +511,7 @@ pin dead-code           branch       11      18
 # a checklist, and a checklist has no outcome.
 pin comments            branch       17      13
 
-# External bundles (`Workflows.Bundles`). Three paths and a ceiling of 12, and the
+# External bundles (`Workflows.DiscoverBundles`). Three paths and a ceiling of 12, and the
 # gap between minFold 3 and maxFold 12 is the row's entire point: the six hard
 # rejection conditions are read by a free decider BEFORE the seven weighted seats,
 # so a batch where nothing survives screening costs three questions instead of
@@ -577,14 +577,14 @@ pin service-remove      branch        6      19
 # plan, so at `atMost 2` with three endings the counts are 15 and 16 rather than 3.
 # The number to read is the CEILING, which is small on all three.
 
-# The SQL query builder (`Workflows.Query`). Sixteen paths and a ceiling of 8, and
+# The SQL query builder (`Workflows.QueryBuilder`). Sixteen paths and a ceiling of 8, and
 # the one path worth naming is the minFold of 3: a draft whose first line begins
 # with a write verb is refused by a free decider before the audit is asked
 # anything. That is `mutatingStatement`, it costs zero questions, and it is the
 # ending `query-builder.md` cannot have because nothing there reads the answer.
 pin query               branch       16       8
 
-# The expense report (`Workflows.Expense`). Seventeen paths, which is the
+# The expense report (`Workflows.ExpenseReport`). Seventeen paths, which is the
 # `comments` count exactly and for the same reason -- a three-way loop under a
 # branch -- and the branch is the level-up: the extraction's own `REVIEW` flag,
 # read for nothing, chooses between a bounded revision with the owner in binding
@@ -592,20 +592,20 @@ pin query               branch       16       8
 # that build are both behind his answer.
 pin expense             branch       17      10
 
-# The decision walkthrough (`Workflows.QandA`). Fifteen paths, a ceiling of 8, and
+# The decision walkthrough (`Workflows.Qanda`). Fifteen paths, a ceiling of 8, and
 # a minFold of 4 -- the round where he approves the first walkthrough. `qanda.md`
 # is three lines with no named input at all; this row is those three lines with an
 # agenda, a bound, and an ending for a person who walks away.
 pin qanda               branch       15       8
 
-# Handwriting to Markdown (`Workflows.Transcribe`). The same triple as `qanda`, and
+# Handwriting to Markdown (`Workflows.TranscribeImage`). The same triple as `qanda`, and
 # that is not a coincidence: the two are the same shape -- one preparatory
 # question, then a three-way bounded loop, then one artefact -- over two completely
 # different subjects. A shared shape pricing identically is what the library is
 # for.
 pin transcribe          branch       15       8
 
-# The Torch Fx pipeline (`Workflows.Tron`). The one row in this half whose price
+# The Torch Fx pipeline (`Workflows.TronDebug`). The one row in this half whose price
 # is a RANGE worth reading: 2 to 14 over 9 paths. The 2 is the control ingest
 # failing, which refuses to diagnose at all; the 14 is the full differential --
 # four command receipts, four IR dumps and the Fx note, four boundary readings and
@@ -643,7 +643,7 @@ pin tron                branch        9      14
 pin retest              branch        5      16
 pin retest-categorical  branch        5      37
 
-# Denotational design (`Workflows.Denote`). Seventeen paths and a ceiling of 18,
+# Denotational design (`Workflows.DenotationalDesign`). Seventeen paths and a ceiling of 18,
 # and the two numbers to read together are the minFold of 2 and the path count.
 # The 2 is the admission test answering no -- one flag and one report, for a
 # subject the method should not be applied to, which is the cheapest correct
@@ -679,7 +679,7 @@ pin translate           branch       15      23
 pin translate-en        branch       15      23
 pin translate-es        pipeline      1       2
 
-# The requirements pair (`Workflows.Prd`). TWO ROWS BECAUSE ONE FILE WAS TWO
+# The requirements pair (`Workflows.PrdArchitect`). TWO ROWS BECAUSE ONE FILE WAS TWO
 # AGENTS, and this is the line of the table that shows what `doc/design.md` §7.3's
 # R -> 2xT rework bought: 19 against 11, and 18 paths against 3. The fused file
 # has one number for both, which is no number.
@@ -739,7 +739,7 @@ pin nodered             branch        4      17
 # would be a design decision and would show here.
 pin wiggum              branch       34      44
 
-# The same loop across two live panes (`Workflows.Duet`). THREE OF THE FOUR
+# The same loop across two live panes (`Workflows.WiggumDuet`). THREE OF THE FOUR
 # NUMBERS ARE `wiggum`'s TO THE DIGIT — `branch`, 34 paths, and a minFold of 2 —
 # and that is the whole claim the row makes about itself: it adds one `call` and
 # NO branch, and a call is consultations rather than paths.
@@ -822,7 +822,7 @@ done
 # `Workflows.Deciders.judgeIsElsewhere` compares the judge's backend against the
 # backend of every pin the WORK reaches, and the list of those pins is STATIC —
 # `Workflows.Parties.ladderPins`, and `routablePins` less the judge's own at
-# `Workflows.Duet.duetWorkPins`. It has to be static: the gate is tier 1 and runs
+# `Workflows.WiggumDuet.duetWorkPins`. It has to be static: the gate is tier 1 and runs
 # before the `Program` exists, so it cannot ask the program. That makes the list
 # the one part of the gate that could rot silently — a rung added to the ladder
 # and not to the list would be a name the judge is never compared against, which

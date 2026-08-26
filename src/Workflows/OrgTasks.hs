@@ -879,7 +879,7 @@ orgProgram Infer =
 -- __The judgment seats need no rows, and writing them would have been a bug.__
 -- @'Agentic.Exec.scriptedDefault'@ answers a verdict @APPROVE@, so both seats
 -- approve and the run ends in the grounded arm — which is the arm an operator
--- wants rehearsed, and is "Workflows.Notes"' arrangement for its checkpoint panel
+-- wants rehearsed, and is "Workflows.MeetingNotes"' arrangement for its checkpoint panel
 -- exactly. A row answering @\"APPROVE -- checked …\"@ would /not/ have approved:
 -- @Agentic.Text@ reads a verdict answer that carries the word AND a sentence as
 -- an __objection carrying both__ ("Workflows.Effort" says so at its own

@@ -83,17 +83,17 @@ library
 
     -- the programs, and the index
     Workflows.Account
-    Workflows.Audit.Fess
-    Workflows.Bundles
-    Workflows.Checklist
+    Workflows.Fess
+    Workflows.DiscoverBundles
+    Workflows.ProcessChecklist
     Workflows.ClaudeMd
-    Workflows.Comments
+    Workflows.CommentAudit
     Workflows.Confer
-    Workflows.DeadCode
-    Workflows.Denote
-    Workflows.Duet
+    Workflows.EliminateDeadCode
+    Workflows.DenotationalDesign
+    Workflows.WiggumDuet
     Workflows.Effort
-    Workflows.Expense
+    Workflows.ExpenseReport
     Workflows.Fix.Green
     Workflows.Git.Commit
     Workflows.Git.Stack
@@ -101,23 +101,23 @@ library
     Workflows.Issue
     Workflows.Nix
     Workflows.NodeRed
-    Workflows.Notes
+    Workflows.MeetingNotes
     Workflows.OrgTasks
     Workflows.Partner
-    Workflows.Prd
+    Workflows.PrdArchitect
     Workflows.Productize
     Workflows.Prose.Polish
-    Workflows.QandA
-    Workflows.Query
+    Workflows.Qanda
+    Workflows.QueryBuilder
     Workflows.Registry
     Workflows.Retest
     Workflows.Review.Ladder
     Workflows.Service
     Workflows.Teams
     Workflows.Threads
-    Workflows.Transcribe
+    Workflows.TranscribeImage
     Workflows.Translate
-    Workflows.Tron
+    Workflows.TronDebug
     Workflows.Wiggum
 
 -- The owner's entry point. Two lines over `Agentic.Cli`, which agent-cat's

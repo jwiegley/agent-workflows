@@ -146,7 +146,7 @@ itVoice =
 -- self-check-before-finishing is a @'Agentic.Workflow.confirm'@ gate over the
 -- draft\", and a gate is a question put to a party. In the corpus the checklist
 -- is ticked by whoever wrote the draft, which is the same defect
--- @commands\/meeting-notes.md@ has and "Workflows.Notes" names: a discipline
+-- @commands\/meeting-notes.md@ has and "Workflows.MeetingNotes" names: a discipline
 -- audited by its own author is not audited. So this text is written to be read
 -- by a /second/ party, and every caller in this tree puts it to one whose
 -- primary is not the writer's.

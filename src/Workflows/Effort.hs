@@ -134,7 +134,7 @@
 -- @'Workflows.Gates.passes'@ — an exit code as a flag, which is the world's
 -- answer and not a model's — and the repair is @call_ 'effortRepairFn'@, whose
 -- body ends in an act. This is "Workflows.Gates"' own prescription for a
--- pipeline per trip, and 'Workflows.Checklist' reaches it from the other
+-- pipeline per trip, and 'Workflows.ProcessChecklist' reaches it from the other
 -- direction. Reported as a finding against "Workflows.Gates", whose
 -- @'Workflows.Gates.gate'@ has the same property and whose two callers
 -- (@green-tree@, @commit@) inherit it; closing it means letting a revision's

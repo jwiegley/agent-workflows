@@ -28,7 +28,7 @@
 -- +--------------------------------------------+--------------------------------------------------------------+
 -- | @agents\/fess-auditor.md@ (by prose         | 'Workflows.Rubrics.Fess.fessRoster' spread by                 |
 -- | reference)                                 | 'Workflows.Panels.withEvidence', ending in                    |
--- |                                            | @call_ 'Workflows.Audit.Fess.fessReportFn'@                   |
+-- |                                            | @call_ 'Workflows.Fess.fessReportFn'@                   |
 -- +--------------------------------------------+--------------------------------------------------------------+
 -- | @skills\/parallelize\/SKILL.md@             | the sentinel probe, once, as this run's own precondition —    |
 -- |                                            | under a free gate on @run.engine@ that is the /real/ test of  |
@@ -120,9 +120,9 @@
 --      @fess@ audit by name and none of them can make one happen.
 --      'wiggumCheckpointFn' spreads 'Workflows.Rubrics.Fess.fessRoster' over the
 --      diff and the receipts and ends in
---      @call_ 'Workflows.Audit.Fess.fessReportFn'@, with the original
+--      @call_ 'Workflows.Fess.fessReportFn'@, with the original
 --      request folded into all eleven briefs by
---      'Workflows.Audit.Fess.requesting' — where the request is the frozen plan,
+--      'Workflows.Fess.requesting' — where the request is the frozen plan,
 --      which is what the reference file's context snapshot asks for first.
 --
 -- == Four honest notes
@@ -265,7 +265,7 @@ import qualified Agentic.Workflow.Do as W
 import Data.String (fromString)
 import Data.Text (Text)
 import qualified Data.Text as T
-import Workflows.Audit.Fess
+import Workflows.Fess
   ( fessClosing,
     fessReportFn,
     fessScript,
@@ -883,7 +883,7 @@ continuationBrief =
 -- the top of 'wiggumProgram' calls
 -- @'Workflows.Deciders.judgeIsElsewhere'@ — the general form, over
 -- @run.routes@ as well as @run.engine@ and over the whole of
--- @'Workflows.Parties.ladderPins'@, shared with "Workflows.Duet" so the two rows
+-- @'Workflows.Parties.ladderPins'@, shared with "Workflows.WiggumDuet" so the two rows
 -- cannot drift. For /this/ row it computes the same answer for every command line
 -- there is, because @opus@ serves both the judge and the round account, so the
 -- judge's pin is itself one of the work-side pins the predicate compares against
@@ -894,7 +894,7 @@ continuationBrief =
 -- there. The sentence below is therefore still true of every run that reaches it,
 -- and rewording it to mention a table this row cannot act on would be a note
 -- saying something new about the work. A row that /can/ separate judge from work
--- says so in its own words; that is @'Workflows.Duet.duetProgram'@.
+-- says so in its own words; that is @'Workflows.WiggumDuet.duetProgram'@.
 sharedSessionNote :: Text
 sharedSessionNote =
   [wft|
@@ -936,7 +936,7 @@ sharedSessionState engine =
 --
 -- __Why this is a terminal here and a downgrade in @fess@.__ The audit can
 -- honestly run without a passing probe and report that it did — that is
--- @agents\/fess-auditor.md@'s own sentence, and 'Workflows.Audit.Fess' keeps it.
+-- @agents\/fess-auditor.md@'s own sentence, and 'Workflows.Fess' keeps it.
 -- An autonomous loop cannot: every clause of its Definition of Done is a claim
 -- checked by somebody who must not be the runner, so a loop that cannot show its
 -- evaluator is separate has no way to finish and should not start spending.
@@ -1121,7 +1121,7 @@ wiggumReportBrief =
 -- part of the printed program: it cannot arrive through a parameter handle. A
 -- 'Agentic.Workflow.Fn' is an ordinary Haskell value, so the base is captured
 -- here and 'wiggumTable' is a function of it too — which is
--- @'Workflows.Expense.expenseBuildFn'@'s arrangement.
+-- @'Workflows.ExpenseReport.expenseBuildFn'@'s arrangement.
 wiggumRoundFn :: Text -> Fn '[ 'CodeText, 'CodeText] 'CodeText
 wiggumRoundFn = loopRoundFn "wiggum.round" reasoning
 
@@ -1129,7 +1129,7 @@ wiggumRoundFn = loopRoundFn "wiggum.round" reasoning
 -- parameters.
 --
 -- __Why the body is a parameter of two things and not two bodies.__
--- "Workflows.Duet" is the same round put to a /routed/ pane: one pin changes and
+-- "Workflows.WiggumDuet" is the same round put to a /routed/ pane: one pin changes and
 -- nothing else does. Two copies of these four statements would be two copies of
 -- four briefs' call sites, and the drift would be silent because each copy would
 -- pass its own canned table. @'Workflows.Report.reportFn'@'s argument at a
@@ -1207,7 +1207,7 @@ loopRoundFn name rung trunk =
 --   3. the change and the receipts, as bytes;
 --   4. the final audit — eleven independent stances over that dossier, the
 --      frozen plan folded into every one of them by
---      'Workflows.Audit.Fess.requesting', ending in @call_ fessReportFn@;
+--      'Workflows.Fess.requesting', ending in @call_ fessReportFn@;
 --   5. the handoff itself, assembled from all of it.
 --
 -- __Built from the trunk, the directory and the roster__ for
@@ -1221,7 +1221,7 @@ loopRoundFn name rung trunk =
 -- passed. The arms where either did not are terminals that never get here.
 --
 -- @provenance@ is therefore a Haskell parameter and not a constant:
--- 'Workflows.Audit.Fess.verifiedIndependence' states the engine fact as well as
+-- 'Workflows.Fess.verifiedIndependence' states the engine fact as well as
 -- the probe's answer, and that fact belongs to the run rather than to this
 -- function. Folded in before the 'Agentic.Builder.Program' exists, like the
 -- trunk and the roster beside it, so it costs the same nothing they do.
@@ -1477,7 +1477,7 @@ wiggumProgram =
           -- below cannot answer this.
           --
           -- `Workflows.Deciders.judgeIsElsewhere` is the general form, shared
-          -- with `Workflows.Duet` for `sharesOneSession`'s own reason: two gates
+          -- with `Workflows.WiggumDuet` for `sharesOneSession`'s own reason: two gates
           -- spelled twice are two gates that stop agreeing, and the drift would
           -- be silent because each spelling would pass its own tests. HERE IT
           -- COMPUTES EXACTLY WHAT THE BLANKET REFUSAL DID, and that is checkable
@@ -1726,7 +1726,7 @@ wiggumHelp =
 -- transcribed: 'Workflows.Git.Commit.commitScript' answers the commit
 -- discipline, 'Workflows.Git.Stack.stackScript' answers the resolution doctrine,
 -- 'Workflows.Partner.partnerScript' answers the cleanup round's two questions,
--- and 'Workflows.Audit.Fess.fessScript' answers the sentinel probe and, with one
+-- and 'Workflows.Fess.fessScript' answers the sentinel probe and, with one
 -- entry, all eleven audit stances. A callee's canned answers belong to the
 -- module that owns the callee's defines; keyed any other way they would go stale
 -- the first time one of those files was reworded. Rows in those tables that this

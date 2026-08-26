@@ -273,7 +273,7 @@ productizeHelp r =
 
 -- | The party that writes the files and the build targets.
 --
--- A @tool@ with __no__ argv, for 'Workflows.Checklist.worker'\''s reason: the
+-- A @tool@ with __no__ argv, for 'Workflows.ProcessChecklist.worker'\''s reason: the
 -- work is \"write these files and add these targets\", and which files depends on
 -- what the specification came out as. An @'Agentic.Workflow.act'@ at
 -- @'Agentic.Raw.CodeAck'@ is the only kind of answer the ACP transport grants

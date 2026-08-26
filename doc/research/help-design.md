@@ -352,8 +352,8 @@ marked region names a registered row.
   the mitigation is the acceptance test: **the first regeneration must diff
   clean against today's cookbook**, modulo the heading and price lines. That
   makes phase 3 the proof that phase 2 was a move and not a rewrite.
-* One habit: a rubric edited in `Workflows.DeadCode` is documented in
-  `Workflows.DeadCode`, and the cookbook follows by regeneration. An author who
+* One habit: a rubric edited in `Workflows.EliminateDeadCode` is documented in
+  `Workflows.EliminateDeadCode`, and the cookbook follows by regeneration. An author who
   edits the generated region directly is caught by the gate on the next run.
 
 **What it buys beyond one source.** The cookbook's seventy-two hand-copied price

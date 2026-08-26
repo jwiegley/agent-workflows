@@ -381,7 +381,7 @@ proseFamilyCaveat =
 -- ---------------------------------------------------------------------------
 
 -- | The transcript file, and the rule
--- 'Workflows.Checklist.checklistFile' set.
+-- 'Workflows.ProcessChecklist.checklistFile' set.
 --
 -- __Tier 1__: an absent input becomes a name no file has, so
 -- @wf plan prose-transcript --raw@ prints @cat \<no transcript given\>@ and an

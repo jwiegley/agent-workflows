@@ -1,5 +1,5 @@
 -- |
--- Module      : Workflows.Denote
+-- Module      : Workflows.DenotationalDesign
 -- Description : Denotational design — the meaning first, and the representation
 --               only through it.
 --
@@ -121,7 +121,7 @@
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Workflows.Denote
+module Workflows.DenotationalDesign
   ( -- * The program
     denoteProgram,
     denoteDoc,
@@ -1331,7 +1331,7 @@ denoteHelp =
 -- put there, they would be a prefix of /every/ phase question, and one canned
 -- answer would serve all eight. The brief goes first, the rules follow it, and
 -- each phase has a key of its own. This is the same arrangement
--- @'Workflows.Tron.stageClosing'@ arrives at from the other direction — the
+-- @'Workflows.TronDebug.stageClosing'@ arrives at from the other direction — the
 -- varying part goes after the brief so the key stays fixed.
 --
 -- The phases the table does __not__ carry a row for fall through to
@@ -1355,7 +1355,7 @@ denoteHelp =
 --   * 'exitBrief' answers @APPROVE@, which is the settled arm. An @OBJECTION:@
 --     reaches @UnsettledOn@ and an empty answer reaches @AbandonedOn@.
 --
--- __The approval is the bare word__, for @'Workflows.Transcribe.transcribeScript'@'s
+-- __The approval is the bare word__, for @'Workflows.TranscribeImage.transcribeScript'@'s
 -- reason: @Agentic.Text.approvesB@ approves only a reply that /is/ an approve word
 -- and nothing else, so a row carrying the word and a sentence would rehearse the
 -- unsettled arm while claiming the settled one.

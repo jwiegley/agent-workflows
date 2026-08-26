@@ -1,5 +1,5 @@
 -- |
--- Module      : Workflows.Expense
+-- Module      : Workflows.ExpenseReport
 -- Description : Receipts to a spreadsheet, with the owner in binding position.
 --
 -- == The map: old Markdown -> new program
@@ -98,7 +98,7 @@
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Workflows.Expense
+module Workflows.ExpenseReport
   ( -- * The program
     expenseProgram,
     expenseDoc,
@@ -252,7 +252,7 @@ expenseUncertain = (AnyLineStartsWith, ["REVIEW:"])
 --
 -- __Tier 1__: ordinary Haskell over the invocation, zero questions and zero
 -- paths. An absent path becomes a name no directory has, which is
--- @'Workflows.Checklist'@'s rule — @wf plan expense --raw@ prints
+-- @'Workflows.ProcessChecklist'@'s rule — @wf plan expense --raw@ prints
 -- @find \<no receipt directory given\> …@, so an operator who forgot the flag
 -- learns it from the plan, and a @--scripted@ run never reaches a command at all.
 receiptsDir :: Text -> Text

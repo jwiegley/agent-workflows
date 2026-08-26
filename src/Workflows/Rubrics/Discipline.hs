@@ -232,7 +232,7 @@ independenceAttestationKey = independenceAttestation ""
 -- statement: planted context was found, so no session policy can make the
 -- answers separate. The arm that has to name the engine is the passing one,
 -- because that is the one a reader would otherwise over-read — see
--- 'Workflows.Audit.Fess.verifiedIndependence'.
+-- 'Workflows.Fess.verifiedIndependence'.
 unverifiedIndependence :: Text
 unverifiedIndependence =
   [wft|

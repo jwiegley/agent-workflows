@@ -1,5 +1,5 @@
 -- |
--- Module      : Workflows.Query
+-- Module      : Workflows.QueryBuilder
 -- Description : An SQL query built from a schema, by parties that cannot reach
 --               the data.
 --
@@ -123,7 +123,7 @@
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Workflows.Query
+module Workflows.QueryBuilder
   ( -- * The program
     queryProgram,
     queryDoc,
@@ -205,7 +205,7 @@ mutatingStatement =
 --
 -- __Tier 1__ ("Workflows.Deciders"): ordinary Haskell over the invocation, zero
 -- questions and zero paths. An absent path becomes a name no file has, which is
--- @'Workflows.Checklist'@'s and @'Workflows.Notes'@' rule and
+-- @'Workflows.ProcessChecklist'@'s and @'Workflows.MeetingNotes'@' rule and
 -- 'Workflows.Git.Commit.treeNeedle'\''s: @wf plan query --raw@ prints
 -- @cat \<no schema given\>@, so an operator who forgot the flag learns it from
 -- the plan rather than from a query written against nothing.
@@ -646,7 +646,7 @@ queryHelp =
 --
 -- The audit's row is written with the approving answer even though a verdict
 -- question's scripted default is @APPROVE@ anyway, for
--- @'Workflows.Comments.commentsScript'@'s reason: a table that relies on a default
+-- @'Workflows.CommentAudit.commentsScript'@'s reason: a table that relies on a default
 -- cannot be edited into the other two arms in one line. An @OBJECTION:@ here
 -- reaches @UnsettledOn@ and an empty answer reaches @AbandonedOn@, and all three
 -- exit 0.

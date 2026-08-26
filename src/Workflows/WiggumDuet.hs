@@ -1,5 +1,5 @@
 -- |
--- Module      : Workflows.Duet
+-- Module      : Workflows.WiggumDuet
 -- Description : The same loop, in two panes — work in one, judgment in the
 --               other, driven by one invocation that owns neither.
 --
@@ -152,7 +152,7 @@
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Workflows.Duet
+module Workflows.WiggumDuet
   ( -- * The program
     duetProgram,
     duetDoc,
@@ -178,7 +178,7 @@ import qualified Agentic.Workflow.Do as W
 import Data.String (fromString)
 import Data.Text (Text)
 import qualified Data.Text as T
-import Workflows.Audit.Fess
+import Workflows.Fess
   ( fessReportFn,
     requesting,
     verifiedIndependence,

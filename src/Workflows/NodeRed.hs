@@ -60,7 +60,7 @@
 --      exit-2. 'validFlowId' is tier 1: a malformed id is replaced by a name
 --      nothing has, so @wf plan --raw@ prints the omission and a @--scripted@
 --      run never reaches a command at all. That is
---      @'Workflows.Comments'@'s @extractor=@ arrangement at an identifier.
+--      @'Workflows.CommentAudit'@'s @extractor=@ arrangement at an identifier.
 --
 --   3. __\"Zero rows -\> upstream issue\" becomes a branch, for zero questions.__
 --      The debugging workflow's whole method is: query @msg_events@ for the
@@ -125,7 +125,7 @@
 -- __This row is host-specific on purpose.__ @doc\/design.md@ §7.4 row 22 says
 -- \"deeply host-specific — port last\", and it is the last of wave 5 for that
 -- reason. The paths, the config-node ids, the database name and the entity
--- families are one machine's, exactly as @'Workflows.Tron'@'s are one working
+-- families are one machine's, exactly as @'Workflows.TronDebug'@'s are one working
 -- tree's. An input whose only sensible value is one string is a flag nobody will
 -- ever vary; what /is/ an input here is the pair a session actually varies — which
 -- tab, and which node's history is being explained.
@@ -179,7 +179,7 @@ import Prelude
 --
 -- These belong in "Workflows.Evidence" — that module is where the read-only rule
 -- could be broken, so it is reviewable as a unit. They are grouped here, in one
--- labelled block, for @'Workflows.Tron'@'s and @'Workflows.Retest'@'s reason:
+-- labelled block, for @'Workflows.TronDebug'@'s and @'Workflows.Retest'@'s reason:
 -- they are one host's administration surface, the move is one cut and one paste,
 -- and the exception is visible rather than scattered.
 --
@@ -334,7 +334,7 @@ validFlowId t = case T.splitOn "." t of
 -- An id that does not match becomes a name nothing has, so
 -- @wf plan nodered --raw@ prints @node-red-admin flow get \<no valid flow id
 -- given\>@ and this gate's own @--scripted@ run never reaches a command. That is
--- @'Workflows.Comments'@'s arrangement for a missing extractor, applied to an
+-- @'Workflows.CommentAudit'@'s arrangement for a missing extractor, applied to an
 -- identifier the helper would have refused with exit 2 a round trip later.
 flowIdOf :: Text -> Text
 flowIdOf raw
@@ -359,7 +359,7 @@ nodeIdOf raw
 
 -- | A script inside the skill's own @scripts@ directory.
 --
--- __Tier 1__, and the directory is an input for @'Workflows.Comments'@'s reason:
+-- __Tier 1__, and the directory is an input for @'Workflows.CommentAudit'@'s reason:
 -- the scripts ship with the skill, the skill's location is the operator's, and an
 -- absent directory becomes a name nothing has rather than a guess at a path.
 scriptIn :: Text -> Text -> Text
@@ -1183,8 +1183,7 @@ noderedHelp =
 -- rehearses the upstream-issue ending, which is the more interesting of the two
 -- and the one the skill's debugging workflow starts from. Both exit 0.
 --
--- __The validator's row is @APPROVE@ and is written rather than defaulted__, for
--- @'Workflows.Comments.commentsScript'@'s reason: a table that relies on
+-- @'Workflows.CommentAudit.commentsScript'@'s reason: a table that relies on
 -- @'Agentic.Exec.scriptedDefault'@ cannot be edited into the other two arms in one
 -- line. An @OBJECTION:@ here reaches the not-validated ending and puts nothing.
 noderedScript :: [(Text, Text)]

@@ -396,7 +396,7 @@ claudeMdPresent = (ContainsLine, ["CLAUDE.md"])
 -- the first: a count the tool prints, tested for nothing. The second — whether
 -- the extractor /missed/ anything — is a judgment about a heuristic tokenizer's
 -- blind spots, and the script says so itself on its next line: \"file\/comment
--- denominator reconciliation is still required\". "Workflows.Comments" asks that
+-- denominator reconciliation is still required". "Workflows.CommentAudit" asks that
 -- one, of somebody else, and 'unreconciled' reads the answer.
 auditIncomplete :: (Decider, [Text])
 auditIncomplete = (AnyLineStartsWith, ["AUDIT INCOMPLETE:"])
@@ -551,7 +551,7 @@ bundleRecommended = (AnyLineStartsWith, ["RECOMMEND:"])
 -- __The cheap ending is the one it decides__, which is the rule the sentinel
 -- block above stands under: a start-over verdict ends the run at one phase and
 -- asks nothing about representations, meaning functions, proofs or realizations.
--- The needle is 'Workflows.Denote.objectBrief''s own word, which that brief
+-- The needle is 'Workflows.DenotationalDesign.objectBrief''s own word, which that brief
 -- demands on the first line and for exactly this reason.
 startOverRecommended :: (Decider, [Text])
 startOverRecommended = (AnyLineStartsWith, ["START OVER"])
@@ -566,7 +566,7 @@ startOverRecommended = (AnyLineStartsWith, ["START OVER"])
 -- document.
 --
 -- __The needle is a prefix, so the marker has to start a line__, and
--- @'Workflows.Prd.sectionClosing'@ is the other half of the contract: it tells
+-- @'Workflows.PrdArchitect.sectionClosing'@ is the other half of the contract: it tells
 -- every section to put each open question on a line of its own beginning
 -- @[TODO:@, and says why — the lines are read mechanically. That is
 -- @'Workflows.Panels.refusingSynthesis'@'s arrangement at a marker the corpus

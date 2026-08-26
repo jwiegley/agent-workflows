@@ -1,5 +1,5 @@
 -- |
--- Module      : Workflows.Bundles
+-- Module      : Workflows.DiscoverBundles
 -- Description : External prompt bundles, screened before they are scored — and
 --               read as data throughout.
 --
@@ -125,7 +125,7 @@
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Workflows.Bundles
+module Workflows.DiscoverBundles
   ( -- * The program
     bundlesProgram,
     bundlesDoc,

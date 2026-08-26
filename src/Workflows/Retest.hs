@@ -523,7 +523,7 @@ battery Categorical =
 --
 -- __Tier 1__, and computed rather than named: the two slugs are the same model
 -- through two pipelines, and a mismatched pair would compare two different models
--- while looking exactly like a real result. That is @'Workflows.Tron.bulkModel'@'s
+-- while looking exactly like a real result. That is @'Workflows.TronDebug.bulkModel'@'s
 -- argument at another project's naming convention.
 --
 -- A slug that does not begin @ingested-@ is passed through with the prefix
@@ -542,7 +542,7 @@ categoricalSlug s = case T.stripPrefix "ingested-" s of
 --
 -- These belong in "Workflows.Evidence" — that module is where the read-only rule
 -- could be broken, so it is reviewable as a unit. They are grouped here, in one
--- labelled block, for @'Workflows.Tron'@'s and @'Workflows.Git.Stack'@'s reason:
+-- labelled block, for @'Workflows.TronDebug'@'s and @'Workflows.Git.Stack'@'s reason:
 -- they are one project's build system, the move is one cut and one paste, and the
 -- exception is visible rather than scattered.
 --
@@ -1429,7 +1429,7 @@ retestProgram t =
 -- __The four command rows are @APPROVE@ and are written rather than defaulted.__
 -- @'Agentic.Exec.scriptedDefault'@ answers a verdict @APPROVE@ already, but a
 -- table that relies on a default cannot be edited into the failing arm in one
--- line — @'Workflows.Comments.commentsScript'@'s reason, and the same one here.
+-- line — @'Workflows.CommentAudit.commentsScript'@'s reason, and the same one here.
 retestScript :: Tier -> [(Text, Text)]
 retestScript t =
   [ (probeBrief, "yes"),

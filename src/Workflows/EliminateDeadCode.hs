@@ -1,5 +1,5 @@
 -- |
--- Module      : Workflows.DeadCode
+-- Module      : Workflows.EliminateDeadCode
 -- Description : The dead-code pass — four phases that cannot interleave, and a
 --               debate that cannot be won on a majority.
 --
@@ -139,7 +139,7 @@
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Workflows.DeadCode
+module Workflows.EliminateDeadCode
   ( -- * The program
     deadCodeProgram,
     deadCodeDoc,
@@ -181,7 +181,7 @@ import Prelude
 
 -- | The party that inserts the markers and writes the sidecar.
 --
--- A @tool@ with __no__ argv, for 'Workflows.Checklist.worker'\''s reason: what
+-- A @tool@ with __no__ argv, for 'Workflows.ProcessChecklist.worker'\''s reason: what
 -- MARK does is edit every file that carries a candidate, and the edit list is
 -- not knowable to this program. An @'Agentic.Workflow.act'@ at
 -- @'Agentic.Raw.CodeAck'@ is the only kind of answer the ACP transport grants

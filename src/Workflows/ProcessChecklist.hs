@@ -1,5 +1,5 @@
 -- |
--- Module      : Workflows.Checklist
+-- Module      : Workflows.ProcessChecklist
 -- Description : The warm-up — a Markdown checklist worked to empty, one free
 --               test per round.
 --
@@ -95,7 +95,7 @@
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Workflows.Checklist
+module Workflows.ProcessChecklist
   ( -- * The program
     checklistProgram,
     checklistDoc,

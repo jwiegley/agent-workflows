@@ -1,5 +1,5 @@
 -- |
--- Module      : Workflows.Transcribe
+-- Module      : Workflows.TranscribeImage
 -- Description : Handwriting to Markdown, re-reviewed on another engine, with a
 --               stopping rule.
 --
@@ -99,7 +99,7 @@
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Workflows.Transcribe
+module Workflows.TranscribeImage
   ( -- * The program
     transcribeProgram,
     transcribeDoc,
@@ -610,7 +610,7 @@ transcribeHelp =
 --
 -- The review's row is written with the approving answer even though a verdict
 -- question's scripted default is @APPROVE@, for
--- @'Workflows.Comments.commentsScript'@'s reason: a table that relies on a default
+-- @'Workflows.CommentAudit.commentsScript'@'s reason: a table that relies on a default
 -- cannot be edited into the other two arms in one line. An @OBJECTION:@ here
 -- reaches @UnsettledOn@ and an empty answer reaches @AbandonedOn@, and all three
 -- exit 0.

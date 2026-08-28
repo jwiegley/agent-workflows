@@ -840,6 +840,57 @@ done
 # A name in one and not the other fails here.
 "$wf" list --json > "$work/list.json" 2>&1
 
+# Bare `wf` is the usage on stderr under exit 1; `--help` is the same payload
+# on stdout under exit 0. The human catalog is complete, ordered, and bounded;
+# the machine catalog keeps the full prose.
+"$wf" --help > "$work/usage.out" 2> "$work/usage.err"
+code=$?
+[ "$code" = 0 ] || bad "--help" "exit" 0 "$code"
+[ -s "$work/usage.out" ] || bad "--help" "stdout" "the usage" "empty"
+[ ! -s "$work/usage.err" ] \
+  || bad "--help" "stderr" "empty" "$(head -1 "$work/usage.err")"
+
+"$wf" > "$work/usage.bare.out" 2> "$work/usage.bare.err"
+code=$?
+[ "$code" = 1 ] || bad "bare wf" "exit" 1 "$code"
+[ ! -s "$work/usage.bare.out" ] \
+  || bad "bare wf" "stdout" "empty" "$(head -1 "$work/usage.bare.out")"
+[ -s "$work/usage.bare.err" ] || bad "bare wf" "stderr" "the usage" "empty"
+sed '1s/^wf: //' "$work/usage.bare.err" > "$work/usage.bare"
+cmp -s "$work/usage.bare" "$work/usage.out" \
+  || bad "bare wf" "usage payload" "the --help bytes" "different"
+
+usage_registered=$(sed -n \
+  '/^  <workflow> is one of:$/,/^$/s/^  \([^ ][^ ]*\)  .*/\1/p' \
+  "$work/usage.out")
+[ "$usage_registered" = "$registered" ] \
+  || bad wf "usage catalog names" "$registered" "$usage_registered"
+while read -r n; do
+  [ -n "$n" ] || continue
+  doc=$(sed -n "/^  <workflow> is one of:$/,/^$/s/^  $n  *//p" "$work/usage.out")
+  [ -n "$doc" ] || bad "$n" "usage summary" "one line" "empty"
+done <<< "$usage_registered"
+too_wide=$(awk 'length($0) > 80 { print NR ":" length($0); exit }' "$work/usage.out")
+[ -z "$too_wide" ] || bad wf "usage line width" "at most 80" "$too_wide"
+
+full_blurb=$(sed -n 's/^  retest-categorical  *//p' "$work/list")
+json_blurb=$(
+  tr '{' '\n' < "$work/list.json" \
+    | grep '"name":"retest-categorical"' \
+    | sed -n 's/.*"blurb":"\([^"]*\)".*/\1/p'
+)
+[ "$json_blurb" = "$full_blurb" ] \
+  || bad retest-categorical "JSON blurb" "$full_blurb" "$json_blurb"
+[ "${#json_blurb}" -gt 80 ] \
+  || bad retest-categorical "JSON blurb length" "more than 80" "${#json_blurb}"
+usage_blurb=$(sed -n \
+  '/^  <workflow> is one of:$/,/^$/s/^  retest-categorical  *//p' \
+  "$work/usage.out")
+case "$usage_blurb" in
+  *…) ;;
+  *) bad retest-categorical "usage summary" "a deterministic ellipsis" "$usage_blurb" ;;
+esac
+
 # The `pins` array of one row, comma-separated, in `pinnedModels`' own sorted
 # order. `tr '{'` puts one row per line; nothing here needs a JSON parser, and a
 # gate that needed `jq` would need a tool `flake.nix` does not promise.

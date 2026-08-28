@@ -97,6 +97,21 @@ followups.md M4: Evidence.hs's header claims every argv is reviewable in one pla
 
 Design §6.2 names it, §7.2 row 66 reworks webfix into it, §8's completion amendment records the deferral, Fix/Green.hs's header carries the note. Build when a web project actually wants the gate: a browser-driving argv in Workflows.Evidence plus one rung beside green-ci/tree/flaky.
 
+* DONE [#C] Gate compact bare workflow usage
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-m1o
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-08-27 Thu 23:20]
+:MODIFIED: [2026-08-27 Thu 23:32]
+:CREATED_BY: johnw
+:FINISHED: [2026-08-27 Thu 23:32]
+:CLOSE_REASON: Workflow gate now enforces complete ordered bare usage, nonempty summaries, 80-column width, and untruncated JSON blurbs.
+:SOURCE_REPO: .
+:ORIGINAL_SIZE: 0
+:END:
+
 * DONE [#C] Runner-supplied facts: backend count, engine/session policy, and the independence sentinel as facts prompts can carry
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

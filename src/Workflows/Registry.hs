@@ -107,6 +107,7 @@ import Workflows.Git.Stack
     stackScript,
   )
 import Workflows.Hello (helloDoc, helloHelp, helloScript, helloWorkflow)
+import Workflows.HelloWorld (helloWorldDoc, helloWorldHelp, helloWorldProgram, helloWorldScript)
 import Workflows.Issue
   ( IssueRung (Fix, Worktree),
     issueDoc,
@@ -208,9 +209,9 @@ import Workflows.Wiggum (wiggumDoc, wiggumHelp, wiggumProgram, wiggumScript)
 
 -- | The toolbox, in the order @wf list@ prints it.
 --
--- The smoke row first, which exists to prove the wiring rather than to do the
--- owner's work; then the flagships, each landing as a family of rows against
--- this table, one family at a time, each row with its own numbers.
+-- The smoke row first, then the beginner's two-question tutorial; after those
+-- come the flagships, each landing as a family of rows against this table, one
+-- family at a time, each row with its own numbers.
 --
 -- __A row is one /shape/, and a rung is a shape.__ The naming rule above says
 -- one name per shape and never one per invocation, and the review family is
@@ -235,6 +236,7 @@ registry =
       regBanner = "list, plan, price and run the workflows",
       regRows =
         [ ("hello", Row (Fixed helloWorkflow) helloDoc helloHelp helloScript),
+          ("hello-world", Row (Needs helloWorldProgram) helloWorldDoc helloWorldHelp helloWorldScript),
           reviewRow Quick,
           reviewRow Deep,
           reviewRow Sec,

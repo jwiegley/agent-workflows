@@ -87,6 +87,7 @@ src/
     PrdArchitect.hs     the requirements pair (prd-draft|prd-critique)
     NodeRed.hs          flows on vulcan       (nodered)
     Hello.hs            the smoke row         (hello)
+    HelloWorld.hs       the beginner example  (hello-world)
     Registry.hs         the index: name -> program, blurb, canned table
 bin/Main.hs             `wf`, two lines over Agentic.Cli
 emacs/wf.el             the Emacs interface, over `--json` and nothing else
@@ -151,10 +152,93 @@ each is its own row and not a flag:
 $ for r in review-quick review-deep review-sec review-heavy; do wf cost $r; done
 ```
 
-**[`doc/cookbook.md`](doc/cookbook.md) is the per-row guide**: all seventy-two,
+**[`doc/cookbook.md`](doc/cookbook.md) is the per-row guide**: all seventy-three,
 by family, each with its price, what each of its inputs means, one worked command
 line, and the `--scripted` rehearsal to try it dry. This section is the grammar;
 that page is what to type for a given row.
+
+### Start here: `hello-world`
+
+`hello-world` is the small, public example to copy before reading the larger
+workflows. It takes one `language` input, asks one model for `Hello, world!`,
+splices that answer into a second model's prompt, and returns the translation as
+the closed program's typed text result. It neither reads nor writes your tree.
+
+For a reproducible first run from the repository root:
+
+```sh
+nix build
+./result/bin/wf plan hello-world
+./result/bin/wf run hello-world --scripted --input-arg language=Spanish
+```
+
+The scripted run reaches no model. Its fixed trace and final result include:
+
+```text
+    <- Hello, world!
+    <- ¡Hola, mundo!
+
+  the run is over.
+    result      text
+      ¡Hola, mundo!
+```
+
+To work on the example, enter the development shell and use the working-tree
+binary rather than the pinned flake build:
+
+```sh
+nix develop
+cabal build exe:wf
+export WF="$(cabal list-bin exe:wf)"
+"$WF" plan hello-world --raw
+"$WF" run hello-world --scripted --input-arg language=Spanish
+"$WF" run hello-world --engine acp --adapter claude --require-pinned \
+  --input-arg language=Spanish
+```
+
+The canned replies are fixed, so the scripted command uses `Spanish` to keep
+its fixture coherent; changing the language only changes a live prompt. The live
+line also assumes an installed and authenticated `claude` adapter — substitute
+another configured ACP adapter when appropriate.
+
+The ACP command streams both questions and answers to this terminal. The second
+`<-` line is the translator's consultation response; the `result text` block is
+the program's actual returned value. `answer` is a pure terminal projection, so
+it adds no consultation, path or cost. No file or agent-deck session is hidden
+behind the example.
+
+The pieces to follow are deliberately few:
+
+* [`src/Workflows/HelloWorld.hs`](src/Workflows/HelloWorld.hs) owns the input,
+  both prompts, their straight-line `W.do` program, the typed `answer` terminal,
+  canned replies, and help.
+* [`src/Workflows/Registry.hs`](src/Workflows/Registry.hs) gives that value the
+  CLI name `hello-world`; [`agent-workflows.cabal`](agent-workflows.cabal) exposes
+  its module.
+* [`ci/workflows.sh`](ci/workflows.sh) pins the row's level, path count, and cost
+  ceiling, and runs its canned table. [`emacs/wf-smoke.el`](emacs/wf-smoke.el)
+  pins the registry count.
+* [`doc/cookbook.md`](doc/cookbook.md) is generated from `helloWorldHelp`; do not
+  edit its marked `hello-world` region by hand.
+
+The data flow is two Haskell binds: `greeting` is holed into the translator's
+prompt, and `translation` is passed to `answer`. The program therefore has type
+`ParameterizedOf 'CodeText`, while legacy rows remain receipt-valued
+`Parameterized`/`Program` aliases ending in `stop`. To experiment, change a
+prompt or party, add a step, or add an input in `HelloWorld.hs`; then update the
+canned table and registry/gate metadata that changed. `plan` and `cost` show any
+structural or price change before a model is consulted.
+
+After an edit, verify the example and the surfaces derived from it:
+
+```sh
+cabal build all
+"$WF" run hello-world --scripted --input-arg language=Spanish
+./tools/cookbook-gen.sh
+./ci/cookbook.sh
+./ci/workflows.sh
+./ci/emacs.sh
+```
 
 ### The three transports
 
@@ -366,15 +450,17 @@ Emacs records no minibuffer history — exercise those once interactively.
 
 ## What replaces what
 
-The seventy-two rows that exist today stand for **eleven more files** of the
-corpus than the sixty-one did — ninety-one, plus wave 5's nine, plus the two the
-last two rows absorb (`skills/wiggum` and `commands/run-orchestrator`) — plus one
-PAL MCP tool that is not a file at all and one external skill (`translate-en`)
-whose edge is transplanted and whose text is not. The seventy-second, `wiggum-duet`,
-stands for no new file at all: it is the same two files across two panes, which is
-the owner's own ruling and not a corpus document. Each program module's haddock
-carries its own map in full, with the reason for every cell; this is the index
-across all thirty-five.
+The seventy-three rows that exist today include two local examples rather than
+corpus replacements: `hello`, the transport smoke test, and `hello-world`, the
+public tutorial above. Collectively, the toolbox covers **eleven more files** of
+the corpus than the sixty-one-row stage did — ninety-one, plus wave 5's nine,
+plus the two files the last two rows absorb (`skills/wiggum` and
+`commands/run-orchestrator`) — plus one PAL MCP tool that is not a file at all
+and one external skill (`translate-en`) whose edge is transplanted and whose text
+is not. The seventy-second row, `wiggum-duet`, stands for no new file either: it
+is the same two files across two panes, which is the owner's own ruling and not a
+corpus document. Each program module's haddock carries its own map in full, with
+the reason for every cell; this is the index across all thirty-six.
 
 | `~/src/nix/config/ai` | row | note |
 |---|---|---|
@@ -464,8 +550,9 @@ across all thirty-five.
 **The full triage — all 119 files, each marked T (its own program), R (rework
 first), F (folds into a named host) or K (honestly Markdown) — is
 [`doc/design.md` §7](doc/design.md), with §7.5's tally.** Twenty-five programs and
-roughly sixty rows sit behind the corpus; **seventy-two** rows exist today, and
-with `wiggum` landed the roadmap's five waves are complete. §7.5's "roughly sixty"
+roughly sixty rows sit behind the corpus; **seventy-three** rows exist today, and
+with `wiggum` landed the roadmap's five waves are complete. The newest row is the
+`hello-world` tutorial above, not another corpus transcription. §7.5's "roughly sixty"
 was an underestimate rather than a target that has
 been met, and the reason is the naming rule doing its job: a rung whose roster,
 receipts and *price* differ is a row, and wave 5 alone found nine of them behind
@@ -875,7 +962,7 @@ Beyond that there are two build paths, and they answer different questions.
 ```sh
 nix develop            # the devShell: GHC, cabal, HLS
 cabal build all        # this package AND ../agent-cat/haskell, from the working tree
-./ci/workflows.sh      # the gate: 72 rows, priced and run
+./ci/workflows.sh      # the gate: 73 rows, priced and run
 ./ci/emacs.sh          # the Emacs gate: compile, checkdoc, smoke over the binary
 ./ci/cookbook.sh       # the cookbook gate: regenerating doc/cookbook.md is a no-op
 ```

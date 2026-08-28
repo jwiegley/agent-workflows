@@ -98,6 +98,7 @@ library
     Workflows.Git.Commit
     Workflows.Git.Stack
     Workflows.Hello
+    Workflows.HelloWorld
     Workflows.Issue
     Workflows.Nix
     Workflows.NodeRed

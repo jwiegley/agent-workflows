@@ -76,6 +76,7 @@ bad() {
 # binary down here.
 inputsFor() {
   case "$1" in
+    hello-world) ins=(--input-arg language=) ;;
     review-*) ins=(--input-arg scope= --input-arg paths=) ;;
     green-*) ins=(--input-arg target=) ;;
     commit | commit-*) ins=(--input-arg scope= --input-arg tree=) ;;
@@ -263,10 +264,10 @@ pin() {
 # into a document, one report call: no branch and no loop, so its price is exact
 # and the ceiling is the price.
 #
-# TWENTY of the seventy-two rows price exactly — minFold equals maxFold, so
+# TWENTY-ONE of the seventy-three rows price exactly — minFold equals maxFold,
 # `wf cost` answers with a number and not a range — and they are `hello`,
-# `fess`, `confer`, `confer-bare`, `debate`, `second-opinion`, `teams`,
-# `notes`, `issue-worktree`, `account-halt`, `account-sitrep`,
+# `hello-world`, `fess`, `confer`, `confer-bare`, `debate`, `second-opinion`,
+# `teams`, `notes`, `issue-worktree`, `account-halt`, `account-sitrep`,
 # `account-report`, `account-narrative`, `partner-reviewer`,
 # `partner-collaborator`, `claude-md-advise`, `prose-proofread`,
 # `prose-transcript`, `prose-compress` and `translate-es`. The list is stated
@@ -277,6 +278,11 @@ pin() {
 # do any of the owner's work, and it is the row this gate should be read against
 # when a change to the foundation breaks something.
 pin hello               pipeline      1       4
+
+# The beginner row (`Workflows.HelloWorld`). One model answer is spliced into
+# the next model's prompt; the second question is terminal, so the pipeline has
+# one path and an exact price.
+pin hello-world         pipeline      1       2
 
 # The review ladder (`Workflows.Review.Ladder`). Four rungs, four prices, side by
 # side — which is the entire reason the ladder became a program instead of a
@@ -1074,10 +1080,10 @@ helpCheck() {
   # And no page claims a rank in the table's price order. "the cheapest ending"
   # is a claim about THIS row's own paths and is fine — the header's two bounds
   # are exactly that claim's evidence. "the cheapest command in the toolbox" is
-  # a claim about seventy-one other rows, nothing in the header can check it,
+  # a claim about seventy-two other rows, nothing in the header can check it,
   # and re-pricing any one of them falsifies it silently. That is a hand-copied
   # price with the digits left out, so it is banned where the digits are.
-  grep -qiE '(cheapest|costliest|priciest|dearest|most expensive)[^.]*(in the (toolbox|table)|of the (seventy-two|rows)|of any (row|workflow)|registered row)' "$body" \
+  grep -qiE '(cheapest|costliest|priciest|dearest|most expensive)[^.]*(in the (toolbox|table)|of the (seventy-two|seventy-three|rows)|of any (row|workflow)|registered row)' "$body" \
     && bad "$n" "the page's prose" "no rank in the price order" "a superlative across the table"
   grep -qiE "(toolbox|table)'s [a-z]* ?(cheapest|costliest|priciest|dearest|most expensive)" "$body" \
     && bad "$n" "the page's prose" "no rank in the price order" "a superlative across the table"
@@ -1203,6 +1209,15 @@ for n in "${names[@]}"; do
   note "$n: ${pinLevel[$n]}, ${got_paths} path(s), costMax $got_max of ${pinCeiling[$n]}; scripted exit $code"
 done
 
+# `hello-world` is the result-channel regression: the translation must be the
+# final text result, not merely the last trace event followed by unit.
+grep -q '^    result  *text$' "$work/hello-world.run" \
+  || bad hello-world "final result" "a text result block" "absent"
+grep -q '¡Hola, mundo!' "$work/hello-world.run" \
+  || bad hello-world "final result value" "the canned Spanish translation" "absent"
+grep -q '^    answer  *()' "$work/hello-world.run" \
+  && bad hello-world "final result" "not unit" "answer ()"
+
 note "help: ${#names[@]} page(s) checked — sections, both spellings, no price restated, and both printed command lines run"
 
 # ---------------------------------------------------------------------------
@@ -1306,9 +1321,10 @@ else
     || bad wiggum-duet "row 4: run.routes in the report" \
          "(default) = deck:one-pane" "not in the run's output"
 
-  # A refusal the size of a refusal: ONE question put, and it is the report. A run
-  # that had started the loop would have put the sentinel probe first.
-  put=$(grep -c '^  ack -> tool write-report' "$work/row4.run")
+  # A refusal the size of a refusal: ONE question put, and it is the report. Its
+  # `effect` intent is the write authority; a run that had started the loop would
+  # have put the sentinel probe first.
+  put=$(grep -c '^  effect ack -> tool write-report' "$work/row4.run")
   [ "$put" = 1 ] \
     || bad wiggum-duet "row 4: questions put" 1 "$put report act(s)"
   if grep -q "model independence" "$work/row4.run"; then

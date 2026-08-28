@@ -1,6 +1,21 @@
 #+TITLE: Obr Issues
 #+SEQ_TODO: TODO DOING DRAFT WAIT DEFER NOTE | DONE CANCELED
-#+ISSUE_PREFIX: awork-bounded-rounds-former
+#+ISSUE_PREFIX: awork
+
+* DONE [#C] Add a beginner hello-world translation workflow and README guide
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-axi
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-08-27 Thu 13:34]
+:MODIFIED: [2026-08-27 Thu 21:34]
+:CREATED_BY: johnw
+:FINISHED: [2026-08-27 Thu 21:34]
+:CLOSE_REASON: Added the result-bearing hello-world workflow, public guide, generated cookbook entry, CI coverage, and pinned typed-result agent-cat release.
+:SOURCE_REPO: .
+:ORIGINAL_SIZE: 0
+:END:
 
 * TODO [#D] Continuation with a price: a bounded round-count former whose body admits statements (revisingOn's sibling)
 :PROPERTIES:

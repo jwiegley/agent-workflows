@@ -47,8 +47,8 @@ Two practical notes that save a first run:
 
 The prices below read `level · minFold to maxFold over N paths`. `minFold` is
 the cheapest ending — often a refusal — and `maxFold` is the worst case the run
-cannot exceed. Twenty of the seventy-two price *exactly*, min equal to max, and
-those are written as a single number.
+cannot exceed. Twenty-one of the seventy-three price *exactly*, min equal to max,
+and those are written as a single number.
 
 ## The review ladder
 
@@ -4497,6 +4497,48 @@ wf run hello --scripted
 
 <!-- wf:end hello -->
 
+## `hello-world`
+
+<!-- wf:begin hello-world -->
+
+`pipeline · 2 over 1 path`
+
+A small worked example for learning agent-cat's authoring surface. The first
+model returns `Hello, world!`; the second receives that answer through a
+prompt hole and translates it. `answer` makes that translation the program's
+typed text result, which `wf run` renders after the streamed trace.
+
+**Inputs.**
+
+* `language` — the target language named in the translation prompt, such as
+  `Spanish`, `Persian`, or `Japanese`.
+
+**Transport.** Use ACP for an ordinary terminal run. Both questions use the
+toolbox's pinned broad-reading ladder, so `--require-pinned` can check that
+contract before anything is spent.
+
+```sh
+wf run hello-world --engine acp --adapter claude --require-pinned --input-arg language=Spanish
+```
+
+**Rehearsal.** The input is named empty to match the repository gate. The
+canned table still returns its Spanish fixture, consults nobody, and exercises
+the same two-step data flow.
+
+```sh
+wf run hello-world --scripted --input-arg language=
+```
+
+**Caveats.**
+
+* `--scripted` proves wiring, not translation quality; its answers are fixed.
+* This example has no glossary, review panel, retry, or file output. Use the
+  `translate` family when those production concerns matter.
+* A live run writes no file. Its questions appear in the trace and its final
+  translation appears in the result block; a deck session is optional.
+
+<!-- wf:end hello-world -->
+
 ## Which transport for which row
 
 | kind | rows | why |
@@ -4504,7 +4546,7 @@ wf run hello --scripted
 | **Refuses a one-session engine** | `wiggum`; `wiggum-duet` when the judge shares a backend with any work pin, or takes the default | verification comes from a separate evaluator, and one shared pane means the judge has read the work. Both refuse before spending anything |
 | **Wants a watched pane** | `commit`, `commit-push`, `commit-recommit`, `commit-bankruptcy`; `partner-reviewer`, `partner-collaborator` (a pane that is *not* the work's); `partner-cleanup` (the work's own, because it edits); `account-halt`, `expense`, `qanda`, `prd-draft`, `service-install`, `service-remove`, `effort-forge` | a person's question is not a real gate when unattended — `--scripted` answers a flag *yes* and an unwatched run reaches nobody. The commit family is watched for a different reason: it is decomposing your tree |
 | **Wants `--scratch "$PWD"` under acp** | every row that edits: `green-*`, `stack-*`, `issue`, `issue-worktree`, `dead-code`, `comments`, `productize*`, `nix-*`, `checklist`, `claude-md`, `prose-proofread`, `prose-transcript`, `tron`, `retest*`, `effort-medium`, `effort-heavy`, `partner-cleanup`, `wiggum` — and any other row whose written report you mean to keep | the scratch directory is the only place an act may write, and without the flag it is a fresh temporary one |
-| **Fine anywhere** | the review ladder, `fess`, the confer family, `pr-threads*`, the other three account rows, the Org pair, `claude-md-advise`, `prose-smooth`, `prose-compress`, `bundles`, `query`, `transcribe`, `denote`, the translate family, `prd-critique`, `nodered`, `teams`, `notes`, `hello` | they read, fan out and write one report. The transport still changes what the report *means* — see `fess` and `confer` — but no ending is unreachable |
+| **Fine anywhere** | the review ladder, `fess`, the confer family, `pr-threads*`, the other three account rows, the Org pair, `claude-md-advise`, `prose-smooth`, `prose-compress`, `bundles`, `query`, `transcribe`, `denote`, the translate family, `prd-critique`, `nodered`, `teams`, `notes`, `hello`, `hello-world` | they consult without editing your tree, and some write one report. The transport still changes what a report *means* — see `fess` and `confer` — but no ending is unreachable |
 
 ## Building and installing it
 

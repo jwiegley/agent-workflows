@@ -115,7 +115,7 @@ the listing says on each of its two streams."
        (wiggum (seq-find (lambda (r) (equal (alist-get 'name r) "wiggum")) rows))
        (hello (seq-find (lambda (r) (equal (alist-get 'name r) "hello")) rows)))
 
-  (wf-smoke-assert (= (length rows) 72)
+  (wf-smoke-assert (= (length rows) 73)
                    "%d rows, parsed from --json and nothing else"
                    (length rows))
   (wf-smoke-assert wiggum "the listing has a `wiggum' row to ask about")

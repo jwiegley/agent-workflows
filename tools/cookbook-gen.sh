@@ -25,7 +25,7 @@
 # `wf list --json` in the cookbook's own `level · min to max over N paths` form,
 # and the body is `wf help <row>`'s, whose header carries the same numbers off
 # the same `Agentic.Plan.Facts`. Neither is authored, so the cookbook's price
-# lines stop being seventy-two hand-copied numbers — a second class of drift
+# lines stop being seventy-four hand-copied numbers — a second class of drift
 # that a re-pinned ceiling in `ci/workflows.sh` silently creates today.
 #
 # No `jq`: `ci/workflows.sh` reads `list --json` with `tr` and `sed` and this

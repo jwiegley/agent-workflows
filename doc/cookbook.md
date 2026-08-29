@@ -1,6 +1,6 @@
 # Running the workflows
 
-*Seventy-two rows, grouped by family: what each one is, what it costs, what its
+*Seventy-four rows, grouped by family: what each one is, what it costs, what its
 inputs mean, one command line you can type, and the rehearsal that costs
 nothing. `README.md` has the general grammar; this page is the per-row
 specifics.*
@@ -47,7 +47,7 @@ Two practical notes that save a first run:
 
 The prices below read `level · minFold to maxFold over N paths`. `minFold` is
 the cheapest ending — often a refusal — and `maxFold` is the worst case the run
-cannot exceed. Twenty-one of the seventy-three price *exactly*, min equal to max,
+cannot exceed. Twenty-one of the seventy-four price *exactly*, min equal to max,
 and those are written as a single number.
 
 ## The review ladder
@@ -4290,6 +4290,57 @@ wf run nodered --scripted --input-arg request= --input-arg flow= --input-arg nod
   not portable and does not pretend to be.
 
 <!-- wf:end nodered -->
+
+## `taskmaster`
+
+<!-- wf:begin taskmaster -->
+
+`branch · 3 to 22 over 46 paths`
+
+A production evidence-to-design workflow. The source driver creates clean pinned
+Taskmaster and agent-cat snapshots and supplies a canonical evidence manifest.
+Inventory, design, audit, and revision exchange JSON text checked by
+`wf-taskmaster-stage`, installed by the Nix package and put on `PATH` by the
+source driver. Each stage has one repair at most.
+A deterministic renderer owns the Markdown report structure and citations.
+
+**Inputs.**
+
+* `evidence` — the canonical manifest produced by
+  `tools/taskmaster-evidence.py`. Use the source driver for ordinary runs.
+
+**Transport.** Use ACP with `--require-pinned`; the model roles use the toolbox's
+broad, lateral, and reasoning ladders. A source-tree run should use the driver.
+For a direct run, put `tools/` on `PATH`, supply its canonical manifest, and
+choose a configured ACP adapter:
+
+```sh
+wf run taskmaster --engine acp --adapter claude --require-pinned \
+  --scratch "$PWD/taskmaster-run" \
+  --input-file evidence=/absolute/path/to/taskmaster-evidence-manifest.json
+```
+
+**Rehearsal.** The no-network shape rehearsal names the evidence input empty;
+the row's small scripted table settles each revision without executing tools:
+
+```sh
+wf run taskmaster --scripted --input-arg evidence=
+```
+
+**Caveats.**
+
+* A missing or mismatched source revision fails in the driver before an agent
+  starts. A stage receives one repair; a second invalid answer writes a
+  stage-specific `INCOMPLETE` marker and no complete report.
+* Transport, validator, renderer, and output failures are fatal. `--scripted`
+  proves the Program's wiring but does not execute those external gates.
+
+* This row analyzes and recommends; it does not implement FrameworkSpec, copy
+  Taskmaster code, add providers or MCP, or change agent-cat semantics.
+* `tools/taskmaster-framework.sh` owns source pinning and retained artifacts;
+  set its adapter variable for an optional live smoke.
+
+<!-- wf:end taskmaster -->
 
 ## `wiggum` and `wiggum-duet`
 

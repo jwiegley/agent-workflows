@@ -110,6 +110,13 @@ module Workflows.Evidence
     nixFlakeCheck,
     makeTest,
 
+    -- * Taskmaster workflow support
+    taskmasterReview,
+    taskmasterCanonical,
+    taskmasterRenderer,
+    taskmasterWriteReport,
+    taskmasterWriteIncomplete,
+
     -- * The one probe that is about the run itself
     consentFile,
   )
@@ -746,6 +753,39 @@ nixFlakeCheck = tool "green" `running` ("nix", ["flake", "check"])
 -- | @make test@ — the gate for a tree that has one.
 makeTest :: Party 'IsTool
 makeTest = tool "green" `running` ("make", ["test"])
+
+-- ---------------------------------------------------------------------------
+-- Taskmaster workflow support
+-- ---------------------------------------------------------------------------
+
+-- | Validate one model-produced Taskmaster stage as a verdict.
+taskmasterReview :: Text -> Party 'IsTool
+taskmasterReview schema =
+  tool ("taskmaster-" <> schema <> "-schema")
+    `running` ("wf-taskmaster-stage", ["review", schema])
+
+-- | Validate and canonicalize one Taskmaster stage as text.
+taskmasterCanonical :: Text -> Party 'IsTool
+taskmasterCanonical schema =
+  tool ("taskmaster-" <> schema <> "-canonical")
+    `running` ("wf-taskmaster-stage", ["canonical", schema])
+
+-- | Render the final report from the manifest and validated stage values.
+taskmasterRenderer :: Party 'IsTool
+taskmasterRenderer =
+  tool "taskmaster-report-renderer" `running` ("wf-taskmaster-stage", ["render"])
+
+-- | Write the complete report in the run's working directory.
+taskmasterWriteReport :: Party 'IsTool
+taskmasterWriteReport =
+  tool "taskmaster-write-report"
+    `running` ("tee", ["taskmaster-agent-cat-framework.md"])
+
+-- | Write the compact exhausted-stage marker in the run's working directory.
+taskmasterWriteIncomplete :: Text -> Party 'IsTool
+taskmasterWriteIncomplete stage =
+  tool ("taskmaster-" <> stage <> "-incomplete")
+    `running` ("tee", ["taskmaster-framework-incomplete.json"])
 
 -- ---------------------------------------------------------------------------
 -- The consent file

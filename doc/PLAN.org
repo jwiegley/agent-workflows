@@ -112,6 +112,24 @@ Design §6.2 names it, §7.2 row 66 reworks webfix into it, §8's completion ame
 :ORIGINAL_SIZE: 0
 :END:
 
+* DONE [#C] Add production Taskmaster analysis workflow
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-rm5
+:LABELS:   []
+:ISSUE_TYPE: feature
+:CREATED:  [2026-08-28 Fri 13:25]
+:MODIFIED: [2026-08-28 Fri 14:19]
+:CREATED_BY: johnw
+:FINISHED: [2026-08-28 Fri 14:19]
+:CLOSE_REASON: Migrated Taskmaster into the wf registry with current pinned evidence, four bounded schema/repair stages, deterministic rendering, packaged stage helper, self-contained ACP fixture, all repair/exhaustion CI paths, retained provenance, cookbook/Emacs integration, and clean agent-cat worktrees.
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+Migrate the completed Taskmaster evidence-to-design workflow from the agent-cat taskmaster worktree. Keep agent-cat core unchanged; register the workflow under wf with deterministic pinned evidence, bounded schema repair, report rendering, fixture CI, documentation, and retained provenance.
+
 * DONE [#C] Runner-supplied facts: backend count, engine/session policy, and the independence sentinel as facts prompts can carry
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

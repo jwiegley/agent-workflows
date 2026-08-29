@@ -1,0 +1,531 @@
+#!/usr/bin/env python3
+"""Validate canonical stage JSON and render the Taskmaster framework report."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import html
+import json
+import re
+import sys
+
+CATEGORIES = [
+    "task-structure-dependencies",
+    "decomposition",
+    "research",
+    "execution-loops",
+    "workflow-state",
+    "storage-persistence",
+    "interfaces",
+    "providers",
+    "tags-workstreams",
+    "collaboration",
+]
+REQUIRED_CATEGORIES = set(CATEGORIES) | {"license-provenance"}
+DISPOSITIONS = {"ADOPT", "ADAPT", "DEFER", "REJECT"}
+REPOSITORY_URLS = {
+    "taskmaster": "https://github.com/eyaltoledano/claude-task-master",
+    "agent-cat": "https://github.com/jwiegley/agent-cat",
+}
+LICENSE_CONTRACT = {
+    "basis": "MIT plus Commons Clause",
+    "restrictionScope": "selling the Software as defined by the license",
+    "legalAdvice": False,
+    "implementationCodeCopied": False,
+}
+LICENSE_REPORT = {
+    "verified": "Taskmaster is MIT plus Commons Clause; the license defines the restricted sale of the Software.",
+    "interpretation": "The restriction is specific to the Software as defined; this is not legal advice.",
+    "recommendation": "Re-derive concepts, retain provenance, and copy no implementation code.",
+}
+ARCHITECTURE_CONTRACT = {
+    "frameworkSpecKind": "finite multi-run DAG",
+    "frameworkSpecOutsidePlan": True,
+    "controllerOwnsOperationalState": True,
+    "readinessOwner": "FrameworkSpec",
+    "execTraceRole": "run evidence",
+    "persistenceOwner": "repository adapter",
+    "planChanged": False,
+    "workflowChanged": False,
+    "execChanged": False,
+    "routeChanged": False,
+    "certifyChanged": False,
+    "taskmasterJsonParsed": False,
+}
+REAL_CHECKS = {
+    "lake build",
+    "nix develop path:./. -c cabal build all",
+    "./ci/tier0.sh",
+    "./ci/examples.sh",
+    "./ci/acp.sh",
+    "./ci/deck.sh",
+    "./ci/citations.sh",
+    "./ci/policies.sh",
+}
+
+
+class StageError(ValueError):
+    pass
+
+
+def obj(value, where):
+    if not isinstance(value, dict):
+        raise StageError(f"{where}: expected object")
+    return value
+
+
+def array(value, where, minimum=0):
+    if not isinstance(value, list) or len(value) < minimum:
+        raise StageError(f"{where}: expected array with at least {minimum} item(s)")
+    return value
+
+
+def text(value, where):
+    if not isinstance(value, str) or not value.strip():
+        raise StageError(f"{where}: expected non-empty string")
+    return value.strip()
+
+
+def exact_keys(value, keys, where):
+    actual = set(value)
+    wanted = set(keys)
+    if actual != wanted:
+        raise StageError(f"{where}: keys must be {sorted(wanted)}, found {sorted(actual)}")
+
+
+def validate_status(value, where):
+    if value != "complete":
+        raise StageError(f"{where}.status: expected 'complete'")
+
+
+def validate_evidence_ids(value, where):
+    ids = array(value, where, 1)
+    for index, item in enumerate(ids):
+        text(item, f"{where}[{index}]")
+
+
+def validate_inventory(value):
+    value = obj(value, "inventory")
+    exact_keys(value, ["version", "status", "upstream", "agentCat"], "inventory")
+    if value["version"] != 1:
+        raise StageError("inventory.version: expected 1")
+    validate_status(value["status"], "inventory")
+    for key in ["upstream", "agentCat"]:
+        records = array(value[key], f"inventory.{key}", len(CATEGORIES))
+        categories = set()
+        for index, record in enumerate(records):
+            where = f"inventory.{key}[{index}]"
+            record = obj(record, where)
+            exact_keys(record, ["category", "summary", "evidenceIds"], where)
+            category = text(record["category"], f"{where}.category")
+            if category not in CATEGORIES:
+                raise StageError(f"{where}.category: unknown category {category}")
+            if category in categories:
+                raise StageError(f"{where}.category: duplicate {category}")
+            categories.add(category)
+            text(record["summary"], f"{where}.summary")
+            validate_evidence_ids(record["evidenceIds"], f"{where}.evidenceIds")
+        missing = set(CATEGORIES) - categories
+        if missing:
+            raise StageError(f"inventory.{key}: missing categories {sorted(missing)}")
+    return value
+
+
+def validate_design(value):
+    value = obj(value, "design")
+    keys = [
+        "version", "status", "executiveDecision", "mappings", "architecture",
+        "semantics", "lifecycle", "failures", "extensionPoints", "stages",
+        "risks", "rejectedAlternatives", "decisions", "recommendations", "license",
+    ]
+    exact_keys(value, keys, "design")
+    if value["version"] != 1:
+        raise StageError("design.version: expected 1")
+    validate_status(value["status"], "design")
+    text(value["executiveDecision"], "design.executiveDecision")
+
+    mappings = array(value["mappings"], "design.mappings", len(CATEGORIES))
+    mapped = set()
+    for index, mapping in enumerate(mappings):
+        where = f"design.mappings[{index}]"
+        mapping = obj(mapping, where)
+        exact_keys(mapping, ["category", "disposition", "agentCatOwner", "interpretation", "evidenceIds"], where)
+        category = text(mapping["category"], f"{where}.category")
+        if category not in CATEGORIES or category in mapped:
+            raise StageError(f"{where}.category: invalid or duplicate {category}")
+        mapped.add(category)
+        if mapping["disposition"] not in DISPOSITIONS:
+            raise StageError(f"{where}.disposition: invalid")
+        text(mapping["agentCatOwner"], f"{where}.agentCatOwner")
+        text(mapping["interpretation"], f"{where}.interpretation")
+        validate_evidence_ids(mapping["evidenceIds"], f"{where}.evidenceIds")
+
+    architecture = obj(value["architecture"], "design.architecture")
+    exact_keys(architecture, ARCHITECTURE_CONTRACT, "design.architecture")
+    for key, expected in ARCHITECTURE_CONTRACT.items():
+        if architecture[key] != expected:
+            raise StageError(f"design.architecture.{key}: invalid boundary value")
+    semantics = obj(value["semantics"], "design.semantics")
+    exact_keys(semantics, ["principalObject", "representationTower", "laws"], "design.semantics")
+    text(semantics["principalObject"], "design.semantics.principalObject")
+    for key, minimum in [("representationTower", 4), ("laws", 5)]:
+        for index, item in enumerate(array(semantics[key], f"design.semantics.{key}", minimum)):
+            text(item, f"design.semantics.{key}[{index}]")
+
+    for key, minimum in [("lifecycle", 8), ("failures", 8), ("extensionPoints", 4)]:
+        for index, item in enumerate(array(value[key], f"design.{key}", minimum)):
+            text(item, f"design.{key}[{index}]")
+
+    stages = array(value["stages"], "design.stages", 7)
+    stage_ids = set()
+    stage_checks = set()
+    for index, stage in enumerate(stages):
+        where = f"design.stages[{index}]"
+        stage = obj(stage, where)
+        exact_keys(stage, ["id", "files", "behavior", "check"], where)
+        identifier = text(stage["id"], f"{where}.id")
+        if identifier in stage_ids:
+            raise StageError(f"{where}.id: duplicate {identifier}")
+        stage_ids.add(identifier)
+        for file_index, file in enumerate(array(stage["files"], f"{where}.files", 1)):
+            file = text(file, f"{where}.files[{file_index}]")
+            if not re.fullmatch(r"[A-Za-z0-9._/-]+", file) or file.startswith("/") or ".." in file.split("/"):
+                raise StageError(f"{where}.files[{file_index}]: unsafe repository-relative path")
+        behavior = text(stage["behavior"], f"{where}.behavior")
+        if len(behavior) < 20:
+            raise StageError(f"{where}.behavior: too shallow")
+        check = text(stage["check"], f"{where}.check")
+        if check not in REAL_CHECKS:
+            raise StageError(f"{where}.check: unsupported command {check!r}")
+        stage_checks.add(check)
+    if len(stage_checks) < 5:
+        raise StageError("design.stages: expected at least five distinct real checks")
+
+    risks = array(value["risks"], "design.risks", 6)
+    for index, risk in enumerate(risks):
+        where = f"design.risks[{index}]"
+        risk = obj(risk, where)
+        exact_keys(risk, ["risk", "mitigation"], where)
+        text(risk["risk"], f"{where}.risk")
+        text(risk["mitigation"], f"{where}.mitigation")
+
+    for index, alternative in enumerate(array(value["rejectedAlternatives"], "design.rejectedAlternatives", 4)):
+        text(alternative, f"design.rejectedAlternatives[{index}]")
+
+    for index, decision in enumerate(array(value["decisions"], "design.decisions", 1)):
+        where = f"design.decisions[{index}]"
+        decision = obj(decision, where)
+        exact_keys(decision, ["question", "recommendedDefault"], where)
+        text(decision["question"], f"{where}.question")
+        text(decision["recommendedDefault"], f"{where}.recommendedDefault")
+
+    recommendations = array(value["recommendations"], "design.recommendations", 10)
+    recommendation_ids = set()
+    for index, recommendation in enumerate(recommendations):
+        where = f"design.recommendations[{index}]"
+        recommendation = obj(recommendation, where)
+        exact_keys(recommendation, ["id", "recommendation", "evidenceIds", "check"], where)
+        identifier = text(recommendation["id"], f"{where}.id")
+        if identifier in recommendation_ids:
+            raise StageError(f"{where}.id: duplicate {identifier}")
+        recommendation_ids.add(identifier)
+        text(recommendation["recommendation"], f"{where}.recommendation")
+        validate_evidence_ids(recommendation["evidenceIds"], f"{where}.evidenceIds")
+        check = text(recommendation["check"], f"{where}.check")
+        if check not in REAL_CHECKS:
+            raise StageError(f"{where}.check: unsupported command {check!r}")
+
+    license_value = obj(value["license"], "design.license")
+    exact_keys(license_value, LICENSE_CONTRACT, "design.license")
+    for key, expected in LICENSE_CONTRACT.items():
+        if license_value[key] != expected:
+            raise StageError(f"design.license.{key}: invalid contract value")
+    return value
+
+
+def validate_audit(value):
+    value = obj(value, "audit")
+    exact_keys(value, ["version", "status", "complete", "findings"], "audit")
+    if value["version"] != 1:
+        raise StageError("audit.version: expected 1")
+    validate_status(value["status"], "audit")
+    if not isinstance(value["complete"], bool):
+        raise StageError("audit.complete: expected boolean")
+    findings = array(value["findings"], "audit.findings")
+    for index, finding in enumerate(findings):
+        where = f"audit.findings[{index}]"
+        finding = obj(finding, where)
+        exact_keys(finding, ["severity", "category", "message", "evidenceIds"], where)
+        if finding["severity"] not in ["high", "medium", "low"]:
+            raise StageError(f"{where}.severity: invalid")
+        text(finding["category"], f"{where}.category")
+        text(finding["message"], f"{where}.message")
+        validate_evidence_ids(finding["evidenceIds"], f"{where}.evidenceIds")
+    if value["complete"] and findings:
+        raise StageError("audit.complete: true requires no findings")
+    return value
+
+
+def validate_manifest(value):
+    value = obj(value, "manifest")
+    exact_keys(value, ["version", "repositories", "requiredCategories", "evidence"], "manifest")
+    if value["version"] != 1:
+        raise StageError("manifest.version: expected 1")
+
+    repositories = obj(value["repositories"], "manifest.repositories")
+    exact_keys(repositories, REPOSITORY_URLS, "manifest.repositories")
+    for name, expected_url in REPOSITORY_URLS.items():
+        identity = obj(repositories[name], f"manifest.repositories.{name}")
+        exact_keys(identity, ["url", "revision", "tree"], f"manifest.repositories.{name}")
+        if identity["url"] != expected_url:
+            raise StageError(f"manifest.repositories.{name}.url: unexpected repository")
+        for key in ["revision", "tree"]:
+            if not isinstance(identity[key], str) or not re.fullmatch(r"[0-9a-f]{40}", identity[key]):
+                raise StageError(f"manifest.repositories.{name}.{key}: expected 40 lowercase hex characters")
+
+    required_values = array(value["requiredCategories"], "manifest.requiredCategories", len(REQUIRED_CATEGORIES))
+    required = set()
+    for index, category in enumerate(required_values):
+        category = text(category, f"manifest.requiredCategories[{index}]")
+        if category in required:
+            raise StageError(f"manifest.requiredCategories[{index}]: duplicate {category}")
+        required.add(category)
+    if required != REQUIRED_CATEGORIES:
+        raise StageError(f"manifest.requiredCategories: expected {sorted(REQUIRED_CATEGORIES)}")
+
+    records = array(value["evidence"], "manifest.evidence", 1)
+    identifiers = set()
+    categories = set()
+    for index, record in enumerate(records):
+        where = f"manifest.evidence[{index}]"
+        record = obj(record, where)
+        exact_keys(record, ["id", "category", "classification", "claim", "repository", "path", "start", "end", "excerpt", "excerptSha256"], where)
+        identifier = text(record["id"], f"{where}.id")
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", identifier):
+            raise StageError(f"{where}.id: unsafe identifier")
+        if identifier in identifiers:
+            raise StageError(f"{where}.id: duplicate")
+        identifiers.add(identifier)
+        category = text(record["category"], f"{where}.category")
+        if category not in REQUIRED_CATEGORIES:
+            raise StageError(f"{where}.category: unknown category {category}")
+        categories.add(category)
+        if record["classification"] not in ["verified", "interpretation"]:
+            raise StageError(f"{where}.classification: invalid")
+        text(record["claim"], f"{where}.claim")
+        if record["repository"] not in REPOSITORY_URLS:
+            raise StageError(f"{where}.repository: unknown repository")
+        path = text(record["path"], f"{where}.path")
+        if not re.fullmatch(r"[A-Za-z0-9._/-]+", path) or path.startswith("/") or ".." in path.split("/"):
+            raise StageError(f"{where}.path: unsafe repository-relative path")
+        for key in ["start", "end"]:
+            if isinstance(record[key], bool) or not isinstance(record[key], int) or record[key] < 1:
+                raise StageError(f"{where}.{key}: expected positive integer")
+        if record["end"] < record["start"]:
+            raise StageError(f"{where}: end precedes start")
+        if not isinstance(record["excerpt"], str) or not record["excerpt"]:
+            raise StageError(f"{where}.excerpt: expected non-empty string")
+        expected_hash = hashlib.sha256(record["excerpt"].encode()).hexdigest()
+        if record["excerptSha256"] != expected_hash:
+            raise StageError(f"{where}.excerptSha256: digest mismatch")
+    missing = required - categories
+    if missing:
+        raise StageError(f"manifest: missing categories {sorted(missing)}")
+    return value, identifiers
+
+
+def markdown_text(value):
+    value = html.escape(" ".join(value.split()), quote=False).replace("\\", "\\\\")
+    for character in ["`", "*", "_", "[", "]", "|"]:
+        value = value.replace(character, "\\" + character)
+    return value
+def validate(name, value):
+    if name == "inventory":
+        return validate_inventory(value)
+    if name in ["design", "revision"]:
+        return validate_design(value)
+    if name == "audit":
+        return validate_audit(value)
+    raise StageError(f"unknown schema: {name}")
+
+
+def canonical(value):
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
+
+
+def evidence_reference(record, repositories):
+    identity = repositories[record["repository"]]
+    if record["repository"] == "taskmaster":
+        url = f"{identity['url']}/blob/{identity['revision']}/{record['path']}#L{record['start']}-L{record['end']}"
+        return f"[{record['id']}]({url})"
+    return f"`{record['path']}:L{record['start']}-L{record['end']}`"
+
+
+def render_report(wrapper):
+    wrapper = obj(wrapper, "render")
+    exact_keys(wrapper, ["manifest", "inventory", "design"], "render")
+    manifest, evidence_ids = validate_manifest(wrapper["manifest"])
+    inventory = validate_inventory(wrapper["inventory"])
+    design = validate_design(wrapper["design"])
+
+    by_id = {record["id"]: record for record in manifest["evidence"]}
+    for source, repository in [("upstream", "taskmaster"), ("agentCat", "agent-cat")]:
+        for record in inventory[source]:
+            unknown = set(record["evidenceIds"]) - evidence_ids
+            if unknown:
+                raise StageError(f"inventory.{source}: unknown evidence IDs {sorted(unknown)}")
+            wrong_repository = [item for item in record["evidenceIds"] if by_id[item]["repository"] != repository]
+            if wrong_repository:
+                raise StageError(f"inventory.{source}: wrong-repository evidence IDs {wrong_repository}")
+            wrong_category = [item for item in record["evidenceIds"] if by_id[item]["category"] != record["category"]]
+            if wrong_category:
+                raise StageError(f"inventory.{source}: wrong-category evidence IDs {wrong_category}")
+    for mapping in design["mappings"]:
+        unknown = set(mapping["evidenceIds"]) - evidence_ids
+        if unknown:
+            raise StageError(f"mapping {mapping['category']}: unknown evidence IDs {sorted(unknown)}")
+        cited_repositories = {by_id[item]["repository"] for item in mapping["evidenceIds"]}
+        if cited_repositories != set(REPOSITORY_URLS):
+            raise StageError(f"mapping {mapping['category']}: expected upstream and agent-cat evidence")
+        wrong_category = [item for item in mapping["evidenceIds"] if by_id[item]["category"] != mapping["category"]]
+        if wrong_category:
+            raise StageError(f"mapping {mapping['category']}: wrong-category evidence IDs {wrong_category}")
+    for recommendation in design["recommendations"]:
+        unknown = set(recommendation["evidenceIds"]) - evidence_ids
+        if unknown:
+            raise StageError(f"recommendation {recommendation['id']}: unknown evidence IDs {sorted(unknown)}")
+
+    license_ids = [
+        record["id"]
+        for record in manifest["evidence"]
+        if record["category"] == "license-provenance"
+        and record["repository"] == "taskmaster"
+        and record["classification"] == "verified"
+    ]
+    if not license_ids:
+        raise StageError("manifest: missing verified Taskmaster license evidence")
+    repositories = {
+        "taskmaster": manifest["repositories"]["taskmaster"],
+        "agent-cat": manifest["repositories"]["agent-cat"],
+    }
+
+    def refs(ids):
+        return ", ".join(evidence_reference(by_id[item], repositories) for item in ids)
+
+    def evidence_label(ids):
+        if all(by_id[item]["classification"] == "verified" for item in ids):
+            return "Verified"
+        return "Interpretation"
+
+    lines = [
+        "# Taskmaster concepts for an agent-cat workflow framework",
+        "",
+        "## 1. Status and provenance",
+        "",
+        f"- **Verified:** Taskmaster `{repositories['taskmaster']['revision']}` / tree `{repositories['taskmaster']['tree']}`.",
+        f"- **Verified:** agent-cat `{repositories['agent-cat']['revision']}` / tree `{repositories['agent-cat']['tree']}`.",
+        "- **Verified:** Sources were clean before collection; evidence excerpts and hashes are retained in the manifest.",
+        f"- **Recommendation:** {LICENSE_REPORT['recommendation']}",
+        "",
+        "## 2. Executive decision",
+        "",
+        f"- **Recommendation:** {markdown_text(design['executiveDecision'])}",
+        "",
+        "## 3. Verified Taskmaster capability inventory",
+        "",
+    ]
+    for record in inventory["upstream"]:
+        lines.append(f"- **{evidence_label(record['evidenceIds'])} — {record['category']}:** {markdown_text(record['summary'])} — {refs(record['evidenceIds'])}")
+    lines.extend(["", "## 4. Existing agent-cat capability inventory", ""])
+    for record in inventory["agentCat"]:
+        lines.append(f"- **{evidence_label(record['evidenceIds'])} — {record['category']}:** {markdown_text(record['summary'])} — {refs(record['evidenceIds'])}")
+    lines.extend(["", "## 5. Capability map", "", "| Capability | Decision | Owner | Rationale | Evidence |", "|---|---|---|---|---|"])
+    for mapping in design["mappings"]:
+        lines.append(
+            f"| {mapping['category']} | {mapping['disposition']} | {markdown_text(mapping['agentCatOwner'])} | "
+            f"**Interpretation:** {markdown_text(mapping['interpretation'])} | {refs(mapping['evidenceIds'])} |"
+        )
+    lines.extend([
+        "",
+        "## 6. Minimum framework semantics and representation tower",
+        "",
+        f"- **Recommendation — principal object:** {markdown_text(design['semantics']['principalObject'])}",
+    ])
+    for item in design["semantics"]["representationTower"]:
+        lines.append(f"- **Recommendation — representation:** {markdown_text(item)}")
+    for item in design["semantics"]["laws"]:
+        lines.append(f"- **Recommendation — law:** {markdown_text(item)}")
+    lines.extend([
+        "- **Recommendation — boundary:** FrameworkSpec is a finite multi-run DAG outside Plan.",
+        "- **Recommendation — boundary:** Controller owns operational state and FrameworkSpec owns readiness.",
+        "- **Recommendation — boundary:** ExecTrace is run evidence; repository adapters own persistence.",
+        "- **Recommendation — boundary:** Plan, Workflow, Exec, Route, and Certify remain unchanged.",
+        "- **Recommendation — boundary:** Taskmaster JSON is not parsed into agent-cat Plan or RawProgram.",
+    ])
+    lines.extend(["", "## 7. Lifecycle, failure, persistence, and extension boundaries", ""])
+    for item in design["lifecycle"]:
+        lines.append(f"- **Recommendation — lifecycle:** {markdown_text(item)}")
+    for item in design["failures"]:
+        lines.append(f"- **Recommendation — failure:** {markdown_text(item)}")
+    for item in design["extensionPoints"]:
+        lines.append(f"- **Recommendation — extension:** {markdown_text(item)}")
+    lines.extend(["", "## 8. Ordered implementation plan with acceptance checks", ""])
+    for number, stage in enumerate(design["stages"], 1):
+        lines.extend([
+            f"### Stage {number}: {markdown_text(stage['id'])}",
+            f"- **Files:** {', '.join(markdown_text(file) for file in stage['files'])}",
+            f"- **Behavior:** {markdown_text(stage['behavior'])}",
+            f"- **Check:** `{stage['check']}`",
+            "",
+        ])
+    lines.extend(["## 9. Risks, license/provenance constraints, and rejected alternatives", ""])
+    for risk in design["risks"]:
+        lines.append(f"- **Risk:** {markdown_text(risk['risk'])} **Mitigation:** {markdown_text(risk['mitigation'])}")
+    for alternative in design["rejectedAlternatives"]:
+        lines.append(f"- **Recommendation — rejected:** {markdown_text(alternative)}")
+    lines.extend([
+        f"- **Verified — license:** {LICENSE_REPORT['verified']} — {refs(license_ids)}",
+        f"- **Interpretation — license:** {LICENSE_REPORT['interpretation']}",
+        "",
+        "## 10. Open owner decisions",
+        "",
+    ])
+    for decision in design["decisions"]:
+        lines.append(f"- **Recommendation:** {markdown_text(decision['question'])} Default: {markdown_text(decision['recommendedDefault'])}")
+    lines.extend(["", "## 11. Verification matrix", "", "| ID | Recommendation | Evidence | Check |", "|---|---|---|---|"])
+    for recommendation in design["recommendations"]:
+        lines.append(
+            f"| {markdown_text(recommendation['id'])} | {markdown_text(recommendation['recommendation'])} | "
+            f"{refs(recommendation['evidenceIds'])} | `{recommendation['check']}` |"
+        )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("action", choices=["review", "canonical", "render"])
+    parser.add_argument("schema", nargs="?")
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    try:
+        value = json.load(sys.stdin)
+        if args.action == "render":
+            sys.stdout.write(render_report(value))
+        else:
+            if not args.schema:
+                raise StageError("schema is required")
+            validated = validate(args.schema, value)
+            if args.action == "canonical":
+                sys.stdout.write(canonical(validated))
+    except (StageError, json.JSONDecodeError, OSError) as error:
+        print(f"taskmaster-stage: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

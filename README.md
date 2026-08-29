@@ -27,7 +27,10 @@ flake.nix               the pinned build
 ci/workflows.sh         this repository's gate: every row, priced and run
 ci/emacs.sh             the Emacs gate: compile, checkdoc, smoke
 ci/cookbook.sh          the cookbook gate: regeneration is a no-op
+ci/taskmaster.sh        Taskmaster schemas, artifacts, repair, and exhaustion
 tools/cookbook-gen.sh   …and the generator it holds doc/cookbook.md to
+tools/wf-taskmaster-stage  packaged Taskmaster schema gate and report renderer
+tools/taskmaster-framework.sh pinned-source Taskmaster production driver
 src/
   Workflows/
     Prose.hs            the four mechanics — bullets, numbered, fenceOf, tshow
@@ -86,6 +89,7 @@ src/
     Translate.hs        the translation team  (translate|translate-en|translate-es)
     PrdArchitect.hs     the requirements pair (prd-draft|prd-critique)
     NodeRed.hs          flows on vulcan       (nodered)
+    Taskmaster.hs       pinned evidence to a framework design (taskmaster)
     Hello.hs            the smoke row         (hello)
     HelloWorld.hs       the beginner example  (hello-world)
     Registry.hs         the index: name -> program, blurb, canned table
@@ -113,6 +117,11 @@ cabal install exe:wf --installdir=$HOME/.local/bin --overwrite-policy=always
 nix profile install .#default
 nix run . -- list                          # without installing anything
 ```
+
+The Cabal command installs `wf` alone. Every existing row except `taskmaster` needs
+nothing else; a source-tree Taskmaster run puts `tools/` on `PATH` itself. For an
+installed Taskmaster row, use the Nix package, which installs
+`wf-taskmaster-stage` beside `wf`.
 
 Then, from whatever repository the work is in:
 
@@ -152,7 +161,7 @@ each is its own row and not a flag:
 $ for r in review-quick review-deep review-sec review-heavy; do wf cost $r; done
 ```
 
-**[`doc/cookbook.md`](doc/cookbook.md) is the per-row guide**: all seventy-three,
+**[`doc/cookbook.md`](doc/cookbook.md) is the per-row guide**: all seventy-four,
 by family, each with its price, what each of its inputs means, one worked command
 line, and the `--scripted` rehearsal to try it dry. This section is the grammar;
 that page is what to type for a given row.
@@ -239,6 +248,29 @@ cabal build all
 ./ci/workflows.sh
 ./ci/emacs.sh
 ```
+
+### The Taskmaster analysis workflow
+
+`taskmaster` is a production workflow built *with* agent-cat, not an agent-cat
+language fixture. It collects reviewed excerpts from pinned Taskmaster and agent-cat
+commits, carries four schema-validated JSON stages with one repair each, and lets a
+deterministic renderer—not a model—own the report and citations. No `Agentic.*`
+semantic or transport change is required, which is why the row lives in this second
+registry.
+
+From a source checkout, reproduce the retained fixture run with:
+
+```sh
+TASKMASTER_UPSTREAM=/absolute/path/to/claude-task-master \
+TASKMASTER_AGENT_CAT=/absolute/path/to/agent-cat \
+  tools/taskmaster-framework.sh
+```
+
+The ordinary registry gate prices its Program; `ci/taskmaster.sh` additionally runs
+the executable schema gates, all four successful-repair paths, all four exhausted
+paths, golden rendering, and retained-artifact checks. The exact trust, provenance,
+output, and optional live-smoke contract is
+[`doc/research/taskmaster-workflow-contract.md`](doc/research/taskmaster-workflow-contract.md).
 
 ### The three transports
 
@@ -450,17 +482,17 @@ Emacs records no minibuffer history — exercise those once interactively.
 
 ## What replaces what
 
-The seventy-three rows that exist today include two local examples rather than
-corpus replacements: `hello`, the transport smoke test, and `hello-world`, the
-public tutorial above. Collectively, the toolbox covers **eleven more files** of
-the corpus than the sixty-one-row stage did — ninety-one, plus wave 5's nine,
-plus the two files the last two rows absorb (`skills/wiggum` and
-`commands/run-orchestrator`) — plus one PAL MCP tool that is not a file at all
-and one external skill (`translate-en`) whose edge is transplanted and whose text
-is not. The seventy-second row, `wiggum-duet`, stands for no new file either: it
-is the same two files across two panes, which is the owner's own ruling and not a
-corpus document. Each program module's haddock carries its own map in full, with
-the reason for every cell; this is the index across all thirty-six.
+The seventy-four rows that exist today include three workflows that are not corpus
+replacements: `hello`, the transport smoke test; `hello-world`, the public tutorial;
+and `taskmaster`, a pinned external-source analysis. Collectively, the corpus-derived
+toolbox covers **eleven more files** than the sixty-one-row stage did — ninety-one,
+plus wave 5's nine, plus the two files the last two rows absorb
+(`skills/wiggum` and `commands/run-orchestrator`) — plus one PAL MCP tool that is
+not a file at all and one external skill (`translate-en`) whose edge is transplanted
+and whose text is not. `wiggum-duet` stands for no new file either: it is the same
+two files across two panes, which is the owner's own ruling and not a corpus
+document. Each program module's haddock carries its own map in full, with the reason
+for every cell; this is the index across all thirty-seven.
 
 | `~/src/nix/config/ai` | row | note |
 |---|---|---|
@@ -550,9 +582,10 @@ the reason for every cell; this is the index across all thirty-six.
 **The full triage — all 119 files, each marked T (its own program), R (rework
 first), F (folds into a named host) or K (honestly Markdown) — is
 [`doc/design.md` §7](doc/design.md), with §7.5's tally.** Twenty-five programs and
-roughly sixty rows sit behind the corpus; **seventy-three** rows exist today, and
+roughly sixty rows sit behind the corpus; **seventy-four** rows exist today, and
 with `wiggum` landed the roadmap's five waves are complete. The newest row is the
-`hello-world` tutorial above, not another corpus transcription. §7.5's "roughly sixty"
+external `taskmaster` analysis; like `hello-world`, it is not another corpus
+transcription. §7.5's "roughly sixty"
 was an underestimate rather than a target that has
 been met, and the reason is the naming rule doing its job: a rung whose roster,
 receipts and *price* differ is a row, and wave 5 alone found nine of them behind
@@ -949,20 +982,23 @@ is where an operator should start.
 ## Building it
 
 ```sh
-nix build              # -> ./result/bin/wf
+nix build              # -> ./result/bin/{wf,wf-taskmaster-stage}
 ./result/bin/wf list
 ```
 
-That is the whole of a first build: no devShell, nothing installed, and the
-binary it drops at `result/bin/wf` is the one every command on this page and in
-[`doc/cookbook.md`](doc/cookbook.md) is written against.
+That is the whole of a first build: no devShell, nothing installed. The `wf` binary
+is the one every command on this page and in
+[`doc/cookbook.md`](doc/cookbook.md) is written against; its packaged
+`wf-taskmaster-stage` companion is the deterministic gate used only by the
+Taskmaster row.
 
 Beyond that there are two build paths, and they answer different questions.
 
 ```sh
 nix develop            # the devShell: GHC, cabal, HLS
 cabal build all        # this package AND ../agent-cat/haskell, from the working tree
-./ci/workflows.sh      # the gate: 73 rows, priced and run
+./ci/workflows.sh      # the gate: 74 rows, priced and run
+./ci/taskmaster.sh     # Taskmaster unit, artifact, repair and exhaustion gate
 ./ci/emacs.sh          # the Emacs gate: compile, checkdoc, smoke over the binary
 ./ci/cookbook.sh       # the cookbook gate: regenerating doc/cookbook.md is a no-op
 ```

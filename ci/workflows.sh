@@ -213,6 +213,7 @@ inputsFor() {
     nodered)
       ins=(--input-arg request= --input-arg flow= --input-arg node= --input-arg scripts= --input-arg references=)
       ;;
+    taskmaster) ins=(--input-arg evidence=) ;;
     # The top of the loop. NONE of its four inputs shapes a roster, so WR-1 has
     # nothing to say here and every empty one is given a meaning in Haskell
     # instead: `base=` empty is `main` (an argv), `observations=` empty is
@@ -264,7 +265,7 @@ pin() {
 # into a document, one report call: no branch and no loop, so its price is exact
 # and the ceiling is the price.
 #
-# TWENTY-ONE of the seventy-three rows price exactly — minFold equals maxFold,
+# TWENTY-ONE of the seventy-four rows price exactly — minFold equals maxFold,
 # `wf cost` answers with a number and not a range — and they are `hello`,
 # `hello-world`, `fess`, `confer`, `confer-bare`, `debate`, `second-opinion`,
 # `teams`, `notes`, `issue-worktree`, `account-halt`, `account-sitrep`,
@@ -717,6 +718,12 @@ pin prd-critique        branch        3      11
 # and not put because the validator did not run. Two of the four write nothing.
 pin nodered             branch        4      17
 
+# Pinned evidence to a deterministic design report (`Workflows.Taskmaster`). Four
+# nested one-repair revisions yield 46 complete/exhausted paths and a finite
+# ceiling of 22. `--scripted` proves the Program shape but executes no command;
+# `ci/taskmaster.sh` separately runs every schema gate, one repair and exhaustion.
+pin taskmaster           branch       46      22
+
 # ---------------------------------------------------------------------------
 # Wave 5's last row — the top of the loop (`doc/design.md` §8)
 # ---------------------------------------------------------------------------
@@ -1134,10 +1141,10 @@ helpCheck() {
   # And no page claims a rank in the table's price order. "the cheapest ending"
   # is a claim about THIS row's own paths and is fine — the header's two bounds
   # are exactly that claim's evidence. "the cheapest command in the toolbox" is
-  # a claim about seventy-two other rows, nothing in the header can check it,
+  # a claim about seventy-three other rows, nothing in the header can check it,
   # and re-pricing any one of them falsifies it silently. That is a hand-copied
   # price with the digits left out, so it is banned where the digits are.
-  grep -qiE '(cheapest|costliest|priciest|dearest|most expensive)[^.]*(in the (toolbox|table)|of the (seventy-two|seventy-three|rows)|of any (row|workflow)|registered row)' "$body" \
+  grep -qiE '(cheapest|costliest|priciest|dearest|most expensive)[^.]*(in the (toolbox|table)|of the (seventy-two|seventy-three|seventy-four|rows)|of any (row|workflow)|registered row)' "$body" \
     && bad "$n" "the page's prose" "no rank in the price order" "a superlative across the table"
   grep -qiE "(toolbox|table)'s [a-z]* ?(cheapest|costliest|priciest|dearest|most expensive)" "$body" \
     && bad "$n" "the page's prose" "no rank in the price order" "a superlative across the table"

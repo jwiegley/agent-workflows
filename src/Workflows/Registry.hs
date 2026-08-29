@@ -186,6 +186,12 @@ import Workflows.Service
     serviceProgram,
     serviceScript,
   )
+import Workflows.Taskmaster
+  ( taskmasterDoc,
+    taskmasterHelp,
+    taskmasterProgram,
+    taskmasterScript,
+  )
 import Workflows.Teams (teamsDoc, teamsHelp, teamsProgram, teamsScript)
 import Workflows.Threads
   ( ThreadRung (Assess, Respond),
@@ -329,6 +335,10 @@ registry =
           -- the one row in the table whose paths, database, config-node ids and
           -- entity families are one machine's.
           ("nodered", Row (Needs noderedProgram) noderedDoc noderedHelp noderedScript),
+          -- A production evidence workflow rather than a language fixture. It sits
+          -- in this second registry because it composes existing agent-cat seams
+          -- without adding a semantic or transport primitive to agent-cat itself.
+          ("taskmaster", Row (Needs taskmasterProgram) taskmasterDoc taskmasterHelp taskmasterScript),
           -- The top of the loop, and the last row in the table (`doc/design.md`
           -- §7.4 row 1: "`wiggum`, BUILT LAST: it calls almost everything").
           -- Five of its seven declared callees belong to other rows -- `commitFn`

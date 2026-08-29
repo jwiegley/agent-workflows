@@ -42,8 +42,16 @@
           agentic = final.callCabal2nix "agentic" "${agent-cat}/haskell" { };
           agent-workflows = final.callCabal2nix "agent-workflows" src { };
         });
+
+        workflowExe = pkgs.haskell.lib.justStaticExecutables hs.agent-workflows;
+        taskmasterStage = pkgs.writeShellScriptBin "wf-taskmaster-stage" ''
+          exec ${pkgs.python3}/bin/python3 ${src}/tools/wf-taskmaster-stage "$@"
+        '';
       in {
-        packages.default = pkgs.haskell.lib.justStaticExecutables hs.agent-workflows;
+        packages.default = pkgs.symlinkJoin {
+          name = "agent-workflows";
+          paths = [ workflowExe taskmasterStage ];
+        };
         packages.agent-workflows = self.packages.${system}.default;
 
         # `cabal build`, `cabal run wf`, `./ci/workflows.sh`.

@@ -115,6 +115,7 @@ library
     Workflows.Review.Ladder
     Workflows.Service
     Workflows.Teams
+    Workflows.Taskmaster
     Workflows.Threads
     Workflows.TranscribeImage
     Workflows.Translate

@@ -874,8 +874,11 @@ too_wide=$(awk 'length($0) > 80 { print NR ":" length($0); exit }' "$work/usage.
 [ -z "$too_wide" ] || bad wf "usage line width" "at most 80" "$too_wide"
 
 full_blurb=$(sed -n 's/^  retest-categorical  *//p' "$work/list")
+# Split only at top-level row boundaries. `capabilities` is now a nested object
+# between `blurb` and `name`, so splitting at every `{` loses the blurb before
+# the line on which the name appears.
 json_blurb=$(
-  tr '{' '\n' < "$work/list.json" \
+  sed 's/},{"askNodes"/\n{"askNodes"/g' < "$work/list.json" \
     | grep '"name":"retest-categorical"' \
     | sed -n 's/.*"blurb":"\([^"]*\)".*/\1/p'
 )

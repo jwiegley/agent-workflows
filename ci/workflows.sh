@@ -1068,7 +1068,7 @@ targetCheck() {
   esac
 
   rest=${line#wf run $n }
-  out=$(eval "$(printf '%q' "$wf") run $(printf '%q' "$sentinel") $rest" < /dev/null 2>&1)
+  out=$(eval "$(printf '%q' "$wf") run $(printf '%q' "$sentinel") $rest +RTS -N8 -RTS" < /dev/null 2>&1)
   code=$?
 
   if [ "$code" != 1 ]; then
@@ -1248,7 +1248,7 @@ for n in "${names[@]}"; do
 
   # stdin is /dev/null: a scripted run asks nobody, and this is what makes that a
   # fact rather than a hope.
-  "$wf" run "$n" --scripted "${ins[@]}" < /dev/null > "$work/$n.run" 2>&1
+  "$wf" run "$n" --scripted "${ins[@]}" +RTS -N8 -RTS < /dev/null > "$work/$n.run" 2>&1
   code=$?
   [ "$code" = 0 ] || {
     bad "$n" "run --scripted exit" 0 "$code"
@@ -1352,6 +1352,7 @@ else
       --session one-pane \
       --binary "$stub" --poll 20 --timeout 30000 \
       "${ins[@]}" \
+      +RTS -N8 -RTS \
       < /dev/null > "$work/row4.run" 2>&1
   code=$?
   [ "$code" = 0 ] || {
@@ -1390,6 +1391,7 @@ else
       --route worker=deck:work-pane \
       --binary "$stub" --poll 20 --timeout 30000 \
       "${ins[@]}" \
+      +RTS -N8 -RTS \
       < /dev/null > "$work/row7.run" 2>&1
   code=$?
   [ "$code" = 0 ] && bad wiggum-duet "row 7's exit" "nonzero" 0
@@ -1425,6 +1427,7 @@ else
         --route "$rung=deck:judge-pane" \
         --binary "$stub" --poll 20 --timeout 30000 \
         "${ins[@]}" \
+        +RTS -N8 -RTS \
         < /dev/null > "$work/rung-$rung.run" 2>&1
     code=$?
     [ "$code" = 0 ] \
@@ -1450,6 +1453,7 @@ else
       --route partner=deck:judge-pane \
       --binary "$stub" --poll 20 --timeout 30000 \
       "${ins[@]}" \
+      +RTS -N8 -RTS \
       < /dev/null > "$work/row6.run" 2>&1
   code=$?
   [ "$code" = 0 ] || {

@@ -162,3 +162,20 @@ The one mechanism that closes three followups at once, all recorded in doc/follo
 
 Rename one-to-one workflow-definition Haskell modules to the PascalCase form of their canonical hyphenated skill, command, agent, or native workflow name; update imports, Cabal metadata, docs, and gates without changing registry rows or behavior.
 
+* DONE [#C] Use symbolic routing profile in hello-world
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-usl
+:LABELS:   []
+:ISSUE_TYPE: docs
+:CREATED:  [2026-08-29 Sat 00:59]
+:MODIFIED: [2026-08-29 Sat 01:04]
+:CREATED_BY: johnw
+:FINISHED: [2026-08-29 Sat 01:04]
+:CLOSE_REASON: Hello-world now uses the symbolic deep-thinker profile; help and cookbook explain YAML realization.
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+Replace the concrete broad model ladder in the beginner example with the deep-thinker symbolic routing profile and update generated help.

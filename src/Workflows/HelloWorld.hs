@@ -37,6 +37,11 @@ greetingBrief =
 
   Hello, world!|]
 
+-- | The symbolic routing profile used by both roles. Its concrete provider,
+-- model, effort, output bound and fallback chain belong in routing.yaml.
+deepThinkerProfile :: Text
+deepThinkerProfile = "deep-thinker"
+
 -- | The final question, also used as the scripted-table key.
 translationBrief :: Text
 translationBrief =
@@ -52,9 +57,9 @@ helloWorldProgram :: ParameterizedOf 'CodeText
 helloWorldProgram =
   taking (input "language" :> noInputs) \language ->
     workflow W.do
-      greeting <- ask (broad (model "hello-world-greeter")) [wf|{greetingBrief}|]
+      greeting <- ask (model "hello-world-greeter" `servedBy` deepThinkerProfile) [wf|{greetingBrief}|]
 
-      translation <- ask (broad (model "hello-world-translator")) [wf|
+      translation <- ask (model "hello-world-translator" `servedBy` deepThinkerProfile) [wf|
           {translationBrief}
 
           Target language:
@@ -85,9 +90,11 @@ helloWorldHelp =
   * `language` — the target language named in the translation prompt, such as
     `Spanish`, `Persian`, or `Japanese`.
 
-  **Transport.** Use ACP for an ordinary terminal run. Both questions use the
-  toolbox's pinned broad-reading ladder, so `--require-pinned` can check that
-  contract before anything is spent.
+  **Transport.** Use ACP for an ordinary terminal run. Both questions name the
+  symbolic `deep-thinker` profile, so `--require-pinned` can check the workflow
+  before anything is spent while routing.yaml chooses its concrete router,
+  provider, model, effort, output bound, and fallback chain. With no matching
+  profile, backward compatibility sends the pin to the command's default backend.
 
   ```sh
   wf run hello-world --engine acp --adapter claude --require-pinned --input-arg language=Spanish

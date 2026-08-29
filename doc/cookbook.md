@@ -4513,9 +4513,11 @@ typed text result, which `wf run` renders after the streamed trace.
 * `language` — the target language named in the translation prompt, such as
   `Spanish`, `Persian`, or `Japanese`.
 
-**Transport.** Use ACP for an ordinary terminal run. Both questions use the
-toolbox's pinned broad-reading ladder, so `--require-pinned` can check that
-contract before anything is spent.
+**Transport.** Use ACP for an ordinary terminal run. Both questions name the
+symbolic `deep-thinker` profile, so `--require-pinned` can check the workflow
+before anything is spent while routing.yaml chooses its concrete router,
+provider, model, effort, output bound, and fallback chain. With no matching
+profile, backward compatibility sends the pin to the command's default backend.
 
 ```sh
 wf run hello-world --engine acp --adapter claude --require-pinned --input-arg language=Spanish

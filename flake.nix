@@ -34,16 +34,15 @@
                && !(pkgs.lib.hasPrefix "result-" base);
         };
 
-        # One overlay over the default package set, because `agentic` and this
-        # package must see ONE GHC and one `text`. `agent-cat/haskell` is a
-        # subdirectory of a source tree, which is exactly what callCabal2nix
-        # takes.
-        hs = pkgs.haskellPackages.extend (final: prev: {
+        # Build both packages in the ordinary GHC 9.10 package set. `wf` is a
+        # normal Cabal executable; forcing it static rejects valid `Paths_*`
+        # references on aarch64 Darwin.
+        hs = pkgs.haskell.packages.ghc910.extend (final: prev: {
           agentic = final.callCabal2nix "agentic" "${agent-cat}/haskell" { };
           agent-workflows = final.callCabal2nix "agent-workflows" src { };
         });
 
-        workflowExe = pkgs.haskell.lib.justStaticExecutables hs.agent-workflows;
+        workflowExe = hs.agent-workflows;
         taskmasterStage = pkgs.writeShellScriptBin "wf-taskmaster-stage" ''
           exec ${pkgs.python3}/bin/python3 ${src}/tools/wf-taskmaster-stage "$@"
         '';

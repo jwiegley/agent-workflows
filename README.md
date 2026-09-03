@@ -22,7 +22,7 @@ three competing architectures it was judged from are under `doc/research/`.
 
 ```
 agent-workflows.cabal   the library, the `wf` executable, one common stanza
-cabal.project           the dev loop: this package + ../agent-cat/haskell
+cabal.project           the dev loop: this package + ../agent-cat root workspace
 flake.nix               the pinned build
 ci/workflows.sh         this repository's gate: every row, priced and run
 ci/emacs.sh             the Emacs gate: compile, checkdoc, smoke
@@ -996,7 +996,7 @@ Beyond that there are two build paths, and they answer different questions.
 
 ```sh
 nix develop            # the devShell: GHC, cabal, HLS
-cabal build all        # this package AND ../agent-cat/haskell, from the working tree
+cabal build all        # this package and ../agent-cat root workspace
 ./ci/workflows.sh      # the gate: 74 rows, priced and run
 ./ci/taskmaster.sh     # Taskmaster unit, artifact, repair and exhaustion gate
 ./ci/emacs.sh          # the Emacs gate: compile, checkdoc, smoke over the binary
@@ -1038,9 +1038,8 @@ nix build .#default    # the same pinned build, named: agent-cat at the revision
 > **Which is authoritative.** The **flake** is. It pins an agent-cat revision, it
 > is what `nix build` and any machine other than this one will use, and it is the
 > only statement this repository makes about what it builds against.
-> `cabal.project` is a development convenience: it points at
-> `../agent-cat/haskell`'s *working tree*, which may be ahead of the pin, behind
-> it, or dirty.
+> `cabal.project` is a development convenience: it points at `../agent-cat`'s
+> *working tree*, which may be ahead of the pin, behind it, or dirty.
 >
 > When the two disagree — `cabal build` green and `nix build` red — the meaning
 > is almost always **"you have agent-cat changes that are not pushed"**, and the
@@ -1083,7 +1082,7 @@ of 24".
    `sh -c`; and there is no interpolation syntax at an argv, deliberately.
 4. **Never import from agent-cat's `test/corpus` or `tier1`.** The toolbox is not
    conformance and must not be able to make a corpus gate red. (It cannot: this
-   package depends on the `agentic` library and can see neither.)
+   package depends on `agentic` and can see neither.)
 5. **A rubric over roughly sixty lines is a program input, not a define.** Prompt
    bulk is the corpus's largest avoidable cost.
 6. **A roster-shaping input must be total on `""`.** `plan` and `cost` bind the

@@ -5,12 +5,9 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
 
-    # Not a flake: agent-cat's flake.nix exposes a Lean devShell and
-    # agent-cat/haskell/flake.nix exposes a GHC devShell — there are no Haskell
-    # package outputs anywhere in agent-cat. So what this repository needs from
-    # it is the source tree, and cabal2nix. Pinning it here is what makes
-    # `nix build` reproducible; `cabal.project` is what makes the inner loop
-    # fast, and the README says which wins when they disagree.
+    # Read agent-cat source directly: root hosts its one Cabal package. Pinning
+    # source makes `nix build` reproducible; `cabal.project` keeps local
+    # iteration fast.
     agent-cat = {
       url = "github:jwiegley/agent-cat";
       flake = false;
@@ -34,12 +31,12 @@
                && !(pkgs.lib.hasPrefix "result-" base);
         };
 
-        # Build both packages in the ordinary GHC 9.10 package set. `wf` is a
-        # normal Cabal executable; forcing it static rejects valid `Paths_*`
-        # references on aarch64 Darwin.
+        # agent-cat exposes one public Cabal package from its repository root.
         hs = pkgs.haskell.packages.ghc910.extend (final: prev: {
-          agentic = final.callCabal2nix "agentic" "${agent-cat}/haskell" { };
-          agent-workflows = final.callCabal2nix "agent-workflows" src { };
+          agentic = final.callCabal2nix "agentic" agent-cat { };
+          agent-workflows = final.callCabal2nix "agent-workflows" src {
+            agentic = final.agentic;
+          };
         });
 
         workflowExe = hs.agent-workflows;
@@ -55,12 +52,8 @@
 
         # `cabal build`, `cabal run wf`, `./ci/workflows.sh`.
         #
-        # BOTH packages are listed, to match `cabal.project`: the inner loop
-        # builds `agentic` from the sibling working tree, so what the shell must
-        # supply is `agentic`'s dependencies (aeson, QuickCheck, …) and not
-        # `agentic` itself. Listing only this package would put a pinned
-        # `agentic` in the package database that cabal would then shadow with a
-        # local build whose own dependencies were never brought in.
+        # `agentic` supplies agent-cat dependencies while Cabal resolves its
+        # sibling working-tree copy from `cabal.project`.
         devShells.default = hs.shellFor {
           packages = p: [ p.agent-workflows p.agentic ];
           nativeBuildInputs = [ pkgs.cabal-install pkgs.haskell-language-server ];

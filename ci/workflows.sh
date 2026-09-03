@@ -1326,7 +1326,7 @@ fi
 #      not empty: it calls `duetReportFn`, which is an `act`, which is a
 #      question — so a live-shaped transport IS needed for the one turn the
 #      refusal spends. That is agent-cat's deck STUB, pointed at by `--binary`,
-#      the same fixture `agent-cat/haskell/ci/deck.sh` runs; it answers an `ack`
+#      same fixture `agent-cat/engine/agent-deck/ci/deck.sh` runs; it answers an `ack`
 #      question with `DONE` and reaches no network and no agent.
 #
 #   2. It said row 7 — the inverted split — was "the one worth pinning, since it
@@ -1354,7 +1354,7 @@ fi
 # whenever this gate can build at all; it is guarded anyway, because a gate that
 # dies on a missing fixture teaches nothing.
 
-stub="../agent-cat/haskell/test/stub-deck.sh"
+stub="../agent-cat/engine/agent-deck/test/stub-deck.sh"
 
 # The row's inputs from the one place that spells them, so a fifth input reaches
 # these two command lines by being added there and nowhere else.

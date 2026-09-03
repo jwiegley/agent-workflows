@@ -89,12 +89,12 @@ module Workflows.Deciders
   )
 where
 
-import Agentic.Workflow
-  ( Decider (..),
-    routeDefaultLabel,
+import Agentic.Runtime.Facts
+  ( routeDefaultLabel,
     routedBackend,
     sharesOneSession,
   )
+import Agentic.Workflow (Decider (..))
 import Data.Text (Text)
 import qualified Data.Text as T
 

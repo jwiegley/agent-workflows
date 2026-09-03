@@ -119,7 +119,8 @@ the listing says on each of its two streams."
                    "%d rows, parsed from --json and nothing else"
                    (length rows))
   (wf-smoke-assert wiggum "the listing has a `wiggum' row to ask about")
-  (wf-smoke-assert (equal (alist-get 'inputs wiggum)
+  (wf-smoke-assert (equal (mapcar (lambda (input) (alist-get 'name input))
+                                      (alist-get 'inputs wiggum))
                           '("plan" "base" "observations" "parity"))
                    "wiggum declares the inputs %S"
                    (alist-get 'inputs wiggum))

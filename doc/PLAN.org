@@ -112,6 +112,21 @@ Design §6.2 names it, §7.2 row 66 reworks webfix into it, §8's completion ame
 :ORIGINAL_SIZE: 0
 :END:
 
+* DONE [#C] Update agent-cat package dependency
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-ong
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-09-03 Thu 10:00]
+:MODIFIED: [2026-09-03 Thu 10:38]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-03 Thu 10:38]
+:CLOSE_REASON: Replaced temporary split-package dependency graph with root agentic, updated Nix lock to agent-cat 9df3cd3, and adapted the Emacs client to the structured input JSON contract.
+:SOURCE_REPO: .
+:ORIGINAL_SIZE: 0
+:END:
+
 * DONE [#C] Add production Taskmaster analysis workflow
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

@@ -305,21 +305,22 @@ those itself."
   (let ((name (alist-get 'name row))
         (flags nil))
     (dolist (input (alist-get 'inputs row) (nreverse flags))
-      (let* ((hist (wf--input-history name input))
+      (let* ((input-name (alist-get 'name input))
+             (hist (wf--input-history name input-name))
              (prev (let ((recent (car (symbol-value hist))))
                      (and (stringp recent) (not (equal recent "")) recent)))
              (prompt (if prev
                          (format-prompt
-                          (format "%s: %s (@FILE for a file)" name input)
+                          (format "%s: %s (@FILE for a file)" name input-name)
                           prev)
                        (format
                         "%s: %s (@FILE for a file, empty to leave empty): "
-                        name input)))
+                        name input-name)))
              (value (completing-read prompt #'wf--input-table
                                      nil nil nil hist prev)))
         (cond
          ((equal value "@")
-          (user-error "`@' with no file name after it, for input %s" input))
+          (user-error "`@' with no file name after it, for input %s" input-name))
          ((string-prefix-p "@" value)
           (let* ((raw (substring value 1))
                  (here (file-remote-p default-directory))
@@ -334,10 +335,10 @@ those itself."
                           (or (file-remote-p default-directory 'host)
                               "this machine")))
             (push "--input-file" flags)
-            (push (format "%s=%s" input (file-local-name file)) flags)))
+            (push (format "%s=%s" input-name (file-local-name file)) flags)))
          (t
           (push "--input-arg" flags)
-          (push (format "%s=%s" input value) flags)))))))
+          (push (format "%s=%s" input-name value) flags)))))))
 
 
 ;;; Transports

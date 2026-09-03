@@ -1,13 +1,6 @@
--- The inner loop.
---
--- `../agent-cat/haskell` is the sibling WORKING TREE, so an edit to
--- `Agentic.Cli` is visible to `cabal build` here without a commit, a push or a
--- flake bump. The flake does not read this file: it pins an agent-cat revision
--- and builds `agentic` from that (flake.nix, §3.2 of doc/design.md).
---
--- When the two disagree, the flake is authoritative — see README.md, "Which is
--- authoritative". `cabal build` green and `nix build` red almost always means
--- agent-cat has changes that are not pushed.
+-- The inner loop uses agent-cat root package, so local edits are visible without
+-- a commit or flake bump. The flake pins a published revision of `agentic`.
+
 packages:
   .
-  ../agent-cat/haskell
+  ../agent-cat

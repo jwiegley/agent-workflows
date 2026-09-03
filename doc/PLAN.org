@@ -180,6 +180,24 @@ The one mechanism that closes three followups at once, all recorded in doc/follo
 
 Rename one-to-one workflow-definition Haskell modules to the PascalCase form of their canonical hyphenated skill, command, agent, or native workflow name; update imports, Cabal metadata, docs, and gates without changing registry rows or behavior.
 
+* DONE [#C] Accept agent-cat descriptor-v2 input metadata
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-ui8
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-09-02 Wed 14:56]
+:MODIFIED: [2026-09-02 Wed 14:59]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-02 Wed 14:59]
+:CLOSE_REASON: Replaced brace-splitting catalogue extraction with Python stdlib JSON parsing. Verified descriptor-v1 and descriptor-v2 inputs both produce scope,paths and identical review-deep pin roster; bash -n passes.
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+Update workflow catalogue gates for descriptor-v2 input objects while retaining descriptor-v1 string compatibility, required by agent-cat source-aware stdin/command-tail inputs.
+
 * DONE [#C] Use symbolic routing profile in hello-world
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

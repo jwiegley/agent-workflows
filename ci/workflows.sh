@@ -902,13 +902,18 @@ case "$usage_blurb" in
 esac
 
 # The `pins` array of one row, comma-separated, in `pinnedModels`' own sorted
-# order. `tr '{'` puts one row per line; nothing here needs a JSON parser, and a
-# gate that needed `jq` would need a tool `flake.nix` does not promise.
+# order. Python's standard JSON parser survives nested descriptor-v2 input
+# objects without adding a package dependency.
 pinsOf() {
-  tr '{' '\n' < "$work/list.json" \
-    | grep "\"name\":\"$1\"" \
-    | sed -n 's/.*"pins":\[\([^]]*\)\].*/\1/p' \
-    | tr -d '"'
+  python3 - "$work/list.json" "$1" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    rows = json.load(stream)
+row = next(row for row in rows if row["name"] == sys.argv[2])
+print(",".join(row["pins"]))
+PY
 }
 
 # `Workflows.Parties.routablePins` — the four ladder rungs and the two pins.
@@ -995,14 +1000,18 @@ done <<< "$registered"
 # `--session "$PANE" --scratch "$PWD"`, which the CLI refuses, for as long as it
 # did.
 
-# The `inputs` array of one row, comma-separated, in the program's own order.
-# `pinsOf`'s method exactly, and for its reason: no `jq`, because `flake.nix`
-# does not promise one.
+# Input names in declaration order. Descriptor v1 used strings; v2 records
+# each name and source. Accept both while the runner catalogue is upgraded.
 inputsOf() {
-  tr '{' '\n' < "$work/list.json" \
-    | grep "\"name\":\"$1\"" \
-    | sed -n 's/.*"inputs":\[\([^]]*\)\].*/\1/p' \
-    | tr -d '"'
+  python3 - "$work/list.json" "$1" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    rows = json.load(stream)
+row = next(row for row in rows if row["name"] == sys.argv[2])
+print(",".join(value if isinstance(value, str) else value["name"] for value in row["inputs"]))
+PY
 }
 
 # The authored half of a page: everything below the computed header and above

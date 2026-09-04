@@ -56,7 +56,8 @@
         # sibling working-tree copy from `cabal.project`.
         devShells.default = hs.shellFor {
           packages = p: [ p.agent-workflows p.agentic ];
-          nativeBuildInputs = [ pkgs.cabal-install pkgs.haskell-language-server ];
+          nativeBuildInputs = [ pkgs.cabal-install pkgs.haskell-language-server pkgs.pkg-config ];
+          buildInputs = [ pkgs.zlib ];
         };
       });
 }

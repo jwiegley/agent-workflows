@@ -32,7 +32,11 @@
         };
 
         # agent-cat exposes one public Cabal package from its repository root.
-        hs = pkgs.haskell.packages.ghc910.extend (final: prev: {
+        hs = pkgs.haskell.packages.ghc910.extend (final: prev:
+          # The existing pre-TUI pin has no dependency overrides.
+          pkgs.lib.optionalAttrs (builtins.pathExists "${agent-cat}/nix/haskell-overrides.nix")
+            ((import "${agent-cat}/nix/haskell-overrides.nix") pkgs final prev)
+          // {
           agentic = final.callCabal2nix "agentic" agent-cat { };
           agent-workflows = final.callCabal2nix "agent-workflows" src {
             agentic = final.agentic;

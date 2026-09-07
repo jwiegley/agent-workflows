@@ -230,3 +230,21 @@ Update workflow catalogue gates for descriptor-v2 input objects while retaining 
 :END:
 
 Replace the concrete broad model ladder in the beginner example with the deep-thinker symbolic routing profile and update generated help.
+
+* DONE [#B] Provide zlib to the local agent-cat routing-v2 Cabal shell
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-yvn
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-09-04 Fri 12:59]
+:MODIFIED: [2026-09-04 Fri 13:50]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-04 Fri 13:50]
+:CLOSE_REASON: Added pkg-config and zlib to the Nix dev shell; local downstream Cabal build now resolves agent-cat routing-v2 http-client-tls.
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+The local ../agent-cat routing-v2 package uses http-client-tls, whose zlib dependency must be available when cabal builds the downstream project in its Nix dev shell.

@@ -35,7 +35,7 @@
 -- |                                            | a separate evaluator ('sharedSessionNote') — plus the fan-out |
 -- |                                            | cap, /computed/ by 'stageWaves'                               |
 -- +--------------------------------------------+--------------------------------------------------------------+
--- | @skills\/fix-all\/SKILL.md@                 | "Workflows.Rubrics.Discipline", spliced into the working act  |
+-- | @skills\/refocus\/SKILL.md@                 | 'refocusFn' before every work round, with hourly agent checks |
 -- +--------------------------------------------+--------------------------------------------------------------+
 --
 -- The Markdown was read as __data__. Nothing in @~\/src\/nix\/config\/ai@ is
@@ -44,10 +44,9 @@
 -- == Why this row is built last
 --
 -- @doc\/design.md@ §7.4 row 1 says it: \"@wiggum@, __built last__: it calls
--- almost everything.\" Five of its seven declared callees are other people's
--- functions — @commitFn@, @resolveFn@, @cleanupRoundFn@, @fessReportFn@ and,
--- inside @commitFn@, the whole commit discipline — and the two that are this
--- module's own are a round and a checkpoint. What is /new/ here is the shape:
+-- almost everything.\" Five of its eight declared callees are shared functions:
+-- @refocusFn@, @commitFn@, @resolveFn@, @cleanupRoundFn@ and @fessReportFn@.
+-- This module owns the round, checkpoint and report. What is /new/ here is the shape:
 -- a bound, a verdict set and three endings, which is the one thing an
 -- autonomous loop must have before it starts and the corpus's version of it
 -- does not.
@@ -196,7 +195,7 @@
 --     A rule about who may /start/ a run, which is the invocation
 --     (@wf run wiggum@) and not the program. The program has nothing to say
 --     about it, and says nothing.
---   * __The clock.__ \"Restack every four hours or so.\" The skill already
+--   * __The Git cadence.__ \"Restack every four hours or so.\" The skill already
 --     replaces this with work-anchored cadence in its own next section, and here
 --     the cadence /is/ the program's shape: one currency step, between the last
 --     round and the checkpoint, so a restack and a commit never collide in one
@@ -290,6 +289,7 @@ import Workflows.Partner
     partnerScript,
   )
 import Workflows.Prelude
+import Workflows.Refocus (refocusCadence, refocusExample, refocusFn, refocusScript)
 import Prelude
 
 -- ---------------------------------------------------------------------------
@@ -504,7 +504,7 @@ baselineBrief =
 --
 -- /Source:/ @skills\/wiggum\/SKILL.md@ @## The loop@ item 1 and its
 -- @## Cadence@ section, verbatim on the part that is a judgment about size, plus
--- the standing no-deferral rule spliced from "Workflows.Rubrics.Discipline" and
+-- the no-deferral rule scoped to the frozen goal and
 -- the two sentences of @## Working policies@ that are about /this/ act rather
 -- than about the environment: no scope creep, and no routing around an
 -- abstraction to reach the goal.
@@ -523,12 +523,14 @@ workBrief =
   shared path cannot express what this unit needs, correct the shared path and
   say that you did.
 
-  {discipline}
+  Resolve every issue that blocks or invalidates the frozen goal's required
+  outcomes; do not defer required fixes merely because they predate this run.
+  Discovering an unrelated improvement does not expand the goal.
+
+  {refocusCadence}
 
   When the unit is finished and the tree builds and passes, reply DONE. The
   round below says what this unit is.|]
-  where
-    discipline = fixAllRule
 
 -- | What this caller asks of the commit decomposition.
 --
@@ -600,13 +602,18 @@ roundAccountBrief =
   only thing the next round is given about this one, so write it for somebody
   who was not watching.
 
-  Four things, in this order:
+  Five things, in this order:
 
   1. What is now done, and what in the receipts below shows it.
   2. What remains, as concretely as the plan allows.
   3. How a fresh run would resume -- the first command, the first file.
   4. Any gate or failing signature that has now objected more than once, and
      how many times. A count nobody wrote down is a count that resets itself.
+  5. The latest refocus checkpoint evidenced by the supplied inputs: its clock evidence, goal, scope correction,
+     next required step, and next deadline. Preserve it for the next round or
+     resumed run. A DONE acknowledgement is not evidence of later in-turn
+     checks; say when those are unverified, and require an immediate check on
+     resume rather than inventing a newer checkpoint.
 
   Then end your answer with exactly one of these two lines, on its own last
   line and with nothing after it:
@@ -628,6 +635,8 @@ roundAccountBrief =
 currencyBrief :: Text
 currencyBrief =
   [wft|
+  {refocusCadence}
+
   Bring the branch current, LOCALLY. On a Graphite stack, follow the restack
   procedure: rebase from the base of the stack up to this branch, and not above
   it. Off Graphite, rebase onto the base and resolve.
@@ -741,7 +750,7 @@ handoffBrief =
   is applied to, and it is read by somebody who was not watching -- including,
   possibly, a fresh process on another day.
 
-  Write it from the receipts and the rounds below and from nothing else. Six
+  Write it from the receipts and the rounds below and from nothing else. Seven
   parts, in this order:
 
   1. What was done, one line per unit, each naming the commit that carries it.
@@ -752,6 +761,9 @@ handoffBrief =
   5. What the audit found, by category, with `none` kept as `none`.
   6. Every gate or failing signature that has objected more than once, with its
      count.
+  7. The latest refocus checkpoint evidenced by the supplied inputs and its next
+     deadline, with an immediate check before resumed work. Mark any later
+     in-turn checks as unverified unless the supplied evidence records them.
 
   Do not describe work the receipts do not show, and do not soften what the
   gate said. A handoff that reads better than the tree is the failure this
@@ -843,7 +855,8 @@ continuationBrief =
   last version missed, and where the objection names work that genuinely has
   not been done, say so in part 2 rather than dressing it up. A handoff amended
   into an approval it has not earned is the one outcome worse than an
-  unfinished run.|]
+  unfinished run. Preserve the latest evidenced refocus checkpoint and deadline;
+  never infer later checks from a DONE acknowledgement or invent clock evidence.|]
 
 -- ---------------------------------------------------------------------------
 -- The provenance lines the endings differ in
@@ -1105,7 +1118,7 @@ wiggumReportBrief =
 -- the previous round's own account for the second, so a round is told where the
 -- work stands by the round that left it there.
 --
--- Three statements and an answer, and it is called __twice__. A function rather
+-- Five statements and an answer, and it is called __twice__. A function rather
 -- than two copies for "Workflows.Report"'s reason: @rhsAsks@ prices a call at
 -- the callee's own @bodyAsks@ with the arguments ignored and @graft@ splices the
 -- callee's node rather than adding one, so the second call site is free and the
@@ -1130,17 +1143,14 @@ wiggumRoundFn = loopRoundFn "wiggum.round" reasoning
 --
 -- __Why the body is a parameter of two things and not two bodies.__
 -- "Workflows.WiggumDuet" is the same round put to a /routed/ pane: one pin changes and
--- nothing else does. Two copies of these four statements would be two copies of
--- four briefs' call sites, and the drift would be silent because each copy would
+-- nothing else does. Two copies of this body would duplicate its briefs and
+-- the refocus call, and the drift would be silent because each copy would
 -- pass its own canned table. @'Workflows.Report.reportFn'@'s argument at a
 -- different granularity: the second call site is free and the two rounds cannot
 -- disagree.
 --
--- __@wiggum@'s own elaboration is untouched by this__, which is the thing to
--- check rather than assume: 'wiggumRoundFn' passes the name it always had and
--- @'Workflows.Parties.reasoning'@, which is the party it always pinned, so the
--- printed program, its @askNodes@, its paths and its price are the same values
--- they were.
+-- Both loop variants receive the same refocus call and work cadence here;
+-- the account's serving rung and function name remain their only differences.
 loopRoundFn ::
   -- | the name this loop's round is declared under
   Text ->
@@ -1157,6 +1167,8 @@ loopRoundFn name rung trunk =
         $ noParams
     )
     \plan standing -> W.do
+      focus <- call refocusFn (arg plan :> arg standing :> noArgs)
+
       act worker [wf|
           {workBrief}
 
@@ -1166,7 +1178,11 @@ loopRoundFn name rung trunk =
 
           Where the work stands, and what this round is to advance:
 
-          {standing}|]
+          {standing}
+
+          The current goal and scope checkpoint; use its next required step:
+
+          {focus}|]
 
       -- The commit discipline, called. Three corpus files say "use the commit
       -- workflow" and this is one of the two places that sentence ends.
@@ -1185,6 +1201,10 @@ loopRoundFn name rung trunk =
           Where the work stood when this round began:
 
           {standing}
+
+          The refocus checkpoint this round received:
+
+          {focus}
 
           The commit series this branch now carries:
 
@@ -1225,7 +1245,7 @@ loopRoundFn name rung trunk =
 -- the probe's answer, and that fact belongs to the run rather than to this
 -- function. Folded in before the 'Agentic.Builder.Program' exists, like the
 -- trunk and the roster beside it, so it costs the same nothing they do.
-wiggumCheckpointFn :: Text -> Text -> Roster -> Text -> Fn '[ 'CodeText] 'CodeText
+wiggumCheckpointFn :: Text -> Text -> Roster -> Text -> Text -> Fn '[ 'CodeText] 'CodeText
 wiggumCheckpointFn = loopCheckpointFn "wiggum.checkpoint" reasoning
 
 -- | 'wiggumCheckpointFn''s body, with the function's name and the handoff's rung
@@ -1247,8 +1267,10 @@ loopCheckpointFn ::
   Text ->
   Roster ->
   Text ->
+  -- | the frozen plan governing partner cleanup
+  Text ->
   Fn '[ 'CodeText] 'CodeText
-loopCheckpointFn name rung trunk dir roster provenance =
+loopCheckpointFn name rung trunk dir roster provenance plan =
   function
     name
     (takes @"standing" Text $ noParams)
@@ -1256,7 +1278,27 @@ loopCheckpointFn name rung trunk dir roster provenance =
       -- Loop item 4: the observations directory, as bytes, and the cycle the
       -- skill asks for by name.
       listing <- ask (mdFilesIn dir) [wf|{observationsBrief}|]
-      drained <- call cleanupRoundFn (arg listing :> arg dir :> noArgs)
+      drained <- call cleanupRoundFn
+        ( arg [wf|
+            Wiggum scope governs this batch and the generic no-deferral rule:
+            fix every issue required by the frozen goal, preserving necessary
+            dependencies and verification. Do not expand into unrelated work.
+            Record out-of-goal observations for the owner without deleting them
+            or claiming they were fixed. Resolve an actual scope conflict before
+            proceeding; do not lower a required completion criterion.
+
+            Frozen goal:
+            {plan}
+
+            {refocusCadence}
+
+            Latest evidenced standing:
+            {standing}
+
+            Observation files:
+            {listing}|]
+            :> arg dir :> noArgs
+        )
       call_ commitFn (arg drained :> arg drainCommitStyle :> noArgs)
 
       -- The second conjunct, as the gate's own verdict rather than as a claim.
@@ -1344,9 +1386,9 @@ loopReportFn name =
 
 -- | The table 'wiggumProgram' hands @'Agentic.Workflow.defining'@.
 --
--- Seven entries, and the order is the one @defining@ checks: a function may call
--- a function the table declared __earlier__. So the four callees this row does
--- not own come first — @commitFn@ and @cleanupRoundFn@ and @fessReportFn@ are
+-- Eight entries, and the order is the one @defining@ checks: a function may call
+-- a function the table declared __earlier__. So the five callees this row does
+-- not own come first — @refocusFn@, @commitFn@, @cleanupRoundFn@ and @fessReportFn@ are
 -- all called from inside a body below, which is why they cannot be listed after
 -- it — then this module's round and checkpoint, then the report every arm ends
 -- in.
@@ -1354,14 +1396,15 @@ loopReportFn name =
 -- @resolveFn@ is called from the program rather than from a body, so its
 -- position is free; it sits with the other borrowed callees because that is
 -- where a reader looks for them.
-wiggumTable :: Text -> Text -> Roster -> Text -> [SomeFn]
-wiggumTable trunk dir roster provenance =
+wiggumTable :: Text -> Text -> Roster -> Text -> Text -> [SomeFn]
+wiggumTable trunk dir roster provenance plan =
   [ SomeFn commitFn,
+    SomeFn refocusFn,
     SomeFn cleanupRoundFn,
     SomeFn fessReportFn,
     SomeFn resolveFn,
     SomeFn (wiggumRoundFn trunk),
-    SomeFn (wiggumCheckpointFn trunk dir roster provenance),
+    SomeFn (wiggumCheckpointFn trunk dir roster provenance plan),
     SomeFn wiggumReportFn
   ]
 
@@ -1370,8 +1413,8 @@ wiggumTable trunk dir roster provenance =
 --
 -- 'sharedSessionNote''s arm is a different program and not a different path — it
 -- is chosen in Haskell, before there is anything to fold — and the only function
--- it can reach is the report. Declaring the other six would print six function
--- bodies, and therefore six prompts, into a program that cannot call one of
+-- it can reach is the report. Declaring the other seven would print seven function
+-- bodies, and therefore seven prompts, into a program that cannot call one of
 -- them: @wf plan@ would show them, Lean would check them, and @wf cost@ would
 -- price a loop this program has already refused to start. A refusal should be
 -- the size of a refusal.
@@ -1487,7 +1530,7 @@ wiggumProgram =
           -- work-side pin, it is in the list below, `judge` is one of `works`
           -- under every route table there is, and the predicate reduces to
           -- `not (sharesOneSession engine)`. `ci/workflows.sh` pins the
-          -- consequence: 34 paths and a ceiling of 44, unmoved.
+          -- consequence: 34 paths; the two refocus calls raise the ceiling to 48.
           --
           -- `ladderPins` and not `[opus]`, though the two compute the same answer
           -- here: it is the four names `wf list --json` reports under `pins` for
@@ -1509,7 +1552,7 @@ wiggumProgram =
                     :> noArgs
                 )
               stop
-            True -> defining (wiggumTable trunk dir roster provenance) W.do
+            True -> defining (wiggumTable trunk dir roster provenance plan) W.do
               -- The second precondition, over the residual the engine fact
               -- cannot see: an adapter that resumed a conversation behind the
               -- client's back, or a fan-out that leaked one prompt into
@@ -1550,7 +1593,7 @@ wiggumProgram =
 
                           if clean
                             then W.do
-                              handoff <- call (wiggumCheckpointFn trunk dir roster provenance) (arg first :> noArgs)
+                              handoff <- call (wiggumCheckpointFn trunk dir roster provenance plan) (arg first :> noArgs)
 
                               judged <-
                                 escalating
@@ -1589,7 +1632,7 @@ wiggumProgram =
 
                           if clean
                             then W.do
-                              handoff <- call (wiggumCheckpointFn trunk dir roster provenance) (arg second :> noArgs)
+                              handoff <- call (wiggumCheckpointFn trunk dir roster provenance plan) (arg second :> noArgs)
 
                               judged <-
                                 escalating
@@ -1651,12 +1694,19 @@ wiggumDoc =
 wiggumHelp :: Text
 wiggumHelp =
   [wft|
-  `skills/wiggum/SKILL.md` as a program: two work rounds with a checkpoint audit
-  between them, and a bounded verdict against done-criteria the run froze before
-  it started. Four of its seven callees are other rows' own — the commit
-  discipline, the partner cleanup round, the audit's report and the shared
-  conflict resolution — so what it costs is largely what the toolbox under it
-  costs.
+  `skills/wiggum/SKILL.md` as a program: two work rounds followed by a checkpoint
+  audit, and a bounded verdict against done-criteria the run froze before
+  it started. Five of its eight callees are other rows' own — the commit
+  discipline, the refocus checkpoint, the partner cleanup round, the audit's
+  report and shared conflict resolution — so what it costs is largely what the
+  toolbox under it costs.
+
+  Before each work round, `refocus` reads the clock, compares the standing work
+  with the frozen goal, and passes its next required step to the worker. The
+  worker must also check at least hourly during long turns and immediately on
+  resume or compaction, preserving the checkpoint and deadline in the handoff.
+  These agent instructions do not interrupt opaque tool calls or install a
+  background scheduler. Git cadence remains anchored to completed work.
 
   **Inputs.**
 
@@ -1722,8 +1772,9 @@ wiggumHelp =
 -- prompt by construction: every receipt's question opens with its own brief, the
 -- round's account with 'roundAccountBrief', the handoff with 'handoffBrief'.
 --
--- __Four of the five tables below are other rows' own__, spliced rather than
--- transcribed: 'Workflows.Git.Commit.commitScript' answers the commit
+-- __Five of the six tables below are other rows' own__, spliced rather than
+-- transcribed: 'Workflows.Refocus.refocusScript' answers the focus checkpoint,
+-- 'Workflows.Git.Commit.commitScript' answers the commit
 -- discipline, 'Workflows.Git.Stack.stackScript' answers the resolution doctrine,
 -- 'Workflows.Partner.partnerScript' answers the cleanup round's two questions,
 -- and 'Workflows.Fess.fessScript' answers the sentinel probe and, with one
@@ -1735,7 +1786,7 @@ wiggumHelp =
 -- first, so an overlap resolves here.
 --
 -- __The two rows that steer the run steer it down the two-round arm__ —
--- @billFresh 40@ against the ceiling of 44; the 44-fold paths need a
+-- @billFresh 44@ against the ceiling of 48; the 48-fold paths need a
 -- reviewer objection this table deliberately does not can.
 -- 'roundAccountBrief' answers with @WORK REMAINS@ on its last line, so
 -- 'Workflows.Deciders.saysComplete' says the work is not done and the __second__
@@ -1772,6 +1823,7 @@ wiggumScript =
     (handoffBrief, handoff),
     (continuationBrief, amended)
   ]
+    <> refocusScript
     <> commitScript Commit
     <> stackScript Restack
     <> partnerScript Cleanup
@@ -1811,6 +1863,9 @@ wiggumScript =
       Remains: the rotation path has no test for an expired refresh token.
       Resume with: `cargo test refresh::` in the repository root.
       Repeated objections: none. No gate has objected twice.
+      Latest evidenced refocus checkpoint:
+      {refocusExample}
+      Later in-turn checks are not evidenced here; refocus immediately on resume.
       WORK REMAINS|]
 
     handoff =
@@ -1822,11 +1877,17 @@ wiggumScript =
       Resume with: nothing; the plan's objectives are advanced.
       Green gate: exited 0 over the tree as the rounds left it.
       Audit: none in every category, each checked against the diff.
-      Repeated objections: none.|]
+      Repeated objections: none.
+      Latest evidenced refocus checkpoint:
+      {refocusExample}
+      Later in-turn checks are unverified; refocus immediately on resume.|]
 
     amended =
       [wft|
       The objection is that the rotation path's expired-token case is untested.
       That work has not been done, so it stays in `Remains` rather than being
       written up as done: the test is `cargo test refresh::expired`, and it does
-      not exist yet.|]
+      not exist yet.
+      Latest evidenced refocus checkpoint:
+      {refocusExample}
+      Later in-turn checks remain unverified; refocus immediately on resume.|]

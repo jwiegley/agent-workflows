@@ -115,7 +115,7 @@ the listing says on each of its two streams."
        (wiggum (seq-find (lambda (r) (equal (alist-get 'name r) "wiggum")) rows))
        (hello (seq-find (lambda (r) (equal (alist-get 'name r) "hello")) rows)))
 
-  (wf-smoke-assert (= (length rows) 74)
+  (wf-smoke-assert (= (length rows) 75)
                    "%d rows, parsed from --json and nothing else"
                    (length rows))
   (wf-smoke-assert wiggum "the listing has a `wiggum' row to ask about")
@@ -130,7 +130,7 @@ the listing says on each of its two streams."
                    "wiggum's run facts %S are never prompted for"
                    (alist-get 'runFacts wiggum))
   (wf-smoke-assert (equal (wf--price wiggum)
-                          "branch · at most 44 over 34 paths")
+                          "branch · at most 48 over 34 paths")
                    "wiggum's annotation reads `%s'" (wf--price wiggum))
 
   ;; The em dash, not the word "nil", for a program with no path through it.

@@ -47,7 +47,7 @@ Two practical notes that save a first run:
 
 The prices below read `level · minFold to maxFold over N paths`. `minFold` is
 the cheapest ending — often a refusal — and `maxFold` is the worst case the run
-cannot exceed. Twenty-one of the seventy-four price *exactly*, min equal to max,
+cannot exceed. Twenty-two of the seventy-five price *exactly*, min equal to max,
 and those are written as a single number.
 
 ## The review ladder
@@ -4342,6 +4342,66 @@ wf run taskmaster --scripted --input-arg evidence=
 
 <!-- wf:end taskmaster -->
 
+## `refocus`
+
+<!-- wf:begin refocus -->
+
+`pipeline · 2 over 1 path`
+
+One focus checkpoint from `skills/refocus/SKILL.md`: read a UTC clock receipt,
+assess current work against the full goal, and return a brief typed text record
+with the next required step and deadline. The caller preserves that record.
+
+**Inputs.** `plan` is the frozen goal, accepted plan and completion criteria.
+`standing` is current progress, recent work, latest user corrections, approvals
+and any previous focus timestamps. Supply their contents with input files.
+
+**Transport.** ACP with the existing reasoning ladder; this assessment reads
+the clock and supplied context and requires no write permission.
+
+```sh
+wf run refocus --engine acp --adapter claude --require-pinned \
+  --input-file plan=PLAN.org --input-file standing=HANDOFF.md
+```
+
+**Rehearsal.** Fixed replies replace both the clock and model; this checks
+wiring, not current time, hourly compliance or the quality of an assessment.
+
+```sh
+wf run refocus --scripted --input-arg plan= --input-arg standing=
+```
+
+**Caveats.** Wiggum calls this function before each work round. Agents carrying
+out long turns remain responsible for the cadence below. A standalone invocation
+makes one checkpoint; it starts no background scheduler and cannot interrupt an
+opaque tool call. It makes no edits, commits or permission requests.
+
+Clock observations include the checkpoint context so Wiggum's two rounds
+read it separately. Identical context within one memo scope can reuse a
+receipt; this function is not a universally fresh clock primitive.
+
+Keep refocusing throughout active work, including long turns. Read an actual
+clock at work-unit boundaries and before and after long tool calls or waits.
+Complete focus checks at most 60 minutes of wall-clock time apart; check
+sooner for unplanned investigations, repeated retries, or optional polish.
+Compare the full goal, latest user corrections and completion criteria with
+current work, drop detours, and choose the shortest sound required next step.
+Preserve required dependencies, fixes, tests, approval boundaries and stop
+requests. Do not lower the goal or discard work to finish sooner.
+
+Record the check time, goal, scope correction and next step in the existing
+task state or handoff, with the next deadline no later than 60 minutes from
+the clock reading. Give a brief progress update if the plan changes.
+Use bounded waits that allow checks before that deadline;
+do not cancel useful work merely to refocus. On resume or after compaction,
+re-read these instructions and recorded state and refocus before new work.
+If a timestamp is missing or no clock is available, refocus immediately and
+at every work-unit boundary until timing is available. Never infer elapsed
+time from turns or tokens, or claim an hourly deadline without clock evidence.
+Already authorized work requires no renewed permission.
+
+<!-- wf:end refocus -->
+
 ## `wiggum` and `wiggum-duet`
 
 The autonomous continuation loop: two work rounds, one checkpoint audit, and a
@@ -4362,14 +4422,21 @@ refusing arm is reachable from a command line and from nowhere else.
 
 <!-- wf:begin wiggum -->
 
-`branch · 2 to 44 over 34 paths`
+`branch · 2 to 48 over 34 paths`
 
-`skills/wiggum/SKILL.md` as a program: two work rounds with a checkpoint audit
-between them, and a bounded verdict against done-criteria the run froze before
-it started. Four of its seven callees are other rows' own — the commit
-discipline, the partner cleanup round, the audit's report and the shared
-conflict resolution — so what it costs is largely what the toolbox under it
-costs.
+`skills/wiggum/SKILL.md` as a program: two work rounds followed by a checkpoint
+audit, and a bounded verdict against done-criteria the run froze before
+it started. Five of its eight callees are other rows' own — the commit
+discipline, the refocus checkpoint, the partner cleanup round, the audit's
+report and shared conflict resolution — so what it costs is largely what the
+toolbox under it costs.
+
+Before each work round, `refocus` reads the clock, compares the standing work
+with the frozen goal, and passes its next required step to the worker. The
+worker must also check at least hourly during long turns and immediately on
+resume or compaction, preserving the checkpoint and deadline in the handoff.
+These agent instructions do not interrupt opaque tool calls or install a
+background scheduler. Git cadence remains anchored to completed work.
 
 **Inputs.**
 
@@ -4434,13 +4501,17 @@ wf run wiggum --scripted --input-arg plan= --input-arg base= \
 
 <!-- wf:begin wiggum-duet -->
 
-`branch · 2 to 50 over 34 paths`
+`branch · 2 to 54 over 34 paths`
 
 `wiggum`'s loop across two panes: the work in one, and in the other a
 four-seat review and the judge that holds the run to its frozen done-criteria.
 The one-round arm prices exactly as `wiggum`'s does — a review whose findings
 nothing could consume is spend with no consumer — so what the duet buys shows
 up only on the arm that has a second round to spend it on.
+
+The shared round calls `refocus` before work, feeding its clock-backed goal
+check to the worker. Long acting turns retain the hourly and resume checks;
+handoffs carry the latest evidenced focus checkpoint and next deadline.
 
 **Inputs.**
 

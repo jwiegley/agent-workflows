@@ -90,6 +90,7 @@ src/
     PrdArchitect.hs     the requirements pair (prd-draft|prd-critique)
     NodeRed.hs          flows on vulcan       (nodered)
     Taskmaster.hs       pinned evidence to a framework design (taskmaster)
+    Refocus.hs          scope against the frozen goal (refocus; called by each Wiggum round)
     Hello.hs            the smoke row         (hello)
     HelloWorld.hs       the beginner example  (hello-world)
     Registry.hs         the index: name -> program, blurb, canned table
@@ -161,7 +162,7 @@ each is its own row and not a flag:
 $ for r in review-quick review-deep review-sec review-heavy; do wf cost $r; done
 ```
 
-**[`doc/cookbook.md`](doc/cookbook.md) is the per-row guide**: all seventy-four,
+**[`doc/cookbook.md`](doc/cookbook.md) is the per-row guide**: all seventy-five,
 by family, each with its price, what each of its inputs means, one worked command
 line, and the `--scripted` rehearsal to try it dry. This section is the grammar;
 that page is what to type for a given row.
@@ -368,8 +369,8 @@ Three options: `wf-program` (default `"wf"`), `wf-agent-deck-program` (default
 and each is annotated with its price and its blurb:
 
 ```
-wiggum                branch · at most 44 over 34 paths  —  wiggum/SKILL.md: two work rounds, …
-wiggum-duet           branch · at most 50 over 34 paths  —  wiggum's loop across two panes: the work …
+wiggum                branch · at most 48 over 34 paths  —  wiggum/SKILL.md: two work rounds, …
+wiggum-duet           branch · at most 54 over 34 paths  —  wiggum's loop across two panes: the work …
 review-quick          branch · at most 6 over 3 paths    —  one lens over a frozen snapshot: …
 ```
 
@@ -394,8 +395,8 @@ under `scripted`, and a question answered first would have priced a run nobody
 had described yet. So the question names the transport it is the price of:
 
 ```
-Run wiggum via acp:claude (branch, at most 44 consultations over 34 paths)? (yes or no)
-Run wiggum via agent-deck session 9f3a2b-1747051200 (branch, at most 44 consultations over 34 paths)? (yes or no)
+Run wiggum via acp:claude (branch, at most 48 consultations over 34 paths)? (yes or no)
+Run wiggum via agent-deck session 9f3a2b-1747051200 (branch, at most 48 consultations over 34 paths)? (yes or no)
 Run wiggum as a rehearsal (scripted): consults nobody (branch, 34 paths)? (yes or no)
 ```
 
@@ -406,7 +407,7 @@ question again, naming the same transport, before repeating a run.
 
 The word is typed out on purpose. The plan is on screen beside the question,
 and `SPC` — the key you reach for to read on — is `act` in `query-replace-map`,
-which `y-or-n-p` remaps to `y`; one thumb-twitch would start 44 consultations.
+which `y-or-n-p` remaps to `y`; one thumb-twitch would start 48 consultations.
 Set `wf-confirm-function` to `y-or-n-p` to trade that back for one key.
 
 The prose in the plan buffer is for reading. The number in the question is read
@@ -482,17 +483,17 @@ Emacs records no minibuffer history — exercise those once interactively.
 
 ## What replaces what
 
-The seventy-four rows that exist today include three workflows that are not corpus
+The seventy-five rows that exist today include three workflows that are not corpus
 replacements: `hello`, the transport smoke test; `hello-world`, the public tutorial;
 and `taskmaster`, a pinned external-source analysis. Collectively, the corpus-derived
-toolbox covers **eleven more files** than the sixty-one-row stage did — ninety-one,
+toolbox covers **twelve more files** than the sixty-one-row stage did — ninety-one,
 plus wave 5's nine, plus the two files the last two rows absorb
-(`skills/wiggum` and `commands/run-orchestrator`) — plus one PAL MCP tool that is
-not a file at all and one external skill (`translate-en`) whose edge is transplanted
+(`skills/wiggum` and `commands/run-orchestrator`), plus `skills/refocus` — plus
+one PAL MCP tool that is not a file at all and one external skill (`translate-en`) whose edge is transplanted
 and whose text is not. `wiggum-duet` stands for no new file either: it is the same
 two files across two panes, which is the owner's own ruling and not a corpus
 document. Each program module's haddock carries its own map in full, with the reason
-for every cell; this is the index across all thirty-seven.
+for every cell; this is the index across those modules.
 
 | `~/src/nix/config/ai` | row | note |
 |---|---|---|
@@ -576,16 +577,18 @@ for every cell; this is the index across all thirty-seven.
 | `prompts/spanish.md` | `translate-es` | `call translateFn` and one delivery — `pipeline`, one path, **2**. The family's shared drafting function has three call sites, which is what makes the three rungs provably share a turn |
 | `agents/prd-architect.md` | `prd-draft`, `prd-critique` | **the rework is the split.** One file was two agents selected by an unstated condition; §6's own "if one doesn't already exist" is the condition, and a `test -f` decides it — so the two rows are each other's arms. `prd-draft` puts the owner in binding position and reads `[TODO:` for nothing, sending an incomplete draft back to him rather than to a reviewer; `prd-critique` contains no `act` but the report |
 | `skills/node-red` | `nodered` | the three-signature admin boundary **is** the argv — no `curl`, no HTTP client, no flow-file path, no credential read, so six prohibitions become commands that do not exist. The `FLOW_ID` regex is checked in Haskell before the program exists; "zero rows → upstream issue" is a free decider over `psql`'s own footer; "don't fabricate entity IDs" is a `jq` receipt; and the put is the single node with write authority |
-| `skills/wiggum`, `commands/run-orchestrator.md` | `wiggum` | **the loop's inner step, priced** — two work rounds, one checkpoint audit and a bounded done-criteria verdict at `minFold 2, maxFold 44, over 34 paths`, which is wave 5's gate. It is *not* the skill's unbounded continuation: the rounds are unrolled at the program level (a bounded revision's body reviews and amends and holds no other statement, so the work cannot loop inside one), and the unroll count — two — is a design decision the gate records in its own words: "a third round would be a design decision and would show here." A long session is several `wf run wiggum` invocations, each re-priced — continuation, compaction refresh and the cross-session durable files stay with the skill. What the program wins: the frozen plan is an *input* ("read-only for the purpose of lowering the bar" becomes true rather than requested); the loop will not start at all under an engine whose questions share one conversation — that is `run.engine` read in Haskell, so it costs no question and no path, and it is the gate the sentinel probe could never be, since a session already carrying the work answers `PARENT_HISTORY_ABSENT` truthfully; the probe is then the *first* question and gates every path, over the residual the engine fact cannot see; the evaluator answered none of the work's questions by construction; "Do NOT submit or push" becomes an **absence** — there is no push argv reachable from the module, verified transitively. `run-orchestrator`'s steps 5–6 are a layered topological sort in Haskell, so the fan-out cap is computed where `parallelize` guesses 3–5 |
-| the owner's ruling of 2026-08-20 (no corpus file) | `wiggum-duet` | **the same loop across two live panes**, and the row that made `run.routes` worth having. Its two pins are `worker` and `partner`, neither with a fall-back — a dead pane is a dead question, not a question that silently tries the pane about to judge it — and everything it does not pin itself stays on the default, which is the work's pane. The partner's four seats review round one *inside the term* and round two reads their observations, which is the bind `wiggum` does not have: the old guide's copy-paste between two invocations, priced at `minFold 2, maxFold 50, over 34 paths`. Its gate is `judgeIsElsewhere` over `run.routes`, `run.engine` and the row's own list of work-side pins, shared with `wiggum` so the two cannot drift; it refuses the *inverted* split as well as the shared one, and it refuses a borrowed callee's pin routed at the judge's pane, which is the same contamination spelled as an extra `--route` |
+| `skills/refocus/SKILL.md` | `refocus`; `Workflows.Refocus.refocusFn` in both Wiggum rows | one clock receipt and one scope assessment against the frozen plan and current standing; the result identifies the unmet requirement, scope correction and next step, and flows into the round's work and handoff. Hourly checks during long turns and after resume remain the active agent's responsibility |
+| `skills/wiggum`, `commands/run-orchestrator.md` | `wiggum` | **the loop's inner step, priced** — two work rounds with a refocus check before each, one checkpoint audit and a bounded done-criteria verdict at `minFold 2, maxFold 48, over 34 paths`, which is wave 5's gate. It is *not* the skill's unbounded continuation: the rounds are unrolled at the program level (a bounded revision's body reviews and amends and holds no other statement, so the work cannot loop inside one), and the unroll count — two — is a design decision the gate records in its own words: "a third round would be a design decision and would show here." A long session is several `wf run wiggum` invocations, each re-priced — continuation, compaction refresh and the cross-session durable files stay with the skill. What the program wins: the frozen plan is an *input* ("read-only for the purpose of lowering the bar" becomes true rather than requested); the loop will not start at all under an engine whose questions share one conversation — that is `run.engine` read in Haskell, so it costs no question and no path, and it is the gate the sentinel probe could never be, since a session already carrying the work answers `PARENT_HISTORY_ABSENT` truthfully; the probe is then the *first* question and gates every path, over the residual the engine fact cannot see; the evaluator answered none of the work's questions by construction; "Do NOT submit or push" becomes an **absence** — there is no push argv reachable from the module, verified transitively. `run-orchestrator`'s steps 5–6 are a layered topological sort in Haskell, so the fan-out cap is computed where `parallelize` guesses 3–5 |
+| the owner's ruling of 2026-08-20 (no corpus file) | `wiggum-duet` | **the same loop across two live panes**, and the row that made `run.routes` worth having. Its two pins are `worker` and `partner`, neither with a fall-back — a dead pane is a dead question, not a question that silently tries the pane about to judge it — and everything it does not pin itself stays on the default, which is the work's pane. The partner's four seats review round one *inside the term* and round two reads their observations, which is the bind `wiggum` does not have: the old guide's copy-paste between two invocations, priced at `minFold 2, maxFold 54, over 34 paths`. Its gate is `judgeIsElsewhere` over `run.routes`, `run.engine` and the row's own list of work-side pins, shared with `wiggum` so the two cannot drift; it refuses the *inverted* split as well as the shared one, and it refuses a borrowed callee's pin routed at the judge's pane, which is the same contamination spelled as an extra `--route` |
 
-**The full triage — all 119 files, each marked T (its own program), R (rework
+**The original triage — all 119 files, each marked T (its own program), R (rework
 first), F (folds into a named host) or K (honestly Markdown) — is
-[`doc/design.md` §7](doc/design.md), with §7.5's tally.** Twenty-five programs and
-roughly sixty rows sit behind the corpus; **seventy-four** rows exist today, and
-with `wiggum` landed the roadmap's five waves are complete. The newest row is the
-external `taskmaster` analysis; like `hello-world`, it is not another corpus
-transcription. §7.5's "roughly sixty"
+[`doc/design.md` §7](doc/design.md), with §7.5's tally.** It projected twenty-five
+programs and roughly sixty rows behind the corpus; **seventy-five** rows exist today, and
+with `wiggum` landed the roadmap's five waves are complete. The newest row,
+`refocus`, transcribes the scope check and supplies the same checkpoint to each
+Wiggum work round. The external `taskmaster` analysis and `hello-world` tutorial
+remain outside the corpus tally. §7.5's "roughly sixty"
 was an underestimate rather than a target that has
 been met, and the reason is the naming rule doing its job: a rung whose roster,
 receipts and *price* differ is a row, and wave 5 alone found nine of them behind
@@ -603,7 +606,7 @@ wave are independent.
 | **2** | **`confer`**, then `teams`, `notes`, `effort` (medium/heavy/forge) | **done, 10 rows** — `Lens` served the stance roster, the ten team angles, the ten notes sections and the five checkpoints with no field added, so §10's first risk did not fire. `asksOver` **was** widened, which is R1 and is a different thing: see below |
 | **3** | the daily drivers: `pr-threads`, `issue`, `account`, `partner`, `org-tasks`, `claude-md`, `prose` | **done, 19 rows** — and §8's claim is testable from `ci/workflows.sh`: the two largest rows in the wave are the two that call waves 1–2 (`issue` at 14 calls `commitFn` and `botSweepFn`; `account-halt` at 15 calls `journalFn` and `commitFn`), and four rows price at 5 or under |
 | **4** | the audits and specialists: `dead-code`, `comments`, `bundles`, `productize`, `nix`, `service`, `query`, `expense`, `qanda`, `transcribe`, `tron` | **done, 15 rows** — and §10's first risk still has not fired: `Lens` carried three advocates, seven weighted criteria, twenty-one build deliverables, twelve removal surfaces and four compiler-pipeline boundaries with no field added. The widest ceiling in the wave is `productize` at 31, which is what §7.2 row 42 asked for |
-| **5** | the long ones and the top of the loop: `retest`, `denote`, `translate`, `prd-draft`/`prd-critique`, `nodered`, and finally **`wiggum`** | **done, 10 rows.** The wave's claim was that these transplant whole *procedures* rather than rubrics, and the table shows it: `retest-categorical` at 37 was the widest ceiling in `ci/workflows.sh` until the last row landed, and it is an eight-model FPGA sweep priced before a card is opened; `denote` and `prd-draft` are the two rows whose expensive halves are *unreachable* until a gate said yes. §10's first risk never fired — `Lens` carried eight PRD sections, seven analysis axes, six translation reviewers and six Node-RED house-style seats with no field added. **The wave's gate is paid:** `wf cost wiggum` reports `minFold 2, maxFold 44, over 34 paths` — a finite worst case, printed before the first round |
+| **5** | the long ones and the top of the loop: `retest`, `denote`, `translate`, `prd-draft`/`prd-critique`, `nodered`, and finally **`wiggum`** | **done, 10 rows.** The wave's claim was that these transplant whole *procedures* rather than rubrics, and the table shows it: `retest-categorical` at 37 was the widest ceiling in `ci/workflows.sh` until the last row landed, and it is an eight-model FPGA sweep priced before a card is opened; `denote` and `prd-draft` are the two rows whose expensive halves are *unreachable* until a gate said yes. §10's first risk never fired — `Lens` carried eight PRD sections, seven analysis axes, six translation reviewers and six Node-RED house-style seats with no field added. **The wave's gate is paid:** `wf cost wiggum` reports `minFold 2, maxFold 48, over 34 paths` — a finite worst case, printed before the first round |
 
 `confer` is the workflow-native counterpart of PAL's `consensus` — a roster of
 model parties, optional stance rubrics, one question each, a fold, and a
@@ -871,7 +874,7 @@ widen.
 
 ```sh
 wf cost wiggum
-#   minFold 2, maxFold 44, over 34 paths
+#   minFold 2, maxFold 48, over 34 paths
 ```
 
 That line is the roadmap's own gate for the whole wave (`doc/design.md` §8): **a
@@ -881,13 +884,13 @@ autonomous work→checkpoint→verify loop must have and the one
 bounded number of attempts (default 3)", "roughly 3–5 at a time", "every four
 hours or so"), and all three are numbers here.
 
-**44 is the second widest ceiling in `ci/workflows.sh`** — past
+**48 is the second widest ceiling in `ci/workflows.sh`** — past
 `retest-categorical`'s 37 and `productize`'s 31, and displaced only by
-`wiggum-duet`'s 50, which is this same loop run across two panes — and that is
+`wiggum-duet`'s 54, which is this same loop run across two panes — and that is
 the right shape
-rather than a worrying one: five of the row's seven declared callees belong to
-other rows — `commitFn`, `resolveFn`, `cleanupRoundFn`, `fessReportFn`, and the
-eleven `fess` stances by way of `Rubrics.Fess` — so what the top of the loop costs
+rather than a worrying one: five of the row's eight declared callees belong to
+other rows — `commitFn`, `resolveFn`, `cleanupRoundFn`, `fessReportFn`, and
+`refocusFn` — so what the top of the loop costs
 is what the toolbox under it costs. Read it against the **minFold of 2**, which is
 the refusal to start: the parent-history sentinel probe did not pass, so no round
 ran, nothing was committed and nothing was audited. The two cheapest paths in the
@@ -929,11 +932,36 @@ the working policies (`CARGO_TARGET_DIR`, `~/Products`, `direnv exec .`,
 `proc` and never a shell), "do not enter this mode on your own", the four-hour
 clock, and conferring through PAL.
 
+### `refocus` — scope checked before each work round
+
+`wf refocus` supplies one checkpoint from `skills/refocus/SKILL.md`. The `plan`
+input carries the goal and accepted completion criteria; `standing` carries the
+current work, latest corrections and proposed next step. One clock receipt and
+one reasoning question return a short assessment: what remains required, which
+detours to stop, the next sound step, the check time and the next deadline.
+
+```sh
+wf cost refocus
+#   minFold 2, maxFold 2, over 1 path
+wf run refocus --scripted --input-arg plan= --input-arg standing=
+```
+
+Both Wiggum rows call the same `refocusFn` before each work round. The result
+reaches the work brief and the round account carried into the handoff, so the
+next action stays tied to the frozen criteria. Two rounds add four consultations
+without changing the path count or either early refusal.
+
+The active agent keeps refocus in force during long turns and across resume or
+compaction: check immediately on resume, then at least every 60 minutes of
+wall-clock time during active work, and record the clock evidence and next deadline in existing task state.
+The runner cannot interrupt an opaque model call to enforce a timer, and no
+scheduler is added. A boundary check alone does not verify the hourly deadline.
+
 ### The seventy-second row: `wiggum-duet`, two panes and one command
 
 ```sh
 wf cost wiggum-duet
-#   minFold 2, maxFold 50, over 34 paths
+#   minFold 2, maxFold 54, over 34 paths
 ```
 
 The owner's own ruling, and the shape it asks for: **two `agent-deck` sessions he
@@ -953,7 +981,7 @@ wf run wiggum-duet --session "$PANE_W" --route "partner=deck:$PANE_R" --poll 250
 minimum of 2 — because the duet adds one `call` and no branch, and a call is
 consultations rather than paths. The one that moves is the ceiling, and it is
 exactly the review: four partner seats, one publishing act, one directory
-receipt, bought once and only on the two-round arm. `50` is now the widest in the
+receipt, bought once and only on the two-round arm. `54` is now the widest in the
 table.
 
 **What it buys is a judge that provably is not the worker under a transport that
@@ -997,7 +1025,7 @@ Beyond that there are two build paths, and they answer different questions.
 ```sh
 nix develop            # the devShell: GHC, cabal, HLS
 cabal build all        # this package and ../agent-cat root workspace
-./ci/workflows.sh      # the gate: 74 rows, priced and run
+./ci/workflows.sh      # the gate: 75 rows, priced and run
 ./ci/taskmaster.sh     # Taskmaster unit, artifact, repair and exhaustion gate
 ./ci/emacs.sh          # the Emacs gate: compile, checkdoc, smoke over the binary
 ./ci/cookbook.sh       # the cookbook gate: regenerating doc/cookbook.md is a no-op

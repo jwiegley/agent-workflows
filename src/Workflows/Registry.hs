@@ -165,6 +165,7 @@ import Workflows.Prose.Polish
   )
 import Workflows.Qanda (qandaDoc, qandaHelp, qandaProgram, qandaScript)
 import Workflows.QueryBuilder (queryDoc, queryHelp, queryProgram, queryScript)
+import Workflows.Refocus (refocusDoc, refocusHelp, refocusProgram, refocusScript)
 -- Qualified, for the reason "Workflows.Effort" is: this module's rung type is
 -- also called @Tier@, and neither name is the one to rename — @review-deep@ and
 -- @retest@ are two of the owner's own words and each is right in its own module.
@@ -339,12 +340,13 @@ registry =
           -- in this second registry because it composes existing agent-cat seams
           -- without adding a semantic or transport primitive to agent-cat itself.
           ("taskmaster", Row (Needs taskmasterProgram) taskmasterDoc taskmasterHelp taskmasterScript),
+          ("refocus", Row (Needs refocusProgram) refocusDoc refocusHelp refocusScript),
           -- The top of the loop, and the last row in the table (`doc/design.md`
           -- §7.4 row 1: "`wiggum`, BUILT LAST: it calls almost everything").
-          -- Five of its seven declared callees belong to other rows -- `commitFn`
+          -- Five of its eight declared callees belong to other rows -- `commitFn`
           -- from the commit family, `resolveFn` from the git family,
           -- `cleanupRoundFn` from the partnership, `fessReportFn` from the audit,
-          -- and the eleven fess stances by way of `Rubrics.Fess` -- so this row
+          -- and `refocusFn` from the focus checkpoint -- so this row
           -- is very largely a composition of the rows above it, which is the
           -- claim wave 5 makes about it.
           --
@@ -361,7 +363,7 @@ registry =
           --
           -- Last in the table because it is last to land and because it sits on
           -- top of `wiggum`, which sits on top of everything else: five of its
-          -- eight declared callees belong to other rows, and the three that are
+          -- nine declared callees belong to other rows, and the four that are
           -- its own are `wiggum`'s three bodies with one pin moved plus the
           -- four-seat review between the rounds.
           ("wiggum-duet", Row (Needs duetProgram) duetDoc duetHelp duetScript)

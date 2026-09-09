@@ -53,6 +53,10 @@ cd "$(dirname "$0")/.." || exit 1
 work="$(mktemp -d "${TMPDIR:-/tmp}/agent-workflows.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 
+# Stub-backed runs must not load the operator's live routing profiles.
+export XDG_CONFIG_HOME="$work/config"
+mkdir -p "$XDG_CONFIG_HOME" || exit 1
+
 failures=0
 
 note() { echo "ci/workflows: $*"; }
@@ -222,6 +226,7 @@ inputsFor() {
     # `plan=` empty is the sentence a run with no frozen done-criteria earns --
     # which `wf plan wiggum --raw` prints, so an operator who forgot the flag
     # learns it from the plan and not from a report.
+    refocus) ins=(--input-arg plan= --input-arg standing=) ;;
     wiggum)
       ins=(--input-arg plan= --input-arg base= --input-arg observations= --input-arg parity=)
       ;;
@@ -728,56 +733,24 @@ pin taskmaster           branch       46      22
 # Wave 5's last row — the top of the loop (`doc/design.md` §8)
 # ---------------------------------------------------------------------------
 #
-# The gate of the whole wave, and it is this line: `wf cost wiggum` reports
-# `minFold 2, maxFold 44, over 34 paths`. A FINITE WORST CASE, printed before the
-# first round — which is the one number an autonomous work loop must have and the
-# one `skills/wiggum/SKILL.md` cannot state. Every bound in that file is a word
-# ("a bounded number of attempts (default 3)", "roughly 3-5 at a time", "every
-# four hours or so"); all three are numbers here, and 44 is what they add up to.
-#
-# 44 IS THE SECOND WIDEST CEILING IN THIS TABLE — wider than
-# `retest-categorical`'s 37 and `productize`'s 31, and displaced only by
-# `wiggum-duet`'s 50, which is this row's loop with a four-seat review between
-# the rounds — and that is correct rather than alarming: five of the
-# row's seven declared callees belong to other rows, so what it costs is what the
-# toolbox it sits on top of costs. Read it against the minFold of 2, which is the
-# refusal to start — the parent-history sentinel probe did not pass, so no round
-# ran, nothing was committed and nothing was audited. The two cheapest paths in
-# this row (2 and 3) both change the tree not at all.
-#
-# The 34 paths are six endings over the shape: two terminals before any work (an
-# unproven runner, a red baseline), and then, per round-count arm, a conflict
-# terminal plus `Workflows.Escalation`'s 2n+1 replication at `atMost 2` over
-# three report arms — 1 + 15 twice, plus the two early refusals. A third round
-# would be a design decision and would show here.
-pin wiggum              branch       34      44
+# Refocus is one UTC receipt and one goal/scope assessment, returned as text.
+pin refocus             pipeline      1       2
 
-# The same loop across two live panes (`Workflows.WiggumDuet`). THREE OF THE FOUR
-# NUMBERS ARE `wiggum`'s TO THE DIGIT — `branch`, 34 paths, and a minFold of 2 —
-# and that is the whole claim the row makes about itself: it adds one `call` and
-# NO branch, and a call is consultations rather than paths.
-#
-# The one number that moves is the ceiling, 44 -> 50, and it is exactly
-# `duetReviewFn`: four partner seats, one publishing act, one directory receipt,
-# bought ONCE and only on the two-round arm, which is the arm the maximum lives
-# on. The one-round arm prices exactly as `wiggum`'s does, because a review whose
-# findings nothing could consume is spend with no consumer — read the two fold
-# lists side by side and the six shows up in four places and nowhere else:
-#
-#   wiggum       2, 3, 11, 16, 35 (x6), 37 (x6), 39 (x3), 40 (x6), 42 (x6), 44 (x3)
-#   wiggum-duet  2, 3, 11, 22, 35 (x6), 37 (x6), 39 (x3), 46 (x6), 48 (x6), 50 (x3)
-#
-# 50 IS NOW THE WIDEST CEILING IN THIS TABLE, displacing `wiggum`'s 44, and for
-# the same reason that one was honest: what a loop costs is what the toolbox it
-# sits on top of costs, and this one sits on top of `wiggum`.
-#
-# The four partner seats are a DESIGN DECISION and this is where it is recorded:
-# `review-heavy`'s roster has seven, which would price this row at 53. A review
-# that runs inside a bounded loop is a different economic object from
-# `partner-reviewer`, which runs once beside it, and three more opinions on a
-# round that is about to be revised anyway are three consultations. Seven is a
-# decision the owner may take with `wf cost` in hand; four is what is pinned.
-pin wiggum-duet         branch       34      50
+# Both Wiggum variants call refocus before each work round. Two extra
+# consultations per round add four to the longest paths and add no branch.
+# The failed-independence and failed-baseline endings still cost 2 and 3.
+# Each round-count arm then has a conflict terminal and the bounded
+# three-way verdict; the total remains 34 paths.
+pin wiggum              branch       34      48
+
+# Duet buys the same refocus checks plus its existing six-consultation partner
+# review, once on the two-round arm. Its path count and minimum stay unchanged.
+# Current full fold distributions:
+#   wiggum       2, 3, 13, 20, 37 (x6), 39 (x6), 41 (x3), 44 (x6), 46 (x6), 48 (x3)
+#   wiggum-duet  2, 3, 13, 26, 37 (x6), 39 (x6), 41 (x3), 50 (x6), 52 (x6), 54 (x3)
+# Four partner seats remain the design decision; seven would raise the duet
+# ceiling to 57 and requires an explicit change to that budget.
+pin wiggum-duet         branch       34      54
 
 # ---------------------------------------------------------------------------
 # The binary, resolved once
@@ -1287,6 +1260,11 @@ grep -q '¡Hola, mundo!' "$work/hello-world.run" \
   || bad hello-world "final result value" "the canned Spanish translation" "absent"
 grep -q '^    answer  *()' "$work/hello-world.run" \
   && bad hello-world "final result" "not unit" "answer ()"
+
+# Capture the interpreter's ordered, typed trace rather than interleaved logs.
+if ! cabal test refocus-flow --test-show-details=direct; then
+  bad refocus "checkpoint data flow" "fresh clock and full context in both loops" "failed"
+fi
 
 note "help: ${#names[@]} page(s) checked — sections, both spellings, no price restated, and both printed command lines run"
 

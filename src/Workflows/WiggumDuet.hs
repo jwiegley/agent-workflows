@@ -29,7 +29,7 @@
 --
 -- Two further reasons, and the second is decisive.
 --
---   * __The churn is asymmetric.__ @wiggum@'s 34 paths and its ceiling of 44 are
+--   * __The churn is asymmetric.__ @wiggum@'s 34 paths and its ceiling of 48 are
 --     pinned by equality and by ceiling in @ci\/workflows.sh@, its numbers are
 --     quoted in three files, and its blanket refusal is documented in the README,
 --     in @doc\/design.md@ and in the guide. A new row moves one number in each of
@@ -198,6 +198,7 @@ import Workflows.Partner
     publishedBrief,
   )
 import Workflows.Prelude
+import Workflows.Refocus (refocusFn)
 import Workflows.Review.Ladder
   ( abstractionLens,
     alexeyLens,
@@ -488,7 +489,7 @@ duetRoundFn = loopRoundFn "duet.round" onWorker
 -- /judgment about/ the work and belongs where the verdict is. The eleven @fess@
 -- stances inside keep their own three rungs and go to the default — see
 -- 'Workflows.Wiggum.loopCheckpointFn' for why that asymmetry is right.
-duetCheckpointFn :: Text -> Text -> Roster -> Text -> Fn '[ 'CodeText] 'CodeText
+duetCheckpointFn :: Text -> Text -> Roster -> Text -> Text -> Fn '[ 'CodeText] 'CodeText
 duetCheckpointFn = loopCheckpointFn "duet.checkpoint" onPartner
 
 -- | The report every one of the seven endings calls.
@@ -501,20 +502,21 @@ duetReportFn = loopReportFn "duet.report"
 
 -- | The table 'duetProgram' hands @'Agentic.Workflow.defining'@.
 --
--- Eight entries against @wiggum@'s seven, and the order is the one @defining@
--- checks: a function may call a function the table declared earlier. The four
+-- Nine entries against @wiggum@'s eight, and the order is the one @defining@
+-- checks: a function may call a function the table declared earlier. The five
 -- borrowed callees come first because each is called from inside a body below;
 -- then the review, the round and the checkpoint; then the report every arm ends
 -- in.
-duetTable :: Text -> Text -> Roster -> Text -> [SomeFn]
-duetTable trunk dir roster provenance =
+duetTable :: Text -> Text -> Roster -> Text -> Text -> [SomeFn]
+duetTable trunk dir roster provenance goal =
   [ SomeFn commitFn,
+    SomeFn refocusFn,
     SomeFn cleanupRoundFn,
     SomeFn fessReportFn,
     SomeFn resolveFn,
     SomeFn (duetReviewFn dir),
     SomeFn (duetRoundFn trunk),
-    SomeFn (duetCheckpointFn trunk dir roster provenance),
+    SomeFn (duetCheckpointFn trunk dir roster provenance goal),
     SomeFn duetReportFn
   ]
 
@@ -522,8 +524,8 @@ duetTable trunk dir roster provenance =
 -- entry.
 --
 -- 'sameSessionNote''s arm is a different program and not a different path, and
--- the only function it can reach is the report. Declaring the other seven would
--- print seven function bodies, and therefore seven prompts, into a program that
+-- the only function it can reach is the report. Declaring the other eight would
+-- print eight function bodies, and therefore eight prompts, into a program that
 -- cannot call one of them — @wf plan@ would show them and @wf cost@ would price
 -- a loop this program has already refused to start. A refusal should be the size
 -- of a refusal.
@@ -631,7 +633,7 @@ duetProgram =
                     :> noArgs
                 )
               stop
-            True -> defining (duetTable trunk dir roster provenance) W.do
+            True -> defining (duetTable trunk dir roster provenance goal) W.do
               -- The second precondition, over the residual the two facts cannot
               -- see: an adapter that resumed a conversation behind the client's
               -- back, or a fan-out that leaked one prompt into another.
@@ -667,7 +669,7 @@ duetProgram =
 
                           if clean
                             then W.do
-                              handoff <- call (duetCheckpointFn trunk dir roster provenance) (arg first :> noArgs)
+                              handoff <- call (duetCheckpointFn trunk dir roster provenance goal) (arg first :> noArgs)
 
                               judged <-
                                 escalating
@@ -694,12 +696,21 @@ duetProgram =
                         else W.do
                           -- THE DUET, IN ONE BIND. The partner reviews round one
                           -- in its own pane, publishes one file per finding, and
-                          -- the listing it answers with is round two's standing
-                          -- context. This is the interleaving the old guide did by
+                          -- its listing joins the first account as round two's
+                          -- standing context. This is the interleaving the old guide did by
                           -- hand across two invocations, priced.
                           review <- call (duetReviewFn dir) (arg first :> noArgs)
 
-                          second <- call (duetRoundFn trunk) (arg goal :> arg review :> noArgs)
+                          second <- call (duetRoundFn trunk)
+                            ( arg goal
+                                :> arg [wf|
+                                    Partner observation files to inspect:
+                                    {review}
+
+                                    Previous round account and latest evidenced checkpoint:
+                                    {first}|]
+                                :> noArgs
+                            )
 
                           act restacker [wf|
                               {currencyBrief}
@@ -711,7 +722,7 @@ duetProgram =
 
                           if clean
                             then W.do
-                              handoff <- call (duetCheckpointFn trunk dir roster provenance) (arg second :> noArgs)
+                              handoff <- call (duetCheckpointFn trunk dir roster provenance goal) (arg second :> noArgs)
 
                               judged <-
                                 escalating
@@ -780,6 +791,10 @@ duetHelp =
   The one-round arm prices exactly as `wiggum`'s does — a review whose findings
   nothing could consume is spend with no consumer — so what the duet buys shows
   up only on the arm that has a second round to spend it on.
+
+  The shared round calls `refocus` before work, feeding its clock-backed goal
+  check to the worker. Long acting turns retain the hourly and resume checks;
+  handoffs carry the latest evidenced focus checkpoint and next deadline.
 
   **Inputs.**
 

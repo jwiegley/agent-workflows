@@ -787,8 +787,10 @@ outside the loop. That is written above, not hidden.
 **Serves** the owner's ruling of 2026-08-20, which is not a corpus file: two
 `agent-deck` sessions he primes himself, one `wf run` that starts a work loop in
 the first and a partner review in the second, and no ownership of either.
-**Calls** `commitFn`, `cleanupRoundFn`, `resolveFn` and `fessReportFn`, exactly as
-`wiggum` does, plus `wiggum`'s own three bodies with one pin moved in each.
+**Calls** `commitFn`, `cleanupRoundFn`, `resolveFn`, `fessReportFn` and
+`refocusFn`, exactly as `wiggum` does, plus `wiggum`'s own three bodies with one
+pin moved in each and the duet's review body. The function tables now contain
+eight entries for `wiggum` and nine for `wiggum-duet` (§8.2).
 **Added after the five**, because it is the first row whose shape is a fact about
 the *invocation* and not about a Markdown file.
 
@@ -851,8 +853,8 @@ the guide as a rule for the operator, not as machinery. And neither pin takes a
 `fallingBackTo`: a ladder relabels the model axis on the next rung, so a dead
 partner pane would move the judgment to whatever answers the next rung, which
 resolves through the default, which is the work's pane. A dead pane is a dead
-question. The price is `minFold 2, maxFold 50, over 34 paths` — `wiggum`'s shape
-to the digit but for the four-seat review, which is bought once and only on the
+question. The current price is `minFold 2, maxFold 54, over 34 paths` —
+`wiggum`'s shape to the digit but for the four-seat review, which is bought once and only on the
 two-round arm.
 
 ---
@@ -1252,6 +1254,46 @@ stays configured; confer is an alternative offered, not a replacement mandated.
 > route table keyed on the serving model can separate them. That is written on
 > the module rather than left in a design document, so a reader routing this
 > program is not surprised.
+
+### 8.2 Refocus — scope checked within the work loop (2026-09-09)
+
+`skills/refocus/SKILL.md` supplies one additional row, `refocus`, bringing the
+current registry to 75 workflows. `Workflows.Refocus` owns its standalone
+program, reusable `refocusFn`, help and canned replies. The inputs are `plan`,
+the goal and accepted completion criteria, and `standing`, the current work,
+latest corrections and proposed next step. A clock receipt precedes one
+reasoning question; the result records the unmet requirement, any scope
+correction, the next sound step, the check time and the next deadline.
+
+Both Wiggum rows call the same function before each work round. Its result is
+bound into the work brief and the round account carried into the handoff. The
+function is declared before its callers in both tables; the refusal tables
+remain report-only. It uses the existing reasoning ladder, preserving the
+work-side pin inventory and the judge's isolation rule.
+
+| row | level | paths | minimum | ceiling |
+|---|---|---|---|---|
+| `refocus` | `pipeline` | 1 | 2 | 2 |
+| `wiggum` | `branch` | 34 | 2 | 48 |
+| `wiggum-duet` | `branch` | 34 | 2 | 54 |
+
+The checkpoint adds two consultations per work round and no branch. The two
+rounds therefore add four to each Wiggum ceiling while preserving the early
+refusals. The dated wave-completion evidence above retains its original prices
+and row count; this amendment records the added work.
+
+Hourly checks remain an obligation of the active agent during long turns and
+across continuations. On resume or compaction, refocus before new work; during
+active work, check at least every 60 minutes of wall-clock time and retain clock
+evidence and the next deadline in existing task state. A missing timestamp or unavailable clock
+requires an immediate check and checks at work-unit boundaries until timing is
+available. The runner cannot interrupt an opaque model call to enforce a timer,
+and this change adds no scheduler. Per-round checkpoints alone do not prove
+that an hourly deadline was met.
+
+Required dependencies, fixes and verification remain in scope. Refocus preserves
+the accepted completion criteria, existing approval boundaries and stop
+requests; it supplies no new permission requirement for authorized work.
 
 ---
 

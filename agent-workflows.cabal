@@ -110,6 +110,7 @@ library
     Workflows.Prose.Polish
     Workflows.Qanda
     Workflows.QueryBuilder
+    Workflows.Refocus
     Workflows.Registry
     Workflows.Retest
     Workflows.Review.Ladder
@@ -141,4 +142,12 @@ executable wf
   main-is:         Main.hs
   build-depends:   agent-workflows
 
+  ghc-options:     -threaded
+
+test-suite refocus-flow
+  import:          settings
+  type:            exitcode-stdio-1.0
+  hs-source-dirs:   test
+  main-is:         refocus-flow.hs
+  build-depends:   agent-workflows
   ghc-options:     -threaded

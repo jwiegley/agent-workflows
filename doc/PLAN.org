@@ -2,6 +2,28 @@
 #+SEQ_TODO: TODO DOING DRAFT WAIT DEFER NOTE | DONE CANCELED
 #+ISSUE_PREFIX: awork
 
+* DONE [#C] Add refocus workflow and automatic Wiggum focus checks
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-52q
+:LABELS:   []
+:ISSUE_TYPE: feature
+:CREATED:  [2026-09-09 Wed 12:24]
+:MODIFIED: [2026-09-09 Wed 12:56]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-09 Wed 12:56]
+:CLOSE_REASON: Added refocus workflow and shared Wiggum integration; pinned build, all 75 workflow contracts, structured data-flow tests, generated cookbook and Emacs checks passed.
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+Port the refocus skill in spirit: a standalone wf refocus checkpoint reads actual UTC time, checks current work against the full goal, and returns a short scope correction and next required step. Both Wiggum variants call the shared function before each work round, pass its result to the worker, carry the checkpoint in handoffs, and instruct active agents to re-check at least hourly and after resume/compaction. Preserve finite workflow pricing and model-isolation gates. Register and document the new row, regenerate cookbook output, and validate the pinned build and scripted flow/cost contracts. Preserve unrelated main-checkout edits. No installed-runtime activation or publication requested.
+
+** Notes
+
+Implemented in isolated worktree /Users/johnw/Products/wf-refocus/agent-workflows, branch work/refocus-workflow, from f0e76c6. Actual source repository is /Users/johnw/src/agent-workflows; the requested sys path does not exist. Added shared refocus.check function and standalone typed-text row; both Wiggum variants call it before each work round and retain evidenced goal/checkpoint context through work, partner cleanup, and handoffs. Scope rules retain required fixes and prevent elective detours. Clock requests include the actual goal/standing context to avoid memo reuse between the two rounds; identical-context reuse remains a documented DSL limit, and in-turn hourly timing remains the acting-agent obligation. Independent review findings were resolved. Validation PASS: Cabal build; all 75 workflow price/help/scripted and model-isolation checks; structured interpreter trace test of separate clock dispatches, full goal, prior account and checkpoint flow; cookbook 75 regions byte-identical; Emacs 37 facts and all three passes; pinned Nix package /nix/store/mfq19109g54flyh5i1q65fh25qq4d0f2-agent-workflows including refocus-flow test. Prices verified: refocus 2/2 with one path; Wiggum 2/48 and duet 2/54 with 34 paths each. Parent checkout edits were preserved. Operator routing-profile compatibility follow-up is awork-gs6; no routing or installed-runtime change was made.
+
 * DONE [#C] Add a beginner hello-world translation workflow and README guide
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17
@@ -96,6 +118,38 @@ followups.md M4: Evidence.hs's header claims every argv is reviewable in one pla
 :END:
 
 Design §6.2 names it, §7.2 row 66 reworks webfix into it, §8's completion amendment records the deferral, Fix/Green.hs's header carries the note. Build when a web project actually wants the gate: a browser-driving argv in Workflows.Evidence plus one rung beside green-ci/tree/flaky.
+
+* TODO [#C] Check authored fallback chains against installed routing profiles
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-gs6
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-09-09 Wed 12:46]
+:MODIFIED: [2026-09-09 Wed 12:46]
+:CREATED_BY: johnw
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/Products/wf-refocus/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+While validating refocus, a Wiggum-duet test-stub invocation inherited the operator routing configuration and failed before its sentinel probe: model fable has both an authored fallback chain and a multi-rung YAML profile; keep the chain in one place. The workflow CI now uses an empty private XDG_CONFIG_HOME so its stub contract does not depend on live operator configuration. Assess the authored-chain versus installed-profile policy at the actual integration boundary separately. No live agent run, credential inspection, routing mutation, or deployment was performed.
+
+** Dependencies
+
+#+begin_src json
+[
+  {
+    "issue_id": "awork-gs6",
+    "depends_on_id": "awork-52q",
+    "type": "discovered-from",
+    "created_at": "2026-09-09T19:46:52.223005Z",
+    "created_by": "johnw",
+    "metadata": "{}",
+    "thread_id": ""
+  }
+]
+#+end_src
 
 * DONE [#C] Gate compact bare workflow usage
 :PROPERTIES:

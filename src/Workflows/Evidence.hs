@@ -106,6 +106,9 @@ module Workflows.Evidence
     mdFilesIn,
     filePresent,
 
+    -- * The clock
+    utcNow,
+
     -- * The gates
     nixFlakeCheck,
     makeTest,
@@ -125,6 +128,10 @@ where
 import Agentic.Workflow (Party, PartyK (IsTool), running, tool)
 import Data.Text (Text)
 import qualified Data.Text as T
+
+-- | UTC clock receipt for @skills/refocus/SKILL.md@'s hourly checkpoints.
+utcNow :: Party 'IsTool
+utcNow = tool "utc-now" `running` ("date", ["-u", "+%Y-%m-%dT%H:%M:%SZ"])
 
 -- ---------------------------------------------------------------------------
 -- Git

@@ -25,7 +25,7 @@ table, `--engine acp` by starting a fresh adapter session *per question*, or
 `--route NAME=deck:<id>` sends the questions pinned to the serving model `NAME`
 somewhere else.
 
-**agent-workflows** (this repository) is the toolbox: 72 programs behind the `wf`
+**agent-workflows** (this repository) is the toolbox: 75 programs behind the `wf`
 binary. Three of them matter here — `wiggum-duet`, the two-pane loop this page
 teaches; `wiggum`, the same loop in one conversation; and `partner-reviewer`, the
 seven-pass review that runs *beside* the work rather than inside it.
@@ -36,15 +36,15 @@ Nothing below spends a token you haven't seen first:
 
 ```sh
 wf cost wiggum-duet
-#   costSummary   minFold 2, maxFold 50, over 34 paths
+#   costSummary   minFold 2, maxFold 54, over 34 paths
 #   no path through this program consults fewer than 2 addressees,
-#   and none consults more than 50.
+#   and none consults more than 54.
 #
 #   the fold, path by path (34 in all):
-#     2, 3, 11, 22, 35 (×6), 37 (×6), 39 (×3), 46 (×6), 48 (×6), 50 (×3)
+#     2, 3, 13, 26, 37 (×6), 39 (×6), 41 (×3), 50 (×6), 52 (×6), 54 (×3)
 ```
 
-`maxFold 50` is a promise, not an estimate: whatever any model says along the
+`maxFold 54` is a promise, not an estimate: whatever any model says along the
 way, the run cannot cost more. The `minFold 2` is worth as much — that is the
 run that refuses to start, having asked one probe and written one report.
 
@@ -52,7 +52,8 @@ Read it against the single-pane row:
 
 ```sh
 wf cost wiggum
-#   costSummary   minFold 2, maxFold 44, over 34 paths
+#   costSummary   minFold 2, maxFold 48, over 34 paths
+#   the fold: 2, 3, 13, 20, 37 (×6), 39 (×6), 41 (×3), 44 (×6), 46 (×6), 48 (×3)
 ```
 
 Same shape, same 34 paths, same floor. The six between them is exactly the
@@ -145,8 +146,8 @@ the line the gate is about. `worker` is a pin this row *does* declare, and it is
 on the default because no `--route` names it — which is exactly right, since the
 work belongs there anyway. The four model names beside it are the borrowed
 callees' own pins: `opus` carries the commit decomposition, the conflict
-resolution and the cleanup review, and the rest carry the audit's stances. They
-are on the default for the same reason `worker` is, and **routing any one of them
+resolution, the cleanup review and refocus, and the rest carry the audit's
+stances. They are on the default for the same reason `worker` is, and **routing any one of them
 is routing work.**
 
 `run.routes` on the last line is that table as a program input: `(default) =
@@ -293,11 +294,32 @@ pane W   round two  ◀───  the listing
 
 The old version of this page taught the same coupling as three commands and a
 copy-paste between two invocations. **It is now a bind inside one term, and it is
-priced** — those six consultations are the difference between `maxFold 44` and
-`maxFold 50`, and `wf cost` shows them before you spend them.
+priced** — those six consultations are the difference between `maxFold 48` and
+`maxFold 54`, and `wf cost` shows them before you spend them.
 
 The checkpoint later drains the same directory through the standing cleanup
 discipline and commits it once, exactly as `wiggum` does.
+
+## Refocus at each work round
+
+Both Wiggum rows call `Workflows.Refocus.refocusFn` before each work round. A
+clock receipt and a reasoning question compare the frozen goal and completion
+criteria with the current work and select the next required step. The result
+feeds the work brief and the round account carried into the handoff. In a duet,
+refocus follows the existing reasoning ladder onto the work side; no new pin is
+introduced. The standalone `wf refocus` row runs that same single checkpoint:
+
+```sh
+wf run refocus --scripted --input-arg plan= --input-arg standing=
+```
+
+The active agent retains the skill's hourly obligation during long turns and
+across continuations: refocus immediately on resume or compaction, then at least
+once every 60 minutes of wall-clock time during active work, recording clock
+evidence and the next deadline in existing task state. Keep required work and verification in scope;
+stop only detours that serve no remaining requirement. The runner has no
+scheduler that interrupts an opaque model call, so the checkpoints at round
+boundaries alone do not verify the hourly deadline.
 
 ## When you have no panes
 
@@ -372,7 +394,7 @@ scratch, feeding forward what changed. Both panes are still there.
 
 Guaranteed by construction:
 
-* the price ceiling — 50 consultations, over 34 paths, printed before the first
+* the price ceiling — 54 consultations, over 34 paths, printed before the first
   question;
 * **the judge's pane is not the work's pane**, checked before anything is spent,
   and checked against *every* other pin this row reaches — the worker's and the
@@ -386,14 +408,16 @@ Guaranteed by construction:
 * pushing does not exist: no publish command is reachable from either row,
   verified transitively;
 * the goal is an *input*, so nothing in the run can edit its own bar;
+* every work round receives a fresh refocus checkpoint, and its result flows
+  into the work brief and the handoff;
 * every report's provenance is runner-bound fact — both panes named, from the
   route table, not from anybody who was asked;
 * your sessions are yours: `wf` issues no `session start`, `session stop` or
   `session kill`, and there is no verb in the transport that could.
 
 Staying with you (the harness, the skill): continuation across invocations,
-compaction refresh, the durable files (`obr`, the journal), the stop-everything
-override — a human interrupt is a harness event no program can observe — and
+compaction refresh, hourly refocus during long turns, the durable files (`obr`,
+the journal), the stop-everything override — a human interrupt is a harness event no program can observe — and
 **the interleaving window**, which this design names, mitigates with `--poll 250`,
 and does not close.
 

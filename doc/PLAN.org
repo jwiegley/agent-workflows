@@ -181,6 +181,24 @@ While validating refocus, a Wiggum-duet test-stub invocation inherited the opera
 :ORIGINAL_SIZE: 0
 :END:
 
+* DONE [#B] Pin the explicit-session precedence fix in packaged wf
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-q63
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-09-16 Wed 15:17]
+:MODIFIED: [2026-09-16 Wed 15:29]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-16 Wed 15:29]
+:CLOSE_REASON: Pinned published agent-cat 2d98ecfd. Nix package build passed. All 75 packaged workflows complete with scripted answers. Packaged hello-world sends exactly two questions through the deck fixture despite invalid ambient routing, with and without --routing. Hera package has the same checks. Unrelated Emacs changes remain untouched.
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+The installed wf embeds agent-cat 828e8cac. Its ambient deep-thinker routing overrides --session hello, so hello-world sends no questions to the requested Pi session. Pin published agent-cat 2d98ecfd, build the Nix package, and verify the packaged hello-world sends exactly two questions through the deterministic deck fixture despite conflicting ambient routing. Preserve unrelated Emacs work.
+
 * DONE [#C] Add production Taskmaster analysis workflow
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

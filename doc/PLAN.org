@@ -87,6 +87,24 @@ followups.md M3/L3: ~350 lines declared in defining tables or listed in the READ
 
 followups.md M1 + systematic + L: the design promised commitFn four call sites (it has one — Fix/Green ends its Settled arm with reportFn where the sketch said call_ commitFn); §6's rubric-location convention is contradicted by 69 of 129 blocks with only Stack.hs declaring it; conferGate is named in identifier markup but exists only as confer-design §5.4's sketch. Each is amend-the-design or finish-the-wiring; none is urgent; all should stop being drift.
 
+* DONE [#B] Release bookkeeping-free prompts in packaged wf
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-dj8
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-09-16 Wed 17:58]
+:MODIFIED: [2026-09-16 Wed 18:14]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-16 Wed 18:14]
+:CLOSE_REASON: Pinned published agent-cat 1858e000 with the header-free renderer and current Chord integration gate. Nix package build passed. All 75 packaged workflows complete in scripted mode. hello-world sends exactly the two authored, header-free prompts under both --session and --session --routing despite invalid ambient configuration. Unrelated Emacs work is excluded from the release commit.
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+Owner approved publication and Hera activation. Pin agent-cat 1858e000 containing d3be3f22, build the exact committed wf package, verify header-free prompts and explicit session precedence with the deterministic deck fixture, and publish the pin without including unrelated Emacs edits.
+
 * TODO [#D] Evidence's unit-review claim: move Git/Stack.hs's ten local running parties in, or amend the header
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

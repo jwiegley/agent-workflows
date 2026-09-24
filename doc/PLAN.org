@@ -120,6 +120,23 @@ followups.md M1 + systematic + L: the design promised commitFn four call sites (
 
 Owner approved publication and Hera activation. Pin agent-cat 1858e000 containing d3be3f22, build the exact committed wf package, verify header-free prompts and explicit session precedence with the deterministic deck fixture, and publish the pin without including unrelated Emacs edits.
 
+* DONE [#C] Pin wf to the honest-addressee release
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-ebl
+:LABELS:   []
+:ISSUE_TYPE: chore
+:CREATED:  [2026-09-24 Thu 15:21]
+:MODIFIED: [2026-09-24 Thu 15:34]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-24 Thu 15:34]
+:CLOSE_REASON: agent-cat input moved to 94573276. ci/workflows.sh, ci/cookbook.sh, ci/emacs.sh and ci/taskmaster.sh pass, and the workflows gate passes against the Nix-built wf (75 workflows, 0 failed).
+:SOURCE_REPO: .
+:ORIGINAL_SIZE: 0
+:END:
+
+Move the agent-cat input from 9d01fba to 94573276, which gives hello, the Isaac request, and grind-tests honest addressees instead of tool "cat" questions. Run the workflows, cookbook, emacs, and taskmaster gates, and the Nix-built wf run, against the new pin.
+
 * TODO [#D] Evidence's unit-review claim: move Git/Stack.hs's ten local running parties in, or amend the header
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

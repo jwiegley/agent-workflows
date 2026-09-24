@@ -4,10 +4,11 @@
 #
 #     ./ci/emacs.sh              # from the repository root
 #
-# `emacs/wf.el' is a front end over `wf --json' and nothing else, which is the
-# whole reason it can be gated at all: the plan text is displayed and never
-# scraped, so the only contract between the two is the JSON, and a gate that
-# reads the JSON reads everything that could break.
+# `emacs/wf.el' uses the runner's descriptor, native frontend, and read-only
+# frontend-io JSON contracts. It displays plan text without scraping it.
+# This gate checks Lisp compilation, docstrings, and local runner behavior.
+# Interactive terminal and SSH/TRAMP checks live in ci/emacs-ui.py and
+# ci/emacs-tramp.py.
 #
 # Three passes, in the order that a failure is cheapest to read:
 #
@@ -21,15 +22,13 @@
 #      decisions, so they are load-bearing text and not decoration; checkdoc
 #      exits 0 whatever it finds, so its output is what fails this pass.
 #
-#   3. THE SMOKE, `emacs/wf-smoke.el', against the REAL `wf' binary. Pass 1
-#      and 2 run none of this code; this one loads it, fetches the row listing
-#      and asserts the facts the package rests on — the price gate's wording,
-#      the two agent-deck streams, the per-input history keys. See that file's
-#      commentary for the list, including what it deliberately does not cover.
+#   3. RUNNER TESTS, `emacs/wf-smoke.el', against the real wf binary and
+#      deterministic control fixture. These exercise native session behavior
+#      and descriptor-driven discovery, completion, and input histories.
 #
-# No network and no agent: the smoke asks the binary for `list' and `plan',
-# both of which are answered before anything is asked of anybody, and its
-# stand-in for agent-deck is a shell script it writes itself.
+# No providers are contacted. The native tests use scripted runs and the
+# deterministic human/control fixture named by WF_CONTROL_RUNNER. The
+# agent-deck listing is supplied by a temporary deterministic shell fixture.
 #
 # Exits 0 only if all three passed.
 set -uo pipefail
@@ -83,6 +82,24 @@ if [ -z "$wf" ] || ! [ -x "$wf" ]; then
 fi
 wf="$(cd "$(dirname "$wf")" && pwd)/$(basename "$wf")"
 note "wf at $wf"
+
+control="${WF_CONTROL_RUNNER:-}"
+if [ -z "$control" ]; then
+  control="$(command -v routing-fixed-point-probe 2>/dev/null)"
+fi
+if [ -z "$control" ] || ! [ -x "$control" ]; then
+  echo 'ci/emacs: set $WF_CONTROL_RUNNER to a compatible routing-fixed-point-probe for required human/control tests.' >&2
+  exit 1
+fi
+control="$(cd "$(dirname "$control")" && pwd)/$(basename "$control")"
+note "control fixture at $control"
+
+adapters="${WF_CONTROL_ADAPTERS:-}"
+if [ -z "$adapters" ] || ! [ -r "$adapters/retry_adapter.py" ] || ! [ -x "$adapters/stub_adapter.py" ]; then
+  echo 'ci/emacs: use the Nix development shell or set $WF_CONTROL_ADAPTERS to agent-cat engine/acp/test.' >&2
+  exit 1
+fi
+note "ACP fixtures at $adapters"
 
 # ---------------------------------------------------------------------------
 # 1. Byte-compilation, where a warning is a failure
@@ -142,7 +159,7 @@ done
 # price gate with `wf-confirm-function' bound to a function of its own. A hang
 # here would mean one of them got through, which is worth failing over.
 
-if WF="$wf" "$emacs" -Q --batch -l emacs/wf-smoke.el \
+if WF="$wf" WF_CONTROL_RUNNER="$control" "$emacs" -Q --batch -l emacs/wf-smoke.el \
      < /dev/null > "$work/smoke.out" 2>&1; then
   cat "$work/smoke.out"
   note "smoke: green"

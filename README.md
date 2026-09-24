@@ -95,8 +95,10 @@ src/
     HelloWorld.hs       the beginner example  (hello-world)
     Registry.hs         the index: name -> program, blurb, canned table
 bin/Main.hs             `wf`, two lines over Agentic.Cli
-emacs/wf.el             the Emacs interface, over `--json` and nothing else
-emacs/wf-smoke.el       …and its batch smoke, run by ci/emacs.sh
+emacs/wf.el             native setup, prepared runs, controls, history and lineage
+emacs/wf-smoke.el       batch contracts, run by ci/emacs.sh
+ci/emacs-ui.py          isolated Emacs PTY, resize and window acceptance
+ci/emacs-tramp.py       loopback SSH/TRAMP, typed controls and lineage acceptance
 ```
 
 Workflow-definition modules with one canonical source follow that source's name
@@ -330,156 +332,168 @@ it.
 
 ## The Emacs interface
 
-`emacs/wf.el` is the same verbs with a minibuffer in front of them: pick a
-row, give it its inputs, pick a transport, **read the price and say yes**, and
-watch the run in a buffer of its own. No external packages — Emacs 29.1 and what
-ships with it.
+`emacs/wf.el` is a native workflow client using built-in Emacs buffers, widgets,
+completion, keymaps, and process support. It declares Emacs 29.1 or later and is
+currently tested with Emacs 30.2 on macOS. The configured runner must provide the
+shared `frontend` preparation service and read-only `frontend-io` queries.
+An older runner is refused rather than falling back to an unreviewed launch.
 
 ```elisp
 (use-package wf
   :load-path "~/src/agent-workflows/emacs"
-  :commands (wf-run wf-plan wf-cost wf-help wf-refresh))
+  :commands (wf-run wf-runs wf-history wf-plan wf-cost wf-help wf-refresh))
 ```
 
-Or, without `use-package`:
+Without `use-package`, add `emacs/` to `load-path` and autoload the commands:
 
 ```elisp
 (add-to-list 'load-path "~/src/agent-workflows/emacs")
 (autoload 'wf-run "wf" nil t)
-(autoload 'wf-plan "wf" nil t)
-(autoload 'wf-cost "wf" nil t)
-(autoload 'wf-help "wf" nil t)
+(autoload 'wf-history "wf" nil t)
 ```
 
-Five commands to start from, none bound to a key (the run buffer binds two more
-of its own, below):
-
-| command | what it does |
+| Command | Behavior |
 | --- | --- |
-| `M-x wf-run` | pick, price, confirm, run |
-| `M-x wf-plan` | read `wf plan` for a row, run nothing |
-| `M-x wf-cost` | read `wf cost` for a row, run nothing |
-| `M-x wf-help` | read the row's page — inputs, transport, a worked line, a rehearsal |
-| `M-x wf-refresh` | forget the cached listing (`C-u` on the other four does the same) |
+| `wf-run` | Discover a workflow, edit inputs, prepare, review, and explicitly start it. |
+| `wf-runs` | Reopen a session retained by this Emacs process. |
+| `wf-history` | Query persistent history, including corrupt entries and ownership. |
+| `wf-plan`, `wf-cost`, `wf-help` | Display the runner's inspection output without executing a workflow. |
+| `wf-refresh` | Clear descriptor discovery caches. A prefix argument also refreshes discovery for the inspection and run commands. |
+| `wf-restart`, `wf-resume`, `wf-fork` | Prepare a separately owned lineage child and require fresh approval. |
+| `wf-lineage-compare` | Display authoritative parent and child records and snapshots. |
 
-Three options: `wf-program` (default `"wf"`), `wf-agent-deck-program` (default
-`"agent-deck"`) and `wf-confirm-function` (default `yes-or-no-p`).
+Configuration uses `wf-program`, `wf-agent-deck-program`,
+`wf-confirm-function`, and `wf-state-directory`. Confirmation defaults to
+`yes-or-no-p`. The state directory defaults to
+`~/.local/state/agent-workflows` on the workflow's machine.
 
-**Picking.** The candidates come from `wf list --json`, cached for the session,
-and each is annotated with its price and its blurb:
+**Discovery and setup.** Descriptors supply workflow names, descriptions, input
+declarations, and capabilities. Completion remains connection-aware, so local
+and TRAMP catalogues are not mixed. The setup buffer displays all initial inputs
+together, with per-input history and explicit Literal, Multiline, File, Buffer,
+and Region sources. A literal beginning with `@` remains literal text.
 
-```
-wiggum                branch · at most 48 over 34 paths  —  wiggum/SKILL.md: two work rounds, …
-wiggum-duet           branch · at most 54 over 34 paths  —  wiggum's loop across two panes: the work …
-review-quick          branch · at most 6 over 3 paths    —  one lens over a frozen snapshot: …
-```
+Use `TAB` and backtab to navigate, `M-TAB` for file completion, and `C-c C-c` to
+submit the sources. `C-c C-k` or `C-g` cancels without execution. Multiline fields
+accept newlines, while `C-q TAB` and `C-q C-m` insert literal tabs and carriage
+returns. Buffer capture reads the explicitly selected buffer's accessible text.
+Region capture reads its point-to-mark range. These captures remain unchanged
+until edited or explicitly recaptured, and each source retains its draft while
+the form is open.
 
-That is `completing-read` with an `annotation-function`, so it reads the same
-under vanilla completion, `icomplete`, or whatever else is installed.
+File sources remain paths for the runner to capture. Lisp does not write managed
+input snapshots, manifests, or leases. Files from another machine are refused.
+The runner captures transport bytes once, applies the declared input decoding,
+and retains the prepared program in memory. Source changes after preparation
+cannot change the approved execution. Literal values and human answers travel
+through private pipes rather than process arguments.
 
-**Inputs.** Every input the row *declares* is asked for, one at a time, in
-order. Each keeps a minibuffer history of its own — `M-p` recalls what *this*
-input was given before, and the last answer is offered as the default, so a
-second run of `wiggum` in an afternoon is four `RET`s rather than four paths
-retyped. Empty is allowed and passes an empty value, where there is no default
-to take instead. An answer beginning with `@` is a file — with file-name
-completion after the `@` — so `@notes.md` becomes `--input-file NAME=notes.md`
-and anything else becomes `--input-arg NAME=VALUE`. The file is named *on the
-machine `wf` will run on*: `@~/notes.md` from a hera buffer is hera's home, and
-naming this machine's file there is refused rather than sent along to fail. The
-four run facts are never asked for; the runner binds those.
+**Target and approval.** Scripted, ACP, Deck, configured routing, and explicit
+opaque target arguments remain available. Configured selection uses sanitized
+offline routing inspection, including an inherited or explicit persona and
+CLI-produced launch arguments. It does not read routing YAML or reconstruct a
+routing fingerprint. Explicit target arguments support choices not represented
+by configured engines, including declared model overrides.
 
-**The price gate.** Asked last — after the inputs *and* after the transport,
-never before — because a ceiling means one thing over `acp` and nothing at all
-under `scripted`, and a question answered first would have priced a run nobody
-had described yet. So the question names the transport it is the price of:
+The review displays the exact prepared plan, consultation bounds, effects,
+input hashes, target arguments, and routing policy. Every non-scripted target
+carries a provider-charge warning. Approval starts the same prepared process,
+not another command assembled from displayed text. Declining discards it.
+Changing the setup requires another preparation and review.
 
-```
-Run wiggum via acp:claude (branch, at most 48 consultations over 34 paths)? (yes or no)
-Run wiggum via agent-deck session 9f3a2b-1747051200 (branch, at most 48 consultations over 34 paths)? (yes or no)
-Run wiggum as a rehearsal (scripted): consults nobody (branch, 34 paths)? (yes or no)
-```
+**Execution and decisions.** Each run has its own durable ID and independent
+session state. Multiple runs of the same workflow can coexist. Killing or
+burying a view does not cancel its process, and `wf-runs` can reopen the view.
+Output following applies only to windows already at the end.
 
-The rehearsal quotes no ceiling, because it would be the one false number in the
-sentence: a `--scripted` run answers from the row's own table and consults
-nobody, whatever its paths could have cost. `g` in the run buffer asks the same
-question again, naming the same transport, before repeating a run.
+A live run buffer provides `a` for the oldest verified human question, `c` for
+available runtime controls, `C-c C-k` for cancellation, `r` for verified result
+content, and `d` for diagnostics. Human and fork answers use native JSON editors.
+`C-c C-c` submits an edited value, while `C-c C-k` abandons the editor. Boolean
+false is preserved separately from JSON null. The runner remains the authority
+for answer types and schemas.
 
-The word is typed out on purpose. The plan is on screen beside the question,
-and `SPC` — the key you reach for to read on — is `act` in `query-replace-map`,
-which `y-or-n-p` remaps to `y`; one thumb-twitch would start 48 consultations.
-Set `wf-confirm-function` to `y-or-n-p` to trade that back for one key.
+Controls retain occurrence, attempt, and acknowledgement correlation. Human
+and recovery decisions preserve FIFO order, and stale or unavailable actions
+are refused. Runtime controls are bounded at 1 MiB before a control ID is
+reserved. Framing, identity, sequence, trace, and stream failures are reported
+rather than treated as successful completion.
 
-The prose in the plan buffer is for reading. The number in the question is read
-from `wf plan NAME --json` under the inputs just given — this package parses the
-JSON contract and nothing else, so no CLI wording is load-bearing here. A
-program with no path through it has no ceiling, and the question says `—` there,
-as the CLI does.
+**History and lineage.** Persistent history is a native table. `RET` opens the
+selected record and `g` refreshes it. Corrupt records remain visible, and a failed
+query does not become empty history. Only a matching live session already owned
+by this Emacs process can reopen as a live view. Other records open explicitly
+as observers, without control commands.
 
-**Driving hera over TRAMP.** Every subprocess is started with `process-file` or
-`start-file-process`, which honour the calling buffer's `default-directory`. So:
+Observer views provide `g` to refresh, `r` for a verified result, `R` for restart,
+`S` for resume, `F` for fork edits, and `=` for parent/child comparison. These
+lineage operations create new runs. They do not adopt the parent's live control
+channel. The backend authenticates and copies parent inputs, validates checkpoint
+and effect restrictions, rechecks ownership and inherited answers across approval,
+and preserves the parent store. Existing exact program and policy refusals remain
+in force. `g` in a live run view still opens fresh root setup rather than claiming
+semantic resume or fork.
 
-```
-C-x C-f /ssh:hera:~/src/my-project/    RET
-M-x wf-run                             RET
-```
+Artifact content is displayed only after the shared verifier accepts its recorded
+reference. A recorded result reference alone is not verified content, and artifact
+verification alone proves neither whole-store health nor control ownership.
 
-and `wf` runs *on hera*, in that repository, listing hera's rows, completing
-hera's file names after an `@`, and offering the agent-deck sessions hera can
-see. There is nothing else to configure — only that `wf` be found on the remote
-PATH, which for TRAMP means `tramp-remote-path` reaching it (`(add-to-list
-'tramp-remote-path 'tramp-own-remote-path)` is the usual answer) — and when it
-is not there, the command says so and names both variables rather than raising
-`file-missing`. This is the intended way to drive remote agent-deck sessions;
-the local case is the same command from a local buffer.
+**Remote execution.** Subprocesses retain TRAMP connection identity and the
+workflow's `default-directory`. Native protocol calls use TRAMP direct-async
+pipes and separate stderr buffers. Settings are scoped to each call rather than
+persistently changing connection profiles or methods. State and input paths are
+checked against the selected connection, and unsupported direct-pipe connections
+are refused rather than using a terminal for protocol data.
 
-**The run buffer.** `*wf: ROW*`, in `wf-run-mode` — read-only, colours applied
-rather than shown, `C-c C-k` to interrupt, `g` to ask the price again and rerun,
-`q` to bury. A run over TRAMP names its host, `*wf: hera:wiggum*`, so the same
-row driven here and on hera gets a buffer each — the listing is cached per
-connection and so are the buffers holding what came back. Scrolling back to
-re-read a consultation holds: a window follows the output only while it is
-already at the end.
+SSH behavior is verified with Emacs 30.2 against an isolated loopback server on
+macOS. This exercises the real SSH/TRAMP path, including binary file capture,
+typed human answers, verification, history, semantic resume, cancellation, and
+interactive resize. It does not establish a different host OS or Linux acceptance.
 
-**Deck sessions** come from `agent-deck list -json` when that answers, and from
-a lenient parse of its plain table when it does not: the field that is a *whole*
-session id is the id and the rest of the line is the title. Whole, because the
-plain table ellipsizes that column and a truncated id selects nothing — a line
-without one is skipped rather than guessed at. Both calls keep the two streams
-apart, as every other call to a binary here does: with stderr merged into the
-parsed output, one narrated line about a stale profile would make the JSON
-unreadable and cost every session silently. If neither source works the prompt
-degrades to reading an id as a string — and says why in the prompt, quoting
-agent-deck's first line of stderr, or `agent-deck listed no sessions` when it
-said nothing at all. It never raises.
-
-**Why no transient.** The interaction is a straight line — row, inputs,
-transport, price, go — with each step's choices decided by the last. A transient
-prefix would be a menu over four questions that have to be asked in order
-anyway, so it does not earn the dependency on a second UI model.
-
-**The gate.** `./ci/emacs.sh`, from the repository root, is three passes over
-`emacs/wf.el` and `emacs/wf-smoke.el`: byte-compilation with
-`byte-compile-error-on-warn` so that a warning *is* the failure, `checkdoc` with
-`arguments-in-order` and `package-keywords` — the two the defaults leave off —
-and then the smoke, which loads the package and asks the real `wf` binary for
-its listing. It finds Emacs at `$EMACS` or on `PATH` and the binary at `$WF` or
-under `dist-newstyle`, and says which sentence to fix when it finds neither.
+**Verification.** The gate compiles both Lisp files with warnings treated as
+errors, runs strict `checkdoc`, and executes descriptor, setup, native process,
+control, artifact, history, and lineage regressions. The human/control fixture
+is an explicit dependency, not a developer-specific path or a skipped test.
 
 ```sh
-./ci/emacs.sh
-EMACS=/path/to/emacs WF=$PWD/dist-newstyle/…/wf ./ci/emacs.sh
+WF=/path/to/compatible/wf \
+WF_CONTROL_RUNNER=/path/to/routing-fixed-point-probe \
+  nix develop path:. -c bash ci/emacs.sh
 ```
 
-The smoke asserts what the JSON contract promises and the wording that spends
-money: the row count and `wiggum`'s declared inputs, the per-connection cache,
-that `@` hands off to file-name completion *after* the `@`, that the agent-deck
-listing keeps its two streams apart so a line of stderr costs no session, that a
-missing agent-deck degrades to nil *and* says why, and both shapes of the price
-gate's question — including that a rehearsal says `consults nobody` instead of
-quoting a ceiling it will not spend. One thing it does not cover: the per-input
-`M-p` history and the last-answer default are verified structurally, since batch
-Emacs records no minibuffer history — exercise those once interactively.
+`EMACS` can select another Emacs executable. Otherwise the gate uses the pinned
+development shell, which also supplies `WF_CONTROL_ADAPTERS` from the pinned
+agent-cat source. Scripted workflows and deterministic human and ACP fixtures
+exercise the real runner without contacting providers, including retry,
+abandonment, dispatch redirection, and failover through the native controls.
+
+The reproducible local PTY gate is:
+
+```sh
+WF=/path/to/compatible/wf \
+WF_CONTROL_RUNNER=/path/to/routing-fixed-point-probe \
+  nix develop path:. -c python3 ci/emacs-ui.py --artifacts /path/to/new/artifacts
+```
+
+This gate runs isolated `Emacs -Q` sessions. It covers four-input navigation at
+40×12, 80×24, and 140×36, resizing during setup and review, typed human answers,
+verified results, persistent observer/fork navigation, independent multiwindow
+following, and terminal restoration. Recovery cases use a preconfigured
+deterministic ACP target and drive retry, dispatch selection, and failover
+through the native control menu with real keystrokes. Typed control names
+survive terminal resizing before submission. Captured native window states and
+terminal logs remain with the artifacts. These local checks do not establish
+remote or Linux acceptance.
+
+The SSH/TRAMP gate starts an unprivileged server bound only to `127.0.0.1`,
+with temporary host and client keys, strict host-key checking, public-key-only
+authentication, and a private shell environment. It changes no account or
+system configuration and removes the server and temporary keys afterward.
+
+```sh
+WF_CONTROL_RUNNER=/path/to/routing-fixed-point-probe \
+  nix develop path:. -c python3 ci/emacs-tramp.py --artifacts /path/to/new/artifacts
+```
 
 ## What replaces what
 

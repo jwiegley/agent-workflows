@@ -105,6 +105,99 @@ followups.md M1 + systematic + L: the design promised commitFn four call sites (
 
 Owner approved publication and Hera activation. Pin agent-cat 1858e000 containing d3be3f22, build the exact committed wf package, verify header-free prompts and explicit session precedence with the deterministic deck fixture, and publish the pin without including unrelated Emacs edits.
 
+* DONE [#B] Complete native Emacs workflow client
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-emacs-native-j51
+:LABELS:   []
+:ISSUE_TYPE: feature
+:CREATED:  [2026-09-09 Wed 00:23]
+:MODIFIED: [2026-09-09 Wed 14:32]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-09 Wed 14:18]
+:CLOSE_REASON: Native client verified with38 ERT/32 smoke, real human and recovery keyboard PTYs, and loopback SSH/TRAMP; source and platform limits recorded.
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+Implement confirmed goal mttrcv0m-9vzfmn by evolving emacs/wf.el into a descriptor-driven native Emacs client with multi-input forms, immutable launch inputs, exact plan/routing approval, structured run buffers and history, local human decisions, correlated controls and lineage, verified results, and local/TRAMP verification.
+
+This session owns Emacs and necessary shared agent-cat runtime/CLI support in /Users/johnw/src/agent-cat/.worktrees/tui. Agent Deck session fbe09284-1788937064 owns ext-pi in fork-agent-cat and has acknowledged the ownership split. Shared interface and fixture changes require coordination. Preserve all runtime contracts, filesystem/process ownership and consent guarantees. No provider calls, publication, commits, or activation without separate authorization.
+
+Baseline is agent-workflows f0e76c69770db65dea4c3d1a9adc7ac74cdccf2f with a clean worktree. wf.el was read in full (899 lines). Existing native completion, histories, buffers, TRAMP conventions, and approval sequencing will be retained. Current limitations include sequential argv-producing prompts, mutable file-backed plan/launch inputs, raw input text in argv, human-output process buffers, and workflow/host buffer identity.
+
+Read-only foundation review: emacs-client-foundation-mttrp7xr-tx9dle. Shared findings: existing bootstrapTuiControlFd already maps stdin to fd3, while descriptor-relative private artifact reads and safe process ownership still require investigation. The Pi peer independently confirms its lstat/realpath plus leaf O_NOFOLLOW checks do not meet Runtime.PrivateRoot ancestry guarantees, so verified question/result operations are a real shared requirement.
+
+** Notes
+
+#+begin_example
+Baseline checkpoint: added the already-pinned pkgs.emacs (30.2) to the project devShell. Ran ci/emacs.sh against immutable wf candidate /nix/store/bjc11iwkp7kkjf40vkkdmbhcv850dnsh-agent-workflows/bin/wf. Both Lisp files byte-compile without warnings, checkdoc passes, and all 37 smoke facts pass. Log: /tmp/agent-cat-emacs-baseline.jSk46c. No Emacs behavior or shared runtime files changed yet.
+
+Peer fbe09284-1788937064 acknowledged ownership and supplied substantive input-normalization and artifact-IO findings. Its ext-pi baseline now uses Pi 0.85.1 and Chord, with passing local gates reported by that session. Existing readQuestionArtifactByCodeNameAt/readResultArtifactAt and PrivateRoot operations are the shared verified-read seam to expose, rather than replicate pathname checks in Lisp/TypeScript.
+
+Outgoing coordination limitation: the initial reply was confirmed submitted, later readiness/defer sends timed out, and a supported --no-wait send returned DELIVERY_FAILED with delivery=typed and submitted=false. Do not claim those updates arrived or send blind Enter keystrokes. Precise shared API agreement remains pending.
+
+The two-agent read-only advisory workflow emacs-client-foundation-mttrp7xr-tx9dle returned no reports while reported usage rose sharply. It was explicitly stopped (aborted) rather than continuing opaque background spending. Its output is not verification evidence. Parent continues directly.
+
+Shared artifact-read checkpoint: acat-native-frontend-7q58 records the implemented frontend-io version-1 API and all evidence. It delegates directly to captured Runtime.PrivateRoot identities and existing Store artifact readers, using references from validated client state rather than replaying the event journal. Runtime/real CLI probes, policy/examples, routing, ACP/deck, full TUI regression, and documentation/Haskell gates pass. The documentation registration and stale inherited ACP wording assertion were corrected without relaxing the failure/preflight checks.
+
+Immutable test binaries: /nix/store/x1xwkpb42c5bycsdpj083y22lsdyvb11-agent-workflows-0.1.0.0/bin/wf and /nix/store/fvvx0rz80l0nlb2af6d7kg2402d47sd8-agentic-0.1.0.0/bin/agentic-run. The source agentic-run and packaged wf/Spanish HelloWorld probes pass in /tmp/agent-cat-frontend-package-smoke.81h1PX. No installation or publication occurred. The Pi peer acknowledged reading the prior replies via Agent Deck session output, which is the reliable coordination fallback.
+
+Next shared work remains necessary before the full native client: managed input/manifest/state writes and target-aware prepare/start, including opaque target argv plus non-secret environment-dependent selectors. The read-only endpoint is not a generic mutation service and does not close the write-side or launch-approval gaps. Existing Emacs behavioral code is unchanged so far beyond the verified development-shell addition.
+
+
+Native client local implementation is complete: all-input widgets and explicit sources, same-worker frozen preparation/approval, independent sessions and views, live controls with correlation/FIFO, verified human/result access, persistent history and observer-only records, native restart/resume/fork editor/comparison, and sanitized offline routing/persona selection. Shared Haskell support and evidence are tracked by acat-native-frontend-7q58. Root-run and final independent reviews found actionable control-size/ACK/trace and query-cleanup issues; these were fixed with failing-before/passing-after regressions. Unicode JSON display was likewise reproduced and corrected. No remaining local review finding is open.
+
+Final evidence: /tmp/agent-workflows-native-complete-local.uCTQcB and /tmp/emacs-final-immutable-gate.AOCsrK show warning-free compile/checkdoc,34 ERT,32 smoke, and real isolated Emacs30.2 UI checks. Permanent ci/emacs-ui.py covers40x12/80x24/140x36 input navigation, resize during review, typed human answers, verified results, history/observer/fork refusal, multiwindow following and terminal restoration. Latest artifacts: /private/tmp/wf-emacs-ui-9fdirsig. Test fixture dependency is explicit WF_CONTROL_RUNNER, never skipped. Nix devShell declares Emacs and Python. README describes current commands/limits and does not claim remote acceptance.
+
+Immutable test package: /nix/store/17wjyyklgi7knlm0mxfn6achxc2hifyf-agent-workflows/bin/wf. Matching fixture: /nix/store/fnisqsjlzr20lcbj5c46rn1gc7fpjfhs-agentic-0.1.0.0/bin/routing-fixed-point-probe. Immutable downstream source: /nix/store/v4n5ld381p3bapq3kx4dm0jrmr6sxljn-source. Shared source: /nix/store/mbbgcl9h6lf6qjrsmn3hzxjghs8fwcy5-source. Both Lisp files were byte-compared with the tested snapshot. Package is built only, not installed/pinned/published.
+
+Remaining goal acceptance is blocked on user authorization for an isolated localhost SSH fixture (temporary keys/config, no system changes) and/or a disposable remote Linux test host. Tested local platform is macOS26.6.2 arm64 with Emacs30.2. Real TRAMP and fresh Linux evidence are explicitly absent. Keep this issue in progress until those criteria are resolved. No staging, commits, activation, user configuration changes or provider calls.
+#+end_example
+
+** Comments
+
+#+begin_src json
+[
+  {
+    "id": 2,
+    "issue_id": "awork-emacs-native-j51",
+    "author": "johnw",
+    "text": "Current native acceptance supersedes the earlier TRAMP blocker and older test counts. The current emacs/wf.el, wf-smoke.el, ci/emacs-ui.py and ci/emacs-tramp.py byte-match immutable downstream source /nix/store/4iq24krv7ra0j87g4lv1c910w6apixsy-source. Fresh gates against /nix/store/qy7n56wafc3gky54xfs0fgkmcla14bvr-agent-workflows/bin/wf and fixture /nix/store/kgjyngy6aka3hbkc11whpl6rkdwwqscg-agentic-0.1.0.0/bin/routing-fixed-point-probe passed: warning-free byte-compilation/checkdoc, 37 ERT and 32 smoke facts (/tmp/wf-j79f-batch.7uC3Wq/gate.log), real local PTYs at 40x12, 80x24 and 140x36 including typed answers, observer/history and independent window following (/tmp/wf-j79f-ui.ZQ25rh), and loopback SSH/TRAMP batch plus interactive review/resize/control/artifact/lineage acceptance (/tmp/wf-j79f-tramp.7zZTQ0). Fixture directories and SSH processes are absent after cleanup. Evidence is macOS with Emacs 30.2, not Linux or another host OS. The only downstream change in this checkpoint corrects the stale ci/emacs.sh header about the native JSON interfaces. Pi peer acknowledged receiving the new immutable candidate and is performing real helper conformance. Shared verification workflow remains active, so this comment does not close the overall goal or claim Pi bound-execution acceptance. No staging, commits, deployment, lock changes or configuration changes.",
+    "created_at": "2026-09-09T20:29:22Z"
+  },
+  {
+    "id": 3,
+    "issue_id": "awork-emacs-native-j51",
+    "author": "johnw",
+    "text": "Implementation and macOS acceptance are complete against the current 75-workflow tree, preserving the separately landed refocus commit 60c8dcd. Final immutable runner: /nix/store/yp762aiv6kchazxf7hn4rf9vbv3z6spc-agent-workflows/bin/wf. Downstream source: /nix/store/2iw3imrnf80mm0dc8hw9h6v3xw8qffcm-source. Core fixture: /nix/store/xlpl01wnycslnyhn51yc6a8szbpfna1f-agentic-0.1.0.0/bin/routing-fixed-point-probe. All relevant source files, including wf.el, smoke, both permanent interactive probes and flake, byte-match the immutable sources. A newly added real-ACP regression reproduced Emacs failover ending with Uncorrelated control effect (/tmp/wf-recovery-focused-red.bM610B/gate.log). The one-line handler correction accepts occurrence.retried from the matching failover control while preserving control/occurrence/type correlation. Native retry, abandon, redirect and failover now pass through actual wf-control calls. Independent reviewer d8bc5b00-5ee2-41c0-baa1-232f5b41e988 found no issues; its dependency-wiring limitation is resolved by the subsequent full Nix-shell gate. The shell supplies WF_CONTROL_ADAPTERS from pinned agent-cat fixtures. Final evidence: /tmp/wf-native-75-batch.tHyssz/gate.log (warning-free compile/checkdoc,38 ERT,32 smoke,75 rows and Wiggum48 price), /tmp/wf-native-75-ui.SJw3nM (three terminal sizes and native human/history/windows), /tmp/wf-native-75-tramp.K3XEaD (real loopback SSH/TRAMP batch and interactive acceptance), and /tmp/acat-native-75-final.enzkBm/gate.log (all immutable shared native/transport72/IO/export probes under GHCRTS=-N8). The first full recovery test attempt correctly refused the stale74-row package; those catalogue assertions were not weakened. SSH fixtures and processes were removed. Acceptance is macOS/Emacs30.2, not Linux or another host OS. Shared issues acat-j79f and acat-native-frontend-7q58 are closed. Pi reports real helper and native-v3 test-driver conformance; its production UI adoption remains separate. Native goal task bookkeeping and its automatic completion audit are not claimed complete because this session does not expose the goal lifecycle tools. No staging, commit, publication, installation, lock change or persistent user configuration change was performed by this session.",
+    "created_at": "2026-09-09T21:01:31Z"
+  },
+  {
+    "id": 4,
+    "issue_id": "awork-emacs-native-j51",
+    "author": "johnw",
+    "text": "Acceptance correction: the38 ERT gate exercises real recovery controls but supplies completing-read answers in batch. The explicit keyboard-driven recovery acceptance criterion was not yet covered by the permanent PTY gate. Reopened this issue while adding real c-menu retry/failover selection, occurrence/dispatch prompts, control-draft preservation through40x12 and140x36 resizes, and verified-result display. No production code change or shared-contract reopening is planned.",
+    "created_at": "2026-09-09T21:13:00Z"
+  },
+  {
+    "id": 5,
+    "issue_id": "awork-emacs-native-j51",
+    "author": "johnw",
+    "text": "Keyboard recovery acceptance is now established. Permanent ci/emacs-ui.py drives real wf-run selection, input editing and approval, then the c control menu, occurrence selection, primary dispatch and retry/failover using actual terminal keystrokes. Typed control names survive resizes from80x24 to40x12 and140x36 before submission, both runs reach completed with no client error, verified result views open, and terminal attributes are restored on normal exit. Full local PTY gate passes at /tmp/wf-keyboard-recovery.rbn9ih/gate.log. The same keyboard failover case against the pre-fix immutable wf.el fails specifically with Uncorrelated control effect (/tmp/wf-keyboard-recovery-red.S6VyuU/gate.log), proving the UI check detects the earlier production bug. The shared reporter was revalidated by full loopback SSH/TRAMP batch and interactive tests at /tmp/wf-keyboard-tramp.W3Wwu6/gate.log; fixture directories and processes are absent afterward. No production file changed in this follow-up: current emacs/wf.el still byte-matches /nix/store/2iw3imrnf80mm0dc8hw9h6v3xw8qffcm-source/emacs/wf.el (SHA25675deb6833cd246210091c11ba9fbf3d1433f7382c755ee191c128e79c08b1e48). The updated local harness has SHA2566c8da9830d7bd0e7dc949df161ea2883207ac91380fc99cbece65897a2251be7 and is newer than that immutable source snapshot. README describes the preconfigured deterministic ACP target and actual keyboard coverage. The earlier38 ERT/32 smoke and immutable server evidence remain applicable to unchanged production code. This closes the acceptance gap for this issue; native goal task updates and automatic audit still require currently unavailable lifecycle tools. No shared edits, provider calls, staging, commits or deployment.",
+    "created_at": "2026-09-09T21:18:37Z"
+  },
+  {
+    "id": 6,
+    "issue_id": "awork-emacs-native-j51",
+    "author": "johnw",
+    "text": "Closeout reconciliation after the confirmed goal tweak: native goal execution tools are restored. The six verified implementation/acceptance task IDs are now recorded complete with evidence; docs-handoff is the current closeout task. Current production wf.el and principal shared CLI/runtime files were rechecked against their immutable source snapshots, and the newer keyboard harness matches its recorded6c8da983 SHA256. README and shared manual accurately describe commands, ownership, fixtures, verified export and platform limits. Pi peer again acknowledges shared handoff and reports68 focused,4 core-helper and2 targeted wf artifact tests; production Pi adoption remains separate. All three relevant implementation issues remain closed. Fresh diff checks pass, indexes are empty, refocus commit60c8dcd remains intact and no SSH fixture directories remain. The required native completion audit is the next action and has not yet been claimed successful. No repeated full-suite runs or production edits were needed for this evidence reconciliation.",
+    "created_at": "2026-09-09T21:32:24Z"
+  }
+]
+#+end_src
+
 * TODO [#D] Evidence's unit-review claim: move Git/Stack.hs's ten local running parties in, or amend the header
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17
@@ -338,3 +431,4 @@ Replace the concrete broad model ladder in the beginner example with the deep-th
 :END:
 
 The local ../agent-cat routing-v2 package uses http-client-tls, whose zlib dependency must be available when cabal builds the downstream project in its Nix dev shell.
+

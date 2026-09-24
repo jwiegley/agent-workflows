@@ -201,6 +201,21 @@ While validating refocus, a Wiggum-duet test-stub invocation inherited the opera
 ]
 #+end_src
 
+* WAIT [#C] Merge emacs-native after the native frontend reaches agent-cat main
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-hit
+:LABELS:   []
+:ISSUE_TYPE: chore
+:CREATED:  [2026-09-24 Thu 16:32]
+:MODIFIED: [2026-09-24 Thu 16:32]
+:CREATED_BY: johnw
+:SOURCE_REPO: .
+:ORIGINAL_SIZE: 0
+:END:
+
+The emacs-native branch (d5d7430, worktree ~/src/agent-workflows-emacs-native) completes awork-emacs-native-j51. Its code merges into main cleanly, and only doc/PLAN.org conflicts. Its client speaks the `wf frontend` protocol, which exists only on agent-cat's tui branch. On a trial merge with main (agent-cat 94573276), ci/emacs.sh fails 20 of 38 ERT tests with "Runner exited without terminal protocol event", and the probe reports "no verb 'frontend'". When the native frontend reaches agent-cat main, re-pin the branch to that release, run ci/emacs.sh with WF_CONTROL_RUNNER and WF_CONTROL_ADAPTERS from that release, then run ci/emacs-ui.py and ci/emacs-tramp.py, and merge. Resolve the PLAN.org conflict with the obr export.
+
 * DONE [#C] Gate compact bare workflow usage
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

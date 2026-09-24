@@ -332,15 +332,17 @@ The one mechanism that closes three followups at once, all recorded in doc/follo
 
 Rename one-to-one workflow-definition Haskell modules to the PascalCase form of their canonical hyphenated skill, command, agent, or native workflow name; update imports, Cabal metadata, docs, and gates without changing registry rows or behavior.
 
-* TODO [#C] Refresh the Taskmaster certificate for the current Evidence module
+* DONE [#C] Refresh the Taskmaster certificate for the current Evidence module
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17
 :ID:       awork-taskmaster-certificate-f8y
 :LABELS:   []
 :ISSUE_TYPE: bug
 :CREATED:  [2026-09-24 Thu 12:15]
-:MODIFIED: [2026-09-24 Thu 12:15]
+:MODIFIED: [2026-09-24 Thu 15:35]
 :CREATED_BY: johnw
+:FINISHED: [2026-09-24 Thu 15:35]
+:CLOSE_REASON: ci/taskmaster.sh no longer compares the hash of the shared src/Workflows/Evidence.hs, which other workflows edit. Its publication rollback test, previously hidden behind that failure, now analyzes the manifest's recorded agent-cat revision instead of HEAD, because the evidence specifications pin line ranges in that revision. The gate passes. The certificate was not regenerated.
 :SOURCE_REPO: agent-workflows
 :SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
 :ORIGINAL_SIZE: 0
@@ -392,6 +394,37 @@ Update workflow catalogue gates for descriptor-v2 input objects while retaining 
 :END:
 
 Replace the concrete broad model ladder in the beginner example with the deep-thinker symbolic routing profile and update generated help.
+
+* TODO [#D] Taskmaster regeneration fails against the current agent-cat HEAD
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-yfn
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-09-24 Thu 15:35]
+:MODIFIED: [2026-09-24 Thu 15:35]
+:CREATED_BY: johnw
+:SOURCE_REPO: .
+:ORIGINAL_SIZE: 0
+:END:
+
+tools/taskmaster-framework.sh analyzes agent-cat HEAD unless TASKMASTER_AGENT_CAT_REVISION is set. The evidence specifications in tools/taskmaster-evidence.py name paths and line ranges in a88dc85, which uses the layout from before 2026-09-03 (haskell/src/Agentic/Plan.hs and similar). A regeneration with the default revision therefore stops at the evidence phase with "missing evidence path". Either default the generator to the manifest's analyzed revision, or move the specifications to the current layout and regenerate the bundle.
+
+** Dependencies
+
+#+begin_src json
+[
+  {
+    "issue_id": "awork-yfn",
+    "depends_on_id": "awork-taskmaster-certificate-f8y",
+    "type": "discovered-from",
+    "created_at": "2026-09-24T22:35:22.749683Z",
+    "created_by": "johnw",
+    "metadata": "{}",
+    "thread_id": ""
+  }
+]
+#+end_src
 
 * DONE [#B] Provide zlib to the local agent-cat routing-v2 Cabal shell
 :PROPERTIES:

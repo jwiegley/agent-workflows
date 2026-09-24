@@ -75,9 +75,11 @@ assert set(re.findall(r"/blob/([0-9a-f]{40})/", report)) == {
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 assert sha(manifest_path) in certificate
 assert sha(report_path) in certificate
+# The certificate also records the hash of src/Workflows/Evidence.hs at the
+# time of the run. Other workflows share and edit that module, so the gate
+# compares only the files that belong to the Taskmaster workflow.
 helper_paths = {
     "Workflow source": root / "src/Workflows/Taskmaster.hs",
-    "Evidence argv module": root / "src/Workflows/Evidence.hs",
     "Evidence collector": root / "tools/taskmaster-evidence.py",
     "Stage validator/renderer": root / "tools/wf-taskmaster-stage",
     "Fixture adapter": root / "tools/taskmaster-fixture.py",
@@ -141,7 +143,9 @@ git -C "$source_repo" add .
 git -C "$source_repo" -c user.name=Fixture -c user.email=fixture@example.invalid \
   -c commit.gpgsign=false commit --quiet -m fixture
 source_revision=$(git -C "$source_repo" rev-parse HEAD)
-agent_revision=$(git -C "$root/../agent-cat" rev-parse HEAD)
+# The evidence specifications pin line ranges in the analyzed agent-cat
+# revision, so the rollback run analyzes that revision and not the current HEAD.
+agent_revision=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["repositories"]["agent-cat"]["revision"])' "$manifest")
 
 preserved="$work/preserved"
 mkdir "$preserved"

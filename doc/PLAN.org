@@ -199,6 +199,21 @@ While validating refocus, a Wiggum-duet test-stub invocation inherited the opera
 :ORIGINAL_SIZE: 0
 :END:
 
+* DONE [#C] Pin wf to the in-process tool release
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-q2s
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-09-24 Thu 12:15]
+:MODIFIED: [2026-09-24 Thu 12:15]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-24 Thu 12:15]
+:CLOSE_REASON: Advance agent-cat to published 1806558; append the empty tool table to all 39 registry rows. Toolbox, cookbook and Emacs gates pass, and the Nix package passes all 75 workflows.
+:SOURCE_REPO: .
+:ORIGINAL_SIZE: 0
+:END:
+
 * DONE [#B] Pin the explicit-session precedence fix in packaged wf
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17
@@ -284,6 +299,31 @@ The one mechanism that closes three followups at once, all recorded in doc/follo
 :END:
 
 Rename one-to-one workflow-definition Haskell modules to the PascalCase form of their canonical hyphenated skill, command, agent, or native workflow name; update imports, Cabal metadata, docs, and gates without changing registry rows or behavior.
+
+* TODO [#C] Refresh the Taskmaster certificate for the current Evidence module
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-taskmaster-certificate-f8y
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-09-24 Thu 12:15]
+:MODIFIED: [2026-09-24 Thu 12:15]
+:CREATED_BY: johnw
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+`ci/taskmaster.sh` fails on main. Its embedded check requires
+`doc/research/taskmaster-framework-run.md` to record the SHA-256 of six
+helper files, and the recorded hash of `src/Workflows/Evidence.hs` is stale:
+that module changed in 60c8dcd (2026-09-09, "Add refocus checkpoints to
+Wiggum workflows") after the certificate was generated in 73a2adb
+(2026-08-29). The other five hashes match.
+
+Regenerate the certificate with `tools/taskmaster-framework.sh` under the
+fixture adapter, or decide that the gate should not pin a research record
+against a source file that other workflows edit.
 
 * DONE [#C] Accept agent-cat descriptor-v2 input metadata
 :PROPERTIES:

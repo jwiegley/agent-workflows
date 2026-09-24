@@ -242,8 +242,8 @@ registry =
       regNoun = "workflow",
       regBanner = "list, plan, price and run the workflows",
       regRows =
-        [ ("hello", Row (Fixed helloWorkflow) helloDoc helloHelp helloScript),
-          ("hello-world", Row (Needs helloWorldProgram) helloWorldDoc helloWorldHelp helloWorldScript),
+        [ ("hello", Row (Fixed helloWorkflow) helloDoc helloHelp helloScript []),
+          ("hello-world", Row (Needs helloWorldProgram) helloWorldDoc helloWorldHelp helloWorldScript []),
           reviewRow Quick,
           reviewRow Deep,
           reviewRow Sec,
@@ -255,7 +255,7 @@ registry =
           commitRow Push,
           commitRow Recommit,
           commitRow Bankruptcy,
-          ("fess", Row (Needs fessAudit) fessDoc fessHelp fessScript),
+          ("fess", Row (Needs fessAudit) fessDoc fessHelp fessScript []),
           stackRow Restack,
           stackRow Rebase,
           stackRow RebaseFix,
@@ -264,9 +264,9 @@ registry =
           conferRow Bare,
           conferRow Debate,
           conferRow Second,
-          ("checklist", Row (Needs checklistProgram) checklistDoc checklistHelp checklistScript),
-          ("teams", Row (Needs teamsProgram) teamsDoc teamsHelp teamsScript),
-          ("notes", Row (Needs notesProgram) notesDoc notesHelp notesScript),
+          ("checklist", Row (Needs checklistProgram) checklistDoc checklistHelp checklistScript []),
+          ("teams", Row (Needs teamsProgram) teamsDoc teamsHelp teamsScript []),
+          ("notes", Row (Needs notesProgram) notesDoc notesHelp notesScript []),
           effortRow Effort.Medium,
           effortRow Effort.Heavy,
           effortRow Effort.Forge,
@@ -289,9 +289,9 @@ registry =
           proseRow Smooth,
           proseRow Transcript,
           proseRow Compress,
-          ("dead-code", Row (Needs deadCodeProgram) deadCodeDoc deadCodeHelp deadCodeScript),
-          ("comments", Row (Needs commentsProgram) commentsDoc commentsHelp commentsScript),
-          ("bundles", Row (Needs bundlesProgram) bundlesDoc bundlesHelp bundlesScript),
+          ("dead-code", Row (Needs deadCodeProgram) deadCodeDoc deadCodeHelp deadCodeScript []),
+          ("comments", Row (Needs commentsProgram) commentsDoc commentsHelp commentsScript []),
+          ("bundles", Row (Needs bundlesProgram) bundlesDoc bundlesHelp bundlesScript []),
           productizeRow Full,
           productizeRow Lefthook,
           nixRow Rebuild,
@@ -310,11 +310,11 @@ registry =
           -- exactly one, and it writes the artefact; `expense` and `qanda` put
           -- the owner in binding position, so their expensive arms are
           -- unreachable without his answer.
-          ("query", Row (Needs queryProgram) queryDoc queryHelp queryScript),
-          ("expense", Row (Needs expenseProgram) expenseDoc expenseHelp expenseScript),
-          ("qanda", Row (Needs qandaProgram) qandaDoc qandaHelp qandaScript),
-          ("transcribe", Row (Needs transcribeProgram) transcribeDoc transcribeHelp transcribeScript),
-          ("tron", Row (Needs tronProgram) tronDoc tronHelp tronScript),
+          ("query", Row (Needs queryProgram) queryDoc queryHelp queryScript []),
+          ("expense", Row (Needs expenseProgram) expenseDoc expenseHelp expenseScript []),
+          ("qanda", Row (Needs qandaProgram) qandaDoc qandaHelp qandaScript []),
+          ("transcribe", Row (Needs transcribeProgram) transcribeDoc transcribeHelp transcribeScript []),
+          ("tron", Row (Needs tronProgram) tronDoc tronHelp tronScript []),
           -- Wave 5, the long ones (`doc/design.md` §8). What these have in
           -- common is that each carries a whole *procedure* rather than a
           -- rubric: a phase battery, a ten-phase design method, a five-phase
@@ -325,7 +325,7 @@ registry =
           -- steps cannot be reordered by a tired reader.
           retestRow Retest.Hf,
           retestRow Retest.Categorical,
-          ("denote", Row (Needs denoteProgram) denoteDoc denoteHelp denoteScript),
+          ("denote", Row (Needs denoteProgram) denoteDoc denoteHelp denoteScript []),
           translateRow Fa,
           translateRow En,
           translateRow Es,
@@ -335,12 +335,12 @@ registry =
           -- §7.4 row 22 says "deeply host-specific -- port last", and this is
           -- the one row in the table whose paths, database, config-node ids and
           -- entity families are one machine's.
-          ("nodered", Row (Needs noderedProgram) noderedDoc noderedHelp noderedScript),
+          ("nodered", Row (Needs noderedProgram) noderedDoc noderedHelp noderedScript []),
           -- A production evidence workflow rather than a language fixture. It sits
           -- in this second registry because it composes existing agent-cat seams
           -- without adding a semantic or transport primitive to agent-cat itself.
-          ("taskmaster", Row (Needs taskmasterProgram) taskmasterDoc taskmasterHelp taskmasterScript),
-          ("refocus", Row (Needs refocusProgram) refocusDoc refocusHelp refocusScript),
+          ("taskmaster", Row (Needs taskmasterProgram) taskmasterDoc taskmasterHelp taskmasterScript []),
+          ("refocus", Row (Needs refocusProgram) refocusDoc refocusHelp refocusScript []),
           -- The top of the loop, and the last row in the table (`doc/design.md`
           -- §7.4 row 1: "`wiggum`, BUILT LAST: it calls almost everything").
           -- Five of its eight declared callees belong to other rows -- `commitFn`
@@ -353,7 +353,7 @@ registry =
           -- It is also the row that carries the wave's gate: `wf cost wiggum`
           -- reports a finite worst case over finitely many paths, which is the
           -- one number an autonomous loop must have before it starts.
-          ("wiggum", Row (Needs wiggumProgram) wiggumDoc wiggumHelp wiggumScript),
+          ("wiggum", Row (Needs wiggumProgram) wiggumDoc wiggumHelp wiggumScript []),
           -- The same loop across two live panes ("Workflows.WiggumDuet"), and a row
           -- rather than a flag on the one above it for the naming rule's own
           -- reason: a row is one SHAPE, and this shape has a bind `wiggum` does
@@ -366,7 +366,7 @@ registry =
           -- nine declared callees belong to other rows, and the four that are
           -- its own are `wiggum`'s three bodies with one pin moved plus the
           -- four-seat review between the rounds.
-          ("wiggum-duet", Row (Needs duetProgram) duetDoc duetHelp duetScript)
+          ("wiggum-duet", Row (Needs duetProgram) duetDoc duetHelp duetScript [])
         ]
     }
   where
@@ -375,19 +375,19 @@ registry =
     -- hand-maintained copies of one paragraph, in Haskell.
     reviewRow t =
       ( tierName t,
-        Row (Needs (reviewLadder t)) (reviewDoc t) (reviewHelp t) (reviewScript t)
+        Row (Needs (reviewLadder t)) (reviewDoc t) (reviewHelp t) (reviewScript t) []
       )
     greenRow r =
       ( rungName r,
-        Row (Needs (greenProgram r)) (greenDoc r) (greenHelp r) (greenScript r)
+        Row (Needs (greenProgram r)) (greenDoc r) (greenHelp r) (greenScript r) []
       )
     commitRow r =
       ( commitRungName r,
-        Row (Needs (commitProgram r)) (commitDoc r) (commitHelp r) (commitScript r)
+        Row (Needs (commitProgram r)) (commitDoc r) (commitHelp r) (commitScript r) []
       )
     stackRow r =
       ( stackRungName r,
-        Row (Needs (stackProgram r)) (stackDoc r) (stackHelp r) (stackScript r)
+        Row (Needs (stackProgram r)) (stackDoc r) (stackHelp r) (stackScript r) []
       )
     -- The confer family. Four rows and not five: the confer-shaped gate
     -- @confer-design.md@ §5.4 sketches is unbuilt, and when it is built it
@@ -396,7 +396,7 @@ registry =
     -- and `wf list` is read top to bottom in landing order.
     conferRow r =
       ( conferRungName r,
-        Row (Needs (conferProgram r)) (conferDoc r) (conferHelp r) (conferScript r)
+        Row (Needs (conferProgram r)) (conferDoc r) (conferHelp r) (conferScript r) []
       )
     -- The rest of wave 2, in the order `doc/design.md` §8 lists them:
     -- `checklist` (the wave-1 warm-up, which landed with this batch), then
@@ -405,7 +405,7 @@ registry =
     -- (`medium ⊂ heavy ⊂ forge`) with the three prices finally beside it.
     effortRow r =
       ( Effort.effortName r,
-        Row (Needs (Effort.effortProgram r)) (Effort.effortDoc r) (Effort.effortHelp r) (Effort.effortScript r)
+        Row (Needs (Effort.effortProgram r)) (Effort.effortDoc r) (Effort.effortHelp r) (Effort.effortScript r) []
       )
     -- Wave 3, the daily drivers (`doc/design.md` §8). They are thin over the
     -- library and over waves 1-2's functions, which is what that wave says they
@@ -414,43 +414,43 @@ registry =
     -- ends in a report function of its own family.
     threadsRow r =
       ( threadRungName r,
-        Row (Needs (threadsProgram r)) (threadsDoc r) (threadsHelp r) (threadsScript r)
+        Row (Needs (threadsProgram r)) (threadsDoc r) (threadsHelp r) (threadsScript r) []
       )
     issueRow r =
       ( issueRungName r,
-        Row (Needs (issueProgram r)) (issueDoc r) (issueHelp r) (issueScript r)
+        Row (Needs (issueProgram r)) (issueDoc r) (issueHelp r) (issueScript r) []
       )
     accountRow k =
       ( accountName k,
-        Row (Needs (accountProgram k)) (accountDoc k) (accountHelp k) (accountScript k)
+        Row (Needs (accountProgram k)) (accountDoc k) (accountHelp k) (accountScript k) []
       )
     proseRow r =
       ( proseName r,
-        Row (Needs (proseProgram r)) (proseDoc r) (proseHelp r) (proseScript r)
+        Row (Needs (proseProgram r)) (proseDoc r) (proseHelp r) (proseScript r) []
       )
     claudeMdRow r =
       ( claudeMdName r,
-        Row (Needs (claudeMdProgram r)) (claudeMdDoc r) (claudeMdHelp r) (claudeMdScript r)
+        Row (Needs (claudeMdProgram r)) (claudeMdDoc r) (claudeMdHelp r) (claudeMdScript r) []
       )
     orgRow r =
       ( orgRungName r,
-        Row (Needs (orgProgram r)) (orgDoc r) (orgHelp r) (orgScript r)
+        Row (Needs (orgProgram r)) (orgDoc r) (orgHelp r) (orgScript r) []
       )
     serviceRow o =
       ( serviceName o,
-        Row (Needs (serviceProgram o)) (serviceDoc o) (serviceHelp o) (serviceScript o)
+        Row (Needs (serviceProgram o)) (serviceDoc o) (serviceHelp o) (serviceScript o) []
       )
     nixRow r =
       ( nixName r,
-        Row (Needs (nixProgram r)) (nixDoc r) (nixHelp r) (nixScript r)
+        Row (Needs (nixProgram r)) (nixDoc r) (nixHelp r) (nixScript r) []
       )
     productizeRow r =
       ( productizeName r,
-        Row (Needs (productizeProgram r)) (productizeDoc r) (productizeHelp r) (productizeScript r)
+        Row (Needs (productizeProgram r)) (productizeDoc r) (productizeHelp r) (productizeScript r) []
       )
     partnerRow r =
       ( Partner.partnerRoleName r,
-        Row (Needs (Partner.partnerProgram r)) (Partner.partnerDoc r) (Partner.partnerHelp r) (Partner.partnerScript r)
+        Row (Needs (Partner.partnerProgram r)) (Partner.partnerDoc r) (Partner.partnerHelp r) (Partner.partnerScript r) []
       )
     -- Wave 5. The battery's two rungs are one body and one override table, which
     -- is why they are two rows rather than two programs: `retest` and
@@ -459,7 +459,7 @@ registry =
     -- `wf list` without spending either.
     retestRow t =
       ( Retest.retestName t,
-        Row (Needs (Retest.retestProgram t)) (Retest.retestDoc t) (Retest.retestHelp t) (Retest.retestScript t)
+        Row (Needs (Retest.retestProgram t)) (Retest.retestDoc t) (Retest.retestHelp t) (Retest.retestScript t) []
       )
     -- Three rows and two shapes, which is the naming rule doing its job: the two
     -- directions that carry a review team are one body with the languages
@@ -467,7 +467,7 @@ registry =
     -- function. The three prices say which is which without a word of prose.
     translateRow r =
       ( translateName r,
-        Row (Needs (translateProgram r)) (translateDoc r) (translateHelp r) (translateScript r)
+        Row (Needs (translateProgram r)) (translateDoc r) (translateHelp r) (translateScript r) []
       )
     -- Two rows because one agent file was two agents. `doc/design.md` §7.3 marks
     -- `prd-architect` R -> 2xT and says to split at the mode boundary BEFORE
@@ -475,5 +475,5 @@ registry =
     -- thing the split bought.
     prdRow m =
       ( prdName m,
-        Row (Needs (prdProgram m)) (prdDoc m) (prdHelp m) (prdScript m)
+        Row (Needs (prdProgram m)) (prdDoc m) (prdHelp m) (prdScript m) []
       )

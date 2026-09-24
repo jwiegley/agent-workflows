@@ -2,6 +2,21 @@
 #+SEQ_TODO: TODO DOING DRAFT WAIT DEFER NOTE | DONE CANCELED
 #+ISSUE_PREFIX: awork
 
+* DONE [#C] Pin wf to the act-ordered, act-scoped reuse release
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-3hg
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-09-24 Thu 14:14]
+:MODIFIED: [2026-09-24 Thu 14:14]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-24 Thu 14:14]
+:CLOSE_REASON: Advance agent-cat to published 9d01fba. Toolbox, cookbook and Emacs gates pass, and the Nix package passes all 75 scripted workflows.
+:SOURCE_REPO: .
+:ORIGINAL_SIZE: 0
+:END:
+
 * DONE [#C] Add refocus workflow and automatic Wiggum focus checks
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

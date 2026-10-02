@@ -271,6 +271,31 @@ function runs."
         (funcall cancel)))
     outcome))
 
+(defconst wf-service--transient-reads 50
+  "The largest number of reads of one resource by one command.
+The command reads the resource again after a transient refusal, as
+`wf-service--await-read' states.")
+
+(defconst wf-service--transient-seconds 0.2
+  "The wait before a command reads a resource again, in seconds.")
+
+(defun wf-service--await-read (start)
+  "Call the read START as `wf-service--await' does and return its outcome.
+A read that the manager refuses with 429 storage-quota or 503
+storage-unavailable is read again after `wf-service--transient-seconds',
+for at most `wf-service--transient-reads' reads in all.  Such a refusal
+clears without a change of the resource, for example when another page
+set of the same client completes or expires.  A read is never a
+command, so nothing is sent again."
+  (let ((reads 1)
+        (outcome (wf-service--await start)))
+    (while (and (wf-manager-transient-read-p outcome)
+                (< reads wf-service--transient-reads))
+      (sleep-for wf-service--transient-seconds)
+      (setq reads (1+ reads)
+            outcome (wf-service--await start)))
+    outcome))
+
 (defun wf-service--failure-text (failure)
   "Return the text of the manager FAILURE, a (CONDITION . DATA) list."
   (pcase failure
@@ -402,7 +427,7 @@ runs and requests of the manager continue."
 (defun wf-service--page-set (session uri what)
   "On SESSION, return the complete `wf-manager-page-set' of URI.
 WHAT names the collection in the message of a failure."
-  (let ((set (wf-service--await
+  (let ((set (wf-service--await-read
               (lambda (callback)
                 (wf-manager-session-page-set
                  session (wf-manager-session-reference session uri) callback)
@@ -530,7 +555,7 @@ the setup form leaves the request a draft of the manager."
 
 (defun wf-service--read (session uri)
   "On SESSION, return the `wf-manager-reply' of one GET of URI, or refuse."
-  (let ((reply (wf-service--await
+  (let ((reply (wf-service--await-read
                 (lambda (callback)
                   (wf-manager-session-read
                    session (wf-manager-session-reference session uri) callback)
@@ -591,7 +616,7 @@ again."
                           (format "The %s command did not settle in %d seconds"
                                   what wf-service--wait-seconds))))
       (accept-process-output nil wf-service--poll-seconds)
-      (let ((read (wf-service--await
+      (let ((read (wf-service--await-read
                    (lambda (callback)
                      (wf-manager-session-receipt session (wf-manager-sent-location sent)
                                                  callback)
@@ -1659,7 +1684,7 @@ The answer of DECISION was TEXT.  One read of DECISION tells whether
 it is still the pending head.  The draft stays, and nothing is sent
 again."
   (let* ((id (wf-manager-decision-id decision))
-         (again (wf-service--await
+         (again (wf-service--await-read
                  (lambda (callback)
                    (wf-manager-session-read
                     session (wf-manager-session-reference session (concat "/v1/decisions/" id))
@@ -1871,7 +1896,7 @@ Return (CONTROL . REPLY): the `wf-manager-control' and the
   "On SESSION, return (VALUE . REPLY) of one read of URI, or nil.
 VALUE is DECODE of the JSON value of the read.  A failed read and a
 value that does not decode give nil."
-  (let ((reply (wf-service--await
+  (let ((reply (wf-service--await-read
                 (lambda (callback)
                   (wf-manager-session-read
                    session (wf-manager-session-reference session uri) callback)
@@ -2346,7 +2371,7 @@ and sends nothing, so the row is never opened on another endpoint."
       (user-error "Select a run of the history"))
     (pcase-let* ((`(,reference . ,run) entry)
                  (session (wf-service--session))
-                 (reply (wf-service--await
+                 (reply (wf-service--await-read
                          (lambda (callback)
                            (wf-manager-session-read session reference callback)
                            nil))))

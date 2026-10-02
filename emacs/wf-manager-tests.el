@@ -3916,6 +3916,27 @@ The child is enqueued without set-input, and its exact review opens."
        (should (= (wf-manager-tests--targets listener "/v1/runs/run_21/lineage-requests") 2))
        (should (= (wf-manager-tests--posts listener) 0))))))
 
+(ert-deftest wf-service-lineage-reads-again-after-a-transient-refusal ()
+  "`wf-restart' reads the lineage collection again after 429 storage-quota.
+The manager refuses the first read because the client holds its two
+active page sets.  The second read gives the page, and the command acts
+on it.  Nothing is sent."
+  (wf-manager-tests--with-view
+   (list "/v1/runs/run_21/lineage-requests"
+         (list (wf-manager-tests--json
+                429 "{\"version\":1,\"status\":429,\"code\":\"storage-quota\",\"title\":\"Too Many Requests\"}")
+               (wf-manager-tests--lineage-page "lineage_rev_1" "[]" "\"quarantined\"")))
+   (lambda (listener session)
+     (let ((view (wf-manager-tests--control-view session)))
+       (unwind-protect
+           (with-current-buffer view
+             (should (string-search
+                      "restart is not eligible: the manager lists no lineage operation for run run_21, refusal quarantined"
+                      (cadr (should-error (call-interactively #'wf-restart) :type 'user-error)))))
+         (kill-buffer view))
+       (should (= (wf-manager-tests--targets listener "/v1/runs/run_21/lineage-requests") 2))
+       (should (= (wf-manager-tests--posts listener) 0))))))
+
 (ert-deftest wf-service-export-shows-the-receipt-and-the-verified-download ()
   "`wf-export' exports a run with the entity tag of its export collection.
 A name that is not one component refuses before any read.  The export

@@ -5210,7 +5210,7 @@ overview."
           (when (member key (wf-manager-session-watched session))
             (puthash key outcome (wf-manager-session-installed session)))))))))
 
-(defun wf-manager--transient-read-p (outcome)
+(defun wf-manager-transient-read-p (outcome)
   "Return non-nil when OUTCOME is a refusal that a later read can clear."
   (member outcome '((wf-manager-refused 429 "storage-quota")
                     (wf-manager-refused 503 "storage-unavailable"))))
@@ -5227,7 +5227,7 @@ generation installs nothing."
       (when (assq 'install (wf-manager-refresh-step-actions step))
         (funcall install)
         (wf-manager--session-changed session)
-        (when (wf-manager--transient-read-p outcome)
+        (when (wf-manager-transient-read-p outcome)
           (wf-manager--session-later
            session wf-manager--reread-seconds
            (lambda ()

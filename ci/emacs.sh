@@ -54,7 +54,8 @@
 #      tests check the lineage and export decoders, that a fork sends the
 #      typed edits of the snapshot targets with one lineage request and then
 #      enqueues the child, that an operation that is not eligible sends
-#      nothing, that an export shows its receipt and its verified
+#      nothing, that a lineage read refused with 429 storage-quota is read
+#      again, that an export shows its receipt and its verified
 #      download, and that an uncertain export is reconciled with one read
 #      of its collection and not sent again. The control tests
 #      check that wf-control lists only the controls that the controls of a run

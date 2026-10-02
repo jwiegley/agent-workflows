@@ -829,6 +829,14 @@ for it:
 | `wf-plan`, `wf-cost` | Refuse with the message "COMMAND works only in local mode.  In service mode, use the review of `wf-run` instead". |
 | `wf-lineage-compare`, `wf-observer-result`, `wf-observer-refresh` | Refuse with the message "COMMAND works only in local mode.  Service mode has no equivalent". |
 
+A command of service mode reads each resource that it needs when it runs. A
+read that the manager refuses with 429 `storage-quota` or 503
+`storage-unavailable` is read again after 0.2 seconds, for at most 50 reads in
+all. The manager gives 429 `storage-quota` to a client that already holds
+two active page sets. Such a refusal clears without a change of the
+resource, when another page set of the client completes or expires. A read is never a command, so nothing is
+sent again.
+
 No refusal starts a process or sends a request. `wf-export` of
 `wf-service.el` exports the verified result of a run of the manager (see
 [Service lineage and exports](#service-lineage-and-exports)). Local mode has no

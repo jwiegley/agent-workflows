@@ -1766,20 +1766,29 @@ Boolean false is :false internally, never JSON null."
          (wf--answer-editor session id value))
        id (alist-get 'code (plist-get occ :event))))))
 
-(defun wf--answer-editor (session id question)
-  "Open a multiline JSON answer editor for SESSION, ID and verified QUESTION."
+(defun wf--answer-editor (session id question &optional submit initial header)
+  "Open a multiline JSON answer editor for SESSION, ID and verified QUESTION.
+Service mode passes SUBMIT, a function of the text of the editor that
+sends the answer to the manager, and then SESSION, ID and QUESTION are
+nil.  INITIAL is the text of the editor and HEADER its header line,
+each with a local default when nil.  The send key closes the editor
+after the send returns.  A send that signals keeps the editor and its text."
   (let ((buffer (generate-new-buffer "*wf answer JSON*")))
     (with-current-buffer buffer
       (text-mode)
       (use-local-map (make-sparse-keymap))
-      (setq-local header-line-format "JSON answer — C-c C-c sends; C-c C-k abandons editor")
-      (insert (if (equal (alist-get 'code (alist-get 'question question)) "flag") "true" "null"))
+      (setq-local header-line-format
+                  (or header "JSON answer — C-c C-c sends; C-c C-k abandons editor"))
+      (insert (or initial
+                  (if (equal (alist-get 'code (alist-get 'question question)) "flag") "true" "null")))
       (local-set-key
        (kbd "C-c C-c")
        (lambda ()
          (interactive)
-         (let ((answer (wf--json (buffer-substring-no-properties (point-min) (point-max)))))
-           (wf--control-send session `((type . "answerPerson") (answer . ,answer)) id)
+         (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+           (if submit
+               (funcall submit text)
+             (wf--control-send session `((type . "answerPerson") (answer . ,(wf--json text))) id))
            (kill-buffer buffer))))
       (local-set-key (kbd "C-c C-k") (lambda () (interactive) (kill-buffer buffer))))
     (pop-to-buffer buffer '(display-buffer-pop-up-window))))

@@ -100,8 +100,9 @@ emacs/wf-smoke.el       batch contracts, run by ci/emacs.sh
 emacs/wf-manager.el     service-mode transport: client profile, credential,
                         exact JSON codec, decoders, sessions, commands and
                         verified downloads
-emacs/wf-service.el     service mode of wf.el: profile selection, catalogue and
-                        the dispatch table of the commands
+emacs/wf-service.el     service mode of wf.el: profile selection, catalogue,
+                        setup, review, run views, answers and the dispatch
+                        table of the commands
 emacs/wf-manager-tests.el  ERT tests of the transport and of the dispatch table,
                            run by ci/emacs.sh
 emacs/wf-manager-live.el   live check of the transport and of service mode, run
@@ -486,7 +487,15 @@ a refusal for a wrong digest, a wrong size and an inline disposition. The
 service-mode tests require that `wf-service-commands` states each public
 command of `wf.el` once, that local mode is the default, and that each
 pending and local-only command refuses with its message in service mode and
-starts no process and sends no request. The human/control fixture and
+starts no process and sends no request. The run view tests require the
+separate lines of a run view and its Terminal and Result lines, the choices
+of `wf-runs` for local and service runs, a view that follows a succeeded run
+to the size and digest of its verified download, and a view kill and the
+function of `kill-emacs-hook` that send nothing. The answer tests require
+the answer `no` as JSON `false` with the entity tag of the decision, a 412
+refusal that keeps and reports the draft and sends nothing again, and an
+uncertain answer that one read of the run snapshot reconciles. The
+human/control fixture and
 the vector file are explicit dependencies, not developer-specific paths or
 skipped tests. The pinned agent-cat source of the development shell does not
 have the vector file, so `WF_MANAGER_VECTORS` names it.
@@ -545,7 +554,7 @@ and reads the receipt at the Location of the 202 reply until it reaches
 the artifact of the export with the verified download, and the harness
 requires the same bytes as its own download. A download with a wrong digest
 and a download with a wrong size must each give
-`wf-manager-invalid-response`. The last step drives service mode with
+`wf-manager-invalid-response`. The service step then drives service mode with
 keyboard macros through `execute-kbd-macro`, with the first profile as the
 one item of `wf-manager-profiles`. `M-x wf-service` connects, and `M-x wf-run`
 lists the ready profiles and then the catalogue in `*Completions*`, which the
@@ -553,9 +562,24 @@ check keeps with a key of its own. The harness requires exactly the ready
 profiles and the workflow names that it reads, and the refusal of `wf-run`
 after the selection. `M-x wf-help` must show the help text of the catalogue.
 Each local-only command must refuse with its message and start no process and
-send no request, and the command receipts of the manager must end with the
-export command. `M-x wf-diagnostics` must show the endpoint, the scopes and
+send no request. `M-x wf-diagnostics` must show the endpoint, the scopes and
 the delivery state `poll`, and `M-x wf-local` must close the session. The
+requests step creates, sets up, reviews and approves or declines three
+requests with keys, and the harness reads that the programs of the two
+approved runs received their literal and captured inputs. The views step
+starts one `mixed-controls` run of each of the two profiles of the fixture
+and opens the view of each run with `M-x wf-runs`. While the answer editor of
+the second run is open, the harness answers its question first, so the
+answer of the view must receive 412 `stale-revision`, send nothing again and
+keep the draft. The answer `no` in the view of the first run must reach its
+decision, and the harness reads JSON `false` in the run store. Each view must
+show only its own run. The check then kills the view of the second run while
+that run still waits at its recovery decision. The harness reads that the run
+still runs, that no cancel command exists and that the check sent no command
+after the kill, and it then drives both runs to their terminal success. The
+view of the first run must end with the Terminal line and the Result lines of
+the verified result that the harness downloads, and the function of
+`kill-emacs-hook` must close the transport with no command. The
 check writes a report whose `harnessVersion` field is
 `wf-manager-live-harness-version`. The mode refuses a report of another
 version with one sentence, so a mismatched pair of the two repositories fails
@@ -627,8 +651,10 @@ for it:
 | `wf-run` | Read the ready profiles of `/v1/profiles` and ask for one, with its workspace and target labels. Then read the catalogue of `/v1/workflows?profileId=` for that profile and ask for one workflow through the completion of `wf--read-row`, with its price and blurb. Each read is fresh, so the prefix argument changes nothing. The command then creates a request, opens its setup form, enqueues it and shows its exact review (see [Service setup and review](#service-setup-and-review)). |
 | `wf-help` | Read a profile and a workflow as `wf-run` does, and show the help text of the catalogue item in the buffer `*wf help: PROFILE/WORKFLOW*`. |
 | `wf-diagnostics` | Show the buffer `*wf service diagnostics*`: the profile file, the endpoint, the endpoint identity, the authority epoch, the scopes, the profiles of the credential, the delivery state, the generation, the number of polling batches, the state of the follow loop and the last problem. |
+| `wf-runs` | Ask for one local session of this Emacs process, with the label `local:RUN — DIRECTORY`, or one run of the manager, with the label `service:RUN`, and open its view. The service runs are the runs of the open service run views and the runs of the installed overview (see [Service run views and answers](#service-run-views-and-answers)). |
+| `wf-answer` | Answer the head decision of a run of the manager in the answer editor. In a service run view, the run is the run of the view. Elsewhere, the command asks for one run with a pending decision of the installed overview. |
 | `wf-refresh` | In a setup form of service mode, read the request of the form again and draw the form again with every draft. Elsewhere, show a message and send nothing, because service mode keeps no row listing. |
-| `wf-runs`, `wf-answer`, `wf-control`, `wf-result`, `wf-kill`, `wf-history`, `wf-history-refresh`, `wf-history-open`, `wf-restart`, `wf-resume`, `wf-fork`, `wf-fork-submit`, `wf-rerun` | Refuse with the message "COMMAND is not yet available in service mode". |
+| `wf-control`, `wf-result`, `wf-kill`, `wf-history`, `wf-history-refresh`, `wf-history-open`, `wf-restart`, `wf-resume`, `wf-fork`, `wf-fork-submit`, `wf-rerun` | Refuse with the message "COMMAND is not yet available in service mode". |
 | `wf-plan`, `wf-cost` | Refuse with the message "COMMAND works only in local mode.  In service mode, use the review of `wf-run` instead". |
 | `wf-lineage-compare`, `wf-observer-result`, `wf-observer-refresh` | Refuse with the message "COMMAND works only in local mode.  Service mode has no equivalent". |
 
@@ -681,6 +707,63 @@ pins, the warnings and the lineage. Nothing is shortened. The keys are these:
 
 Each command is sent one time. A command whose outcome is uncertain stops
 with a message, and nothing is sent again.
+
+#### Service run views and answers
+
+A service run view is the buffer `*wf service run RUN*` of
+`wf-service-run-mode`, a mode derived from `wf-run-mode` with the same keys.
+`wf-runs` opens it. The view is keyed by the endpoint identity of the session
+and the run identifier, so each window follows its own run, and a second open
+of the same run selects the same view. The session watches four resources of
+the run: `/v1/runs/{id}`, `/v1/runs/{id}/snapshot`, `/v1/runs/{id}/control`
+and the decision queue `/v1/decisions?runId={id}`. Each read that the session
+installs draws the view again. A read that fails keeps the last complete
+observation in view, and the observation line names the failure.
+
+The view shows these lines in order:
+
+1. The run and its workflow.
+2. The endpoint identity, the delivery state and the freshness of the
+   observation.
+3. The runtime status of the snapshot, the supervision and the verification
+   of the run, each on its own line.
+4. The pending decisions of the queue, with the head first. A question line
+   names its code and its prompt, and a recovery line names its gap, its
+   message and its choices.
+5. The offered controls, with `cancel` when the controls allow a cancel.
+6. The Terminal line and the Result lines. A run that has not ended shows
+   `Terminal: not yet` and no result. A succeeded run whose snapshot names a
+   referenced or verified result reads the outputs of the run, downloads the
+   verified result once with the verified download of the session, and shows
+   its size and SHA-256 digest. The view keeps only the size and the digest.
+
+`a` in the view runs `wf-answer`. The command reads the decision queue of the
+run, the head decision and the controls of the run. It refuses a recovery
+head and a head for which the controls offer no answer, and it sends nothing
+then. It then opens `wf--answer-editor`, the answer editor of local mode,
+with the kept draft of the decision, or empty. The header line names the
+decision, its code and its prompt. `C-c C-c` sends the typed text:
+
+- `wf-manager-answer-value` gives the typed JSON value, so the answer `no` to
+  a flag question is JSON `false`. Text that the code does not accept is
+  refused before any send, and the editor keeps the text.
+- The answer binds the entity tag of the decision read as `If-Match`. Before
+  the send, the command reads the controls and, for an answer that the run
+  snapshot stores, the snapshot, as `wf-manager-session-answer-reconciliation`
+  states.
+- A 412 `stale-revision` refusal keeps the draft and reports it with one
+  read of the decision: the decision is still the pending head, and
+  `wf-answer` opens the editor again with the draft, or it is no longer the
+  head, and the draft is not sent. The editor stays with its text, and a
+  second `C-c C-c` in it refuses and sends nothing.
+- An uncertain send is reconciled one time with `wf-manager-session-reconcile`,
+  and it is never sent again. Only an observed effect closes the editor and
+  forgets the draft.
+
+The kill of a run view stops the watches of its resources and sends no
+command, so the run continues. The kill of any other buffer, the answer editor
+included, sends no command. The function `wf-service--kill-emacs` of
+`kill-emacs-hook` closes the session and its transport and sends no command.
 
 ### Service-mode transport
 

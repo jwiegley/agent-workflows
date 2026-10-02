@@ -50,8 +50,9 @@
 ;;            the setup form, enqueues it and shows the exact review of
 ;;            its preparation, `wf-refresh' reads the request of a setup
 ;;            form again, `wf-help' shows the help text of a catalogue
-;;            workflow, and `wf-diagnostics' shows the diagnostics of the
-;;            session.
+;;            workflow, `wf-diagnostics' shows the diagnostics of the
+;;            session, `wf-runs' opens the view of a local or a service
+;;            run, and `wf-answer' answers the head decision of a run.
 ;;   pending  The command has no manager behavior yet, and it refuses
 ;;            with a message that says so.
 ;;   local    The command reads the local runner or its store, and it
@@ -84,6 +85,25 @@
 ;;
 ;; No step sends a command again by itself.  A command whose outcome is
 ;; uncertain stops the command with a message, and nothing is sent again.
+;;
+;; A service run view of `wf-service-run-mode' follows one run of the
+;; manager.  The view is keyed by the endpoint identity of the session
+;; and the run identifier, so each window follows its own run.  The
+;; session watches the run, its snapshot, its controls and its decision
+;; queue, and each read that the session installs draws the view again.
+;; The view shows the runtime status, the supervision, the verification,
+;; the pending decisions and the offered controls on separate lines, and
+;; it ends with the Terminal and Result lines.  The Result lines of a
+;; succeeded run name the size and the SHA-256 digest of the verified
+;; download of its result.  `wf-answer' answers the head decision of the
+;; run of the view through `wf--answer-editor'.  The typed text goes
+;; through `wf-manager-answer-value', so the answer no to a flag question
+;; is JSON false, and the answer binds the entity tag of the decision as
+;; If-Match.  A 412 refusal keeps the draft and reports it.  An uncertain
+;; answer is reconciled one time, with the reads of
+;; `wf-manager-session-answer-reconciliation', and it is never sent again.
+;; The kill of a view or of any other buffer sends no command, and the
+;; function of `kill-emacs-hook' closes only the transport.
 
 ;;; Code:
 
@@ -106,8 +126,8 @@ default until `wf-service' runs."
     (wf-help service wf-service--help)
     (wf-diagnostics service wf-service--diagnostics)
     (wf-refresh service wf-service--refresh)
-    (wf-runs pending)
-    (wf-answer pending)
+    (wf-runs service wf-service--runs)
+    (wf-answer service wf-service--answer)
     (wf-control pending)
     (wf-result pending)
     (wf-kill pending)
@@ -227,7 +247,8 @@ This is the change function of the session of service mode."
        (wf-service--problem (format "the follow loop ended: %s"
                                     (wf-service--failure-text failure))))
       (_ (when (eq (wf-manager-session-delivery session) 'unreachable)
-           (wf-service--problem "a polling batch did not reach the manager"))))))
+           (wf-service--problem "a polling batch did not reach the manager")))))
+  (wf-service--views-changed session))
 
 (defun wf-service--connect (profile)
   "Bind a connection for the loaded PROFILE and start its session.
@@ -956,6 +977,627 @@ A review that sent no command leaves its request in review."
     (unless (wf-service--review-outcomes review)
       (message "wf: review declined.  No approval was sent, and request %s stays in review"
                (wf-manager-preparation-request-id (wf-service--review-preparation review))))))
+
+
+;;; Run views
+
+(defconst wf-service--view-resources
+  '((run "/v1/runs/%s" wf-manager-decode-run)
+    (snapshot "/v1/runs/%s/snapshot" wf-service--decode-object)
+    (control "/v1/runs/%s/control" wf-manager-decode-control)
+    (queue "/v1/decisions?runId=%s" wf-service--decode-queue))
+  "The watched resources of a run view.
+Each entry is (NAME FORMAT DECODE): the name of the resource, the
+format of its path with the run identifier, and the function that
+decodes the JSON value of a read of it.")
+
+(defconst wf-service--terminal-statuses '("succeeded" "failed" "cancelled" "orphaned")
+  "The terminal runtime statuses of a run.")
+
+(cl-defstruct (wf-service--view
+               (:constructor wf-service--view-make)
+               (:copier nil))
+  "The state of one service run view.
+SESSION is the session, IDENTITY the endpoint identity of its binding
+and RUN the run identifier.  BUFFER is the view buffer.  REFERENCES maps
+each name of `wf-service--view-resources' to its `wf-manager-reference'.
+KEPT maps each name to the value of its last read that decoded, and
+ETAGS to the entity tag of that read.  FAILURES maps each name to the
+text of the failure of its latest read, when that read failed.
+DELIVERY is the delivery state of the session at the last take.
+RESULT is the retrieval of the verified result: nil before it starts,
+`waiting', `retrieving', (verified BYTES SHA256) or (failed TEXT).
+ATTEMPTED is the entity tag of the snapshot at the last retrieval."
+  session identity run buffer references kept etags failures delivery result attempted)
+
+(defvar wf-service--views (make-hash-table :test #'equal)
+  "The live run views of service mode, keyed by (IDENTITY . RUN).")
+
+(defvar-local wf-service--view-state nil
+  "The `wf-service--view' of this run view.")
+
+(define-derived-mode wf-service-run-mode wf-run-mode "Workflow service"
+  "Display a run of the manager in service mode.
+The keys are those of `wf-run-mode'.  The view sends no command by
+itself, and the kill of the view sends no command.")
+
+(defun wf-service--decode-object (value)
+  "Return the JSON object VALUE, or signal `wf-manager-invalid-response'."
+  (if (hash-table-p value)
+      value
+    (signal 'wf-manager-invalid-response '("snapshot" "the snapshot is not an object"))))
+
+(defun wf-service--decode-queue (value)
+  "Return the decisions of the decision queue page VALUE as a vector."
+  (let ((items (and (hash-table-p value) (gethash "items" value))))
+    (unless (vectorp items)
+      (signal 'wf-manager-invalid-response '("queue" "the queue has no items")))
+    (vconcat (mapcar #'wf-manager-decode-decision items))))
+
+(defun wf-service--one-line (text)
+  "Return TEXT with each run of line ends replaced by one space."
+  (replace-regexp-in-string "[\n\r]+" " " (or text "")))
+
+(defun wf-service--member (object name)
+  "Return the member of the JSON OBJECT named NAME, or nil for JSON null or none."
+  (let ((value (and (hash-table-p object) (gethash name object))))
+    (unless (eq value :null) value)))
+
+(defun wf-service--view-take (view)
+  "Copy into VIEW what the session of VIEW installed for its resources.
+A read that decodes replaces the kept value of its resource.  A failed
+read keeps the earlier value and records its failure."
+  (let ((session (wf-service--view-session view)))
+    (setf (wf-service--view-delivery view)
+          (if (wf-manager-session-closed session) 'closed (wf-manager-session-delivery session)))
+    (pcase-dolist (`(,name ,_ ,decode) wf-service--view-resources)
+      (let ((installed (wf-manager-session-current
+                        session (alist-get name (wf-service--view-references view)))))
+        (cond
+         ((null installed))
+         ((wf-manager-failure-p installed)
+          (setf (alist-get name (wf-service--view-failures view))
+                (wf-service--failure-text installed)))
+         (t
+          (let ((value (condition-case nil
+                           (funcall decode (wf-manager-reply-value installed))
+                         (wf-manager-error nil))))
+            (if (null value)
+                (setf (alist-get name (wf-service--view-failures view))
+                      "the read does not decode")
+              (setf (alist-get name (wf-service--view-kept view)) value
+                    (alist-get name (wf-service--view-etags view))
+                    (wf-manager-reply-etag installed)
+                    (alist-get name (wf-service--view-failures view) nil 'remove)
+                    nil)))))))))
+
+(defun wf-service--snapshot-status (snapshot)
+  "Return the runtime status of the run SNAPSHOT, or nil."
+  (wf-service--member (wf-service--member snapshot "runtime") "status"))
+
+(defun wf-service--decision-line (decision)
+  "Return the line of DECISION in a run view."
+  (let ((place (if (= (wf-manager-decision-position decision) 0)
+                   (format "Head %s" (wf-manager-decision-id decision))
+                 (format "%s at position %d" (wf-manager-decision-id decision)
+                         (wf-manager-decision-position decision))))
+        (content (wf-manager-decision-content decision)))
+    (if (wf-manager-question-p content)
+        (let ((code (wf-manager-question-code content)))
+          (format "  %s: %s question (%s): %s" place (wf-manager-decision-state decision)
+                  (pcase code
+                    ("flag" "flag: yes, no, true or false")
+                    ("receipt" "receipt: empty")
+                    ((pred stringp) code)
+                    (_ "structured JSON"))
+                  (wf-service--one-line (wf-manager-question-prompt content))))
+      (format "  %s: %s recovery (%s): %s, choices %s" place (wf-manager-decision-state decision)
+              (wf-manager-recovery-gap content)
+              (wf-service--one-line (wf-manager-recovery-message content))
+              (or (mapconcat (lambda (option)
+                               (if (wf-manager-recovery-option-target option)
+                                   (format "%s to %s" (wf-manager-recovery-option-choice option)
+                                           (wf-manager-recovery-option-target option))
+                                 (wf-manager-recovery-option-choice option)))
+                             (wf-manager-recovery-choices content) ", ")
+                  "none")))))
+
+(defun wf-service--observation-line (view)
+  "Return the observation line of VIEW."
+  (let* ((names (mapcar #'car wf-service--view-resources))
+         (kept (cl-every (lambda (name) (alist-get name (wf-service--view-kept view))) names))
+         (failure (cl-some (lambda (name) (alist-get name (wf-service--view-failures view))) names)))
+    (cond ((and (null failure) kept) "Observation: current")
+          ((null failure) "Observation: reading")
+          (kept (format "Observation: stale (%s).  The last complete observation is kept" failure))
+          (t (format "Observation: refused (%s).  No complete observation is installed" failure)))))
+
+(defun wf-service--outcome-lines (view)
+  "Return the Terminal and Result lines of VIEW."
+  (let* ((snapshot (alist-get 'snapshot (wf-service--view-kept view)))
+         (status (wf-service--snapshot-status snapshot))
+         (result (wf-service--view-result view)))
+    (cond
+     ((not (member status wf-service--terminal-statuses))
+      (list (format "Terminal: not yet (%s)" (or status "not yet observed"))
+            "Result: none until the run succeeds"))
+     ((not (equal status "succeeded"))
+      (delq nil (list (format "Terminal: %s" status)
+                      (let ((failure (wf-service--member snapshot "failure")))
+                        (and failure
+                             (format "Failure: %s: %s"
+                                     (or (wf-service--member snapshot "failureClass") "unclassified")
+                                     (wf-service--one-line failure))))
+                      "Result: no download for a run that did not succeed")))
+     (t
+      (cons "Terminal: succeeded"
+            (pcase result
+              (`(verified ,bytes ,sha256)
+               (list (format "Result: verified %d bytes" bytes)
+                     (format "Result SHA-256: %s" sha256)))
+              (`(failed ,text)
+               (list (format "Result: not retrieved (%s).  The next change of the run retries" text)))
+              ('waiting (list "Result: waiting for the verification of the manager"))
+              (_ (let ((verification (wf-service--member
+                                      (wf-service--member snapshot "verification") "state")))
+                   (list (if (member verification '("verified" "referenced"))
+                             "Result: retrieving the verified bytes"
+                           (format "Result: no download, the verification is %s"
+                                   (or verification "absent"))))))))))))
+
+(defun wf-service-view-lines (view)
+  "Return the lines of the run VIEW, a `wf-service--view'.
+The lines name the run and its workflow, the endpoint identity, the
+delivery state and the freshness of the observation.  The runtime
+status, the supervision, the verification, the pending decisions with
+the head first and the offered controls follow on separate lines.  The
+Terminal and Result lines end the list."
+  (let* ((kept (wf-service--view-kept view))
+         (run (alist-get 'run kept))
+         (content (and run (wf-manager-run-content run)))
+         (known (and (wf-manager-known-run-p content) content))
+         (snapshot (alist-get 'snapshot kept))
+         (control (alist-get 'control kept))
+         (queue (alist-get 'queue kept))
+         (workflow (wf-service--member snapshot "workflow"))
+         (verification (and known (wf-manager-known-run-verification known)))
+         (pending (sort (cl-remove-if-not
+                         (lambda (decision)
+                           (member (wf-manager-decision-state decision) '("pending" "submitting")))
+                         (append queue nil))
+                        (lambda (a b) (< (wf-manager-decision-position a)
+                                         (wf-manager-decision-position b))))))
+    (append
+     (list (format "Service run %s%s" (wf-service--view-run view)
+                   (if workflow (format ", workflow %s" workflow) ""))
+           (format "Endpoint identity: %s" (wf-service--view-identity view))
+           (format "Delivery: %s" (wf-service--view-delivery view))
+           (wf-service--observation-line view)
+           (format "Runtime: %s" (or (wf-service--snapshot-status snapshot) "not yet observed"))
+           (format "Supervision: %s"
+                   (cond (known (wf-manager-known-run-supervision known))
+                         (content (format "unreadable (%s)"
+                                          (wf-manager-unreadable-run-category content)))
+                         (t "not yet observed")))
+           (format "Verification: %s"
+                   (if verification
+                       (concat (wf-manager-verification-state verification)
+                               (if (wf-manager-verification-reason verification)
+                                   (format " (%s)" (wf-manager-verification-reason verification))
+                                 ""))
+                     "not yet observed")))
+     (cond ((null queue) (list "Decisions: not yet observed"))
+           ((null pending) (list "Decisions: none pending"))
+           (t (cons (format "Decisions: %d pending" (length pending))
+                    (mapcar #'wf-service--decision-line pending))))
+     (list (format "Offers: %s"
+                   (if (null control)
+                       "not yet observed"
+                     (let ((operations (delete-dups
+                                        (append (mapcar #'wf-manager-control-offer-operation
+                                                        (wf-manager-control-offers control))
+                                                (and (wf-manager-control-cancel-allowed control)
+                                                     (list "cancel"))))))
+                       (if operations (string-join operations ", ") "none")))))
+     (wf-service--outcome-lines view))))
+
+(defun wf-service--view-text (view)
+  "Return the text of the buffer of VIEW."
+  (let ((lines (wf-service-view-lines view)))
+    (concat (car lines) "\n"
+            "a answer the head decision · d diagnostics · q bury (does not cancel)\n"
+            "The kill of this buffer sends no command.\n\n"
+            (mapconcat (lambda (line) (concat line "\n")) (cdr lines) ""))))
+
+(defun wf-service--verified-artifact (outputs)
+  "Return (DOWNLOAD BYTES SHA256) of the verified result of OUTPUTS, or nil.
+OUTPUTS is the JSON value of the outputs of a run.  The artifact must
+be the one that the verification of the result names."
+  (cl-some
+   (lambda (item)
+     (let* ((verification (wf-service--member item "verification"))
+            (artifact (wf-service--member item "artifact"))
+            (size (wf-service--member artifact "bytes"))
+            (bytes (cond ((and (stringp size) (string-match-p "\\`[0-9]+\\'" size))
+                          (string-to-number size))
+                         ((wf-manager-json-number-p size) (wf-service--number size)))))
+       (and (equal (wf-service--member item "kind") "result")
+            (equal (wf-service--member verification "state") "verified")
+            (stringp (wf-service--member artifact "id"))
+            (equal (wf-service--member artifact "id")
+                   (wf-service--member verification "artifactId"))
+            (stringp (wf-service--member artifact "download"))
+            (stringp (wf-service--member artifact "sha256"))
+            (integerp bytes)
+            (list (wf-service--member artifact "download") bytes
+                  (wf-service--member artifact "sha256")))))
+   (let ((items (wf-service--member outputs "items")))
+     (and (vectorp items) (append items nil)))))
+
+(defun wf-service--view-retrieve (view)
+  "Read the outputs of the run of VIEW and download its verified result.
+The download checks the size and the SHA-256 digest, and VIEW keeps
+only the size and the digest.  A result that the manager has not
+verified yet waits for the next change of the snapshot."
+  (let* ((session (wf-service--view-session view))
+         (run (wf-service--view-run view))
+         (finish (lambda (result)
+                   (setf (wf-service--view-result view) result)
+                   (wf-service--view-render view))))
+    (setf (wf-service--view-result view) 'retrieving)
+    (wf-manager-session-read
+     session (wf-manager-session-reference session (format "/v1/runs/%s/outputs" run))
+     (lambda (outcome)
+       (cond
+        ((not (buffer-live-p (wf-service--view-buffer view))))
+        ((wf-manager-failure-p outcome)
+         (funcall finish (list 'failed (wf-service--failure-text outcome))))
+        (t
+         (pcase (wf-service--verified-artifact (wf-manager-reply-value outcome))
+           ('nil (funcall finish 'waiting))
+           (`(,download ,bytes ,sha256)
+            (condition-case failure
+                (wf-manager-session-download
+                 session (wf-manager-session-reference session download) bytes sha256
+                 (lambda (downloaded)
+                   (when (buffer-live-p (wf-service--view-buffer view))
+                     (funcall finish
+                              (if (wf-manager-failure-p downloaded)
+                                  (list 'failed (wf-service--failure-text downloaded))
+                                (list 'verified (length downloaded) sha256))))))
+              (wf-manager-error
+               (funcall finish (list 'failed (wf-service--failure-text failure)))))))))))))
+
+(defun wf-service--view-render (view)
+  "Update VIEW from its session, start its result retrieval and draw it."
+  (let ((buffer (wf-service--view-buffer view)))
+    (when (buffer-live-p buffer)
+      (wf-service--view-take view)
+      (let* ((kept (wf-service--view-kept view))
+             (snapshot (alist-get 'snapshot kept))
+             (etag (alist-get 'snapshot (wf-service--view-etags view)))
+             (verification (wf-service--member (wf-service--member snapshot "verification")
+                                               "state")))
+        (when (and (equal (wf-service--snapshot-status snapshot) "succeeded")
+                   (member verification '("verified" "referenced"))
+                   (not (eq (wf-service--view-result view) 'retrieving))
+                   (not (eq (car-safe (wf-service--view-result view)) 'verified))
+                   (not (wf-manager-session-closed (wf-service--view-session view)))
+                   (not (equal etag (wf-service--view-attempted view))))
+          (setf (wf-service--view-attempted view) etag)
+          (wf-service--view-retrieve view)))
+      (with-current-buffer buffer
+        (let ((inhibit-read-only t)
+              (line (line-number-at-pos)))
+          (erase-buffer)
+          (insert (wf-service--view-text view))
+          (goto-char (point-min))
+          (forward-line (1- line)))
+        (set-buffer-modified-p nil)))))
+
+(defun wf-service--views-changed (session)
+  "Draw again each run view of SESSION."
+  (maphash (lambda (_key buffer)
+             (when (buffer-live-p buffer)
+               (let ((view (buffer-local-value 'wf-service--view-state buffer)))
+                 (when (and view (eq (wf-service--view-session view) session))
+                   (wf-service--view-render view)))))
+           wf-service--views))
+
+(defun wf-service--view-killed ()
+  "Forget the run view of this buffer and stop the watches of its resources.
+Nothing is sent, so the run continues."
+  (let ((view wf-service--view-state))
+    (when view
+      (let ((key (cons (wf-service--view-identity view) (wf-service--view-run view))))
+        (when (eq (gethash key wf-service--views) (current-buffer))
+          (remhash key wf-service--views)))
+      (dolist (reference (wf-service--view-references view))
+        (wf-manager-session-unwatch (wf-service--view-session view) (cdr reference))))))
+
+(defun wf-service-open-view (session run)
+  "On SESSION, open the run view of RUN, select it and return its buffer.
+The view of the endpoint identity of SESSION and RUN is reused when
+it is live.  The session watches the resources of the run."
+  (unless (wf-manager-valid-id-p run)
+    (user-error "%S is not a run identifier" run))
+  (let* ((identity (wf-manager-session-identity session))
+         (key (cons identity run))
+         (buffer (gethash key wf-service--views))
+         (view (and (buffer-live-p buffer) (buffer-local-value 'wf-service--view-state buffer))))
+    (unless (and view (eq (wf-service--view-session view) session))
+      (unless (buffer-live-p buffer)
+        (setq buffer (generate-new-buffer (format "*wf service run %s*" run))))
+      (setq view (wf-service--view-make
+                  :session session :identity identity :run run :buffer buffer
+                  :references (mapcar (pcase-lambda (`(,name ,path ,_))
+                                        (cons name (wf-manager-session-reference
+                                                    session (format path run))))
+                                      wf-service--view-resources)))
+      (with-current-buffer buffer
+        (wf-service-run-mode)
+        (setq wf-service--view-state view)
+        (add-hook 'kill-buffer-hook #'wf-service--view-killed nil t))
+      (puthash key buffer wf-service--views)
+      (dolist (reference (wf-service--view-references view))
+        (condition-case failure
+            (wf-manager-session-watch session (cdr reference))
+          (wf-manager-error (wf-service--refuse "The run cannot be followed" failure)))))
+    (wf-service--view-render view)
+    (pop-to-buffer buffer)
+    buffer))
+
+(defun wf-service--service-runs (session)
+  "Return the run identifiers that SESSION knows, the oldest view first.
+They are the runs of the open views of SESSION and the run members of
+its installed overview."
+  (let ((runs nil)
+        (overview (wf-manager-session-overview session)))
+    (maphash (lambda (_key buffer)
+               (let ((view (and (buffer-live-p buffer)
+                                (buffer-local-value 'wf-service--view-state buffer))))
+                 (when (and view (eq (wf-service--view-session view) session))
+                   (push (wf-service--view-run view) runs))))
+             wf-service--views)
+    (when (wf-manager-overview-p overview)
+      (dolist (item (wf-manager-overview-items overview))
+        (let ((member (wf-manager-overview-item-member item)))
+          (when (equal (wf-manager-overview-member-kind member) "run")
+            (push (wf-manager-run-id (wf-manager-overview-member-value member)) runs)))))
+    (delete-dups (nreverse runs))))
+
+(defun wf-service-runs-choices (session)
+  "Return the choices of `wf-runs' in service mode for SESSION.
+Each choice is (LABEL KIND . VALUE).  A local choice has the label
+\"local:RUN — DIRECTORY\" and its `wf--session' of `wf--sessions'.  A
+service choice has the label \"service:RUN\" and its run identifier.
+The prefix of a label has no space, so a label can be typed in the
+minibuffer."
+  (append
+   (mapcar (lambda (local)
+             (cons (format "local:%s — %s" (alist-get 'runId (wf--session-prepared local))
+                           (wf--session-directory local))
+                   (cons 'local local)))
+           wf--sessions)
+   (mapcar (lambda (run) (cons (concat "service:" run) (cons 'service run)))
+           (wf-service--service-runs session))))
+
+(defun wf-service--runs ()
+  "Open the view of a local session or of a run of the manager.
+The choices are the local sessions of `wf--sessions' and the runs of
+the session of service mode."
+  (let* ((session (wf-service--session))
+         (choices (wf-service-runs-choices session)))
+    (unless choices
+      (user-error "No local session and no run of the manager is known"))
+    (pcase (cdr (assoc (completing-read "Run: " choices nil t) choices))
+      (`(local . ,local) (wf--view local))
+      (`(service . ,run) (wf-service-open-view session run)))))
+
+;;;; Answers
+
+(defvar wf-service--answer-drafts (make-hash-table :test #'equal)
+  "The kept answer drafts, keyed by (IDENTITY DECISION-ID).")
+
+(defun wf-service-answer-draft (identity decision)
+  "Return the kept answer draft at the endpoint IDENTITY of DECISION, or nil."
+  (gethash (list identity decision) wf-service--answer-drafts))
+
+(defun wf-service--answer-run (session)
+  "Return the run whose head decision `wf-answer' answers on SESSION.
+In a run view of SESSION, this is the run of the view.  Elsewhere, read
+one run with a pending decision of the installed overview."
+  (let ((view wf-service--view-state)
+        (overview (wf-manager-session-overview session)))
+    (if (and view (eq (wf-service--view-session view) session))
+        (wf-service--view-run view)
+      (let ((runs (and (wf-manager-overview-p overview)
+                       (delete-dups
+                        (delq nil
+                              (mapcar (lambda (item)
+                                        (let* ((member (wf-manager-overview-item-member item))
+                                               (decision (wf-manager-overview-member-value member)))
+                                          (and (equal (wf-manager-overview-member-kind member) "decision")
+                                               (equal (wf-manager-decision-state decision) "pending")
+                                               (wf-manager-decision-run-id decision))))
+                                      (wf-manager-overview-items overview)))))))
+        (unless runs
+          (user-error "No run of the manager has a pending decision"))
+        (completing-read "Run whose decision to answer: " runs nil t)))))
+
+(defun wf-service--head (session run)
+  "On SESSION, read the pending head decision of RUN and the controls of RUN.
+Return (DECISION DECISION-REPLY CONTROL CONTROL-REPLY).  The head is
+the pending decision at position 0 of the decision queue of RUN."
+  (let* ((items (wf-service--collection session (concat "/v1/decisions?runId=" run)
+                                        (format "decision queue of run %s" run)))
+         (head (cl-find-if (lambda (decision)
+                             (and (= (wf-manager-decision-position decision) 0)
+                                  (equal (wf-manager-decision-state decision) "pending")))
+                           (mapcar (lambda (item)
+                                     (wf-service--decode #'wf-manager-decode-decision item "decision"))
+                                   items))))
+    (unless head
+      (user-error "Run %s has no pending decision head" run))
+    (let* ((decision-reply (wf-service--read session (concat "/v1/decisions/" (wf-manager-decision-id head))))
+           (control-reply (wf-service--read session (concat "/v1/runs/" run "/control"))))
+      (list (wf-service--decode #'wf-manager-decode-decision (wf-manager-reply-value decision-reply)
+                                "decision")
+            decision-reply
+            (wf-service--decode #'wf-manager-decode-control (wf-manager-reply-value control-reply)
+                                "controls")
+            control-reply))))
+
+(defun wf-service--answer-offered-p (control decision)
+  "Return non-nil when the controls CONTROL offer an answer of the head DECISION."
+  (and (equal (wf-manager-control-run-id control) (wf-manager-decision-run-id decision))
+       (equal (wf-manager-control-supervision control) "owned")
+       (equal (wf-manager-control-decision-head-id control) (wf-manager-decision-id decision))
+       (cl-some (lambda (offer)
+                  (and (equal (wf-manager-control-offer-operation offer) "answer")
+                       (equal (wf-manager-control-offer-occurrence-id offer)
+                              (wf-manager-decision-occurrence-id decision))
+                       (null (wf-manager-control-offer-attempt-id offer))
+                       (equal (wf-manager-control-offer-generation offer)
+                              (wf-manager-decision-generation decision))))
+                (wf-manager-control-offers control))
+       t))
+
+(defun wf-service--answer ()
+  "Answer the head decision of a run of the manager in the answer editor.
+The editor is `wf--answer-editor' with the kept draft of the decision.
+Its text is sent by `wf-service--answer-send'."
+  (let* ((session (wf-service--session))
+         (run (wf-service--answer-run session)))
+    (pcase-let ((`(,decision ,decision-reply ,control ,_) (wf-service--head session run)))
+      (let ((content (wf-manager-decision-content decision))
+            (identity (wf-manager-session-identity session))
+            (stale nil))
+        (unless (wf-manager-question-p content)
+          (user-error "The head decision %s of run %s is a recovery decision.  Nothing was sent"
+                      (wf-manager-decision-id decision) run))
+        (unless (wf-service--answer-offered-p control decision)
+          (user-error "The manager offers no answer for decision %s of run %s.  Nothing was sent"
+                      (wf-manager-decision-id decision) run))
+        (unless (wf-manager-reply-etag decision-reply)
+          (user-error "Decision %s has no entity tag, so no answer can bind it"
+                      (wf-manager-decision-id decision)))
+        (wf--answer-editor
+         nil nil nil
+         (lambda (text)
+           (when stale
+             (user-error "Decision %s changed before this answer arrived.  M-x wf-answer reads the head again"
+                         (wf-manager-decision-id decision)))
+           (wf-service--answer-send session run decision decision-reply text
+                                    (lambda () (setq stale t))))
+         (or (wf-service-answer-draft identity (wf-manager-decision-id decision)) "")
+         (format "Answer of decision %s (%s): %s — C-c C-c sends, C-c C-k abandons"
+                 (wf-manager-decision-id decision)
+                 (let ((code (wf-manager-question-code content)))
+                   (if (stringp code) code "structured JSON"))
+                 (wf-service--one-line (wf-manager-question-prompt content))))))))
+
+(defun wf-service--answer-send (session run decision reply text stale)
+  "On SESSION, send for RUN the answer of DECISION one time.
+REPLY is the read of DECISION, whose entity tag the answer binds as
+If-Match, and TEXT is the typed answer.  TEXT is kept as the draft of
+DECISION until the answer reaches its effect.  A 412 refusal calls the
+function STALE, reports the kept draft and signals.  An uncertain send
+is reconciled with one read, and nothing is sent again.  Return nil
+after the effect."
+  (let* ((identity (wf-manager-session-identity session))
+         (id (wf-manager-decision-id decision))
+         (value (condition-case failure
+                    (wf-manager-answer-value decision text)
+                  (wf-manager-error
+                   (user-error "%s" (wf-service--problem
+                                     (format "The answer is refused before any send: %s.  The draft is kept"
+                                             (nth 2 failure))))))))
+    (puthash (list identity id) text wf-service--answer-drafts)
+    (let* ((control (wf-service--read session (concat "/v1/runs/" run "/control")))
+           (reconciliation
+            (wf-service--await
+             (lambda (callback)
+               (wf-manager-session-answer-reconciliation
+                session decision value
+                (wf-manager-reconcile-target-make
+                 :location (wf-manager-session-reference session (concat "/v1/runs/" run "/control"))
+                 :precondition (wf-manager-reply-etag control))
+                callback)
+               nil)))
+           (command (wf-service--prepare session (concat "/v1/decisions/" id)
+                                         (wf-manager-answer-body decision value)
+                                         (wf-manager-reply-etag reply)))
+           (sent (wf-service--await
+                  (lambda (callback) (wf-manager-session-send session command callback) nil)))
+           (answer (wf-service--json-text value)))
+      (pcase (wf-manager-sent-kind sent)
+        ('delivered (wf-service--settle session sent "answer"))
+        ('refused
+         (if (equal (wf-manager-sent-failure sent) '(wf-manager-refused 412 "stale-revision"))
+             (progn (funcall stale)
+                    (wf-service--answer-stale session run decision text))
+           (wf-service--refuse "The manager refused the answer" (wf-manager-sent-failure sent))))
+        (_
+         (pcase (wf-service--await
+                 (lambda (callback)
+                   (wf-manager-session-reconcile session (wf-manager-sent-uncertain sent)
+                                                 reconciliation callback)
+                   nil))
+           ('(effect-observed) nil)
+           ('(refused)
+            (user-error "%s" (wf-service--problem
+                              (format "The manager refused the answer of decision %s.  The draft is kept" id))))
+           (_ (user-error "%s" (wf-service--problem
+                                (format "The outcome of the answer %s of decision %s is uncertain after one read.  Nothing was sent again, and the draft is kept"
+                                        answer id)))))))
+      (remhash (list identity id) wf-service--answer-drafts)
+      (message "wf: answer %s reached decision %s of run %s" answer id run)
+      nil)))
+
+(defun wf-service--answer-stale (session run decision text)
+  "On SESSION, report the 412 refusal of an answer for RUN and signal.
+The answer of DECISION was TEXT.  One read of DECISION tells whether
+it is still the pending head.  The draft stays, and nothing is sent
+again."
+  (let* ((id (wf-manager-decision-id decision))
+         (again (wf-service--await
+                 (lambda (callback)
+                   (wf-manager-session-read
+                    session (wf-manager-session-reference session (concat "/v1/decisions/" id))
+                    callback)
+                   nil)))
+         (current (and (wf-manager-reply-p again)
+                       (condition-case nil (wf-manager-decode-decision (wf-manager-reply-value again))
+                         (wf-manager-error nil)))))
+    (user-error
+     "%s"
+     (wf-service--problem
+      (concat
+       (format "Decision %s changed before the answer arrived (412 stale-revision).  Nothing was sent again.  The draft %S is kept.  "
+               id text)
+       (if (and current (equal (wf-manager-decision-state current) "pending")
+                (= (wf-manager-decision-position current) 0))
+           (format "Decision %s is still the pending head, and M-x wf-answer opens the editor again with the draft" id)
+         (format "Decision %s is no longer the pending head (%s), so the kept draft is not sent.  M-x wf-answer in the view of run %s acts on the next head"
+                 id
+                 (pcase again
+                   (`(wf-manager-refused ,status ,code) (format "%s %s" status code))
+                   ((pred wf-manager-failure-p) (wf-service--failure-text again))
+                   (_ (if current
+                          (format "state %s, position %d" (wf-manager-decision-state current)
+                                  (wf-manager-decision-position current))
+                        "the read does not decode")))
+                 run)))))))
+
+(defun wf-service--kill-emacs ()
+  "Close the transport of service mode when Emacs exits.
+The close sends no command, so the runs and requests of the manager
+continue."
+  (when wf-service--current
+    (wf-manager-session-close (wf-service--state-session wf-service--current))))
+
+(add-hook 'kill-emacs-hook #'wf-service--kill-emacs)
 
 
 ;;; Diagnostics

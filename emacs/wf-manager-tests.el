@@ -2927,6 +2927,8 @@ not in the list."
             ;; A service command with no session refuses before any read.
             (should-error (call-interactively 'wf-diagnostics) :type 'user-error)
             (should-error (call-interactively 'wf-run) :type 'user-error)
+            (should-error (call-interactively 'wf-runs) :type 'user-error)
+            (should-error (call-interactively 'wf-answer) :type 'user-error)
             (should (null calls)))
         (dolist (advice advices)
           (advice-remove (car advice) (cdr advice)))))))
@@ -3080,6 +3082,279 @@ The specs of the form are the specs of its spec function."
                                               (wf-manager-preparation-review preparation))
                                              "\n")))
              text))))
+
+;;;; Run views and answers
+
+(defun wf-manager-tests--resource (section name)
+  "In SECTION, return the decoded JSON value of the case NAME."
+  (wf-manager-json-decode
+   (gethash "json" (or (cl-find name (wf-manager-tests--cases section)
+                                :key (lambda (vector) (gethash "name" vector))
+                                :test #'equal)
+                       (error "Section %s has no case %s" section name)))))
+
+(defconst wf-manager-tests--flag-decision "flag question keeps null scope and Unicode prompt"
+  "The decisions vector of the flag question decision_3 of run_21.")
+
+(defun wf-manager-tests--queue-page (&rest decisions)
+  "Return the JSON text of the decision queue page of run_21 with DECISIONS.
+Each item of DECISIONS is the JSON text of one decision."
+  (concat "{\"version\":1,\"runId\":\"run_21\",\"page\":{\"setId\":\"set_q\",\"revision\":\"rev_q\","
+          "\"expiresAt\":\"2999-01-01T00:00:00Z\",\"index\":0,\"totalItems\":"
+          (number-to-string (length decisions)) ",\"next\":null},\"items\":["
+          (string-join decisions ",") "]}"))
+
+(defun wf-manager-tests--vector-json (section name)
+  "In SECTION, return the JSON text of the case NAME."
+  (gethash "json" (cl-find name (wf-manager-tests--cases section)
+                           :key (lambda (vector) (gethash "name" vector))
+                           :test #'equal)))
+
+(defun wf-manager-tests--view (snapshot result)
+  "Return a run view of run_21 with the JSON text SNAPSHOT and RESULT.
+The run has lost supervision and an absent verification, the controls
+offer an answer, and the queue holds the flag question at its head."
+  (wf-service--view-make
+   :identity "endpoint_1" :run "run_21" :delivery 'poll :result result
+   :kept (list (cons 'run (wf-manager-decode-run
+                           (wf-manager-tests--resource
+                            "resources.runs"
+                            "managed run with lost supervision keeps a sequence beyond 2^53")))
+               (cons 'snapshot (wf-manager-json-decode snapshot))
+               (cons 'control (wf-manager-decode-control
+                               (wf-manager-tests--resource
+                                "resources.controls" "owned controls with an answer offer")))
+               (cons 'queue (vector (wf-manager-decode-decision
+                                     (wf-manager-tests--resource
+                                      "resources.decisions" wf-manager-tests--flag-decision)))))))
+
+(ert-deftest wf-service-view-lines-state-each-dimension ()
+  "A run view states each dimension on its own line and ends with the outcome."
+  (let ((lines (wf-service-view-lines
+                (wf-manager-tests--view
+                 "{\"runtime\":{\"status\":\"running\"},\"workflow\":\"review λ\"}" nil))))
+    (should (equal (car lines) "Service run run_21, workflow review λ"))
+    (dolist (line '("Endpoint identity: endpoint_1" "Delivery: poll" "Observation: current"
+                    "Runtime: running" "Supervision: lost" "Verification: absent"
+                    "Decisions: 1 pending"
+                    "  Head decision_3: pending question (flag: yes, no, true or false): Proceed with 雪😀?"
+                    "Offers: answer, cancel"))
+      (should (member line lines)))
+    (should (equal (last lines 2) '("Terminal: not yet (running)"
+                                    "Result: none until the run succeeds"))))
+  (let ((digest (make-string 64 ?a)))
+    (should (equal (last (wf-service-view-lines
+                          (wf-manager-tests--view
+                           (concat "{\"runtime\":{\"status\":\"succeeded\"},"
+                                   "\"verification\":{\"state\":\"verified\"}}")
+                           (list 'verified 8 digest)))
+                         3)
+                   (list "Terminal: succeeded" "Result: verified 8 bytes"
+                         (concat "Result SHA-256: " digest)))))
+  (should (equal (last (wf-service-view-lines
+                        (wf-manager-tests--view
+                         (concat "{\"runtime\":{\"status\":\"failed\"},\"failure\":\"gap\\nend\","
+                                 "\"failureClass\":\"transport\"}")
+                         nil))
+                       3)
+                 '("Terminal: failed" "Failure: transport: gap end"
+                   "Result: no download for a run that did not succeed"))))
+
+(ert-deftest wf-service-runs-lists-local-and-service-runs ()
+  "`wf-runs' in service mode offers the local sessions and the service runs."
+  (let* ((local (wf--session-create :prepared '((runId . "local_1")) :directory "/tmp/wf-local/"))
+         (wf--sessions (list local))
+         (run (wf-manager-decode-run
+               (wf-manager-tests--resource
+                "resources.runs" "managed run with lost supervision keeps a sequence beyond 2^53")))
+         (session (wf-manager--session-make
+                   :overview (wf-manager--overview-make
+                              :items (list (wf-manager--overview-item-make
+                                            :member (wf-manager-overview-member-make
+                                                     :kind "run" :value run))))))
+         (choices (wf-service-runs-choices session)))
+    (should (equal (mapcar #'car choices) '("local:local_1 — /tmp/wf-local/" "service:run_21")))
+    (should (eq (cddr (nth 0 choices)) local))
+    (should (equal (cdr (nth 1 choices)) '(service . "run_21")))))
+
+(defun wf-manager-tests--with-view (routes function)
+  "Start service mode on a router of ROUTES and call FUNCTION.
+The router answers the overview and the polling batches.  FUNCTION
+receives the listener and the session, and service mode ends after it."
+  (wf-manager-tests--call-session
+   (apply #'wf-manager-tests--routes
+          "/v1/snapshot" (list (wf-manager-tests--overview-page "s.1" nil 0 0 nil))
+          "/v1/events?after=s.1" (list (wf-manager-tests--batch "s.1"))
+          routes)
+   (lambda (listener connection)
+     (let* ((session nil)
+            (overview (wf-manager-tests--outcome
+                       (lambda (callback)
+                         (setq session (wf-manager-session-start
+                                        connection callback #'wf-service--changed)))))
+            (wf-service--current (wf-service--state-make :file "profile" :session session))
+            (wf--service-dispatch #'wf-service--dispatch))
+       (should (wf-manager-overview-p overview))
+       (unwind-protect
+           (funcall function listener session)
+         (wf-manager-session-close session))))))
+
+(ert-deftest wf-service-view-follows-and-kill-sends-nothing ()
+  "A run view follows a succeeded run to its verified result.
+The kill of the view stops its watches and sends nothing, and the
+function of `kill-emacs-hook' closes the transport and sends nothing."
+  (let* ((digest (secure-hash 'sha256 wf-manager-tests--artifact))
+         (run (replace-regexp-in-string
+               "\"verification\":{\"state\":\"absent\"}"
+               "\"verification\":{\"state\":\"verified\",\"artifactId\":\"artifact_1\"}"
+               (wf-manager-tests--vector-json
+                "resources.runs" "managed run with lost supervision keeps a sequence beyond 2^53")
+               t t)))
+    (wf-manager-tests--with-view
+     (list "/v1/runs/run_21" (list (wf-manager-tests--json 200 run '("ETag: \"run_1\"")))
+           "/v1/runs/run_21/snapshot"
+           (list (wf-manager-tests--json
+                  200 (concat "{\"version\":1,\"runtime\":{\"status\":\"succeeded\"},\"workflow\":\"wf_review\","
+                              "\"verification\":{\"state\":\"verified\",\"artifactId\":\"artifact_1\"}}")
+                  '("ETag: \"snap_1\"")))
+           "/v1/runs/run_21/control"
+           (list (wf-manager-tests--json
+                  200 (wf-manager-tests--vector-json
+                       "resources.controls" "lost controls keep false cancellation and a null head")
+                  '("ETag: \"control_1\"")))
+           "/v1/decisions?runId=run_21"
+           (list (wf-manager-tests--json 200 (wf-manager-tests--queue-page)))
+           "/v1/runs/run_21/outputs"
+           (list (wf-manager-tests--json
+                  200 (concat "{\"version\":1,\"runId\":\"run_21\",\"items\":[{\"kind\":\"result\","
+                              "\"verification\":{\"state\":\"verified\",\"artifactId\":\"artifact_1\"},"
+                              "\"artifact\":{\"id\":\"artifact_1\",\"download\":\"/v1/artifacts/artifact_1\","
+                              "\"bytes\":\"" (number-to-string (length wf-manager-tests--artifact))
+                              "\",\"sha256\":\"" digest "\"}}]}")))
+           "/v1/artifacts/artifact_1" (list (wf-manager-tests--artifact-response)))
+     (lambda (listener session)
+       (let* ((buffer (wf-service-open-view session "run_21"))
+              (view (buffer-local-value 'wf-service--view-state buffer)))
+         (should (eq (buffer-local-value 'major-mode buffer) 'wf-service-run-mode))
+         (should (eq (lookup-key wf-service-run-mode-map (kbd "a")) #'wf-answer))
+         (should (eq (gethash (cons (wf-manager-session-identity session) "run_21") wf-service--views)
+                     buffer))
+         (should (eq (wf-service-open-view session "run_21") buffer))
+         (unless (wf-manager-tests--wait
+                  (lambda () (equal (car (last (wf-service-view-lines view)))
+                                    (concat "Result SHA-256: " digest))))
+           (ert-fail (list (wf-service-view-lines view) (wf-service--view-failures view)
+                           (wf-manager-tests--listener-requests listener))))
+         (with-current-buffer buffer
+           (should (string-search "Supervision: lost\nVerification: verified\nDecisions: none pending\nOffers: none\nTerminal: succeeded\n"
+                                  (buffer-string))))
+         (should (= (wf-manager-tests--targets listener "/v1/artifacts/artifact_1") 1))
+         (kill-buffer buffer)
+         (should-not (gethash (cons (wf-manager-session-identity session) "run_21") wf-service--views))
+         (should (equal (wf-manager-session-watched session) (list wf-manager-overview-resource)))
+         (should (memq #'wf-service--kill-emacs kill-emacs-hook))
+         (wf-service--kill-emacs)
+         (should (wf-manager-session-closed session))
+         (should (wf-manager-transport-closed (wf-manager-session-transport session)))
+         (should (= (wf-manager-tests--posts listener) 0)))))))
+
+(defun wf-manager-tests--answer-routes (decision-responses snapshot-responses)
+  "Return the routes of an answer of decision_3 of run_21.
+DECISION-RESPONSES and SNAPSHOT-RESPONSES are the responses of the
+decision and of the run snapshot, in order."
+  (list "/v1/decisions?runId=run_21"
+        (list (wf-manager-tests--json
+               200 (wf-manager-tests--queue-page
+                    (wf-manager-tests--vector-json "resources.decisions"
+                                                   wf-manager-tests--flag-decision))))
+        wf-manager-tests--decision-uri decision-responses
+        wf-manager-tests--control-uri
+        (list (wf-manager-tests--json
+               200 (wf-manager-tests--vector-json "resources.controls"
+                                                  "owned controls with an answer offer")
+               '("ETag: \"control_1\"")))
+        wf-manager-tests--run-snapshot-uri snapshot-responses))
+
+(defun wf-manager-tests--open-answer (session)
+  "Run `wf-answer' in a view of run_21 on SESSION and return the editor.
+The editor holds the text no."
+  (clrhash wf-service--answer-drafts)
+  (with-temp-buffer
+    (setq-local wf-service--view-state
+                (wf-service--view-make :session session :run "run_21"))
+    (call-interactively #'wf-answer))
+  (let ((editor (cl-find-if (lambda (buffer)
+                              (string-prefix-p "*wf answer JSON*" (buffer-name buffer)))
+                            (buffer-list))))
+    (should editor)
+    (with-current-buffer editor
+      (should (equal (buffer-string) ""))
+      (should (string-search "Answer of decision decision_3 (flag)" header-line-format))
+      (insert "no"))
+    editor))
+
+(defun wf-manager-tests--submit (editor)
+  "Submit the answer EDITOR and return its `user-error' or nil.
+The submit is the command of the key that sends in the editor."
+  (with-current-buffer editor
+    (condition-case failure
+        (progn (call-interactively (key-binding (kbd "C-c C-c"))) nil)
+      (user-error (cadr failure)))))
+
+(ert-deftest wf-service-answer-stale-keeps-draft ()
+  "A 412 answer keeps the draft, reports it and sends nothing again.
+The answer no is JSON false with the entity tag of the decision as
+If-Match.  The decision then reads 404, so the report says that it is no
+longer the head, and a second submit sends nothing."
+  (wf-manager-tests--with-view
+   (wf-manager-tests--answer-routes
+    (list (wf-manager-tests--json
+           200 (wf-manager-tests--vector-json "resources.decisions" wf-manager-tests--flag-decision)
+           '("ETag: \"decision_1\""))
+          (wf-manager-tests--json
+           412 "{\"version\":1,\"status\":412,\"code\":\"stale-revision\",\"title\":\"Stale\"}")
+          (wf-manager-tests--json
+           404 "{\"version\":1,\"status\":404,\"code\":\"unavailable-resource\",\"title\":\"Gone\"}"))
+    (list (wf-manager-tests--run-snapshot "snap_1" "waiting" t nil)))
+   (lambda (listener session)
+     (let* ((editor (wf-manager-tests--open-answer session))
+            (report (wf-manager-tests--submit editor))
+            (posted (car (cl-remove-if-not (lambda (request) (string-prefix-p "POST " request))
+                                           (wf-manager-tests--listener-requests listener)))))
+       (should (string-search "Decision decision_3 changed before the answer arrived (412 stale-revision).  Nothing was sent again.  The draft \"no\" is kept." report))
+       (should (string-search "no longer the pending head (404 unavailable-resource), so the kept draft is not sent" report))
+       (should (equal (wf-service-answer-draft (wf-manager-session-identity session) "decision_3") "no"))
+       (should (= (wf-manager-tests--posts listener) 1))
+       (should (equal (cdr (assoc "if-match" (wf-manager-tests--request-headers posted))) "\"decision_1\""))
+       (should (equal (substring posted (+ 4 (string-search "\r\n\r\n" posted)))
+                      "{\"generation\":\"generation_3\",\"occurrenceId\":\"0\",\"operation\":\"answer\",\"value\":false}"))
+       (should (buffer-live-p editor))
+       (should (string-search "changed before this answer arrived" (wf-manager-tests--submit editor)))
+       (should (= (wf-manager-tests--posts listener) 1))
+       (kill-buffer editor)
+       (clrhash wf-service--answer-drafts)))))
+
+(ert-deftest wf-service-answer-uncertain-reconciles-once ()
+  "An uncertain answer is reconciled with one read and never sent again.
+The connection of the answer closes with no response.  The run snapshot
+after the send stores no, so the answer reached its effect, the editor
+closes and the draft is gone."
+  (wf-manager-tests--with-view
+   (wf-manager-tests--answer-routes
+    (list (wf-manager-tests--json
+           200 (wf-manager-tests--vector-json "resources.decisions" wf-manager-tests--flag-decision)
+           '("ETag: \"decision_1\""))
+          'drop)
+    (list (wf-manager-tests--run-snapshot "snap_1" "waiting" t nil)
+          (wf-manager-tests--run-snapshot "snap_2" "completed" nil "no")))
+   (lambda (listener session)
+     (let ((editor (wf-manager-tests--open-answer session)))
+       (should-not (wf-manager-tests--submit editor))
+       (accept-process-output nil 0.2)
+       (should-not (buffer-live-p editor))
+       (should (= (wf-manager-tests--posts listener) 1))
+       (should (= (wf-manager-tests--targets listener wf-manager-tests--run-snapshot-uri) 2))
+       (should-not (wf-service-answer-draft (wf-manager-session-identity session) "decision_3"))))))
 
 (provide 'wf-manager-tests)
 

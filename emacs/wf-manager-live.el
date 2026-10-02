@@ -26,11 +26,13 @@
 ;;     WF_MANAGER_REVOKE=/path/to/revoke.json \
 ;;     WF_MANAGER_FINISH=/path/to/finish.json \
 ;;     WF_MANAGER_DOWNLOAD=/path/to/download.bin \
+;;     WF_MANAGER_ANSWER=/path/to/answer.json \
+;;     WF_MANAGER_DRIVE=/path/to/drive.json \
 ;;       "$EMACS" -Q --batch -L ./emacs -l wf-manager-live \
 ;;       -f ert-run-tests-batch-and-exit
 ;;
 ;; `ci/emacs.sh' compiles and checks this file, and it does not run it.
-;; The one test runs these thirteen steps in order:
+;; The one test runs these fourteen steps in order:
 ;;
 ;;   1. bind: `wf-manager-connect' binds a transport by GET
 ;;      /v1/capabilities over TLS, with the CA file of the profile as the
@@ -130,6 +132,27 @@
 ;;      nothing, then discarded with \`d' and withdrawn with \`w'.  Advice of
 ;;      `wf-manager-session-send' keeps every command that the step sends.
 ;;      M-x wf-local then closes the session.
+;;  14. views: the keys select the profile of WF_MANAGER_PROFILE again
+;;      and create, set up and approve one run of `mixed-controls' in
+;;      profile_1 with `wf-manager-live-answered' and one in profile_2
+;;      with `wf-manager-live-stale'.  M-x wf-runs opens the service run
+;;      view of each run, and each view shows the question of its run.
+;;      In the view of the second run, \`a' opens the answer editor, and
+;;      a key of the test writes the file that WF_MANAGER_ANSWER names
+;;      with that decision.  The harness answers the decision first and
+;;      writes that name with the suffix .done.  The answer no of the
+;;      view then receives 412, and the draft no is kept and reported.
+;;      The view of the second run then shows its recovery decision,
+;;      while the view of the first run still shows its own question.
+;;      The answer no in the view of the first run reaches its effect.
+;;      The test kills the view of the second run, which still runs, and
+;;      the session then watches none of its resources.  The test writes
+;;      the file that WF_MANAGER_DRIVE names, and the harness reads the
+;;      commands and the second run, drives both runs to their terminal
+;;      success and writes the .done file.  The view of the first run
+;;      must then end with the Terminal and Result lines of its verified
+;;      result.  The function `wf-service--kill-emacs' of
+;;      `kill-emacs-hook' closes the session, and no command follows.
 ;;
 ;; No step before the service step may prompt.  Each prompt function of
 ;; `wf-manager-live--prompt-functions' counts a call and signals an
@@ -221,6 +244,28 @@
 ;;   capturedSha256    the SHA-256 digest of those bytes
 ;;   declinedSentAfterNo  the operations that the third review had sent
 ;;                     after the answer no
+;;   answeredRequestId, answeredRunId, answeredDecisionId
+;;                     the request, the run and the question of the run
+;;                     of `wf-manager-live-answered'.  The fields with
+;;                     the prefix stale are those of the run of
+;;                     `wf-manager-live-stale'.
+;;   staleAnswerRefusal  the report of the 412 answer of the stale run
+;;   staleAnswerDraft  the kept draft of that answer
+;;   harnessAnswerCommand  the answer command of the harness
+;;   answeredWaitingLines  the lines of the view of the answered run
+;;                     while the stale run is at its recovery decision
+;;   staleRecoveryLines  the lines of the view of the stale run then
+;;   answeredRecoveryLines  the lines of the view of the answered run
+;;                     after its answer
+;;   killedWatched     true when the session still watches a resource of
+;;                     the killed view
+;;   answeredFinalLines  the lines of the view of the answered run after
+;;                     its terminal success
+;;   killEmacsClosed   true when the function of `kill-emacs-hook' closed
+;;                     the session and its transport
+;;   viewsCommands     each command of the views step before the drive,
+;;                     in the form of requestCommands
+;;   viewsCommandsAfter  the same list after the close
 ;;   requestCommands   each command of the requests step in order, with
 ;;                     its resource, media type, If-Match and body.  A
 ;;                     capture body is its byte count and SHA-256 digest.
@@ -237,7 +282,7 @@
 (require 'wf-manager)
 (require 'wf-service)
 
-(defconst wf-manager-live-harness-version 6
+(defconst wf-manager-live-harness-version 7
   "The version of the report of this file.
 The emacs-client mode of agent-cat states the same version.")
 
@@ -1114,20 +1159,7 @@ REPORT."
                    report)
           (should (equal (gethash "declinedOutcomes" report) ["discard" "withdraw"]))
           (should (equal (gethash "declinedSentAfterNo" report) []))
-          (puthash "requestCommands"
-                   (vconcat
-                    (mapcar (pcase-lambda (`(,resource ,media ,if-match ,body))
-                              (wf-manager-json-object
-                               "resource" resource
-                               "media" (or media "application/json")
-                               "ifMatch" (or if-match :null)
-                               "body" (if media
-                                          (wf-manager-json-object
-                                           "bytes" (wf-manager-live--integer (length body))
-                                           "sha256" (secure-hash 'sha256 body))
-                                        (wf-manager-json-decode body))))
-                            (reverse wf-manager-live--sent)))
-                   report)
+          (puthash "requestCommands" (wf-manager-live--commands-json) report)
           (should-not (wf-manager-live--keys "M-x wf-local RET")))
       (advice-remove 'wf-manager-session-send #'wf-manager-live--record-send)
       (global-set-key (kbd "<f7>") nil)
@@ -1136,13 +1168,236 @@ REPORT."
         (wf-local))
       (delete-file captured))))
 
+(defun wf-manager-live--commands-json ()
+  "Return the JSON array of the commands of `wf-manager-live--sent'.
+Each item has the resource, the media type, the If-Match and the body
+of one command, the oldest first.  A capture body is its byte count and
+SHA-256 digest."
+  (vconcat
+   (mapcar (pcase-lambda (`(,resource ,media ,if-match ,body))
+             (wf-manager-json-object
+              "resource" resource
+              "media" (or media "application/json")
+              "ifMatch" (or if-match :null)
+              "body" (if media
+                         (wf-manager-json-object
+                          "bytes" (wf-manager-live--integer (length body))
+                          "sha256" (secure-hash 'sha256 body))
+                       (wf-manager-json-decode body))))
+           (reverse wf-manager-live--sent))))
+
+;;;; The views step
+
+(defconst wf-manager-live-answered "Emacs answer λ: explicit false."
+  "The literal of the run whose question the views step answers no.
+EMACS_ANSWERED of `manager/test/service_http.py' states the same text.")
+
+(defconst wf-manager-live-stale "Emacs stale λ: the harness answers first."
+  "The literal of the run whose question the harness answers first.
+EMACS_STALE of `manager/test/service_http.py' states the same text.")
+
+(defvar wf-manager-live--answer-file nil
+  "The handshake file of the harness answer of the views step.")
+
+(defvar wf-manager-live--stale-decision nil
+  "The decision that the harness answers first in the views step.")
+
+(defun wf-manager-live--ask (file value seconds)
+  "Write to FILE the VALUE for the harness and return its answer.
+The answer is the JSON value of FILE with the suffix .done, which the
+harness writes when it has acted.  Wait at most SECONDS for it."
+  (let ((done (concat file ".done"))
+        (deadline (+ (float-time) seconds)))
+    (wf-manager-live--write file value)
+    (while (and (not (file-exists-p done)) (< (float-time) deadline))
+      (accept-process-output nil 0.05))
+    (should (file-exists-p done))
+    (with-temp-buffer
+      (set-buffer-multibyte nil)
+      (insert-file-contents-literally done)
+      (wf-manager-json-decode (buffer-string)))))
+
+(defvar wf-manager-live--harness-command nil
+  "The answer command of the harness in the views step.")
+
+(defun wf-manager-live--harness-first ()
+  "Ask the harness to answer `wf-manager-live--stale-decision' first."
+  (interactive)
+  (setq wf-manager-live--harness-command
+        (gethash "command"
+                 (wf-manager-live--ask
+                  wf-manager-live--answer-file
+                  (wf-manager-json-object
+                   "decision" (concat "/v1/decisions/" wf-manager-live--stale-decision))
+                  wf-manager-live--seconds))))
+
+(defun wf-manager-live--wait-long (predicate)
+  "Wait at most `wf-manager-live--run-seconds' for PREDICATE to be non-nil.
+Return the value of PREDICATE."
+  (let ((deadline (+ (float-time) wf-manager-live--run-seconds)))
+    (while (and (not (funcall predicate)) (< (float-time) deadline))
+      (accept-process-output nil 0.05))
+    (funcall predicate)))
+
+(defun wf-manager-live--start-mixed (profile literal)
+  "With keys, create, set up and approve one mixed-controls run.
+PROFILE is the profile of the run and LITERAL its input.  Return
+\(REQUEST . RUN)."
+  (set (wf--input-history wf-manager-live-workflow "input") nil)
+  (setq wf-manager-live--reviews nil)
+  (should-not (wf-manager-live--keys
+               "M-x wf-run RET" (vconcat profile) "RET" (vconcat wf-manager-live-workflow) "RET"
+               (vconcat literal) "C-c C-c <f8> a" (vconcat "yes") "RET <f8>"))
+  (let ((review (nth 1 (car wf-manager-live--reviews))))
+    (should (stringp (wf-service--review-run review)))
+    (cons (wf-manager-preparation-request-id (wf-service--review-preparation review))
+          (wf-service--review-run review))))
+
+(defun wf-manager-live--open-view (session run)
+  "On SESSION, open the view of RUN with `wf-runs' and return its buffer."
+  (should (wf-manager-live--wait-long
+           (lambda () (member run (wf-service--service-runs session)))))
+  (should-not (wf-manager-live--keys "M-x wf-runs RET" (vconcat "service:" run) "RET"))
+  (let ((buffer (gethash (cons (wf-manager-session-identity session) run) wf-service--views)))
+    (should (buffer-live-p buffer))
+    buffer))
+
+(defun wf-manager-live--head (buffer kind)
+  "Return the pending head of the view BUFFER when it is a KIND decision.
+KIND is `question' or `recovery'.  Return nil otherwise."
+  (let ((view (buffer-local-value 'wf-service--view-state buffer)))
+    (cl-find-if (lambda (decision)
+                  (and (= (wf-manager-decision-position decision) 0)
+                       (equal (wf-manager-decision-state decision) "pending")
+                       (eq kind (if (wf-manager-question-p (wf-manager-decision-content decision))
+                                    'question 'recovery))))
+                (append (alist-get 'queue (wf-service--view-kept view)) nil))))
+
+(defun wf-manager-live--view-lines (buffer)
+  "Return the lines of the run view BUFFER as a JSON array."
+  (vconcat (wf-service-view-lines (buffer-local-value 'wf-service--view-state buffer))))
+
+(defun wf-manager-live--views (file answer-file drive-file report)
+  "Drive the views step: two run views, their two questions and a kill.
+FILE is the client profile file, ANSWER-FILE the handshake file of the
+harness answer and DRIVE-FILE the handshake file after which the
+harness has driven both runs to their end.  Record the runs, the views,
+the answers and the sent commands in REPORT."
+  (setq wf-manager-live--sent nil
+        wf-manager-live--answer-file answer-file
+        wf-manager-live--harness-command nil)
+  (clrhash wf-service--answer-drafts)
+  (let ((wf-manager-profiles (list file))
+        (suggest-key-bindings nil)
+        (extended-command-suggest-shorter nil))
+    (global-set-key (kbd "<f6>") #'wf-manager-live--harness-first)
+    (global-set-key (kbd "<f8>") #'wf-manager-live--probe-review)
+    (advice-add 'wf-manager-session-send :before #'wf-manager-live--record-send)
+    (unwind-protect
+        (progn
+          (should-not (wf-manager-live--keys "M-x wf-service RET" (vconcat file) "RET"))
+          (let* ((session (wf-service--state-session wf-service--current))
+                 (identity (wf-manager-session-identity session))
+                 ;; The manager runs one run of each profile at once.
+                 (answered (wf-manager-live--start-mixed "profile_1" wf-manager-live-answered))
+                 (stale (wf-manager-live--start-mixed "profile_2" wf-manager-live-stale))
+                 (answered-view (wf-manager-live--open-view session (cdr answered)))
+                 (stale-view (wf-manager-live--open-view session (cdr stale))))
+            (puthash "answeredRequestId" (car answered) report)
+            (puthash "answeredRunId" (cdr answered) report)
+            (puthash "staleRequestId" (car stale) report)
+            (puthash "staleRunId" (cdr stale) report)
+            (should (wf-manager-live--wait-long
+                     (lambda () (and (wf-manager-live--head answered-view 'question)
+                                     (wf-manager-live--head stale-view 'question)))))
+            (let ((answered-decision (wf-manager-decision-id
+                                      (wf-manager-live--head answered-view 'question)))
+                  (stale-decision (wf-manager-decision-id
+                                   (wf-manager-live--head stale-view 'question))))
+              (puthash "answeredDecisionId" answered-decision report)
+              (puthash "staleDecisionId" stale-decision report)
+              ;; The harness answers the stale decision while the editor
+              ;; is open, so the answer of the view gives 412.
+              (setq wf-manager-live--stale-decision stale-decision)
+              (pop-to-buffer stale-view)
+              (let ((refusal (wf-manager-live--keys "a <f6>" (vconcat "no") "C-c C-c")))
+                (puthash "staleAnswerRefusal" (or refusal :null) report)
+                (puthash "harnessAnswerCommand" (or wf-manager-live--harness-command :null) report)
+                (puthash "staleAnswerDraft" (or (wf-service-answer-draft identity stale-decision) :null)
+                         report)
+                (should (stringp refusal))
+                (should (string-search "412 stale-revision" refusal)))
+              (let ((editor (window-buffer (selected-window))))
+                (should (string-prefix-p "*wf answer JSON*" (buffer-name editor)))
+                (kill-buffer editor))
+              ;; Each view follows its own run: the stale run is past its
+              ;; question, and the answered run still waits on its own.
+              (should (wf-manager-live--wait-long
+                       (lambda () (wf-manager-live--head stale-view 'recovery))))
+              (should (equal (wf-manager-decision-id (wf-manager-live--head answered-view 'question))
+                             answered-decision))
+              (puthash "answeredWaitingLines" (wf-manager-live--view-lines answered-view) report)
+              (puthash "staleRecoveryLines" (wf-manager-live--view-lines stale-view) report)
+              ;; The answer no of the answered run.
+              (pop-to-buffer answered-view)
+              (should-not (wf-manager-live--keys "a" (vconcat "no") "C-c C-c"))
+              (should-not (wf-service-answer-draft identity answered-decision))
+              (should (wf-manager-live--wait-long
+                       (lambda () (wf-manager-live--head answered-view 'recovery))))
+              (puthash "answeredRecoveryLines" (wf-manager-live--view-lines answered-view) report))
+            ;; The kill of the view of the stale run, which still runs.
+            (let ((references (wf-service--view-references
+                               (buffer-local-value 'wf-service--view-state stale-view)))
+                  (polls (wf-manager-session-polls session)))
+              (kill-buffer stale-view)
+              (puthash "killedWatched"
+                       (if (cl-some (lambda (reference)
+                                      (member (wf-manager-reference-uri (cdr reference))
+                                              (wf-manager-session-watched session)))
+                                    references)
+                           t :false)
+                       report)
+              (should (wf-manager-live--wait
+                       (lambda () (>= (wf-manager-session-polls session) (+ polls 2))))))
+            (puthash "viewsCommands" (wf-manager-live--commands-json) report)
+            ;; The harness reads the commands and the stale run, and then
+            ;; drives both runs to their end.
+            (wf-manager-live--ask drive-file
+                                  (wf-manager-json-object "answeredRunId" (cdr answered)
+                                                          "staleRunId" (cdr stale))
+                                  (* 3 wf-manager-live--run-seconds))
+            (should (wf-manager-live--wait-long
+                     (lambda ()
+                       (string-prefix-p "Result SHA-256: "
+                                        (car (last (wf-service-view-lines
+                                                    (buffer-local-value 'wf-service--view-state
+                                                                        answered-view))))))))
+            (puthash "answeredFinalLines" (wf-manager-live--view-lines answered-view) report)
+            ;; The function of `kill-emacs-hook' closes only the transport.
+            (should (memq #'wf-service--kill-emacs kill-emacs-hook))
+            (wf-service--kill-emacs)
+            (puthash "killEmacsClosed"
+                     (if (and (wf-manager-session-closed session)
+                              (wf-manager-transport-closed (wf-manager-session-transport session)))
+                         t :false)
+                     report)
+            (puthash "viewsCommandsAfter" (wf-manager-live--commands-json) report)
+            (should (equal (wf-manager-json-encode (gethash "viewsCommandsAfter" report))
+                           (wf-manager-json-encode (gethash "viewsCommands" report))))
+            (should-not (wf-manager-live--keys "M-x wf-local RET"))))
+      (advice-remove 'wf-manager-session-send #'wf-manager-live--record-send)
+      (global-set-key (kbd "<f6>") nil)
+      (global-set-key (kbd "<f8>") nil)
+      (when wf-service--current
+        (wf-local)))))
+
 (defun wf-manager-live--write (file value)
   "Write to FILE the JSON VALUE."
   (let ((coding-system-for-write 'no-conversion))
     (write-region (wf-manager-json-encode value) nil file nil 'silent)))
 
 (ert-deftest wf-manager-live-session ()
-  "Run the thirteen steps of one live session against the manager."
+  "Run the fourteen steps of one live session against the manager."
   (let* ((profile (wf-manager-profile-load
                    (wf-manager-live--variable "WF_MANAGER_PROFILE")))
          (second (wf-manager-profile-load
@@ -1154,6 +1409,8 @@ REPORT."
          (revoke-file (wf-manager-live--variable "WF_MANAGER_REVOKE"))
          (finish-file (wf-manager-live--variable "WF_MANAGER_FINISH"))
          (download-file (wf-manager-live--variable "WF_MANAGER_DOWNLOAD"))
+         (answer-file (wf-manager-live--variable "WF_MANAGER_ANSWER"))
+         (drive-file (wf-manager-live--variable "WF_MANAGER_DRIVE"))
          (report (wf-manager-json-object
                   "harnessVersion"
                   (wf-manager-live--integer wf-manager-live-harness-version)))
@@ -1202,7 +1459,10 @@ REPORT."
               (push "service" steps)
               (wf-manager-live--requests (wf-manager-live--variable "WF_MANAGER_PROFILE")
                                          report)
-              (push "requests" steps))))
+              (push "requests" steps)
+              (wf-manager-live--views (wf-manager-live--variable "WF_MANAGER_PROFILE")
+                                      answer-file drive-file report)
+              (push "views" steps))))
       (dolist (function wf-manager-live--prompt-functions)
         (advice-remove function #'wf-manager-live--prompted))
       (puthash "prompts" (wf-manager-live--integer wf-manager-live--prompts) report)

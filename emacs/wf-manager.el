@@ -4371,7 +4371,8 @@ one connection have the same nonce."
 ;; /v1/events from the cursor of that overview with JSON polling
 ;; batches on timers.  An invalidation marks each watched resource that
 ;; it concerns, and the refresh coordinator above reads each marked
-;; resource again.  A 410 refusal of a batch advances the generation,
+;; resource again.  `wf-manager-session-unwatch' ends the watch of one
+;; resource, and nothing is sent.  A 410 refusal of a batch advances the generation,
 ;; reads the overview again, invalidates every watched resource and
 ;; follows from the new cursor.  A read of an earlier generation
 ;; installs nothing.  No read and no poll is a command.  A session sends
@@ -4987,7 +4988,11 @@ overview."
      (lambda (outcome)
        (wf-manager--session-complete
         session key generation outcome
-        (lambda () (puthash key outcome (wf-manager-session-installed session))))))))
+        (lambda ()
+          ;; A read that completes after `wf-manager-session-unwatch'
+          ;; installs nothing.
+          (when (member key (wf-manager-session-watched session))
+            (puthash key outcome (wf-manager-session-installed session)))))))))
 
 (defun wf-manager--transient-read-p (outcome)
   "Return non-nil when OUTCOME is a refusal that a later read can clear."
@@ -5028,6 +5033,22 @@ that concerns it.  A REFERENCE of another endpoint signals
     (unless (member key (wf-manager-session-watched session))
       (push key (wf-manager-session-watched session))
       (wf-manager--session-invalidate session key))
+    nil))
+
+(defun wf-manager-session-unwatch (session reference)
+  "On SESSION, stop the watch of the resource REFERENCE and return nil.
+The session forgets the last installed read of REFERENCE, and later
+invalidations read it no more.  The overview stays watched.  A
+REFERENCE of another endpoint and a closed SESSION change nothing.
+Nothing is sent."
+  (let ((key (wf-manager-reference-uri reference)))
+    (when (and (not (wf-manager-session-closed session))
+               (equal (wf-manager-reference-endpoint reference)
+                      (wf-manager-session-identity session))
+               (not (equal key wf-manager-overview-resource)))
+      (setf (wf-manager-session-watched session)
+            (delete key (wf-manager-session-watched session)))
+      (remhash key (wf-manager-session-installed session)))
     nil))
 
 (defun wf-manager-session-current (session reference)

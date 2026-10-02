@@ -111,6 +111,14 @@ class SshFixture:
             self.log.close()
         self.temporary.cleanup()
 
+    def link(self, program: str) -> str:
+        """Return a short fixture path that runs PROGRAM on the loopback host."""
+        directory = self.root / "bin"
+        directory.mkdir(mode=0o700, exist_ok=True)
+        link = directory / "wf"
+        link.symlink_to(Path(program).resolve())
+        return str(link)
+
     def lisp_configuration(self) -> str:
         return f'''
 (require 'tramp-sh)
@@ -263,6 +271,10 @@ def main() -> None:
     artifacts.mkdir(exist_ok=True)
     print(artifacts, flush=True)
     with SshFixture(artifacts) as fixture:
+        # TRAMP refuses a direct asynchronous command longer than the remote
+        # PIPE_BUF, which is 512 bytes on macOS, and its own environment prefix
+        # uses most of that. The remote runner therefore has a short path.
+        args.control_runner = fixture.link(args.control_runner)
         batch_test(args, fixture, artifacts)
         import importlib.util
         spec = importlib.util.spec_from_file_location("wf_emacs_ui", Path(__file__).with_name("emacs-ui.py"))

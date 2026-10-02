@@ -1190,7 +1190,9 @@ Forbid process creation throughout setup; existing CLI smoke runs separately."
             (should (buffer-live-p buffer))
             (wf-smoke-decision session "discard")
             (wf-smoke-wait (lambda () (not (process-live-p process))))
-            (should-not (buffer-live-p buffer))))
+            ;; The exit status is visible before Emacs delivers the sentinel
+            ;; that closes the diagnostics, so wait for the sentinel's effect.
+            (wf-smoke-wait (lambda () (not (buffer-live-p buffer))))))
       (when (and session (process-live-p (wf--session-process session)))
         (when (eq (process-status (wf--session-process session)) 'stop)
           (continue-process (wf--session-process session)))

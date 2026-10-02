@@ -445,6 +445,12 @@ persistently changing connection profiles or methods. State and input paths are
 checked against the selected connection, and unsupported direct-pipe connections
 are refused rather than using a terminal for protocol data.
 
+TRAMP refuses a direct-async command that is longer than the remote pipe
+buffer, which is 512 bytes on macOS, and its environment prefix uses most of
+that buffer. On a remote connection, `wf-program` must therefore name a short
+path, such as an installed `~/.local/bin/wf`. The SSH gate runs its runner
+through a short link inside its fixture for the same reason.
+
 SSH behavior is verified with Emacs 30.2 against an isolated loopback server on
 macOS. This exercises the real SSH/TRAMP path, including binary file capture,
 typed human answers, verification, history, semantic resume, cancellation, and
@@ -1075,6 +1081,15 @@ nix build .#default    # the same pinned build, named: agent-cat at the revision
 >
 > ```sh
 > nix build --override-input agent-cat path:../agent-cat
+> ```
+>
+> To build `wf` against another agent-cat working tree, such as a worktree,
+> without editing `cabal.project`, give Cabal a project file of its own whose
+> `packages` are this directory and that tree, and a separate build directory:
+>
+> ```sh
+> cabal build exe:wf --project-file=/path/to/cabal.project \
+>   --builddir=/path/to/dist
 > ```
 
 > **Which is authoritative.** The **flake** is. It pins an agent-cat revision, it

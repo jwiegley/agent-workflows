@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise native Emacs widgets, windows, real scripted runs, and the service journey, lifecycle, controls and cross-client witness in private PTYs."""
+"""Exercise native Emacs widgets, windows, real scripted runs, and the service journey, lifecycle, controls, cross-client witness and its lifecycle in private PTYs."""
 from __future__ import annotations
 
 import argparse
@@ -1422,6 +1422,179 @@ def service_witness_case(args, directory: Path) -> None:
            terminalBefore=session.before, terminalAfter=session.ended["attributes"], exitStatus=session.ended["status"])
 
 
+# The version of the report of the lifecycle of the cross-client witness. The
+# cross-client-lifecycle mode of agent-cat manager/test/service_http.py
+# requires the same version.
+WITNESS_LIFECYCLE_REPORT_VERSION = 2
+
+
+def service_witness_lifecycle_case(args, directory: Path) -> None:
+    """Observe a run of other clients across a quit, a credential rotation and
+    a manager restart, follow a second run across a manager loss, and answer
+    a later question with the rotated credential, by keys at 80x24.
+
+    The first Emacs selects the client profile of --service with M-x
+    wf-service. The harness names the run and its pending person question
+    in its answer to the handshake observe-ready. M-x wf-runs opens the view
+    of the run, which must show the question as its head under the
+    supervision owned. The handshake quit gives the harness the lines and
+    the choices of the view and the commands of the session, and C-x C-c
+    then quits Emacs. The handshake quitted, which no Emacs drains, gives
+    the harness the exit status and the terminal attributes, and the
+    harness answers it with the path of the client profile of the rotated
+    credential after the rotation and the restart of the manager. A second
+    Emacs selects that profile, and M-x wf-runs opens the view of the run
+    again, which must show the supervision lost. The handshake reconnected
+    gives the harness the lines and the choices of that view, and the
+    harness answers it with a second run and its pending person question.
+    M-x wf-runs opens the view of the second run, which must show the
+    question as its head under the supervision owned. The handshake held
+    gives the harness that view, and the harness kills the manager. With
+    no key, the view must report the delivery unreachable, and the
+    handshake unreachable gives the harness that view. The harness starts
+    the manager again, and with no key the view must show the supervision
+    lost. The handshake quarantined gives the harness that view, and the
+    harness answers it with a third run and its pending person question.
+    M-x wf-runs opens the view of the third run, a opens the answer editor
+    of the head, Emacs types WITNESS_ANSWER, and C-c C-c sends it once. The
+    handshake answered gives the harness the commands of the session, and
+    the harness answers it after the run has succeeded. M-x wf-local then
+    closes the session, and C-x C-c ends the second Emacs. The report
+    records the process identifiers, the lines and the choices of each
+    view, the commands of each session and the exit of each Emacs, and it
+    is written again after each step."""
+    profile, report_path = Path(args.service[0]).resolve(), Path(args.service[1]).resolve()
+    handshake = args.service_handshake.resolve()
+    emacs_directory = args.source.resolve().parent
+    sources = [emacs_directory / name for name in ("wf.el", "wf-manager.el", "wf-service.el")]
+    report: dict = {"version": WITNESS_LIFECYCLE_REPORT_VERSION, "profile": str(profile), "answer": WITNESS_ANSWER, "steps": []}
+
+    def record(step: str, line: str, **facts) -> None:
+        report["steps"].append(step)
+        report.update(facts)
+        report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2))
+        print("PASS cross-client lifecycle keys " + step + ": " + line, flush=True)
+
+    def bind(session: Emacs) -> None:
+        session.wait(lambda state: state.get("extra") is not None, "service-ready")
+        session.command("wf-service")
+        session.wait(lambda state: "Client profile" in state.get("minibuffer", ""), "profile-file-prompt")
+        session.send("\r")
+        session.wait(lambda state: service_extra(state).get("service") is True
+                     and "wf: service mode, endpoint" in state.get("messages", ""), "service-bound", 60)
+
+    def choices(view: dict) -> list:
+        return [choice["label"] for choice in view["choices"]]
+
+    first_directory = directory / "first"
+    directory.mkdir()
+    session = Emacs(args.emacs, sources, first_directory, 80, 24, service_body(profile, first_directory))
+    success = False
+    try:
+        bind(session)
+        record("1", "M-x wf-service selected the client profile " + str(profile) + " at 80x24", emacsPid=session.process.pid)
+        ready = service_handshake(session, handshake, "observe-ready", {}, 300)
+        run, question = ready["run"], ready["question"]
+        service_open_view(session, run, "observe")
+        viewed = session.wait(lambda state: service_view(state, run) is not None
+                              and service_view(state, run)["head"] == question
+                              and "Supervision: owned" in service_view(state, run)["lines"]
+                              and "cancel" in choices(service_view(state, run)), "observe-question", 120)
+        view = service_view(viewed, run)
+        record("2", "M-x wf-runs opened the view of run " + run + ", which showed the pending question " + question
+               + " under the supervision owned", run=run, question=question, observedLines=view["lines"],
+               observedChoices=choices(view), observedHead=view["head"], observedKind=view["kind"])
+        service_handshake(session, handshake, "quit", {"run": run, "question": question, "viewLines": view["lines"],
+                                                       "choices": choices(view), "head": view["head"], "kind": view["kind"],
+                                                       "sent": service_extra(session.state).get("sent", [])}, 300)
+        report["firstSent"] = service_extra(session.state).get("sent", [])
+        success = True
+    finally:
+        session.close(success)
+    record("3", "C-x C-c quit the first Emacs while run " + run + " waited at its question, with status 0 and the terminal "
+           "attributes restored", firstTerminalBefore=session.before, firstTerminalAfter=session.ended["attributes"],
+           firstExitStatus=session.ended["status"])
+    staged = handshake / "quitted.json.new"
+    staged.write_text(json.dumps({"run": run, "exitStatus": session.ended["status"], "emacsPid": report["emacsPid"],
+                                  "terminalRestored": session.ended["attributes"] == session.before}))
+    staged.rename(handshake / "quitted.json")
+    done = handshake / "quitted.done"
+    deadline = time.monotonic() + 600
+    while not done.exists():
+        if time.monotonic() >= deadline:
+            raise AssertionError(("the harness did not answer the handshake", "quitted"))
+        time.sleep(0.05)
+    rotated = Path(json.loads(done.read_text())["profile"]).resolve()
+
+    # The second Emacs, with the client profile of the rotated credential.
+    second_directory = directory / "second"
+    later = Emacs(args.emacs, sources, second_directory, 80, 24, service_body(rotated, second_directory))
+    success = False
+    try:
+        bind(later)
+        record("4", "M-x wf-service in a second Emacs selected the client profile " + str(rotated) + " of the rotated credential",
+               rotatedProfile=str(rotated), laterPid=later.process.pid)
+        service_open_view(later, run, "reconnect")
+        lost = later.wait(lambda state: service_view(state, run) is not None
+                          and "Supervision: lost" in service_view(state, run)["lines"]
+                          and "Offers: not yet observed" not in service_view(state, run)["lines"], "reconnect-lost", 120)
+        view = service_view(lost, run)
+        record("5", "M-x wf-runs opened the view of run " + run + ", which showed the supervision lost of the restarted manager",
+               lostLines=view["lines"], lostChoices=choices(view))
+        held = service_handshake(later, handshake, "reconnected", {"run": run, "viewLines": view["lines"], "choices": choices(view),
+                                                                   "sent": service_extra(later.state).get("sent", [])}, 600)
+        second, second_head = held["run"], held["question"]
+        service_open_view(later, second, "held")
+        owned = later.wait(lambda state: service_view(state, second) is not None and service_view(state, second)["head"] == second_head
+                           and service_view(state, second)["kind"] == "question"
+                           and "Supervision: owned" in service_view(state, second)["lines"], "held-question", 120)
+        view = service_view(owned, second)
+        record("6", "M-x wf-runs opened the view of run " + second + ", which showed the pending question " + second_head
+               + " under the supervision owned", secondRun=second, secondQuestion=second_head, heldLines=view["lines"],
+               heldChoices=choices(view))
+        service_handshake(later, handshake, "held", {"run": second, "head": view["head"], "kind": view["kind"], "viewLines": view["lines"],
+                                                     "choices": choices(view), "sent": service_extra(later.state).get("sent", [])}, 600)
+        unreachable = later.wait(lambda state: service_view(state, second) is not None
+                                 and "Delivery: unreachable" in service_view(state, second)["lines"], "held-unreachable", 60)
+        view = service_view(unreachable, second)
+        record("7", "the manager was killed while the view of run " + second + " waited at its question, and the view reported "
+               "the delivery unreachable with no key", unreachableLines=view["lines"])
+        service_handshake(later, handshake, "unreachable", {"run": second, "viewLines": view["lines"],
+                                                            "sent": service_extra(later.state).get("sent", [])}, 600)
+        relost = later.wait(lambda state: service_view(state, second) is not None
+                            and "Delivery: unreachable" not in service_view(state, second)["lines"]
+                            and "Supervision: lost" in service_view(state, second)["lines"]
+                            and "Offers: none" in service_view(state, second)["lines"], "held-lost", 120)
+        view = service_view(relost, second)
+        record("8", "the manager started again, and with no key the view of run " + second + " reconnected and showed the "
+               "supervision lost of the restarted manager", quarantinedLines=view["lines"], quarantinedChoices=choices(view))
+        queued = service_handshake(later, handshake, "quarantined", {"run": second, "viewLines": view["lines"], "choices": choices(view),
+                                                                     "sent": service_extra(later.state).get("sent", [])}, 600)
+        third, head = queued["run"], queued["question"]
+        service_open_view(later, third, "third")
+        asked = later.wait(lambda state: service_view(state, third) is not None and service_view(state, third)["head"] == head
+                           and service_view(state, third)["kind"] == "question", "third-question", 120)
+        since = len(asked.get("messages", ""))
+        later.send("a")
+        later.wait(lambda state: state.get("buffer", "").startswith("*wf answer JSON"), "third-answer-editor", 60)
+        later.send(WITNESS_ANSWER)
+        later.wait(lambda state: state.get("text") == WITNESS_ANSWER, "third-answer-typed")
+        later.send(b"\x03\x03")
+        later.wait(service_said("reached decision " + head, since), "third-answered", 90)
+        sent = service_extra(later.state).get("sent", [])
+        record("9", "a, " + WITNESS_ANSWER + " and C-c C-c answered question " + head + " of run " + third,
+               thirdRun=third, thirdQuestion=head, thirdLines=service_view(asked, third)["lines"], laterSent=sent)
+        service_handshake(later, handshake, "answered", {"run": third, "question": head, "sent": sent}, 600)
+        later.command("wf-local")
+        later.wait(lambda state: service_extra(state).get("service") is False, "local")
+        success = True
+    finally:
+        later.close(success)
+    record("10", "M-x wf-local closed the session of the second Emacs, and C-x C-c ended it with status 0 and the terminal "
+           "attributes restored", laterTerminalBefore=later.before, laterTerminalAfter=later.ended["attributes"],
+           laterExitStatus=later.ended["status"])
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--emacs", default=os.environ.get("EMACS") or shutil.which("emacs"), required=False)
@@ -1433,7 +1606,7 @@ def main() -> None:
     parser.add_argument("--service", nargs=2, metavar=("PROFILE", "REPORT"),
                         help="run only the service journey with the client profile PROFILE and write its report to REPORT")
     parser.add_argument("--service-answer", default="false", help="the answer that the service journey types")
-    parser.add_argument("--service-case", choices=["journey", "lifecycle", "controls", "witness"], default="journey",
+    parser.add_argument("--service-case", choices=["journey", "lifecycle", "controls", "witness", "witness-lifecycle"], default="journey",
                         help="the service case that --service runs")
     parser.add_argument("--service-handshake", type=Path,
                         help="the directory of the handshakes of the lifecycle, the controls or the witness with the harness that runs the manager")
@@ -1441,7 +1614,7 @@ def main() -> None:
     if args.service:
         if not args.emacs or not os.access(args.emacs, os.X_OK):
             parser.error("provide an executable emacs")
-        if args.service_case in ("lifecycle", "controls", "witness") and (not args.service_handshake or not args.service_handshake.is_dir()):
+        if args.service_case in ("lifecycle", "controls", "witness", "witness-lifecycle") and (not args.service_handshake or not args.service_handshake.is_dir()):
             parser.error(f"the {args.service_case} case needs --service-handshake, the directory of its handshakes with the harness")
         artifacts = args.artifacts or Path(tempfile.mkdtemp(prefix="wf-emacs-service-", dir="/tmp")).resolve()
         artifacts.mkdir(exist_ok=True)
@@ -1455,6 +1628,13 @@ def main() -> None:
             service_controls_case(args, artifacts / "controls")
             print("PASS service controls by keys at 80x24: a fail-over, an abandon and a redirect to the second listed target, "
                   "and terminal restoration", flush=True)
+            return
+        if args.service_case == "witness-lifecycle":
+            service_witness_lifecycle_case(args, artifacts / "witness-lifecycle")
+            print("PASS cross-client lifecycle by keys at 80x24: the view of a run of other clients showed it owned, the quit "
+                  "sent nothing, a second Emacs with the rotated credential showed it lost after the manager restart, "
+                  "followed a second run across a manager loss to its lost supervision, answered a later question, and "
+                  "terminal restoration", flush=True)
             return
         if args.service_case == "witness":
             service_witness_case(args, artifacts / "witness")

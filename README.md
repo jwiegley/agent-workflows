@@ -852,6 +852,54 @@ that the one answer of the head is the answer of Pi, and that the saved file
 has mode 0600 and holds exactly the bytes of the verified download of the
 harness.
 
+With `--service-case witness-lifecycle`, the script is the Emacs client of
+the `cross-client-lifecycle` mode of `manager/test/service_http.py`. Pi
+creates, enqueues and approves a `mixed-controls` request, and the TUI
+observes the run. The script starts two `Emacs -Q -nw` processes in turn, each
+at 80×24, and acts only by keys:
+
+1. In the first Emacs, `M-x wf-service` selects the client profile of
+   `--service`. The handshake `observe-ready` names the run and its pending
+   person question.
+2. `M-x wf-runs` opens the view of the run, which shows the question as its
+   head under the supervision `owned` with the `cancel` choice.
+3. The handshake `quit` gives the harness the lines and the choices of the
+   view and the commands of the session, and `C-x C-c` quits Emacs while the
+   run waits.
+4. The handshake `quitted` gives the harness the exit status and the
+   terminal state of the first Emacs. The harness rotates the Emacs
+   credential, restarts the manager with the termination signal, and
+   answers with the client profile of the rotated credential. In the second
+   Emacs, `M-x wf-service` selects that profile.
+5. `M-x wf-runs` opens the view of the run again, which shows the supervision
+   `lost`. The handshake `reconnected` gives the harness the lines and the
+   choices of the view, and the harness answers it with a second run and
+   its pending person question.
+6. `M-x wf-runs` opens the view of the second run, which shows the question
+   as its head under the supervision `owned`. The handshake `held` gives the
+   harness the view, and the harness kills the manager with SIGKILL.
+7. With no key, the view reports the delivery `unreachable`. The handshake
+   `unreachable` gives the harness the view, and the harness starts the
+   manager again.
+8. With no key, the view reconnects and shows the supervision `lost` and
+   `Offers: none`. The handshake `quarantined` gives the harness the lines
+   and the choices of the view. The harness releases the quarantined
+   reservation of the second run and answers with a third run and its
+   pending person question.
+9. `M-x wf-runs` opens the view of the third run, `a` opens the answer editor
+   of the head, the script types `false`, and `C-c C-c` sends it once. The
+   handshake `answered` gives the harness the commands of the session, and
+   the harness answers it after the run has succeeded.
+10. `M-x wf-local` closes the session, and `C-x C-c` ends the second Emacs.
+
+The report has version 2. It holds the process identifiers of the two Emacs
+processes, the lines and the choices of each view, the commands of each
+session and the exit status and terminal attributes of each Emacs. The mode
+requires that the first session sent no command, that the views after each
+restart offer no cancel, that the view of the second run sent nothing
+across the manager loss, and that the one answer of the second session is
+from the rotated credential.
+
 The SSH/TRAMP gate starts an unprivileged server bound only to `127.0.0.1`,
 with temporary host and client keys, strict host-key checking, public-key-only
 authentication, and a private shell environment. It changes no account or

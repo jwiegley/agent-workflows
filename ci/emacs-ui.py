@@ -676,7 +676,7 @@ def service_case(args, directory: Path) -> None:
 
 # The facts of the service lifecycle. The emacs-service-lifecycle mode of
 # agent-cat manager/test/service_http.py states the same values.
-LIFECYCLE_REPORT_VERSION = 2
+LIFECYCLE_REPORT_VERSION = 3
 LIFECYCLE_FIRST = "Emacs lifecycle λ: first delayed run"
 LIFECYCLE_SECOND = "Emacs lifecycle λ: second delayed run"
 LIFECYCLE_CAPTURE = "Emacs capture λ ✓\nsecond line 雪\n"
@@ -843,9 +843,11 @@ def service_lifecycle_case(args, directory: Path) -> None:
     captured-input request of profile_steer captures the text of an editor
     buffer through the Buffer source, the second run is cancelled after
     the confirmation yes, and the offered steer of the captured run is
-    sent through its editor. At 40x12, M-x wf-history lists every page of
-    the runs, the first run is opened from its row and r saves its
-    verified result. At 80x24, F makes a fork child of the first run and R
+    sent through its editor. The open control prompt with the typed label
+    of the steer choice and the steer editor with the typed text each pass
+    through 40x12, 140x36 and 80x24 with their text kept. At 40x12, M-x
+    wf-history lists every page of the runs, the first run is opened from
+    its row and r saves its verified result. At 80x24, F makes a fork child of the first run and R
     a restart child of the second run, each approved after its exact
     review, and E exports the verified result of the fork child. The
     manager then stops and starts again while the view of the restart
@@ -966,17 +968,32 @@ def service_lifecycle_case(args, directory: Path) -> None:
                       if choice["description"].startswith("steer ") and choice["description"].endswith(", interrupt-now"))
         since = len(offered.get("messages", ""))
         session.send("c")
-        session.wait(lambda state: "Control of run " + captured["run"] in state.get("minibuffer", ""), "control-prompt", 60)
-        session.send(choice["label"] + "\r")
+        control = "Control of run " + captured["run"] + ": "
+        session.wait(lambda state: control in state.get("minibuffer", ""), "control-prompt", 60)
+        # The open control prompt and the steer editor each pass through
+        # SERVICE_SIZES with their typed text kept. The steer editor is
+        # resized back to 80x24 before C-c C-c.
+        session.send(choice["label"])
+        prompted = []
+        for width, height in SERVICE_SIZES:
+            session.resize(width, height)
+            prompted.append({"size": f"{width}x{height}",
+                             "text": session.wait(lambda state: state.get("minibuffer") == control + choice["label"],
+                                                  f"control-prompt-{width}x{height}")["minibuffer"]})
+        session.send("\r")
         session.wait(lambda state: state.get("buffer", "").startswith("*wf steer "), "steer-editor", 60)
         session.send(LIFECYCLE_STEER)
         session.wait(lambda state: state.get("text") == LIFECYCLE_STEER, "steer-typed")
+        steering = service_resized(session, "steer", lambda state: state.get("buffer", "").startswith("*wf steer ")
+                                   and state.get("text") == LIFECYCLE_STEER)
         session.send(b"\x03\x03")
         session.wait(service_said("wf: steer interrupt-now reached occurrence", since), "steered", 90)
         steered = session.wait(lambda state: "Terminal: succeeded" in service_view(state, captured["run"])["lines"], "steered-succeeded", 120)
         record("9", "c and " + choice["label"] + " opened the steer editor of run " + captured["run"]
-               + ", C-c C-c sent the typed text with the timing interrupt-now, and the run succeeded",
-               steerChoice=choice, steeredLines=service_view(steered, captured["run"])["lines"])
+               + ", the control prompt and the steer editor kept their typed text at 40x12, 140x36 and 80x24, C-c C-c"
+               " sent the typed text with the timing interrupt-now, and the run succeeded",
+               steerChoice=choice, controlPromptTexts=prompted, steerTexts=steering,
+               steeredLines=service_view(steered, captured["run"])["lines"])
 
         # 40x12: the history over every page, an earlier run and its result.
         session.resize(40, 12)

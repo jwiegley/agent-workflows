@@ -741,7 +741,11 @@ The lifecycle starts `Emacs -Q -nw` at 140×36 and acts only by keys:
    backtab, `RET` and `3` select the Buffer source, which captures that
    buffer. `C-c C-k` and the confirmation `yes` then cancel the second run,
    and `c` in the view of the captured run sends the offered steer with the
-   timing `interrupt-now` through the steer editor.
+   timing `interrupt-now` through the steer editor. The label of the steer
+   choice is typed in the open control prompt, which passes through 40×12,
+   140×36 and 80×24 with the label kept before `RET`. The steer text is typed
+   in the steer editor, which passes through the same sizes with the text
+   kept before `C-c C-c`.
 3. At 40×12, `M-x wf-history` lists the runs over every page, `RET` on the row
    of the first run opens its view, and `r` saves its verified result to a new
    file.
@@ -768,7 +772,8 @@ The lifecycle starts `Emacs -Q -nw` at 140×36 and acts only by keys:
    `C-x C-c` ends Emacs.
 
 The report holds the runs, the window points and view lines of step 1, the
-captured request, the cancel and steer facts, the history rows, the path of the
+captured request, the cancel and steer facts, the texts of the control prompt
+and the steer editor at each size, the history rows, the path of the
 saved file, the lineage children, the export buffer, the view lines around the
 restart, the waiting run and the terminal attributes of both Emacs processes.
 At each handshake, the harness records the commands of the manager. The mode

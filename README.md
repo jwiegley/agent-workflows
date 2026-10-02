@@ -836,12 +836,21 @@ Emacs credential and acts only by keys:
    the session records the refusal as its problem and shows it in
    `*Messages*`. The editor keeps its text, and for three seconds the
    session sends nothing more.
-5. `M-x wf-local` closes the session, and `C-x C-c` ends Emacs.
+5. The handshake `save-result` gives the harness the refusal and the
+   commands of the session. The harness answers it with the path of a new
+   file after the TUI has sent the offered retry and the run has succeeded.
+   `M-x wf-runs` opens the view of the run again, which shows terminal
+   success and the SHA-256 of the verified result, and `r` saves that
+   result to the path.
+6. `M-x wf-local` closes the session, and `C-x C-c` ends Emacs.
 
-The report holds the lines of the view, the refusal and the commands of the
-session. The mode requires that the session sent only the one refused
-answer, that the coordination database holds no command of the Emacs
-credential, and that the one answer of the head is the answer of Pi.
+The report has version 3. It holds the process identifier of Emacs, the
+lines of the view, the refusal, the commands of the session and the saved
+path. The mode requires that the session sent only the one refused answer,
+that the coordination database holds no command of the Emacs credential,
+that the one answer of the head is the answer of Pi, and that the saved file
+has mode 0600 and holds exactly the bytes of the verified download of the
+harness.
 
 The SSH/TRAMP gate starts an unprivileged server bound only to `127.0.0.1`,
 with temporary host and client keys, strict host-key checking, public-key-only

@@ -1293,7 +1293,7 @@ def service_controls_case(args, directory: Path) -> None:
 
 # The version of the report of the cross-client witness. The cross-client
 # mode of agent-cat manager/test/service_http.py requires the same version.
-WITNESS_REPORT_VERSION = 2
+WITNESS_REPORT_VERSION = 3
 # The answer that the witness types in the answer editor of the question.
 WITNESS_ANSWER = "false"
 # The seconds for which the witness watches the session after the refusal
@@ -1317,9 +1317,15 @@ def service_witness_case(args, directory: Path) -> None:
     the open editor once. The manager refuses that answer, and the session
     must record the refusal as its problem, show it in *Messages*, keep the
     editor with its text and send nothing more for WITNESS_QUIET seconds.
-    M-x wf-local then closes the session, and C-x C-c ends Emacs. The
-    report records the lines of the view, the refusal and the commands of
-    the session, and it is written again after each step."""
+    The handshake save-result then gives the harness the refusal and the
+    commands of the session, and the harness answers it with the path of a
+    new file after the run has succeeded. M-x wf-runs opens the view of the
+    run again, which must show terminal success and the SHA-256 of the
+    verified result, and r saves that result to the path. M-x wf-local then
+    closes the session, and C-x C-c ends Emacs. The report records the
+    process identifier of Emacs, the lines of the view, the refusal, the
+    commands of the session and the saved path, and it is written again
+    after each step."""
     profile, report_path = Path(args.service[0]).resolve(), Path(args.service[1]).resolve()
     handshake = args.service_handshake.resolve()
     emacs_directory = args.source.resolve().parent
@@ -1344,7 +1350,7 @@ def service_witness_case(args, directory: Path) -> None:
         session.send("\r")
         session.wait(lambda state: service_extra(state).get("service") is True
                      and "wf: service mode, endpoint" in state.get("messages", ""), "service-bound", 60)
-        record("1", "M-x wf-service selected the client profile " + str(profile) + " at 80x24")
+        record("1", "M-x wf-service selected the client profile " + str(profile) + " at 80x24", emacsPid=session.process.pid)
         ready = service_handshake(session, handshake, "witness-ready", {}, 180)
         run, question = ready["run"], ready["question"]
         service_open_view(session, run, "witness")
@@ -1384,12 +1390,35 @@ def service_witness_case(args, directory: Path) -> None:
                editorKept=editing(after) and after.get("text") == WITNESS_ANSWER,
                messagesAfter=after.get("messages", "")[max(0, since - 300):])
         report["sent"] = service_extra(session.state).get("sent", [])
+        saving = service_handshake(session, handshake, "save-result",
+                                   {"run": run, "refusal": problem, "sent": report["sent"], "sentAfterRefusal": report["sentAfterRefusal"],
+                                    "sentQuiet": report["sentQuiet"], "editorKept": report["editorKept"],
+                                    "messagesAfter": report["messagesAfter"]}, 480)
+        saved = Path(saving["path"])
+
+        # The verified result of the succeeded run, saved with r in its view.
+        service_open_view(session, run, "witness-result")
+        final = session.wait(lambda state: service_view(state, run) is not None
+                             and "Terminal: succeeded" in service_view(state, run)["lines"]
+                             and any(line.startswith("Result SHA-256: ") for line in service_view(state, run)["lines"]),
+                             "witness-succeeded", 120)
+        since = len(final.get("messages", ""))
+        session.send("r")
+        session.wait(lambda state: "Save the verified result of run " + run in state.get("minibuffer", ""), "witness-result-prompt", 60)
+        session.send(b"\x01\x0b" + str(saved).encode())
+        session.wait(lambda state: state.get("minibuffer", "").endswith(str(saved)), "witness-result-path")
+        session.send("\r")
+        stored = session.wait(lambda state: saved.exists() and service_said("saved the verified", since)(state), "witness-saved", 60)
+        record("5", "r in the view of run " + run + " saved its verified result to " + str(saved), savedPath=str(saved),
+               resultLines=[line for line in service_view(final, run)["lines"] if line.startswith(("Terminal: ", "Result"))],
+               savedMessage=next(line for line in reversed(stored.get("messages", "").splitlines())
+                                 if "saved the verified" in line and run in line))
         session.command("wf-local")
         session.wait(lambda state: service_extra(state).get("service") is False, "local")
         success = True
     finally:
         session.close(success)
-    record("5", "M-x wf-local closed the session, and C-x C-c ended Emacs with status 0 and the terminal attributes restored",
+    record("6", "M-x wf-local closed the session, and C-x C-c ended Emacs with status 0 and the terminal attributes restored",
            terminalBefore=session.before, terminalAfter=session.ended["attributes"], exitStatus=session.ended["status"])
 
 
@@ -1431,7 +1460,7 @@ def main() -> None:
             service_witness_case(args, artifacts / "witness")
             print("PASS cross-client witness by keys at 80x24: the view of a run of other clients showed its pending question, "
                   "the answer editor of that head sent once after another client answered it, the session showed the refusal "
-                  "and sent nothing more, and terminal restoration", flush=True)
+                  "and sent nothing more, r saved the verified result of the run, and terminal restoration", flush=True)
             return
         service_case(args, artifacts / "service")
         print("PASS service journey by keys at 80x24 with resizes to 40x12 and 140x36, and terminal restoration", flush=True)

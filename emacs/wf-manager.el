@@ -1251,6 +1251,20 @@ or nil."
   (parent-run-id nil :read-only t)
   (lineage nil :read-only t))
 
+(cl-defstruct (wf-manager-capture-receipt
+               (:constructor wf-manager-capture-receipt-make)
+               (:copier nil))
+  "The receipt of one capture of exact bytes for a request.
+ID, REQUEST-ID and PROFILE-ID are bounded identifiers.  BYTES is the
+exact byte count, at most `wf-manager-capture-bytes', and SHA256 the
+lowercase SHA-256 digest of the bytes.  The `captureId' of a capture
+input is ID."
+  (id nil :read-only t)
+  (request-id nil :read-only t)
+  (profile-id nil :read-only t)
+  (bytes nil :read-only t)
+  (sha256 nil :read-only t))
+
 (cl-defstruct (wf-manager-review-input
                (:constructor wf-manager-review-input-make)
                (:copier nil))
@@ -1862,6 +1876,23 @@ declaration without a supplied input, in declaration order."
       (wf-manager--refuse))
     (wf-manager-readiness-make :declarations declarations :supplied supplied
                                :missing missing :errors errors)))
+
+(defconst wf-manager-capture-bytes 67108864
+  "The largest capture, in bytes.
+This is the `captureBytes' limit of the capabilities.")
+
+(defun wf-manager--parse-capture-receipt (value)
+  "Return the `wf-manager-capture-receipt' of the JSON VALUE, or refuse."
+  (let ((fields (wf-manager--exact value '("version" "id" "requestId" "profileId"
+                                           "bytes" "sha256"))))
+    (unless (wf-manager--version-one-p fields) (wf-manager--refuse))
+    (wf-manager-capture-receipt-make
+     :id (wf-manager--identifier (gethash "id" fields))
+     :request-id (wf-manager--identifier (gethash "requestId" fields))
+     :profile-id (wf-manager--identifier (gethash "profileId" fields))
+     :bytes (wf-manager--ensure (wf-manager--decimal-value
+                                 (gethash "bytes" fields) 8 wf-manager-capture-bytes))
+     :sha256 (wf-manager--digest (gethash "sha256" fields)))))
 
 (defun wf-manager--parse-draft (value)
   "Return the `wf-manager-draft' of the JSON VALUE, or refuse."
@@ -2721,6 +2752,16 @@ VALUE is a version 1 request resource, or one item of the request
 collection, whose self link names its own identifier.  Any other VALUE
 signals `wf-manager-invalid-response'."
   (wf-manager--decode-resource "request" #'wf-manager--parse-draft value))
+
+(defun wf-manager-decode-capture-receipt (value)
+  "Return the `wf-manager-capture-receipt' of the JSON VALUE.
+This is `decodeCaptureReceipt' of `ext-pi/src/manager/resources.ts'.
+VALUE is a version 1 object with exactly the members version, id,
+requestId, profileId, bytes and sha256.  The byte count is canonical
+decimal text of at most `wf-manager-capture-bytes'.  Any other VALUE
+signals `wf-manager-invalid-response'."
+  (wf-manager--decode-resource "capture receipt" #'wf-manager--parse-capture-receipt
+                               value))
 
 (defun wf-manager-encode-draft (draft)
   "Return the JSON value of DRAFT, a `wf-manager-draft'."
@@ -3969,17 +4010,18 @@ request of `wf-manager-post-bytes'.  CALLBACK runs one time with a
   (wf-manager-post-bytes transport resource (wf-manager-json-encode body)
                          key if-match callback))
 
-(defun wf-manager--check-command (bytes key if-match)
+(defun wf-manager--check-command (bytes key if-match &optional limit)
   "Signal `wf-manager-invalid-request' unless a command can be sent.
 BYTES are the body, KEY the idempotency key and IF-MATCH the entity
-tag of the precondition or nil."
-  (unless (and (stringp bytes) (not (multibyte-string-p bytes)))
-    (wf-manager--fail 'wf-manager-invalid-request "command"
-                      "the command body is not a unibyte string"))
-  (when (> (length bytes) wf-manager-command-bytes)
-    (wf-manager--fail 'wf-manager-invalid-request "command"
-                      "the command has more than %d bytes"
-                      wf-manager-command-bytes))
+tag of the precondition or nil.  LIMIT is the largest body in bytes,
+and nil means `wf-manager-command-bytes'."
+  (let ((limit (or limit wf-manager-command-bytes)))
+    (unless (and (stringp bytes) (not (multibyte-string-p bytes)))
+      (wf-manager--fail 'wf-manager-invalid-request "command"
+                        "the command body is not a unibyte string"))
+    (when (> (length bytes) limit)
+      (wf-manager--fail 'wf-manager-invalid-request "command"
+                        "the command has more than %d bytes" limit)))
   (unless (wf-manager-valid-key-p key)
     (wf-manager--fail 'wf-manager-invalid-request "Idempotency-Key"
                       "the key is not 1 to 128 visible ASCII characters"))
@@ -3987,21 +4029,32 @@ tag of the precondition or nil."
     (wf-manager--fail 'wf-manager-invalid-request "If-Match"
                       "the precondition is not a strong entity tag")))
 
-(defun wf-manager-post-bytes (transport resource bytes key if-match callback)
+(defconst wf-manager-capture-media "application/octet-stream"
+  "The media type of the body of a capture.")
+
+(defun wf-manager-post-bytes (transport resource bytes key if-match callback
+                                        &optional media)
   "On TRANSPORT, send one POST to RESOURCE of the exact JSON BYTES.
 Return the exchange.  BYTES is a unibyte string, the exact body.  KEY
 is the idempotency key, and IF-MATCH is a strong entity tag or nil.
 The request has the headers Authorization, Accept, Content-Type,
 Idempotency-Key and, when IF-MATCH is non-nil, If-Match.  The
 transport sends it one time and never sends it again.  CALLBACK runs
-one time with a `wf-manager-reply' or a failure.  A body that is not a
-unibyte string or has more than `wf-manager-command-bytes' bytes, an
-invalid KEY and an invalid IF-MATCH signal `wf-manager-invalid-request'
-before any send."
-  (wf-manager--check-command bytes key if-match)
+one time with a `wf-manager-reply' or a failure.  The Content-Type is
+application/json, or MEDIA when it is `wf-manager-capture-media', for
+the raw bytes of a capture.  A body that is not a
+unibyte string or has more than `wf-manager-command-bytes' bytes (for
+a capture, `wf-manager-capture-bytes'), an invalid KEY and an invalid
+IF-MATCH signal `wf-manager-invalid-request' before any send."
+  (let ((capture (equal media wf-manager-capture-media)))
+    (when (and media (not capture))
+      (wf-manager--fail 'wf-manager-invalid-request "Content-Type"
+                        "%S is not a media type of a command" media))
+    (wf-manager--check-command bytes key if-match
+                               (and capture wf-manager-capture-bytes)))
   (wf-manager--send transport
                     (list "POST" resource
-                          `(("Content-Type" . "application/json")
+                          `(("Content-Type" . ,(or media "application/json"))
                             ,@(and if-match (list (cons "If-Match" if-match)))
                             ("Idempotency-Key" . ,key))
                           bytes "application/json")
@@ -5115,12 +5168,15 @@ change."
   "A prepared command of one binding of a session.
 REFERENCE is the `wf-manager-reference' of its target.  BYTES is its
 exact JSON body, a unibyte string.  KEY is its idempotency key, and
-IF-MATCH is the entity tag of its precondition or nil.  Each send of
-one command sends the same bytes under the same key and precondition."
+IF-MATCH is the entity tag of its precondition or nil.  MEDIA is nil
+for a JSON command, or `wf-manager-capture-media' for the raw bytes of
+a capture.  Each send of one command sends the same bytes under the
+same key, precondition and media type."
   (reference nil :read-only t)
   (bytes nil :read-only t)
   (key nil :read-only t)
-  (if-match nil :read-only t))
+  (if-match nil :read-only t)
+  (media nil :read-only t))
 
 (cl-defstruct (wf-manager-sent
                (:constructor wf-manager--sent-make)
@@ -5129,7 +5185,9 @@ one command sends the same bytes under the same key and precondition."
 KIND is `delivered', `refused' or `uncertain'.  A delivered command has
 the 2xx `wf-manager-reply' REPLY and LOCATION, the
 `wf-manager-reference' of its Location header.  RECEIPT is the decoded
-`wf-manager-command-receipt' of a 202 reply, or nil.  A refused command
+`wf-manager-command-receipt' of a 202 reply, or nil.  CAPTURE is the
+decoded `wf-manager-capture-receipt' of a delivered capture, whose
+Location names its capture command, or nil.  A refused command
 has the FAILURE that proves that the manager holds no command under
 its key: a 412 stale-revision refusal, or a refusal before any
 request.  An uncertain command has the FAILURE of the send, or nil
@@ -5139,6 +5197,7 @@ when a 2xx reply does not agree with the command, and UNCERTAIN, the
   (reply nil :read-only t)
   (location nil :read-only t)
   (receipt nil :read-only t)
+  (capture nil :read-only t)
   (failure nil :read-only t)
   (uncertain nil :read-only t))
 
@@ -5175,6 +5234,36 @@ signals `wf-manager-closed', a REFERENCE of another binding signals
     (wf-manager--pending-make :reference reference :bytes bytes :key key
                               :if-match if-match)))
 
+(defun wf-manager-session-prepare-capture (session request-id bytes)
+  "On SESSION, prepare the capture for REQUEST-ID of the exact BYTES.
+Return the `wf-manager-pending'.  This is `prepareCapture' of
+`ext-pi/src/manager/session.ts': a POST of
+/v1/captures?requestId=REQUEST-ID with the media type
+`wf-manager-capture-media', a new idempotency key and no If-Match.
+BYTES is a unibyte string of UTF-8 text.  The manager receives the
+bytes and never a file name.  A REQUEST-ID that is not a bounded
+identifier signals `wf-manager-invalid-endpoint'.  BYTES above
+`wf-manager-capture-bytes' signal `wf-manager-response-too-large', and
+BYTES that are not a unibyte string of UTF-8 text signal
+`wf-manager-invalid-response', as `prepareCapture' refuses them."
+  (unless (wf-manager-valid-id-p request-id)
+    (wf-manager--fail 'wf-manager-invalid-endpoint "requestId"
+                      "%S is not a bounded identifier" request-id))
+  (let ((reference (wf-manager-session-reference
+                    session (concat "/v1/captures?requestId=" request-id))))
+    (wf-manager--session-check session reference)
+    (unless (and (stringp bytes) (not (multibyte-string-p bytes)))
+      (wf-manager--fail 'wf-manager-invalid-response "capture"
+                        "the capture is not a unibyte string"))
+    (when (> (length bytes) wf-manager-capture-bytes)
+      (wf-manager--fail 'wf-manager-response-too-large "capture"
+                        "the capture has more than %d bytes" wf-manager-capture-bytes))
+    (wf-manager--utf-8 'wf-manager-invalid-response "capture" bytes)
+    (let ((key (wf-manager-command-key (wf-manager-session-connection session))))
+      (wf-manager--check-command bytes key nil wf-manager-capture-bytes)
+      (wf-manager--pending-make :reference reference :bytes bytes :key key
+                                :if-match nil :media wf-manager-capture-media))))
+
 (defun wf-manager--sent-uncertain (command failure)
   "Return the uncertain `wf-manager-sent' of COMMAND with FAILURE."
   (wf-manager--sent-make
@@ -5195,6 +5284,23 @@ OUTCOME is a `wf-manager-reply' or a failure."
     (wf-manager--sent-uncertain command outcome))
    ((null (wf-manager-reply-location outcome))
     (wf-manager--sent-uncertain command nil))
+   ((wf-manager-pending-media command)
+    ;; A capture answers 202 with its capture receipt, and its Location
+    ;; names the capture command, as `captureResponse' requires.
+    (let ((capture (condition-case nil
+                       (wf-manager-decode-capture-receipt (wf-manager-reply-value outcome))
+                     (wf-manager-error nil)))
+          (location (wf-manager-reply-location outcome)))
+      (if (and capture (= (wf-manager-reply-status outcome) 202)
+               (string-prefix-p "/v1/commands/" location)
+               (wf-manager-valid-id-p (substring location 13)))
+          (wf-manager--sent-make
+           :kind 'delivered :reply outcome :capture capture
+           :location (wf-manager-reference-make
+                      :endpoint (wf-manager-reference-endpoint
+                                 (wf-manager-pending-reference command))
+                      :uri location))
+        (wf-manager--sent-uncertain command nil))))
    (t
     (let ((location (wf-manager-reference-make
                      :endpoint (wf-manager-reference-endpoint
@@ -5225,7 +5331,10 @@ that signals before any request are `refused' with their failure,
 because no request left the client.  Every other failure, and a 2xx
 reply without a Location or a 202 reply whose receipt does not agree
 with its Location, is `uncertain'.  A 2xx reply with a Location is
-`delivered', and a 202 reply then carries its decoded receipt."
+`delivered', and a 202 reply then carries its decoded receipt.  A
+capture is `delivered' only as a 202 reply with its capture receipt and
+a Location that names its capture command, and it is otherwise
+`uncertain'."
   (let ((refusal (wf-manager--session-refusal
                   session (wf-manager-reference-endpoint
                            (wf-manager-pending-reference command)))))
@@ -5240,13 +5349,14 @@ with its Location, is `uncertain'.  A 2xx reply with a Location is
            (wf-manager-pending-key command)
            (wf-manager-pending-if-match command)
            (lambda (outcome)
-             (funcall callback (wf-manager--sent-of command outcome))))
+             (funcall callback (wf-manager--sent-of command outcome)))
+           (wf-manager-pending-media command))
         (wf-manager-error
          (run-at-time 0 nil callback (wf-manager--sent-make :kind 'refused
                                                             :failure failure))))))
   nil)
 
-(defun wf-manager--session-read (session reference callback)
+(defun wf-manager-session-read (session reference callback)
   "On SESSION, send one GET of REFERENCE and return nil.
 CALLBACK runs one time, after this function returns, with the
 `wf-manager-reply' of status 200 or a failure.  A closed SESSION and a
@@ -5265,7 +5375,7 @@ LOCATION is the `wf-manager-reference' of the Location of a delivered
 command.  CALLBACK runs one time with the decoded
 `wf-manager-command-receipt', or with a failure.  A receipt whose
 identifier does not name LOCATION is `wf-manager-invalid-response'."
-  (wf-manager--session-read
+  (wf-manager-session-read
    session location
    (lambda (outcome)
      (funcall
@@ -5299,7 +5409,7 @@ precondition.  A failed read, an undecodable receipt and a read without
 an entity tag stay uncertain."
   (let* ((supplied (wf-manager-reconciliation-supplied reconciliation))
          (read (wf-manager-reconcile-read uncertain supplied)))
-    (wf-manager--session-read
+    (wf-manager-session-read
      session (nth 1 read)
      (lambda (outcome)
        (let ((observation
@@ -5455,7 +5565,7 @@ runs one time with a `wf-manager-reconciliation'."
       (let ((reference (wf-manager-session-reference
                         session (concat "/v1/runs/" (wf-manager-decision-run-id decision)
                                         "/snapshot"))))
-        (wf-manager--session-read
+        (wf-manager-session-read
          session reference
          (lambda (outcome)
            (funcall callback

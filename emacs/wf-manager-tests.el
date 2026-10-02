@@ -2931,6 +2931,156 @@ not in the list."
         (dolist (advice advices)
           (advice-remove (car advice) (cdr advice)))))))
 
+;;;; Captures, setup and the exact review
+
+(defconst wf-manager-tests--capture-receipt
+  (concat "{\"version\":1,\"id\":\"capture_1\",\"requestId\":\"req_8\","
+          "\"profileId\":\"profile_main\",\"bytes\":\"5\",\"sha256\":\""
+          (make-string 64 ?a) "\"}")
+  "The JSON text of a capture receipt of five bytes.")
+
+(defun wf-manager-tests--capture-refusal (edit)
+  "Return the condition of a decode of the capture receipt after EDIT.
+EDIT changes the decoded object in place."
+  (let ((value (wf-manager-json-decode wf-manager-tests--capture-receipt)))
+    (funcall edit value)
+    (car (should-error (wf-manager-decode-capture-receipt value)))))
+
+(ert-deftest wf-manager-capture-receipt-decoding ()
+  "Decode a capture receipt, and refuse each receipt that breaks a rule."
+  (let ((receipt (wf-manager-decode-capture-receipt
+                  (wf-manager-json-decode wf-manager-tests--capture-receipt))))
+    (should (equal (wf-manager-capture-receipt-id receipt) "capture_1"))
+    (should (equal (wf-manager-capture-receipt-request-id receipt) "req_8"))
+    (should (equal (wf-manager-capture-receipt-profile-id receipt) "profile_main"))
+    (should (= (wf-manager-capture-receipt-bytes receipt) 5))
+    (should (equal (wf-manager-capture-receipt-sha256 receipt) (make-string 64 ?a))))
+  (dolist (edit (list (lambda (value) (puthash "version" (wf-manager-json-integer 2) value))
+                      (lambda (value) (puthash "bytes" "05" value))
+                      (lambda (value) (puthash "bytes" "67108865" value))
+                      (lambda (value) (puthash "sha256" (make-string 64 ?A) value))
+                      (lambda (value) (puthash "id" "a b" value))
+                      (lambda (value) (puthash "extra" "x" value))
+                      (lambda (value) (remhash "profileId" value))))
+    (should (eq (wf-manager-tests--capture-refusal edit) 'wf-manager-invalid-response))))
+
+(ert-deftest wf-manager-session-capture-send ()
+  "Send the exact bytes of a capture once and decode its capture receipt.
+The POST has the media type application/octet-stream, an idempotency
+key and no If-Match.  An identifier that is not bounded and bytes that
+are not UTF-8 refuse before any send."
+  (let ((bytes (encode-coding-string "Café λ\r\n" 'utf-8-unix)))
+    (wf-manager-tests--with-commands
+     (list "/v1/captures?requestId=req_8"
+           (list (wf-manager-tests--json 202 wf-manager-tests--capture-receipt
+                                         (list "Location: /v1/commands/command_9"))))
+     (lambda (listener session _decision)
+       (should (eq (car (should-error (wf-manager-session-prepare-capture session "a b" bytes)))
+                   'wf-manager-invalid-endpoint))
+       (should (eq (car (should-error (wf-manager-session-prepare-capture
+                                       session "req_8" (unibyte-string #xff #xfe))))
+                   'wf-manager-invalid-response))
+       (should (eq (car (should-error (wf-manager-session-prepare-capture
+                                       session "req_8" "λ")))
+                   'wf-manager-invalid-response))
+       (should (= (wf-manager-tests--posts listener) 0))
+       (let* ((command (wf-manager-session-prepare-capture session "req_8" bytes))
+              (sent (wf-manager-tests--outcome
+                     (lambda (callback) (wf-manager-session-send session command callback))))
+              (posted (car (cl-remove-if-not (lambda (request) (string-prefix-p "POST " request))
+                                             (wf-manager-tests--listener-requests listener))))
+              (headers (wf-manager-tests--request-headers posted)))
+         (should (= (wf-manager-tests--posts listener) 1))
+         (should (equal (wf-manager-tests--target posted) "/v1/captures?requestId=req_8"))
+         (should (equal (cdr (assoc "content-type" headers)) "application/octet-stream"))
+         (should (equal (cdr (assoc "idempotency-key" headers)) (wf-manager-pending-key command)))
+         (should-not (assoc "if-match" headers))
+         (should (equal (substring posted (+ 4 (string-search "\r\n\r\n" posted))) bytes))
+         (should (eq (wf-manager-sent-kind sent) 'delivered))
+         (should (equal (wf-manager-reference-uri (wf-manager-sent-location sent))
+                        "/v1/commands/command_9"))
+         (should (equal (wf-manager-capture-receipt-id (wf-manager-sent-capture sent))
+                        "capture_1")))))))
+
+(ert-deftest wf-service-setup-refresh-keeps-drafts ()
+  "Draw a service setup form again and keep every draft and the point.
+The specs of the form are the specs of its spec function."
+  (let* ((row '((name . "service-setup") (inputs . (((name . "first")) ((name . "second"))))))
+         (specs nil))
+    (cl-letf (((symbol-function 'recursive-edit)
+               (lambda ()
+                 (should (eq major-mode 'wf--setup-mode))
+                 (should (string-search "Request one" (buffer-string)))
+                 (let ((first (car wf--setup-fields))
+                       (second (cadr wf--setup-fields)))
+                   (goto-char (widget-field-start (plist-get first :widget)))
+                   (insert "Café λ")
+                   (goto-char (widget-field-start (plist-get second :widget)))
+                   (insert "two")
+                   (backward-char 1)
+                   (let ((widget (plist-get first :widget)))
+                     (wf--setup-refresh "Request two")
+                     (should-not (eq widget (plist-get first :widget))))
+                   (should (string-search "Request two" (buffer-string)))
+                   (should-not (string-search "Request one" (buffer-string)))
+                   (should (equal (widget-value (plist-get first :widget)) "Café λ"))
+                   (should (equal (widget-value (plist-get second :widget)) "two"))
+                   (should (= (point) (+ 2 (widget-field-start (plist-get second :widget)))))
+                   (should (equal wf--setup-context '(:request "req_8")))
+                   (wf--setup-submit)))))
+      (setq specs (wf--setup-inputs row (lambda (name source text) (list name source text))
+                                    "Request one" '(:request "req_8"))))
+    (should (equal specs '(("first" literal "Café λ") ("second" literal "two"))))))
+
+(ert-deftest wf-service-setup-spec-sources ()
+  "Literal and Multiline give literals, and the other sources give exact bytes."
+  (should (equal (wf-service--setup-spec "input" 'literal "λ")
+                 '((name . "input") (source . "literal") (value . "λ"))))
+  (should (equal (wf-service--setup-spec "input" 'multiline "a\nb")
+                 '((name . "input") (source . "literal") (value . "a\nb"))))
+  (let ((spec (wf-service--setup-spec "input" 'buffer "Ü\r\n")))
+    (should (equal (alist-get 'source spec) "capture"))
+    (should (equal (alist-get 'bytes spec) (encode-coding-string "Ü\r\n" 'utf-8-unix)))
+    (should-not (multibyte-string-p (alist-get 'bytes spec))))
+  (let ((file (make-temp-file "wf-capture-")))
+    (unwind-protect
+        (let ((bytes (encode-coding-string "line λ\r\nnext\n" 'utf-8-unix)))
+          (let ((coding-system-for-write 'no-conversion))
+            (write-region bytes nil file nil 'silent))
+          (should (equal (alist-get 'bytes (wf-service--setup-spec "input" 'file file)) bytes))
+          (should-error (wf-service--setup-spec "input" 'file "") :type 'user-error)
+          (should-error (wf-service--setup-spec "input" 'file (concat file ".absent"))
+                        :type 'user-error))
+      (delete-file file))))
+
+(ert-deftest wf-service-review-text-is-the-exact-review ()
+  "The review text states every selector, the entity tag and the admission."
+  (let* ((case (cl-find "live preparation with scripted policy"
+                        (wf-manager-tests--cases "resources.preparations")
+                        :key (lambda (vector) (gethash "name" vector)) :test #'equal))
+         (preparation (wf-manager-decode-preparation
+                       (wf-manager-json-decode (gethash "json" case))))
+         (draft (wf-manager-decode-draft
+                 (wf-manager-json-decode (wf-manager-tests--draft-json "req_8" "request_rev_1"))))
+         (review (wf-service--review-make :draft draft :lines '("Request req_8: queued")
+                                          :preparation preparation :etag "\"prep_rev\""))
+         (text (wf-service-review-text review)))
+    (dolist (selector wf-service--selectors)
+      (should (string-search (format "  %s: %s\n" (car selector) (funcall (cdr selector) preparation))
+                             text)))
+    (should (string-search "  If-Match: \"prep_rev\"\n" text))
+    (should (string-search (format "Program SHA-256: %s\n"
+                                   (wf-manager-review-program-hash (wf-manager-preparation-review preparation)))
+                           text))
+    (should (string-search "  Request req_8: queued\n" text))
+    (should (string-search "Blocking reasons: missing-inputs\n" text))
+    (should (string-search "Queue position: none\n" text))
+    (should (string-search
+             (concat "  " (car (split-string (wf-manager-review-plan
+                                              (wf-manager-preparation-review preparation))
+                                             "\n")))
+             text))))
+
 (provide 'wf-manager-tests)
 
 ;;; wf-manager-tests.el ends here

@@ -30,7 +30,7 @@
 ;;       -f ert-run-tests-batch-and-exit
 ;;
 ;; `ci/emacs.sh' compiles and checks this file, and it does not run it.
-;; The one test runs these twelve steps in order:
+;; The one test runs these thirteen steps in order:
 ;;
 ;;   1. bind: `wf-manager-connect' binds a transport by GET
 ;;      /v1/capabilities over TLS, with the CA file of the profile as the
@@ -106,14 +106,30 @@
 ;;      M-x wf-service selects the profile and connects service mode.
 ;;      M-x wf-run lists the ready profiles and then the catalogue of
 ;;      the selected profile in *Completions*, and the test keeps each
-;;      listing with a key of its own.  The selection of
-;;      `wf-manager-live-workflow' then gives the refusal of `wf-run'.
+;;      listing with a key of its own.  \`C-g' in the workflow prompt
+;;      then ends `wf-run' with no refusal, before any request exists.
 ;;      M-x wf-help shows the help text of that workflow.  Each command
 ;;      of `wf-manager-live--local-commands' refuses with the message of
 ;;      `wf-service-refusal' and starts no process and sends no request.
 ;;      M-x wf-diagnostics shows the diagnostics of the session with the
 ;;      delivery state `poll', and M-x wf-local closes the session and
 ;;      returns to local mode.
+;;  13. requests: the keys select the profile of WF_MANAGER_PROFILE with
+;;      M-x wf-service again and run M-x wf-run three times.  The first
+;;      request, of the workflow prompt-source, receives
+;;      `wf-manager-live-mixed-text' through the Multiline source of the
+;;      setup form.  M-x wf-refresh in the open form reads the request
+;;      again and draws the form again, and a probe key keeps the value
+;;      of the input before and after.  The second request, of the
+;;      workflow captured-input, uploads the bytes of a file of
+;;      `wf-manager-live-captured' through the File source.  The test
+;;      approves each review with \`a' and the answer yes, and a probe key
+;;      keeps the text and the state of each review buffer.  The third
+;;      request, of prompt-source, receives `wf-manager-live-declined'.
+;;      Its review is declined with \`a' and the answer no, which sends
+;;      nothing, then discarded with \`d' and withdrawn with \`w'.  Advice of
+;;      `wf-manager-session-send' keeps every command that the step sends.
+;;      M-x wf-local then closes the session.
 ;;
 ;; No step before the service step may prompt.  Each prompt function of
 ;; `wf-manager-live--prompt-functions' counts a call and signals an
@@ -182,7 +198,7 @@
 ;;   serviceIdentity   the endpoint identity of the service-mode session
 ;;   serviceProfiles   the sorted profile candidates that wf-run listed
 ;;   serviceWorkflows  the sorted workflow candidates that wf-run listed
-;;   serviceRunRefusal the refusal of wf-run after the selection
+;;   serviceRunRefusal the refusal of wf-run after the listings, null
 ;;   serviceHelp       the text of the help buffer of wf-help
 ;;   serviceRefusals   an object that maps each local-only command to
 ;;                     its refusal
@@ -191,6 +207,23 @@
 ;;   serviceDiagnostics  the text of the diagnostics buffer
 ;;   serviceLocal      true when wf-local closed the session and
 ;;                     returned to local mode
+;;   editorBefore      the value of the input before the refresh
+;;   editorAfter       the value of the input after the refresh
+;;   editorRedrawn     true when the refresh drew new widgets
+;;   literalRequestId, literalPreparationId, literalReviewDigest,
+;;   literalEtag, literalReviewText, literalRunId, literalOutcomes
+;;                     the request, the preparation, the review digest,
+;;                     the entity tag, the text of the review buffer, the
+;;                     run and the sent operations of the first review.
+;;                     The fields with the prefixes captured and declined
+;;                     are those of the second and the third review.
+;;   capturedBytes     the number of the bytes of the captured file
+;;   capturedSha256    the SHA-256 digest of those bytes
+;;   declinedSentAfterNo  the operations that the third review had sent
+;;                     after the answer no
+;;   requestCommands   each command of the requests step in order, with
+;;                     its resource, media type, If-Match and body.  A
+;;                     capture body is its byte count and SHA-256 digest.
 ;;
 ;; The harness compares `harnessVersion' with its own constant and
 ;; refuses a report of another version, so that a mismatched pair of the
@@ -204,7 +237,7 @@
 (require 'wf-manager)
 (require 'wf-service)
 
-(defconst wf-manager-live-harness-version 5
+(defconst wf-manager-live-harness-version 6
   "The version of the report of this file.
 The emacs-client mode of agent-cat states the same version.")
 
@@ -883,8 +916,7 @@ the listings, the refusals and the diagnostics in REPORT."
             ;; The catalogue: the profile prompt, then the workflow prompt
             ;; of `wf--read-row'.  Each ? lists the candidates in
             ;; *Completions*, and <f9> keeps them.
-            (let ((refusal (wf-manager-live--keys "M-x wf-run RET ? <f9> RET ? <f9>"
-                                                  (vconcat wf-manager-live-workflow) "RET")))
+            (let ((refusal (wf-manager-live--keys "M-x wf-run RET ? <f9> RET ? <f9> C-g")))
               (should (= (length wf-manager-live--captures) 2))
               (let ((workflows (wf-manager-live--listed (nth 0 wf-manager-live--captures)))
                     (profiles (wf-manager-live--listed (nth 1 wf-manager-live--captures))))
@@ -892,8 +924,7 @@ the listings, the refusals and the diagnostics in REPORT."
                 (puthash "serviceWorkflows" (vconcat workflows) report)
                 (puthash "serviceRunRefusal" (or refusal :null) report)
                 (should (member wf-manager-live-workflow workflows))
-                (should (equal refusal (format "Service mode does not yet create a request of %s in %s"
-                                               wf-manager-live-workflow (car profiles))))
+                (should-not refusal)
                 ;; wf-help shows the help text of the catalogue.
                 (should-not (wf-manager-live--keys "M-x wf-help RET RET"
                                                    (vconcat wf-manager-live-workflow) "RET"))
@@ -944,13 +975,174 @@ the listings, the refusals and the diagnostics in REPORT."
       (when wf-service--current
         (wf-local)))))
 
+;;;; The requests step
+
+(defconst wf-manager-live-mixed-text "Café λ — explicit false.\nSecond line."
+  "The literal of the setup form of the requests step.
+MIXED_TEXT of `manager/test/service_http.py' states the same text.")
+
+(defconst wf-manager-live-captured "Emacs captured Ünïcode λ\r\nsecond line\n"
+  "The text of the file that the captured input of the requests step uploads.
+EMACS_CAPTURED of `manager/test/service_http.py' states the same text.")
+
+(defconst wf-manager-live-declined "Emacs decline λ."
+  "The literal of the request whose review the requests step declines.")
+
+(defvar wf-manager-live--editor nil
+  "The probes of the setup form of the requests step, the newest first.
+Each probe is (VALUES WIDGETS HEADER): the values and the widgets of the
+inputs of the form and its header.")
+
+(defvar wf-manager-live--reviews nil
+  "The probes of the review buffers of the requests step, the newest first.
+Each probe is (TEXT REVIEW OUTCOMES): the text of the buffer, its
+`wf-service--review' and the operations that the review had sent at
+the probe, the oldest first.")
+
+(defvar wf-manager-live--sent nil
+  "The commands that the requests step sent, the newest first.
+Each item is (RESOURCE MEDIA IF-MATCH BYTES) of one
+`wf-manager-pending'.")
+
+(defun wf-manager-live--probe-editor ()
+  "Keep the values, the widgets and the header of this setup form."
+  (interactive)
+  (push (list (mapcar (lambda (field) (widget-value (plist-get field :widget))) wf--setup-fields)
+              (mapcar (lambda (field) (plist-get field :widget)) wf--setup-fields)
+              wf--setup-header)
+        wf-manager-live--editor))
+
+(defun wf-manager-live--probe-review ()
+  "Keep the text and the review of this review buffer."
+  (interactive)
+  (push (list (buffer-substring-no-properties (point-min) (point-max))
+              wf-service--review-state
+              (mapcar #'car (reverse (wf-service--review-outcomes wf-service--review-state))))
+        wf-manager-live--reviews))
+
+(defun wf-manager-live--record-send (_session command _callback)
+  "Keep the resource, the media type, the precondition and the bytes of COMMAND."
+  (push (list (wf-manager-reference-uri (wf-manager-pending-reference command))
+              (wf-manager-pending-media command)
+              (wf-manager-pending-if-match command)
+              (wf-manager-pending-bytes command))
+        wf-manager-live--sent))
+
+(defun wf-manager-live--review-fields (probe prefix report)
+  "Record the review PROBE with field names that start with PREFIX.
+The fields go into REPORT."
+  (pcase-let* ((`(,text ,review ,outcomes) probe)
+               (preparation (wf-service--review-preparation review)))
+    (puthash (concat prefix "RequestId") (wf-manager-preparation-request-id preparation) report)
+    (puthash (concat prefix "PreparationId") (wf-manager-preparation-id preparation) report)
+    (puthash (concat prefix "ReviewDigest") (wf-manager-preparation-review-digest preparation) report)
+    (puthash (concat prefix "Etag") (wf-service--review-etag review) report)
+    (puthash (concat prefix "ReviewText") text report)
+    (puthash (concat prefix "RunId") (or (wf-service--review-run review) :null) report)
+    (puthash (concat prefix "Outcomes") (vconcat outcomes) report)))
+
+(defun wf-manager-live--requests (file report)
+  "Create, set up, review and approve or decline three requests with keys.
+FILE is the client profile file.  The keys select FILE with
+`wf-service' and run `wf-run' three times.  The first request of
+prompt-source receives `wf-manager-live-mixed-text' through the
+Multiline source, and `wf-refresh' reads the request again while the
+form is open.  The second request of captured-input uploads the file of
+`wf-manager-live-captured' through the File source.  Both reviews are
+approved with \\`a' and the answer yes.  The third request of
+prompt-source receives `wf-manager-live-declined', and its review is
+declined with \\`a' and the answer no, then discarded with \\`d' and
+withdrawn with \\`w'.  Record the probes and the sent commands in
+REPORT."
+  (setq wf-manager-live--editor nil
+        wf-manager-live--reviews nil
+        wf-manager-live--sent nil)
+  (let* ((wf-manager-profiles (list file))
+         (suggest-key-bindings nil)
+         (extended-command-suggest-shorter nil)
+         (captured (expand-file-name "emacs-captured.txt" temporary-file-directory))
+         (bytes (encode-coding-string wf-manager-live-captured 'utf-8-unix))
+         (history (wf--input-history "prompt-source" "input")))
+    (let ((coding-system-for-write 'no-conversion))
+      (write-region bytes nil captured nil 'silent))
+    (global-set-key (kbd "<f7>") #'wf-manager-live--probe-editor)
+    (global-set-key (kbd "<f8>") #'wf-manager-live--probe-review)
+    (advice-add 'wf-manager-session-send :before #'wf-manager-live--record-send)
+    (unwind-protect
+        (progn
+          (should-not (wf-manager-live--keys "M-x wf-service RET" (vconcat file) "RET"))
+          ;; The literal: the Multiline source is item 1 of the source
+          ;; menu, two widgets before the value.  RET inserts the line end.
+          (set history nil)
+          (let ((lines (split-string wf-manager-live-mixed-text "\n")))
+            (should-not (wf-manager-live--keys
+                         "M-x wf-run RET RET prompt-source RET <backtab> <backtab> RET 1"
+                         (vconcat (nth 0 lines)) "RET" (vconcat (nth 1 lines))
+                         "<f7> M-x wf-refresh RET <f7> C-c C-c <f8> a" (vconcat "yes") "RET <f8>")))
+          (should (= (length wf-manager-live--editor) 2))
+          (pcase-let ((`((,after ,after-widgets ,after-header) (,before ,before-widgets ,_))
+                       wf-manager-live--editor))
+            (puthash "editorBefore" (car before) report)
+            (puthash "editorAfter" (car after) report)
+            (puthash "editorRedrawn" (if (and (not (eq (car before-widgets) (car after-widgets)))
+                                              (stringp after-header))
+                                         t :false)
+                     report)
+            (should (equal (car before) wf-manager-live-mixed-text))
+            (should (equal (car after) wf-manager-live-mixed-text)))
+          (should (= (length wf-manager-live--reviews) 2))
+          (should (equal (nth 2 (nth 1 wf-manager-live--reviews)) nil))
+          (wf-manager-live--review-fields (car wf-manager-live--reviews) "literal" report)
+          (should (stringp (gethash "literalRunId" report)))
+          ;; The capture: the File source is item 2 of the source menu.
+          (should-not (wf-manager-live--keys
+                       "M-x wf-run RET RET captured-input RET <backtab> <backtab> RET 2"
+                       (vconcat captured) "C-c C-c <f8> a" (vconcat "yes") "RET <f8>"))
+          (should (= (length wf-manager-live--reviews) 4))
+          (wf-manager-live--review-fields (car wf-manager-live--reviews) "captured" report)
+          (puthash "capturedBytes" (wf-manager-live--integer (length bytes)) report)
+          (puthash "capturedSha256" (secure-hash 'sha256 bytes) report)
+          (should (stringp (gethash "capturedRunId" report)))
+          ;; The declined review, then its discard and the withdrawal.
+          (set history nil)
+          (should-not (wf-manager-live--keys
+                       "M-x wf-run RET RET prompt-source RET" (vconcat wf-manager-live-declined)
+                       "C-c C-c <f8> a" (vconcat "no") "RET <f8> d <f8> w <f8>"))
+          (should (= (length wf-manager-live--reviews) 8))
+          (wf-manager-live--review-fields (car wf-manager-live--reviews) "declined" report)
+          (puthash "declinedSentAfterNo" (vconcat (nth 2 (nth 2 wf-manager-live--reviews)))
+                   report)
+          (should (equal (gethash "declinedOutcomes" report) ["discard" "withdraw"]))
+          (should (equal (gethash "declinedSentAfterNo" report) []))
+          (puthash "requestCommands"
+                   (vconcat
+                    (mapcar (pcase-lambda (`(,resource ,media ,if-match ,body))
+                              (wf-manager-json-object
+                               "resource" resource
+                               "media" (or media "application/json")
+                               "ifMatch" (or if-match :null)
+                               "body" (if media
+                                          (wf-manager-json-object
+                                           "bytes" (wf-manager-live--integer (length body))
+                                           "sha256" (secure-hash 'sha256 body))
+                                        (wf-manager-json-decode body))))
+                            (reverse wf-manager-live--sent)))
+                   report)
+          (should-not (wf-manager-live--keys "M-x wf-local RET")))
+      (advice-remove 'wf-manager-session-send #'wf-manager-live--record-send)
+      (global-set-key (kbd "<f7>") nil)
+      (global-set-key (kbd "<f8>") nil)
+      (when wf-service--current
+        (wf-local))
+      (delete-file captured))))
+
 (defun wf-manager-live--write (file value)
   "Write to FILE the JSON VALUE."
   (let ((coding-system-for-write 'no-conversion))
     (write-region (wf-manager-json-encode value) nil file nil 'silent)))
 
 (ert-deftest wf-manager-live-session ()
-  "Run the twelve steps of one live session against the manager."
+  "Run the thirteen steps of one live session against the manager."
   (let* ((profile (wf-manager-profile-load
                    (wf-manager-live--variable "WF_MANAGER_PROFILE")))
          (second (wf-manager-profile-load
@@ -1007,7 +1199,10 @@ the listings, the refusals and the diagnostics in REPORT."
               (push "export" steps)
               (wf-manager-live--service (wf-manager-live--variable "WF_MANAGER_PROFILE")
                                         report)
-              (push "service" steps))))
+              (push "service" steps)
+              (wf-manager-live--requests (wf-manager-live--variable "WF_MANAGER_PROFILE")
+                                         report)
+              (push "requests" steps))))
       (dolist (function wf-manager-live--prompt-functions)
         (advice-remove function #'wf-manager-live--prompted))
       (puthash "prompts" (wf-manager-live--integer wf-manager-live--prompts) report)

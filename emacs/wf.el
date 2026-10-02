@@ -313,6 +313,22 @@ and current value widget.  Drafts distinguish absent captures from empty text.")
 (defvar-local wf--setup-tag nil
   "Catch tag through which this setup buffer returns its result.")
 
+(defvar-local wf--setup-spec-function nil
+  "The function that turns one input of the form into its spec, or nil.
+Local mode leaves it nil, and `wf--setup-specs' then builds the literal
+and file specs of the runner.  Service mode sets a function of the input
+name, the selected source symbol and the draft text of that source,
+which returns the spec of the manager.")
+
+(defvar-local wf--setup-header nil
+  "Text that the form shows above its inputs, or nil.
+Service mode shows the state of its manager request here, and
+`wf--setup-refresh' replaces it.")
+
+(defvar-local wf--setup-context nil
+  "Data of the caller of the form, or nil.
+Service mode keeps its request here, so that it can refresh the form.")
+
 (defvar-keymap wf--setup-mode-map
   :doc "Keys for the native input setup form."
   :parent widget-keymap
@@ -390,6 +406,8 @@ Call `wf--setup-save' before redrawing an existing form."
                    "C-c C-c: Submit  C-c C-k / C-g: Cancel\n"
                    "Multiline: RET inserts newline; C-q TAB / C-q C-m preserve tabs / CR.\n"
                    "Buffer captures use accessible text; Region uses point to mark.\n\n")
+    (when wf--setup-header
+      (widget-insert wf--setup-header "\n\n"))
     (dolist (field wf--setup-fields)
       (let* ((source (plist-get field :source))
              (multiline (memq source '(multiline buffer region)))
@@ -440,6 +458,25 @@ Call `wf--setup-save' before redrawing an existing form."
                 (plist-get (or focus (car wf--setup-fields)) :widget)))
     (set-buffer-modified-p nil)))
 
+(defun wf--setup-refresh (header)
+  "Show HEADER above the inputs of this form and draw the form again.
+Every draft of every source stays, and point stays at its offset in the
+value of the input that holds it."
+  (let* ((field (cl-find-if (lambda (field)
+                              (let ((widget (plist-get field :widget)))
+                                (and widget (widget-field-start widget)
+                                     (<= (widget-field-start widget) (point)
+                                         (widget-field-end widget)))))
+                            wf--setup-fields))
+         (offset (and field (- (point) (widget-field-start (plist-get field :widget))))))
+    (wf--setup-save)
+    (setq wf--setup-header header)
+    (wf--setup-render field)
+    (when field
+      (let ((widget (plist-get field :widget)))
+        (goto-char (min (+ (widget-field-start widget) offset)
+                        (widget-field-end widget)))))))
+
 (defun wf--setup-file (raw)
   "Validate RAW on this workflow's machine; return its absolute local path.
 Only file metadata is checked here.  The runner, not Lisp, captures bytes."
@@ -462,10 +499,12 @@ Only file metadata is checked here.  The runner, not Lisp, captures bytes."
   (mapcar (lambda (field)
             (let* ((source (plist-get field :source))
                    (value (alist-get source (plist-get field :drafts))))
-              (append `((name . ,(plist-get field :name)))
-                      (if (eq source 'file)
-                          `((source . "file") (path . ,(wf--setup-file value)))
-                        `((source . "literal") (value . ,value))))))
+              (if wf--setup-spec-function
+                  (funcall wf--setup-spec-function (plist-get field :name) source value)
+                (append `((name . ,(plist-get field :name)))
+                        (if (eq source 'file)
+                            `((source . "file") (path . ,(wf--setup-file value)))
+                          `((source . "literal") (value . ,value)))))))
           wf--setup-fields))
 
 (defun wf--setup-submit ()
@@ -483,7 +522,7 @@ Only file metadata is checked here.  The runner, not Lisp, captures bytes."
   (interactive)
   (throw wf--setup-tag 'cancel))
 
-(defun wf--setup-inputs (row)
+(defun wf--setup-inputs (row &optional spec-function header context)
   "Edit ROW's declared initial inputs together and return source specs.
 Specs are declaration-ordered alists with name, source and value (literal)
 or path (file).  File paths are absolute on the runner's machine.  Literal
@@ -491,7 +530,11 @@ text, including a leading @, is never interpreted as a file reference.
 The latest per-input history is the literal default.  Each source retains
 its own draft; buffer/region text stays frozen until edited or recaptured.
 Cancel, \\`C-g', or killing the form signals `quit'.  No workflow subprocess
-is called.  With no declared inputs, return nil without opening a form."
+is called.  With no declared inputs, return nil without opening a form.
+
+Service mode gives SPEC-FUNCTION, HEADER and CONTEXT, the values of
+`wf--setup-spec-function', `wf--setup-header' and `wf--setup-context'
+in the form.  The specs are then the specs of SPEC-FUNCTION."
   (when (alist-get 'inputs row)
     (let ((dir default-directory)
           (origin (current-buffer))
@@ -505,6 +548,9 @@ is called.  With no declared inputs, return nil without opening a form."
               (setq default-directory dir
                     wf--setup-origin origin
                     wf--setup-tag tag
+                    wf--setup-spec-function spec-function
+                    wf--setup-header header
+                    wf--setup-context context
                     wf--setup-fields
                     (mapcar
                      (lambda (input)
@@ -2074,7 +2120,11 @@ Replacement answer is a JSON value, including false; backend checks its type."
 (defun wf-run (&optional refresh)
   "Set up all inputs, prepare and explicitly approve one native root run.
 With REFRESH, refresh descriptor discovery.  Preparation and start share
-one process and frozen program.  Closing a view never cancels execution."
+one process and frozen program.  Closing a view never cancels execution.
+
+In service mode, the command creates a request of a manager workflow,
+edits its inputs in the same setup form, enqueues it and shows the
+exact review of its manager preparation."
   (interactive "P")
   (unless (wf--service 'wf-run refresh)
     (let* ((directory default-directory)

@@ -624,16 +624,63 @@ for it:
 
 | Command | Behavior in service mode |
 | --- | --- |
-| `wf-run` | Read the ready profiles of `/v1/profiles` and ask for one, with its workspace and target labels. Then read the catalogue of `/v1/workflows?profileId=` for that profile and ask for one workflow through the completion of `wf--read-row`, with its price and blurb. Each read is fresh, so the prefix argument changes nothing. The command then refuses with the message "Service mode does not yet create a request of WORKFLOW in PROFILE". |
+| `wf-run` | Read the ready profiles of `/v1/profiles` and ask for one, with its workspace and target labels. Then read the catalogue of `/v1/workflows?profileId=` for that profile and ask for one workflow through the completion of `wf--read-row`, with its price and blurb. Each read is fresh, so the prefix argument changes nothing. The command then creates a request, opens its setup form, enqueues it and shows its exact review (see [Service setup and review](#service-setup-and-review)). |
 | `wf-help` | Read a profile and a workflow as `wf-run` does, and show the help text of the catalogue item in the buffer `*wf help: PROFILE/WORKFLOW*`. |
 | `wf-diagnostics` | Show the buffer `*wf service diagnostics*`: the profile file, the endpoint, the endpoint identity, the authority epoch, the scopes, the profiles of the credential, the delivery state, the generation, the number of polling batches, the state of the follow loop and the last problem. |
-| `wf-runs`, `wf-answer`, `wf-control`, `wf-result`, `wf-kill`, `wf-history`, `wf-history-refresh`, `wf-history-open`, `wf-restart`, `wf-resume`, `wf-fork`, `wf-fork-submit`, `wf-rerun`, `wf-refresh` | Refuse with the message "COMMAND is not yet available in service mode". |
+| `wf-refresh` | In a setup form of service mode, read the request of the form again and draw the form again with every draft. Elsewhere, show a message and send nothing, because service mode keeps no row listing. |
+| `wf-runs`, `wf-answer`, `wf-control`, `wf-result`, `wf-kill`, `wf-history`, `wf-history-refresh`, `wf-history-open`, `wf-restart`, `wf-resume`, `wf-fork`, `wf-fork-submit`, `wf-rerun` | Refuse with the message "COMMAND is not yet available in service mode". |
 | `wf-plan`, `wf-cost` | Refuse with the message "COMMAND works only in local mode.  In service mode, use the review of `wf-run` instead". |
 | `wf-lineage-compare`, `wf-observer-result`, `wf-observer-refresh` | Refuse with the message "COMMAND works only in local mode.  Service mode has no equivalent". |
 
 No refusal starts a process or sends a request. The dispatch is global: in
 service mode, a command acts on the manager also in the view of a local run.
 `wf-local` gives such a view its local commands again.
+
+#### Service setup and review
+
+In service mode, `wf-run` follows these steps after the selection of a
+workflow:
+
+1. It creates a request of the workflow with `POST /v1/requests`.
+2. It opens the setup form of local mode, `wf--setup-mode`, with the same
+   widgets, keys, sources and histories, for the missing inputs of the
+   request. The header of the form names the request and its admission. The
+   Literal and Multiline sources send the exact text of the input with
+   `set-input`. The File, Buffer and Region sources upload exact UTF-8 bytes
+   with `POST /v1/captures?requestId=ID` as `application/octet-stream`, and
+   `set-input` then binds the identifier of the capture. The File source
+   reads the bytes of a file of `default-directory`. The manager receives the
+   bytes and never a file name. Each `set-input` binds the entity tag of a
+   read of the request. `M-x wf-refresh` in the open form reads the request
+   again and draws the form again, and every draft of every source and the
+   position of point stay. A cancel of the form leaves the request a draft of
+   the manager.
+3. It enqueues the request and reads it until its preparation exists. Each
+   change of the admission shows as a message with the phase, the admission
+   state, the queue position and the blocking reasons.
+4. It reads the preparation with `GET /v1/preparations/{id}` and shows it in
+   the buffer `*wf review: REQUEST*` of `wf-service-review-mode`.
+
+The review buffer shows the review of the manager, not a plan of this
+client. It shows the admission lines of the wait, the current queue position
+and blocking reasons, every approval selector (`reviewDigest`,
+`requestRevision`, `profileRevision`, `descriptorRevision` and
+`processGeneration`), the entity tag that `approve` binds as `If-Match`, and
+every consent fact of the review: the program digest, the person answering,
+the workflow, the profile, the workspace, the target, the policy, the result
+code, the size and SHA-256 digest of each input, the plan, the run facts, the
+pins, the warnings and the lineage. Nothing is shortened. The keys are these:
+
+| Key | Behavior |
+| --- | --- |
+| `a` | Ask `wf-confirm-function`. Only a yes sends `approve` with the five selectors and the entity tag of the preparation as `If-Match`. The buffer then waits for the run of the request and names it. A no sends nothing, and the request stays in review. |
+| `d` | Send `discard` to the preparation and wait for its effect. The request is a draft again. |
+| `w` | Send `withdraw` to the request and wait for its effect. |
+| `g` | Read the request and the preparation again and draw the review again. |
+| `q` | Decline and quit the window. Nothing is sent. |
+
+Each command is sent one time. A command whose outcome is uncertain stops
+with a message, and nothing is sent again.
 
 ### Service-mode transport
 
@@ -782,6 +829,7 @@ the kind of value as `KIND`.
 | `wf-manager-decode-input-declaration` | A declared input with a name, a source of `prompt`, `command-tail` or `stdin`, a null description, a true `required` and the schema `{"type":"string"}`. |
 | `wf-manager-decode-supplied-input` | Literal text of at most 2097152 characters, NUL and empty text included, or a capture with its opaque selector, a bounded identifier. |
 | `wf-manager-decode-input-error` | An input name and one of the codes `unknown-input`, `invalid-input`, `capture-unavailable` and `size-limit`. |
+| `wf-manager-decode-capture-receipt` | A version 1 capture receipt with exactly the members `version`, `id`, `requestId`, `profileId`, `bytes` and `sha256`. The byte count is canonical decimal text of at most 67108864, and the digest is a lowercase SHA-256 digest. The vectors file has no capture receipt, so the ERT tests check this decoder on their own values. |
 | `wf-manager-decode-preparation` | A version 1 preparation with a valid RFC 3339 expiry time, a lowercase SHA-256 review digest, a review and a reason or nil. |
 | `wf-manager-decode-review` | The consent facts of a preparation. The policy and the result code stay exact JSON values after their checks. A review without a lineage is a root review, and a null lineage refuses. |
 | `wf-manager-decode-review-input` | An input name, a source of `literal` or `capture`, the byte count as canonical unsigned 64-bit decimal text and a SHA-256 digest. |
@@ -1031,6 +1079,8 @@ of `ManagerSession` and the answer and recovery reconciliations of
 | --- | --- |
 | `wf-manager-session-prepare` | A `wf-manager-pending` command for a reference of the current binding: the exact bytes of its JSON body, a new idempotency key and the entity tag of its precondition or nil. A reference of another binding signals `wf-manager-wrong-endpoint`. |
 | `wf-manager-session-send` | One POST of the exact bytes, key and precondition of a command, with `wf-manager-post-bytes`. The callback receives a `wf-manager-sent` of the kind `delivered`, `refused` or `uncertain`. A 2xx reply with a Location is `delivered`, and a 202 reply carries its decoded receipt, whose identifier must name the Location. A 412 `stale-revision` refusal, a closed session, a command of another binding and a refusal before any request are `refused`. Every other failure and every reply that does not agree with the command are `uncertain`. The session never sends a command again by itself. |
+| `wf-manager-session-prepare-capture` | A `wf-manager-pending` capture of exact unibyte UTF-8 bytes for a request: a POST of `/v1/captures?requestId=ID` with the media type `application/octet-stream`, a new idempotency key and no `If-Match`. Bytes above 67108864 (`wf-manager-capture-bytes`) signal `wf-manager-response-too-large`, and bytes that are not UTF-8 signal `wf-manager-invalid-response`, as `prepareCapture` of `ManagerSession` refuses them. A capture is `delivered` only as a 202 reply whose body decodes with `wf-manager-decode-capture-receipt` and whose Location names its capture command. The `wf-manager-sent` then carries the capture receipt. |
+| `wf-manager-session-read` | One GET of a reference of the current binding. The callback receives the `wf-manager-reply` of status 200 or a failure. |
 | `wf-manager-session-receipt` | One read of the receipt at the Location of a delivered command. |
 | `wf-manager-session-reconcile` | One read that reconciles an uncertain command under the rules of `wf-manager-reconcile`: its receipt when the location is known, and otherwise the supplied target of the reconciliation or the target of the command. A read of a target observes the effect only when the function of the reconciliation sees it and the entity tag differs from the precondition. The report is `(effect-observed)`, `(refused)` or `(uncertain UNCERTAIN)` with the unchanged uncertain command. Nothing is sent. |
 | `wf-manager-session-answer-reconciliation` | The reconciliation of an answer, made before the send. The manager serves only pending decisions, so an answered decision reads as 404. When `wf-manager-stored-answer-text` names the value, one read of the run snapshot gives the supplied target and its entity tag, and the occurrence must have completed, no longer wait on the decision and store that text. Otherwise, and when that read fails, the controls of the run reconcile the answer, and the run must still run with a head that names a later decision. |

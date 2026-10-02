@@ -346,8 +346,12 @@ it.
 ## The Emacs interface
 
 `emacs/wf.el` is a native workflow client using built-in Emacs buffers, widgets,
-completion, keymaps, and process support. It declares Emacs 29.1 or later and is
-currently tested with Emacs 30.2 on macOS. The configured runner must provide the
+completion, keymaps, and process support. The `Package-Requires` header of
+`wf.el`, `wf-manager.el` and `wf-service.el` keeps `((emacs "29.1"))` as the
+declared minimum, and no check runs Emacs 29.1. Every check of this repository,
+local mode, TRAMP and service mode alike, runs GNU Emacs 30.2 on macOS, the
+Emacs of the development shell. No check runs another version. The configured
+runner must provide the
 shared `frontend` preparation service and read-only `frontend-io` queries.
 An older runner is refused rather than falling back to an unreviewed launch.
 
@@ -793,8 +797,8 @@ workflow manager. The mode is explicit, and local mode is the default.
 (setq wf-manager-profiles '("/Users/me/.config/agent-cat/client-profile.json"))
 ```
 
-`wf-manager-profiles` is a list of client profile files (see
-[Service-mode transport](#service-mode-transport)). The list alone does not
+`wf-manager-profiles` is a list of client profile files of version 1 (see
+[Service-mode transport](#service-mode-transport) for the format). The list alone does not
 select service mode. `M-x wf-service` reads one profile of the list, binds a
 connection to its manager by `GET /v1/capabilities`, and starts a session. The
 session installs the complete overview and follows the events of the manager
@@ -804,6 +808,13 @@ session to the endpoint of the selected profile, and a switch that fails keeps
 the earlier binding. `M-x wf-local` closes the session and returns every
 command to local mode. The close sends no command, so the runs and requests of
 the manager continue.
+
+The delivery of service mode is `poll`. url.el gives a response to its caller
+only when the response is complete, so the client reads `/v1/events` in the
+bounded polling mode and never as server-sent events (see
+[HTTP transport](#http-transport)). `wf-diagnostics` and each service run view
+show the delivery state, which is `poll` while the batches arrive and
+`unreachable` while they fail.
 
 In service mode, `wf.el` never starts the `wf` binary or a local frontend
 worker and never reads a file system path of the manager. Each public command

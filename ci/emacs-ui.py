@@ -676,12 +676,21 @@ def service_case(args, directory: Path) -> None:
 
 # The facts of the service lifecycle. The emacs-service-lifecycle mode of
 # agent-cat manager/test/service_http.py states the same values.
-LIFECYCLE_REPORT_VERSION = 1
+LIFECYCLE_REPORT_VERSION = 2
 LIFECYCLE_FIRST = "Emacs lifecycle λ: first delayed run"
 LIFECYCLE_SECOND = "Emacs lifecycle λ: second delayed run"
 LIFECYCLE_CAPTURE = "Emacs capture λ ✓\nsecond line 雪\n"
 LIFECYCLE_STEER = "Emacs lifecycle steer λ: focus on the patch."
 LIFECYCLE_ANSWER = "false"
+# The fork child of the first run replaces the answer of its person
+# question, occurrence LIFECYCLE_FORK_OCCURRENCE, with the typed text
+# LIFECYCLE_FORKED. The export of the fork child has the name
+# LIFECYCLE_EXPORT. LIFECYCLE_PENDING is the literal of the run that waits
+# at its question when Emacs quits.
+LIFECYCLE_FORK_OCCURRENCE = "1"
+LIFECYCLE_FORKED = "yes"
+LIFECYCLE_EXPORT = "emacs-lifecycle-export.json"
+LIFECYCLE_PENDING = "Emacs lifecycle λ: pending at the quit"
 
 
 def service_review(state: dict) -> dict | None:
@@ -722,10 +731,18 @@ def service_create(session: Emacs, profile: str, workflow: str, label: str, type
         session.send(capture + "\r")
         form = session.wait(lambda state: state.get("mode") == "wf--setup-mode"
                             and LIFECYCLE_CAPTURE in state.get("text", ""), label + "-captured")
-    # The review of the new request is the review buffer of a request that
-    # no review buffer named before the submission.
     known = {item["request"] for item in service_extra(form).get("reviews", [])}
     session.send(b"\x03\x03")
+    return {**service_approve(session, label, known), "formText": form["text"]}
+
+
+def service_approve(session: Emacs, label: str, known: set) -> dict:
+    """Approve the exact review of a new request by keys and return its facts.
+
+    The review of the new request is the review buffer of a request that
+    no review buffer in known named. a and yes approve it. The facts are
+    the run, the request, the preparation, the approval prompt and the
+    text of the review."""
     review = session.wait(lambda state: state.get("mode") == "wf-service-review-mode" and service_review(state) is not None
                           and service_review(state)["request"] not in known, label + "-review", 150)
     request = service_review(review)["request"]
@@ -736,7 +753,72 @@ def service_create(session: Emacs, profile: str, workflow: str, label: str, type
                                               for item in service_extra(state).get("reviews", [])), label + "-approved", 150)
     run = next(item["run"] for item in service_extra(approved)["reviews"] if item["request"] == request)
     return {"run": run, "request": request, "preparation": service_review(review)["preparation"],
-            "approvePrompt": prompt, "formText": form["text"]}
+            "approvePrompt": prompt, "reviewText": review["text"]}
+
+
+def service_lineage(session: Emacs, parent: str, operation: str, label: str) -> dict:
+    """Create one lineage child of run parent by keys and approve its review.
+
+    The keys act in the view of parent. R makes a restart child. F makes a
+    fork child: the edits prompt selects occurrence
+    LIFECYCLE_FORK_OCCURRENCE and the action replace, the typed
+    LIFECYCLE_FORKED replaces the published answer that the replacement
+    minibuffer starts with, and send sends the fork. The facts are those of
+    service_approve, and a fork adds the text that the replacement
+    minibuffer started with."""
+    state = service_open_view(session, parent, label + "-parent")
+    known = {item["request"] for item in service_extra(state).get("reviews", [])}
+    if operation == "restart":
+        session.send("R")
+        return service_approve(session, label, known)
+    edits = "Fork edits of run " + parent + ": "
+    session.send("F")
+    session.wait(lambda state: state.get("minibuffer", "").startswith(edits), label + "-edits", 60)
+    session.send("occurrence:" + LIFECYCLE_FORK_OCCURRENCE + "\r")
+    session.wait(lambda state: state.get("minibuffer", "").startswith(
+        "Answer of occurrence " + LIFECYCLE_FORK_OCCURRENCE + " of run " + parent + ": "), label + "-action")
+    session.send("replace\r")
+    replacement = "Replacement answer of occurrence " + LIFECYCLE_FORK_OCCURRENCE + " (flag) of run " + parent + ": "
+    prefill = session.wait(lambda state: state.get("minibuffer", "").startswith(replacement), label + "-replacement")["minibuffer"]
+    # C-a and C-k clear the published answer from the start of the input.
+    session.send(b"\x01\x0b" + LIFECYCLE_FORKED.encode())
+    session.wait(lambda state: state.get("minibuffer", "") == replacement + LIFECYCLE_FORKED, label + "-replaced")
+    session.send("\r")
+    session.wait(lambda state: state.get("minibuffer", "").startswith(edits), label + "-edited")
+    session.send("send\r")
+    return {**service_approve(session, label, known), "forkPrefill": prefill[len(replacement):]}
+
+
+def service_handshake(session: Emacs, directory: Path, name: str, facts: dict, timeout: float = 120) -> dict:
+    """Ask the harness for the action name and wait until the harness did it.
+
+    The request is the file name.json in directory, with facts, and the
+    harness answers with the JSON file name.done after the action. Each
+    file appears complete, by a rename. The output of Emacs is drained
+    meanwhile, and no key is sent. Return the answer of the harness."""
+    staged = directory / (name + ".json.new")
+    staged.write_text(json.dumps(facts, ensure_ascii=False))
+    staged.rename(directory / (name + ".json"))
+    done = directory / (name + ".done")
+    deadline = time.monotonic() + timeout
+    while not done.exists():
+        if time.monotonic() >= deadline or session.process.poll() is not None:
+            raise AssertionError(("the harness did not answer the handshake", name, session.process.poll()))
+        session.drain()
+    return json.loads(done.read_text())
+
+
+def service_history_open(session: Emacs, run: str, label: str) -> dict:
+    """Open the view of run from its row of the selected service history.
+
+    M-x search-forward moves the point to the row of run, and RET opens
+    its view. Return the state once the view is selected."""
+    session.command("search-forward")
+    session.wait(lambda state: "Search:" in state.get("minibuffer", ""), label + "-search-prompt")
+    session.send(run + "\r")
+    session.send("\r")
+    return session.wait(lambda state: state.get("mode") == "wf-service-run-mode" and service_view(state, run) is not None
+                        and state.get("buffer") == service_view(state, run)["buffer"], label + "-opened", 60)
 
 
 def service_windows(state: dict, runs: list) -> list:
@@ -763,15 +845,29 @@ def service_lifecycle_case(args, directory: Path) -> None:
     the confirmation yes, and the offered steer of the captured run is
     sent through its editor. At 40x12, M-x wf-history lists every page of
     the runs, the first run is opened from its row and r saves its
-    verified result. The report records the facts of each step and is
-    written again after each step."""
+    verified result. At 80x24, F makes a fork child of the first run and R
+    a restart child of the second run, each approved after its exact
+    review, and E exports the verified result of the fork child. The
+    manager then stops and starts again while the view of the restart
+    child is open at its question, and the view reports the lost delivery
+    and reconnects with no key. A third run is created and approved, and
+    C-x C-c quits Emacs while that run waits at its question. A new Emacs
+    with the same profile opens the view of that run, C-x k kills the view,
+    M-x wf-local closes the session and C-x C-c ends Emacs. The harness
+    stops and starts the manager, and it records the commands of the
+    manager before the quit and before the kill, through the handshakes
+    of service_handshake in the directory of --service-handshake. The
+    report records the facts of each step and is written again after each
+    step."""
     profile, report_path = Path(args.service[0]).resolve(), Path(args.service[1]).resolve()
+    handshake = args.service_handshake.resolve()
     emacs_directory = args.source.resolve().parent
     sources = [emacs_directory / name for name in ("wf.el", "wf-manager.el", "wf-service.el")]
     saved = directory / "saved-result.bin"
     report: dict = {"version": LIFECYCLE_REPORT_VERSION, "first": LIFECYCLE_FIRST, "second": LIFECYCLE_SECOND,
                     "capture": LIFECYCLE_CAPTURE, "steer": LIFECYCLE_STEER, "answer": LIFECYCLE_ANSWER,
-                    "profile": str(profile), "steps": []}
+                    "forked": LIFECYCLE_FORKED, "forkOccurrence": LIFECYCLE_FORK_OCCURRENCE, "export": LIFECYCLE_EXPORT,
+                    "pending": LIFECYCLE_PENDING, "profile": str(profile), "steps": []}
 
     def record(step: str, line: str, **facts) -> None:
         report["steps"].append(step)
@@ -893,12 +989,7 @@ def service_lifecycle_case(args, directory: Path) -> None:
         history = next(item for item in service_extra(listed)["histories"] if item["buffer"] == listed["buffer"])
         record("10", "M-x wf-history listed " + str(len(history["runs"])) + " runs over " + str(history["pages"]) + " pages at 40x12",
                historyRuns=history["runs"], historyPages=history["pages"])
-        session.command("search-forward")
-        session.wait(lambda state: "Search:" in state.get("minibuffer", ""), "search-prompt")
-        session.send(first["run"] + "\r")
-        session.send("\r")
-        opened = session.wait(lambda state: state.get("mode") == "wf-service-run-mode" and service_view(state, first["run"]) is not None
-                              and state.get("buffer") == service_view(state, first["run"])["buffer"], "history-opened", 60)
+        opened = service_history_open(session, first["run"], "history")
         record("11", "RET on the history row of run " + first["run"] + " opened its view",
                openedLines=service_view(opened, first["run"])["lines"])
         since = len(opened.get("messages", ""))
@@ -909,13 +1000,112 @@ def service_lifecycle_case(args, directory: Path) -> None:
         session.send("\r")
         session.wait(lambda state: saved.exists() and service_said("saved the verified", since)(state), "saved", 60)
         record("12", "r saved the verified result of run " + first["run"] + " to " + str(saved), savedPath=str(saved))
-        session.command("wf-local")
-        session.wait(lambda state: service_extra(state).get("service") is False, "local")
+
+        # 80x24: a fork child and a restart child, each approved after its
+        # exact review, and the export of the result of the fork child.
+        session.resize(80, 24)
+        session.send(b"\x181")
+        fork = service_lineage(session, first["run"], "fork", "fork")
+        record("13", "F, the replacement " + LIFECYCLE_FORKED + " of occurrence " + LIFECYCLE_FORK_OCCURRENCE + " and send created "
+               "the fork child request " + fork["request"] + " of run " + first["run"] + ", and a and yes approved its exact review, "
+               "which started run " + fork["run"] + " at 80x24", forkRun=fork)
+        restart = service_lineage(session, second["run"], "restart", "restart")
+        record("14", "R created the restart child request " + restart["request"] + " of run " + second["run"] + ", and a and yes "
+               "approved its exact review, which started run " + restart["run"], restartRun=restart)
+        # The fork child can end before the overview names it, so its view
+        # opens from its row of the history.
+        since = len(session.state.get("messages", ""))
+        session.command("wf-history")
+        session.wait(lambda state: state.get("mode") == "wf-service-history-mode"
+                     and service_said("wf: history of ", since)(state), "fork-history", 120)
+        service_history_open(session, fork["run"], "fork-history")
+        forked = session.wait(lambda state: "Terminal: succeeded" in service_view(state, fork["run"])["lines"]
+                              and any(line.startswith("Result SHA-256: ") for line in service_view(state, fork["run"])["lines"]),
+                              "fork-succeeded", 180)
+        since = len(forked.get("messages", ""))
+        session.send("E")
+        session.wait(lambda state: "Export name for the verified result of run " + fork["run"] in state.get("minibuffer", ""),
+                     "export-prompt", 60)
+        session.send(LIFECYCLE_EXPORT + "\r")
+        exported = session.wait(lambda state: state.get("buffer") == "*wf export " + fork["run"] + "/" + LIFECYCLE_EXPORT + "*"
+                                and service_said("wf: Export " + LIFECYCLE_EXPORT + ": ", since)(state), "exported", 90)
+        record("15", "E and the name " + LIFECYCLE_EXPORT + " exported the verified result of run " + fork["run"] + ", and the "
+               "export buffer states the receipt, the verified download and the export collection",
+               forkLines=service_view(forked, fork["run"])["lines"], exportText=exported["text"])
+
+        # 80x24: the manager stops and starts again while the view of the
+        # restart child is open at its question. No key is sent until the
+        # view has reconnected.
+        service_open_view(session, restart["run"], "held")
+        held = session.wait(lambda state: service_view(state, restart["run"])["kind"] == "question"
+                            and "Delivery: poll" in service_view(state, restart["run"])["lines"], "held-question", 180)
+        held_question = service_view(held, restart["run"])["head"]
+        stopped = service_handshake(session, handshake, "stop-manager", {"run": restart["run"], "question": held_question})
+        lost = session.wait(lambda state: state.get("buffer") == service_view(state, restart["run"])["buffer"]
+                            and "Delivery: unreachable" in service_view(state, restart["run"])["lines"], "delivery-lost", 60)
+        record("16", "the manager stopped while the view of run " + restart["run"] + " waited at its question " + held_question
+               + ", and the view reported the delivery unreachable with no key", heldQuestion=held_question,
+               heldLines=service_view(held, restart["run"])["lines"], lostLines=service_view(lost, restart["run"])["lines"],
+               stopped=stopped)
+        started = service_handshake(session, handshake, "start-manager", {"run": restart["run"]})
+        reconnected = session.wait(lambda state: state.get("buffer") == service_view(state, restart["run"])["buffer"]
+                                   and "Delivery: poll" in service_view(state, restart["run"])["lines"]
+                                   and "Supervision: lost" in service_view(state, restart["run"])["lines"], "reconnected", 120)
+        record("17", "the manager started again, and with no key the view of run " + restart["run"] + " reconnected and showed "
+               "the supervision lost of the restarted manager", reconnectedLines=service_view(reconnected, restart["run"])["lines"],
+               started=started)
+
+        # 80x24: Emacs quits while a new run waits at its question.
+        pending = service_create(session, "profile_1", "delayed-person", "pending", typed=LIFECYCLE_PENDING)
+        service_open_view(session, pending["run"], "pending")
+        waiting = session.wait(lambda state: service_view(state, pending["run"])["kind"] == "question", "pending-question", 180)
+        pending_question = service_view(waiting, pending["run"])["head"]
+        record("18", "wf-run created, reviewed and approved request " + pending["request"] + ", and the view of run "
+               + pending["run"] + " showed its question " + pending_question, pendingRun=pending,
+               pendingQuestion=pending_question, pendingLines=service_view(waiting, pending["run"])["lines"])
+        service_handshake(session, handshake, "quit", {"run": pending["run"], "question": pending_question})
         success = True
     finally:
         session.close(success)
-    record("13", "M-x wf-local closed the session, and C-x C-c ended Emacs with status 0 and the terminal attributes restored",
-           terminalBefore=session.before, terminalAfter=session.ended["attributes"], exitStatus=session.ended["status"])
+    record("19", "C-x C-c quit Emacs while run " + pending["run"] + " waited at its question, with status 0 and the terminal "
+           "attributes restored", terminalBefore=session.before, terminalAfter=session.ended["attributes"],
+           exitStatus=session.ended["status"])
+
+    # A new Emacs with the same profile finds the run at its question, and
+    # the kill of its view sends nothing.
+    later_directory = directory.parent / (directory.name + "-second")
+    later = Emacs(args.emacs, sources, later_directory, 80, 24, service_body(profile, later_directory))
+    success = False
+    try:
+        later.wait(lambda state: state.get("extra") is not None, "service-ready")
+        later.command("wf-service")
+        later.wait(lambda state: "Client profile" in state.get("minibuffer", ""), "profile-file-prompt")
+        later.send("\r")
+        later.wait(lambda state: service_extra(state).get("service") is True
+                   and "wf: service mode, endpoint" in state.get("messages", ""), "service-bound", 60)
+        service_open_view(later, pending["run"], "found")
+        found = later.wait(lambda state: service_view(state, pending["run"])["head"] == pending_question
+                           and "Supervision: owned" in service_view(state, pending["run"])["lines"], "found-pending", 60)
+        found_buffer = service_view(found, pending["run"])["buffer"]
+        record("20", "in a new Emacs, M-x wf-service with the same profile and M-x wf-runs found run " + pending["run"]
+               + " still at its question " + pending_question + " under the supervision owned",
+               foundLines=service_view(found, pending["run"])["lines"])
+        service_handshake(later, handshake, "kill-view", {"run": pending["run"]})
+        later.send(b"\x18k")
+        later.wait(lambda state: "Kill buffer" in state.get("minibuffer", "") and found_buffer in state.get("minibuffer", ""),
+                   "kill-prompt")
+        later.send("\r")
+        later.wait(lambda state: service_view(state, pending["run"]) is None
+                   and found_buffer not in [window["buffer"] for window in state.get("windows", [])], "view-killed")
+        record("21", "C-x k and RET killed the view " + found_buffer + " of run " + pending["run"], killedBuffer=found_buffer)
+        later.command("wf-local")
+        later.wait(lambda state: service_extra(state).get("service") is False, "local")
+        success = True
+    finally:
+        later.close(success)
+    record("22", "M-x wf-local closed the session of the new Emacs, and C-x C-c ended it with status 0 and the terminal "
+           "attributes restored", laterTerminalBefore=later.before, laterTerminalAfter=later.ended["attributes"],
+           laterExitStatus=later.ended["status"])
 
 
 def main() -> None:
@@ -931,16 +1121,21 @@ def main() -> None:
     parser.add_argument("--service-answer", default="false", help="the answer that the service journey types")
     parser.add_argument("--service-case", choices=["journey", "lifecycle"], default="journey",
                         help="the service case that --service runs")
+    parser.add_argument("--service-handshake", type=Path,
+                        help="the directory of the handshakes of the lifecycle with the harness that runs the manager")
     args = parser.parse_args()
     if args.service:
         if not args.emacs or not os.access(args.emacs, os.X_OK):
             parser.error("provide an executable emacs")
+        if args.service_case == "lifecycle" and (not args.service_handshake or not args.service_handshake.is_dir()):
+            parser.error("the lifecycle needs --service-handshake, the directory of its handshakes with the harness")
         artifacts = args.artifacts or Path(tempfile.mkdtemp(prefix="wf-emacs-service-", dir="/tmp")).resolve()
         artifacts.mkdir(exist_ok=True)
         print(artifacts, flush=True)
         if args.service_case == "lifecycle":
             service_lifecycle_case(args, artifacts / "lifecycle")
-            print("PASS service lifecycle by keys at 140x36, 80x24 and 40x12, and terminal restoration", flush=True)
+            print("PASS service lifecycle by keys at 140x36, 80x24 and 40x12, lineage, export, a manager restart, a quit "
+                  "while a run waits and a second Emacs, and terminal restoration", flush=True)
             return
         service_case(args, artifacts / "service")
         print("PASS service journey by keys at 80x24 with resizes to 40x12 and 140x36, and terminal restoration", flush=True)

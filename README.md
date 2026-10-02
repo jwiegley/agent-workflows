@@ -740,12 +740,38 @@ The lifecycle starts `Emacs -Q -nw` at 140×36 and acts only by keys:
    timing `interrupt-now` through the steer editor.
 3. At 40×12, `M-x wf-history` lists the runs over every page, `RET` on the row
    of the first run opens its view, and `r` saves its verified result to a new
-   file. `M-x wf-local` closes the session, and `C-x C-c` ends Emacs.
+   file.
+4. At 80×24, `F` in the view of the first run makes a fork child. The edit
+   prompt selects the occurrence of the person question and the action
+   `replace`, `yes` replaces the published answer in the replacement
+   minibuffer, and `send` sends the fork. `a` and `yes` approve the exact
+   review of the child. `R` in the view of the second run makes a restart child
+   in the same way. `M-x wf-history` and `RET` on the row of the fork child
+   open its view, because the fork child can end before the overview names
+   it. When the fork child has succeeded, `E` in its view exports its verified
+   result under a typed name, and the export buffer shows the receipt, the
+   verified download and the export collection.
+5. The view of the restart child waits at its question. The script asks the
+   harness to stop the manager and then to start it again, through files in
+   the directory of `--service-handshake`. With no key, the view reports the
+   delivery `unreachable`, and then it reconnects and shows the supervision
+   `lost` of the restarted manager.
+6. `M-x wf-run` creates and approves a third `delayed-person` run. When its
+   view shows its question, `C-x C-c` quits Emacs. A new `Emacs -Q -nw` with a
+   new home directory selects the same profile, and `M-x wf-runs` opens the
+   view of the waiting run, which shows its question and the supervision
+   `owned`. `C-x k` kills that view, `M-x wf-local` closes the session, and
+   `C-x C-c` ends Emacs.
 
 The report holds the runs, the window points and view lines of step 1, the
 captured request, the cancel and steer facts, the history rows, the path of the
-saved file and the terminal attributes. The mode checks each step against the
-reads of the manager and the run logs.
+saved file, the lineage children, the export buffer, the view lines around the
+restart, the waiting run and the terminal attributes of both Emacs processes.
+At each handshake, the harness records the commands of the manager. The mode
+checks each step against the reads of the manager, the command receipts, the
+coordination database and the run logs. It requires that the reconnect sends
+no command again and that the quit of Emacs and the kill of a view send no
+command.
 
 The SSH/TRAMP gate starts an unprivileged server bound only to `127.0.0.1`,
 with temporary host and client keys, strict host-key checking, public-key-only

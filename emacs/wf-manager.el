@@ -56,6 +56,14 @@
 ;; batches, route records, cursors, entity tags and problem responses.  An
 ;; entity tag is an opaque token, equal to another tag only as text.
 ;;
+;; The resource decoders follow the draft and preparation decoders of
+;; `ext-pi/src/manager/resources.ts' and pass the drafts, requests and
+;; preparations vectors of the resources section: requests, readiness,
+;; declared and supplied inputs, input errors, preparations, reviews, review
+;; inputs, lineages, edits and the request and preparation members of the
+;; overview.  Each decoder returns a record, and its encoder gives the
+;; canonical JSON value of that record.
+;;
 ;; Each refusal signals a condition below `wf-manager-error'.  The data of
 ;; the condition is (FIELD REASON).  For a profile, FIELD is the JSON name
 ;; of the profile field that the refusal is about, or "profile" for the
@@ -962,6 +970,1018 @@ other BODY gives a `wf-manager-invalid-response' failure."
       (list 'wf-manager-invalid-response "problem"
             (format "the problem body does not state the status %s and a code"
                     status)))))
+
+;;;; Resource decoders
+
+;; The decoders below follow the draft and preparation decoders of
+;; `ext-pi/src/manager/resources.ts' in agent-cat.  Each parser returns a
+;; record or throws to the tag `wf-manager--refusal', and each public
+;; decoder turns that throw into `wf-manager-invalid-response'.
+
+(defconst wf-manager-input-sources '("prompt" "command-tail" "stdin")
+  "The sources of a declared workflow input.")
+
+(defconst wf-manager-input-error-codes
+  '("unknown-input" "invalid-input" "capture-unavailable" "size-limit")
+  "The codes of an input error.")
+
+(defconst wf-manager-request-phases
+  '("draft" "queued" "preparing" "review" "start-pending" "associated"
+    "withdrawn" "refused")
+  "The phases of a request.")
+
+(defconst wf-manager-admission-states
+  '("not-queued" "waiting" "reserved" "released" "refused")
+  "The admission states of a request.")
+
+(defconst wf-manager-admission-reasons
+  '("missing-inputs" "profile-busy" "workspace-busy" "target-busy"
+    "store-busy" "capacity" "quarantined" "storage-quota")
+  "The reasons that block the admission of a request.")
+
+(defconst wf-manager-lineage-operations '("restart" "resume" "fork")
+  "The lineage operations of a request or a review.")
+
+(defconst wf-manager-preparation-states '("live" "consumed" "invalidated")
+  "The states of a preparation.")
+
+(defconst wf-manager-preparation-reasons
+  '("expired" "input-changed" "profile-changed" "worker-lost" "discarded"
+    "authority-changed" "consumed")
+  "The reasons of a preparation that is no longer live.")
+
+(defconst wf-manager--draft-fields
+  '("version" "id" "revision" "workflowId" "descriptorRevision" "profileId"
+    "profileRevision" "phase" "readiness" "admission" "preparationId" "runId"
+    "parentRunId" "lineage" "links")
+  "The members of a request resource.")
+
+(defconst wf-manager--preparation-fields
+  '("version" "id" "revision" "requestId" "requestRevision" "profileId"
+    "profileRevision" "descriptorRevision" "state" "expiresAt" "reviewDigest"
+    "processGeneration" "review" "reason")
+  "The members of a preparation.")
+
+(defconst wf-manager--review-fields
+  '("programHash" "personAnswering" "policy" "workflowId" "profileId"
+    "workspaceLabel" "targetLabel" "inputs" "plan" "runFacts" "pins"
+    "warnings" "resultCode" "lineage")
+  "The members of a review.  Only `lineage' is optional.")
+
+(defconst wf-manager--policy-fields
+  '("kind" "default" "coverage" "routes" "pollMs" "timeoutMs" "verbose"
+    "realizations" "routingVersion" "persona" "personaSource" "policyDigest"
+    "personAnswers")
+  "The members that a routed policy can have.")
+
+(defconst wf-manager--realization-fields
+  '("profile" "axis" "rung" "backend" "router" "provider" "model" "thinking"
+    "maxOutput" "executionFingerprint" "modelAlias" "engine")
+  "The members that a realization of a routed policy can have.")
+
+(defconst wf-manager--thinking-levels
+  '("off" "minimal" "low" "medium" "high" "xhigh" "max")
+  "The thinking levels of a realization.")
+
+(defconst wf-manager--persona-sources
+  '("command-line" "environment" "project" "user-default")
+  "The sources of the persona of a routed policy.")
+
+(defconst wf-manager--semantic-primitives
+  '("null" "boolean" "integer" "number" "string" "object")
+  "The primitive types of a semantic schema.")
+
+(defconst wf-manager--primitive-codes '("text" "verdict" "flag" "receipt")
+  "The primitive observation codes.")
+
+(defconst wf-manager--review-depth '(2 . 64)
+  "The depth rule of the semantic schema of a review.
+The car is the depth step of each nesting level, and the cdr is the
+deepest depth accepted.")
+
+(defconst wf-manager--int32-max 2147483647
+  "The largest signed 32-bit integer.")
+
+(defconst wf-manager--int64-min (- (expt 2 63))
+  "The smallest signed 64-bit integer.")
+
+(defconst wf-manager--int64-max (1- (expt 2 63))
+  "The largest signed 64-bit integer.")
+
+(cl-defstruct (wf-manager-input-declaration
+               (:constructor wf-manager-input-declaration-make)
+               (:copier nil))
+  "One declared workflow input, a required string input without description.
+NAME is the input name.  SOURCE is one of `wf-manager-input-sources'."
+  (name nil :read-only t)
+  (source nil :read-only t))
+
+(cl-defstruct (wf-manager-supplied-input
+               (:constructor wf-manager-supplied-input-make)
+               (:copier nil))
+  "One supplied input.
+NAME is the input name.  SOURCE is \"literal\" or \"capture\".  A literal
+input has the text VALUE.  A capture input has the opaque selector
+CAPTURE-ID."
+  (name nil :read-only t)
+  (source nil :read-only t)
+  (value nil :read-only t)
+  (capture-id nil :read-only t))
+
+(cl-defstruct (wf-manager-input-error
+               (:constructor wf-manager-input-error-make)
+               (:copier nil))
+  "One input error.
+NAME is the input name.  CODE is one of `wf-manager-input-error-codes'."
+  (name nil :read-only t)
+  (code nil :read-only t))
+
+(cl-defstruct (wf-manager-readiness
+               (:constructor wf-manager-readiness-make)
+               (:copier nil))
+  "The readiness of a request.
+DECLARATIONS is a list of `wf-manager-input-declaration', SUPPLIED a list
+of `wf-manager-supplied-input', MISSING the list of the names of the
+declarations without a supplied input, in declaration order, and ERRORS a
+list of `wf-manager-input-error'."
+  (declarations nil :read-only t)
+  (supplied nil :read-only t)
+  (missing nil :read-only t)
+  (errors nil :read-only t))
+
+(cl-defstruct (wf-manager-draft
+               (:constructor wf-manager-draft-make)
+               (:copier nil))
+  "One versioned request resource.
+ID, REVISION, WORKFLOW-ID, DESCRIPTOR-REVISION, PROFILE-ID and
+PROFILE-REVISION are bounded identifiers.  PHASE is one of
+`wf-manager-request-phases'.  READINESS is a `wf-manager-readiness'.
+ADMISSION is one of `wf-manager-admission-states', POSITION the queue
+position from 1 to 100 or nil, and REASONS the list of the reasons that
+block the admission.  PREPARATION-ID, RUN-ID and PARENT-RUN-ID are bounded
+identifiers or nil, and LINEAGE is one of `wf-manager-lineage-operations'
+or nil."
+  (id nil :read-only t)
+  (revision nil :read-only t)
+  (workflow-id nil :read-only t)
+  (descriptor-revision nil :read-only t)
+  (profile-id nil :read-only t)
+  (profile-revision nil :read-only t)
+  (phase nil :read-only t)
+  (readiness nil :read-only t)
+  (admission nil :read-only t)
+  (position nil :read-only t)
+  (reasons nil :read-only t)
+  (preparation-id nil :read-only t)
+  (run-id nil :read-only t)
+  (parent-run-id nil :read-only t)
+  (lineage nil :read-only t))
+
+(cl-defstruct (wf-manager-review-input
+               (:constructor wf-manager-review-input-make)
+               (:copier nil))
+  "One input of a review.
+NAME is the input name, SOURCE is \"literal\" or \"capture\", BYTES is the
+exact byte count and SHA256 the lowercase SHA-256 digest of the bytes."
+  (name nil :read-only t)
+  (source nil :read-only t)
+  (bytes nil :read-only t)
+  (sha256 nil :read-only t))
+
+(cl-defstruct (wf-manager-review-edit
+               (:constructor wf-manager-review-edit-make)
+               (:copier nil))
+  "One answer edit of a fork.
+OPERATION is \"drop\" or \"replace\".  OCCURRENCE-ID is an unsigned 64-bit
+integer.  A replacement has SHA256, the digest of its answer, and never
+the answer itself.  A drop has a nil SHA256."
+  (operation nil :read-only t)
+  (occurrence-id nil :read-only t)
+  (sha256 nil :read-only t))
+
+(cl-defstruct (wf-manager-review-lineage
+               (:constructor wf-manager-review-lineage-make)
+               (:copier nil))
+  "The lineage of a restart, resume or fork preparation.
+PARENT-RUN-ID is a bounded identifier, OPERATION one of
+`wf-manager-lineage-operations', and EDITS a list of
+`wf-manager-review-edit'.  Only a fork has edits."
+  (parent-run-id nil :read-only t)
+  (operation nil :read-only t)
+  (edits nil :read-only t))
+
+(cl-defstruct (wf-manager-review
+               (:constructor wf-manager-review-make)
+               (:copier nil))
+  "The bounded consent facts of one preparation.
+PROGRAM-HASH is a SHA-256 digest.  PERSON-ANSWERING is \"engine\" or
+\"local-control\".  POLICY and RESULT-CODE are their validated exact JSON
+values.  WORKFLOW-ID and PROFILE-ID are bounded identifiers.
+WORKSPACE-LABEL, TARGET-LABEL and PLAN are text.  INPUTS is a list of
+`wf-manager-review-input'.  RUN-FACTS, PINS and WARNINGS are lists of
+text.  LINEAGE is a `wf-manager-review-lineage', or nil for a root
+review."
+  (program-hash nil :read-only t)
+  (person-answering nil :read-only t)
+  (policy nil :read-only t)
+  (workflow-id nil :read-only t)
+  (profile-id nil :read-only t)
+  (workspace-label nil :read-only t)
+  (target-label nil :read-only t)
+  (inputs nil :read-only t)
+  (plan nil :read-only t)
+  (run-facts nil :read-only t)
+  (pins nil :read-only t)
+  (warnings nil :read-only t)
+  (result-code nil :read-only t)
+  (lineage nil :read-only t))
+
+(cl-defstruct (wf-manager-preparation
+               (:constructor wf-manager-preparation-make)
+               (:copier nil))
+  "One versioned preparation.  It is not a live worker and not an approval.
+ID, REVISION, REQUEST-ID, REQUEST-REVISION, PROFILE-ID, PROFILE-REVISION,
+DESCRIPTOR-REVISION and PROCESS-GENERATION are bounded identifiers.
+STATE is one of `wf-manager-preparation-states'.  EXPIRES-AT is an RFC
+3339 time.  REVIEW-DIGEST is the SHA-256 digest of REVIEW, a
+`wf-manager-review'.  REASON is one of `wf-manager-preparation-reasons'
+or nil."
+  (id nil :read-only t)
+  (revision nil :read-only t)
+  (request-id nil :read-only t)
+  (request-revision nil :read-only t)
+  (profile-id nil :read-only t)
+  (profile-revision nil :read-only t)
+  (descriptor-revision nil :read-only t)
+  (state nil :read-only t)
+  (expires-at nil :read-only t)
+  (review-digest nil :read-only t)
+  (process-generation nil :read-only t)
+  (review nil :read-only t)
+  (reason nil :read-only t))
+
+(cl-defstruct (wf-manager-overview-member
+               (:constructor wf-manager-overview-member-make)
+               (:copier nil))
+  "One member of the overview page set.
+KIND is \"request\" or \"preparation\".  VALUE is a `wf-manager-draft' or
+a `wf-manager-preparation'."
+  (kind nil :read-only t)
+  (value nil :read-only t))
+
+;;;;; Field readers
+
+(defun wf-manager--refuse ()
+  "Refuse the value of the current parser."
+  (throw 'wf-manager--refusal nil))
+
+(defun wf-manager--ensure (value)
+  "Return VALUE when it is non-nil, and refuse it otherwise."
+  (or value (wf-manager--refuse)))
+
+(defun wf-manager--member (object name)
+  "In OBJECT, return the member NAME, or nil when OBJECT is not an object."
+  (and (hash-table-p object) (gethash name object)))
+
+(defun wf-manager--exact (value names)
+  "Return VALUE when it is an object whose member names are NAMES.
+Refuse any other VALUE."
+  (wf-manager--ensure (wf-manager--closed value names)))
+
+(defun wf-manager--within-p (value names)
+  "Return VALUE when it is an object whose member names are all in NAMES."
+  (and (hash-table-p value)
+       (catch 'outside
+         (maphash (lambda (name _member)
+                    (unless (member name names) (throw 'outside nil)))
+                  value)
+         value)))
+
+(defun wf-manager--within (value names)
+  "Return VALUE when its member names are all in NAMES, and refuse otherwise."
+  (wf-manager--ensure (wf-manager--within-p value names)))
+
+(defun wf-manager--bounded-text-p (value lower upper)
+  "Return non-nil when VALUE is text of LOWER to UPPER characters."
+  (and (stringp value) (<= lower (length value) upper)))
+
+(defun wf-manager--bounded-text (value lower upper)
+  "Return VALUE when it is text of LOWER to UPPER characters.
+Refuse any other VALUE."
+  (if (wf-manager--bounded-text-p value lower upper) value (wf-manager--refuse)))
+
+(defun wf-manager--string (value)
+  "Return VALUE when it is a string, and refuse it otherwise."
+  (if (stringp value) value (wf-manager--refuse)))
+
+(defun wf-manager--identifier (value)
+  "Return VALUE when it is a bounded identifier, and refuse it otherwise."
+  (if (wf-manager-valid-id-p value) value (wf-manager--refuse)))
+
+(defun wf-manager--choice-p (value choices)
+  "Return VALUE when it is one of the strings CHOICES, otherwise nil."
+  (and (stringp value) (car (member value choices))))
+
+(defun wf-manager--choice (value choices)
+  "Return VALUE when it is one of the strings CHOICES, and refuse otherwise."
+  (wf-manager--ensure (wf-manager--choice-p value choices)))
+
+(defun wf-manager--nullable (value parse)
+  "Return nil for the JSON null VALUE, and the result of PARSE otherwise.
+An absent VALUE refuses."
+  (cond ((null value) (wf-manager--refuse))
+        ((eq value :null) nil)
+        (t (funcall parse value))))
+
+(defun wf-manager--items (value parse &optional limit)
+  "For the array VALUE, return the list of PARSE applied to each item.
+An array of more than LIMIT items, or a VALUE that is not an array,
+refuses."
+  (if (and (vectorp value) (or (null limit) (<= (length value) limit)))
+      (mapcar parse value)
+    (wf-manager--refuse)))
+
+(defun wf-manager--integer (value minimum maximum)
+  "Return the integer of the JSON number VALUE from MINIMUM to MAXIMUM.
+Refuse any other VALUE."
+  (wf-manager--ensure (wf-manager--bounded-integer value minimum maximum)))
+
+(defun wf-manager--unique-p (strings)
+  "Return non-nil when no string occurs in STRINGS more than one time."
+  (= (length (delete-dups (copy-sequence strings))) (length strings)))
+
+(defun wf-manager--digest-p (value)
+  "Return non-nil when VALUE is a lowercase hexadecimal SHA-256 digest."
+  (and (stringp value) (wf-manager--matches-p "[0-9a-f]\\{64\\}" value)))
+
+(defun wf-manager--digest (value)
+  "Return VALUE when it is a SHA-256 digest, and refuse it otherwise."
+  (if (wf-manager--digest-p value) value (wf-manager--refuse)))
+
+(defun wf-manager--word64-text (value)
+  "Return the integer of VALUE, a canonical unsigned 64-bit decimal text.
+Refuse any other VALUE."
+  (if (and (stringp value)
+           (<= (length value) 20)
+           (wf-manager--matches-p "0\\|[1-9][0-9]*" value)
+           (<= (string-to-number value) wf-manager--word64-max))
+      (string-to-number value)
+    (wf-manager--refuse)))
+
+(defun wf-manager--leap-year-p (year)
+  "Return non-nil when YEAR is a Gregorian leap year."
+  (and (= (% year 4) 0) (or (/= (% year 100) 0) (= (% year 400) 0))))
+
+(defun wf-manager-valid-timestamp-p (value)
+  "Return non-nil when VALUE is an RFC 3339 time that the protocol accepts.
+VALUE has 20 to 64 characters: a valid Gregorian date with a year other
+than 0, a time below 24:00:00 with optional fraction digits, and Z or an
+offset below 24:00.  The letters T and Z can be lowercase."
+  (and (wf-manager--bounded-text-p value 20 64)
+       (let ((case-fold-search nil))
+         (string-match
+          (concat "\\`\\([0-9]\\{4\\}\\)-\\([0-9]\\{2\\}\\)-\\([0-9]\\{2\\}\\)"
+                  "[Tt]\\([0-9]\\{2\\}\\):\\([0-9]\\{2\\}\\):\\([0-9]\\{2\\}\\)"
+                  "\\(?:\\.[0-9]+\\)?"
+                  "\\(?:[Zz]\\|[-+]\\([0-9]\\{2\\}\\):\\([0-9]\\{2\\}\\)\\)\\'")
+          value))
+       (let* ((part (lambda (group)
+                      (string-to-number (or (match-string group value) "0"))))
+              (year (funcall part 1))
+              (month (funcall part 2))
+              (day (funcall part 3)))
+         (and (/= year 0)
+              (<= 1 month 12)
+              (<= 1 day (if (and (= month 2) (not (wf-manager--leap-year-p year)))
+                            28
+                          (aref [31 29 31 30 31 30 31 31 30 31 30 31] (1- month))))
+              (< (funcall part 4) 24)
+              (< (funcall part 5) 60)
+              (< (funcall part 6) 60)
+              (< (funcall part 7) 24)
+              (< (funcall part 8) 60)))))
+
+;;;;; Requests and readiness
+
+(defun wf-manager--input-name-p (value)
+  "Return non-nil when VALUE is 1 to 1024 characters of text without NUL."
+  (and (wf-manager--bounded-text-p value 1 1024)
+       (not (string-search "\0" value))))
+
+(defun wf-manager--input-name (value)
+  "Return VALUE when it is an input name, and refuse it otherwise."
+  (if (wf-manager--input-name-p value) value (wf-manager--refuse)))
+
+(defun wf-manager--string-schema ()
+  "Return the JSON schema of a string input, {\"type\":\"string\"}."
+  (wf-manager-json-object "type" "string"))
+
+(defun wf-manager--parse-input-declaration (value)
+  "Return the `wf-manager-input-declaration' of the JSON VALUE, or refuse."
+  (let ((fields (wf-manager--exact
+                 value '("name" "source" "description" "required" "schema"))))
+    (unless (and (eq (gethash "description" fields) :null)
+                 (eq (gethash "required" fields) t)
+                 (wf-manager-json-equal (gethash "schema" fields)
+                                        (wf-manager--string-schema)))
+      (wf-manager--refuse))
+    (wf-manager-input-declaration-make
+     :name (wf-manager--input-name (gethash "name" fields))
+     :source (wf-manager--choice (gethash "source" fields)
+                                 wf-manager-input-sources))))
+
+(defun wf-manager--parse-supplied-input (value)
+  "Return the `wf-manager-supplied-input' of the JSON VALUE, or refuse."
+  (let ((name (wf-manager--input-name (wf-manager--member value "name")))
+        (source (wf-manager--member value "source")))
+    (pcase source
+      ("literal"
+       (let ((fields (wf-manager--exact value '("name" "source" "value"))))
+         (wf-manager-supplied-input-make
+          :name name :source source
+          :value (wf-manager--bounded-text (gethash "value" fields) 0 2097152))))
+      ("capture"
+       (let ((fields (wf-manager--exact value '("name" "source" "captureId"))))
+         (wf-manager-supplied-input-make
+          :name name :source source
+          :capture-id (wf-manager--identifier (gethash "captureId" fields)))))
+      (_ (wf-manager--refuse)))))
+
+(defun wf-manager--parse-input-error (value)
+  "Return the `wf-manager-input-error' of the JSON VALUE, or refuse."
+  (let ((fields (wf-manager--exact value '("name" "code"))))
+    (wf-manager-input-error-make
+     :name (wf-manager--input-name (gethash "name" fields))
+     :code (wf-manager--choice (gethash "code" fields)
+                               wf-manager-input-error-codes))))
+
+(defun wf-manager--parse-readiness (value)
+  "Return the `wf-manager-readiness' of the JSON VALUE, or refuse.
+Each list has at most 256 items.  The declared names are unique, each
+supplied input names one declaration one time, and MISSING names each
+declaration without a supplied input, in declaration order."
+  (let* ((fields (wf-manager--exact
+                  value '("declarations" "supplied" "missing" "errors")))
+         (declarations (wf-manager--items (gethash "declarations" fields)
+                                          #'wf-manager--parse-input-declaration))
+         (supplied (wf-manager--items (gethash "supplied" fields)
+                                      #'wf-manager--parse-supplied-input))
+         (missing (wf-manager--items (gethash "missing" fields)
+                                     #'wf-manager--string))
+         (errors (wf-manager--items (gethash "errors" fields)
+                                    #'wf-manager--parse-input-error))
+         (names (mapcar #'wf-manager-input-declaration-name declarations))
+         (present (mapcar #'wf-manager-supplied-input-name supplied)))
+    (unless (and (cl-every (lambda (items) (<= (length items) 256))
+                           (list names present missing errors))
+                 (wf-manager--unique-p names)
+                 (wf-manager--unique-p present)
+                 (cl-every (lambda (name) (member name names)) present)
+                 (equal missing (cl-remove-if (lambda (name) (member name present))
+                                              names)))
+      (wf-manager--refuse))
+    (wf-manager-readiness-make :declarations declarations :supplied supplied
+                               :missing missing :errors errors)))
+
+(defun wf-manager--parse-draft (value)
+  "Return the `wf-manager-draft' of the JSON VALUE, or refuse."
+  (let* ((fields (wf-manager--exact value wf-manager--draft-fields))
+         (admission (wf-manager--exact (gethash "admission" fields)
+                                       '("state" "position" "reasons")))
+         (identity (lambda (name)
+                     (wf-manager--identifier (gethash name fields))))
+         (optional (lambda (name)
+                     (wf-manager--nullable (gethash name fields)
+                                           #'wf-manager--identifier)))
+         (id (funcall identity "id"))
+         (reasons (wf-manager--items
+                   (gethash "reasons" admission)
+                   (lambda (reason)
+                     (wf-manager--choice reason wf-manager-admission-reasons))
+                   8)))
+    (unless (and (wf-manager--version-one-p fields)
+                 (wf-manager--unique-p reasons)
+                 (wf-manager-json-equal (gethash "links" fields)
+                                        (wf-manager-json-object
+                                         "self" (concat "/v1/requests/" id))))
+      (wf-manager--refuse))
+    (wf-manager-draft-make
+     :id id
+     :revision (funcall identity "revision")
+     :workflow-id (funcall identity "workflowId")
+     :descriptor-revision (funcall identity "descriptorRevision")
+     :profile-id (funcall identity "profileId")
+     :profile-revision (funcall identity "profileRevision")
+     :phase (wf-manager--choice (gethash "phase" fields)
+                                wf-manager-request-phases)
+     :readiness (wf-manager--parse-readiness (gethash "readiness" fields))
+     :admission (wf-manager--choice (gethash "state" admission)
+                                    wf-manager-admission-states)
+     :position (wf-manager--nullable
+                (gethash "position" admission)
+                (lambda (number) (wf-manager--integer number 1 100)))
+     :reasons reasons
+     :preparation-id (funcall optional "preparationId")
+     :run-id (funcall optional "runId")
+     :parent-run-id (funcall optional "parentRunId")
+     :lineage (wf-manager--nullable
+               (gethash "lineage" fields)
+               (lambda (operation)
+                 (wf-manager--choice operation wf-manager-lineage-operations))))))
+
+;;;;; Preparations and reviews
+
+(defun wf-manager--semantic-schema-p (value depth rule)
+  "Return non-nil when VALUE is a semantic schema at DEPTH under RULE.
+A semantic schema is a primitive name, {\"array\":{\"items\":S}} with a
+semantic schema S, or a semantic object.  RULE is a cons of the depth
+step of each level and the deepest depth accepted."
+  (cond
+   ((> depth (cdr rule)) nil)
+   ((stringp value) (wf-manager--choice-p value wf-manager--semantic-primitives))
+   ((wf-manager--member value "array")
+    (let* ((array (wf-manager--closed
+                   (wf-manager--member (wf-manager--closed value '("array"))
+                                       "array")
+                   '("items")))
+           (items (wf-manager--member array "items")))
+      (and items (wf-manager--semantic-schema-p items (+ depth (car rule)) rule))))
+   (t (wf-manager--semantic-object-p value depth nil rule))))
+
+(defun wf-manager--semantic-object-p (value depth seen rule)
+  "Return non-nil when VALUE is a semantic object at DEPTH.
+A semantic object is \"object\", or a chain of properties
+{\"property\":{\"name\":N,\"schema\":S,\"rest\":R}} whose names are
+unique and not in SEEN, with a semantic schema S and a semantic object R.
+RULE is the depth rule of `wf-manager--semantic-schema-p'."
+  (cond
+   ((> depth (cdr rule)) nil)
+   ((equal value "object") t)
+   (t
+    (let* ((property (wf-manager--closed
+                      (wf-manager--member (wf-manager--closed value '("property"))
+                                          "property")
+                      '("name" "schema" "rest")))
+           (name (wf-manager--member property "name")))
+      (and property
+           (wf-manager--bounded-text-p name 0 1024)
+           (not (member name seen))
+           (wf-manager--semantic-schema-p (gethash "schema" property)
+                                          (+ depth (car rule)) rule)
+           (wf-manager--semantic-object-p (gethash "rest" property)
+                                          (+ depth (car rule))
+                                          (cons name seen) rule))))))
+
+(defun wf-manager--observation-code-p (value rule)
+  "Return non-nil when VALUE is an observation code under the depth RULE.
+An observation code is one of `wf-manager--primitive-codes', or
+{\"json\":{\"schema\":S}} with a semantic schema S."
+  (if (stringp value)
+      (wf-manager--choice-p value wf-manager--primitive-codes)
+    (let ((schema (wf-manager--member
+                   (wf-manager--closed
+                    (wf-manager--member (wf-manager--closed value '("json")) "json")
+                    '("schema"))
+                   "schema")))
+      (and schema (wf-manager--semantic-schema-p schema 0 rule)))))
+
+(defun wf-manager--policy-label-p (value)
+  "Return non-nil when VALUE is a policy label of at most 1024 characters."
+  (wf-manager--bounded-text-p value 0 1024))
+
+(defun wf-manager--nullable-positive-p (value)
+  "Return non-nil when VALUE is JSON null or an integer from 1 to 2^31-1.
+An absent VALUE gives nil."
+  (or (eq value :null)
+      (wf-manager--bounded-integer value 1 wf-manager--int32-max)))
+
+(defun wf-manager--realization-p (value)
+  "Return non-nil when VALUE is a realization of a routed policy."
+  (let ((fields (wf-manager--within-p value wf-manager--realization-fields)))
+    (and fields
+         (cl-every (lambda (name) (wf-manager--policy-label-p (gethash name fields)))
+                   '("profile" "axis" "backend" "router" "provider" "model"))
+         (wf-manager--bounded-integer (gethash "rung" fields)
+                                      0 wf-manager--int32-max)
+         (wf-manager--choice-p (gethash "thinking" fields)
+                               wf-manager--thinking-levels)
+         (wf-manager--nullable-positive-p (gethash "maxOutput" fields))
+         (cl-every (lambda (name)
+                     (let ((label (gethash name fields)))
+                       (or (null label) (wf-manager--policy-label-p label))))
+                   '("modelAlias" "engine"))
+         (let ((fingerprint (gethash "executionFingerprint" fields)))
+           (or (null fingerprint) (wf-manager--digest-p fingerprint))))))
+
+(defun wf-manager--person-answers-p (value)
+  "Return non-nil when VALUE is a list of 1 to 256 answer addresses.
+An address is 1 to 1024 characters, \"model:\" or \"tool:\" and a name."
+  (and (vectorp value)
+       (<= 1 (length value) 256)
+       (cl-every (lambda (address)
+                   (and (wf-manager--bounded-text-p address 1 1024)
+                        (cl-some (lambda (prefix)
+                                   (and (string-prefix-p prefix address)
+                                        (> (length address) (length prefix))))
+                                 '("model:" "tool:"))))
+                 value)))
+
+(defun wf-manager--policy-p (value)
+  "Return non-nil when VALUE is the frozen policy of one preparation.
+The policy is {\"kind\":\"scripted\"} or a routed policy with exactly one
+of `default' and `coverage' \"full\", at most 64 routes, poll and timeout
+intervals, a boolean `verbose', at most 256 realizations, optional person
+answer addresses and an optional complete persona."
+  (pcase (wf-manager--member value "kind")
+    ("scripted" (and (wf-manager--within-p value '("kind")) t))
+    ("routed"
+     (let ((default (gethash "default" value))
+           (coverage (gethash "coverage" value))
+           (routes (gethash "routes" value))
+           (realizations (gethash "realizations" value))
+           (answers (gethash "personAnswers" value))
+           (persona (cl-remove-if-not
+                     (lambda (name) (gethash name value))
+                     '("routingVersion" "persona" "personaSource" "policyDigest"))))
+       (and (wf-manager--within-p value wf-manager--policy-fields)
+            (if default
+                (and (null coverage) (wf-manager--policy-label-p default))
+              (equal coverage "full"))
+            (vectorp routes)
+            (<= (length routes) 64)
+            (cl-every (lambda (route)
+                        (let ((fields (wf-manager--within-p route '("name" "backend"))))
+                          (and fields
+                               (wf-manager--policy-label-p (gethash "name" fields))
+                               (wf-manager--policy-label-p (gethash "backend" fields)))))
+                      routes)
+            (wf-manager--nullable-positive-p (gethash "pollMs" value))
+            (wf-manager--nullable-positive-p (gethash "timeoutMs" value))
+            (memq (gethash "verbose" value) '(t :false))
+            (vectorp realizations)
+            (<= (length realizations) 256)
+            (cl-every #'wf-manager--realization-p realizations)
+            (or (null answers) (wf-manager--person-answers-p answers))
+            (or (null persona)
+                (and (= (length persona) 4)
+                     (eql (wf-manager--bounded-integer
+                           (gethash "routingVersion" value)
+                           wf-manager--int64-min wf-manager--int64-max)
+                          2)
+                     (wf-manager--policy-label-p (gethash "persona" value))
+                     (wf-manager--choice-p (gethash "personaSource" value)
+                                           wf-manager--persona-sources)
+                     (wf-manager--digest-p (gethash "policyDigest" value)))))))
+    (_ nil)))
+
+(defun wf-manager--parse-review-input (value)
+  "Return the `wf-manager-review-input' of the JSON VALUE, or refuse."
+  (let ((fields (wf-manager--within value '("name" "source" "bytes" "sha256"))))
+    (wf-manager-review-input-make
+     :name (wf-manager--bounded-text (gethash "name" fields) 1 1024)
+     :source (wf-manager--choice (gethash "source" fields) '("literal" "capture"))
+     :bytes (wf-manager--word64-text (gethash "bytes" fields))
+     :sha256 (wf-manager--digest (gethash "sha256" fields)))))
+
+(defun wf-manager--parse-review-edit (value)
+  "Return the `wf-manager-review-edit' of the JSON VALUE, or refuse."
+  (pcase (wf-manager--member value "operation")
+    ("drop"
+     (let ((fields (wf-manager--within value '("operation" "occurrenceId"))))
+       (wf-manager-review-edit-make
+        :operation "drop"
+        :occurrence-id (wf-manager--word64-text (gethash "occurrenceId" fields)))))
+    ("replace"
+     (let ((fields (wf-manager--within value '("operation" "occurrenceId" "sha256"))))
+       (wf-manager-review-edit-make
+        :operation "replace"
+        :occurrence-id (wf-manager--word64-text (gethash "occurrenceId" fields))
+        :sha256 (wf-manager--digest (gethash "sha256" fields)))))
+    (_ (wf-manager--refuse))))
+
+(defun wf-manager--parse-review-lineage (value)
+  "Return the `wf-manager-review-lineage' of the JSON VALUE, or refuse.
+A lineage has at most 2048 edits, and only a fork has edits."
+  (let* ((fields (wf-manager--within value '("parentRunId" "operation" "edits")))
+         (operation (wf-manager--choice (gethash "operation" fields)
+                                        wf-manager-lineage-operations))
+         (edits (wf-manager--items (gethash "edits" fields)
+                                   #'wf-manager--parse-review-edit 2048)))
+    (unless (or (null edits) (equal operation "fork"))
+      (wf-manager--refuse))
+    (wf-manager-review-lineage-make
+     :parent-run-id (wf-manager--identifier (gethash "parentRunId" fields))
+     :operation operation
+     :edits edits)))
+
+(defun wf-manager--texts (value)
+  "Return the list of at most 256 texts of at most 4096 characters in VALUE.
+Refuse any other VALUE."
+  (wf-manager--items value (lambda (item) (wf-manager--bounded-text item 0 4096))
+                     256))
+
+(defun wf-manager--parse-review (value)
+  "Return the `wf-manager-review' of the JSON VALUE, or refuse.
+An absent lineage is a root review, and a null lineage refuses."
+  (let* ((fields (wf-manager--within value wf-manager--review-fields))
+         (policy (gethash "policy" fields))
+         (result-code (gethash "resultCode" fields))
+         (lineage (gethash "lineage" fields)))
+    (unless (and (wf-manager--policy-p policy)
+                 (wf-manager--observation-code-p result-code
+                                                 wf-manager--review-depth))
+      (wf-manager--refuse))
+    (wf-manager-review-make
+     :program-hash (wf-manager--digest (gethash "programHash" fields))
+     :person-answering (wf-manager--choice (gethash "personAnswering" fields)
+                                           '("engine" "local-control"))
+     :policy policy
+     :workflow-id (wf-manager--identifier (gethash "workflowId" fields))
+     :profile-id (wf-manager--identifier (gethash "profileId" fields))
+     :workspace-label (wf-manager--bounded-text (gethash "workspaceLabel" fields)
+                                                0 4096)
+     :target-label (wf-manager--bounded-text (gethash "targetLabel" fields) 0 4096)
+     :inputs (wf-manager--items (gethash "inputs" fields)
+                                #'wf-manager--parse-review-input 256)
+     :plan (wf-manager--bounded-text (gethash "plan" fields) 0 524288)
+     :run-facts (wf-manager--texts (gethash "runFacts" fields))
+     :pins (wf-manager--texts (gethash "pins" fields))
+     :warnings (wf-manager--texts (gethash "warnings" fields))
+     :result-code result-code
+     :lineage (and lineage (wf-manager--parse-review-lineage lineage)))))
+
+(defun wf-manager--parse-preparation (value)
+  "Return the `wf-manager-preparation' of the JSON VALUE, or refuse."
+  (let* ((fields (wf-manager--within value wf-manager--preparation-fields))
+         (identity (lambda (name)
+                     (wf-manager--identifier (gethash name fields))))
+         (expires-at (gethash "expiresAt" fields)))
+    (unless (and (wf-manager--version-one-p fields)
+                 (wf-manager-valid-timestamp-p expires-at))
+      (wf-manager--refuse))
+    (wf-manager-preparation-make
+     :id (funcall identity "id")
+     :revision (funcall identity "revision")
+     :request-id (funcall identity "requestId")
+     :request-revision (funcall identity "requestRevision")
+     :profile-id (funcall identity "profileId")
+     :profile-revision (funcall identity "profileRevision")
+     :descriptor-revision (funcall identity "descriptorRevision")
+     :state (wf-manager--choice (gethash "state" fields)
+                                wf-manager-preparation-states)
+     :expires-at expires-at
+     :review-digest (wf-manager--digest (gethash "reviewDigest" fields))
+     :process-generation (funcall identity "processGeneration")
+     :review (wf-manager--parse-review (gethash "review" fields))
+     :reason (wf-manager--nullable
+              (gethash "reason" fields)
+              (lambda (reason)
+                (wf-manager--choice reason wf-manager-preparation-reasons))))))
+
+;;;;; Overview members
+
+(defconst wf-manager--overview-kinds
+  '(("request" wf-manager--parse-draft wf-manager-encode-draft)
+    ("preparation" wf-manager--parse-preparation wf-manager-encode-preparation))
+  "The overview member kinds that this client decodes.
+Each entry is (KIND PARSER ENCODER).  The manager also serves the kinds
+\"run\" and \"decision\", which this client refuses until it has their
+decoders.")
+
+(defun wf-manager--parse-overview-member (value)
+  "Return the `wf-manager-overview-member' of the JSON VALUE, or refuse.
+VALUE is {\"kind\":K,K:MEMBER}."
+  (let* ((kind (wf-manager--member value "kind"))
+         (entry (wf-manager--ensure (and (stringp kind)
+                                         (assoc kind wf-manager--overview-kinds))))
+         (fields (wf-manager--exact value (list "kind" kind))))
+    (wf-manager-overview-member-make
+     :kind kind :value (funcall (nth 1 entry) (gethash kind fields)))))
+
+;;;;; Public decoders and encoders
+
+(defun wf-manager--decode-resource (kind parse value)
+  "For a value of KIND, return the record that PARSE gives for VALUE.
+A refusal of PARSE signals `wf-manager-invalid-response' about KIND."
+  (wf-manager--decided kind (catch 'wf-manager--refusal (funcall parse value))))
+
+(defun wf-manager--json-list (encode items)
+  "Return the JSON array of ENCODE applied to each of ITEMS."
+  (apply #'vector (mapcar encode items)))
+
+(defun wf-manager--json-nullable (value)
+  "Return VALUE, or JSON null when VALUE is nil."
+  (or value :null))
+
+(defun wf-manager-decode-input-declaration (value)
+  "Return the `wf-manager-input-declaration' of the JSON VALUE.
+VALUE has exactly `name', `source', a null `description', a true
+`required' and the schema {\"type\":\"string\"}.  Any other VALUE signals
+`wf-manager-invalid-response'."
+  (wf-manager--decode-resource "input declaration"
+                               #'wf-manager--parse-input-declaration value))
+
+(defun wf-manager-encode-input-declaration (declaration)
+  "Return the JSON value of DECLARATION, a `wf-manager-input-declaration'."
+  (wf-manager-json-object
+   "name" (wf-manager-input-declaration-name declaration)
+   "source" (wf-manager-input-declaration-source declaration)
+   "description" :null
+   "required" t
+   "schema" (wf-manager--string-schema)))
+
+(defun wf-manager-decode-supplied-input (value)
+  "Return the `wf-manager-supplied-input' of the JSON VALUE.
+VALUE is a literal input with text of at most 2097152 characters or a
+capture input with a bounded identifier.  Any other VALUE signals
+`wf-manager-invalid-response'."
+  (wf-manager--decode-resource "supplied input"
+                               #'wf-manager--parse-supplied-input value))
+
+(defun wf-manager-encode-supplied-input (input)
+  "Return the JSON value of INPUT, a `wf-manager-supplied-input'."
+  (if (equal (wf-manager-supplied-input-source input) "literal")
+      (wf-manager-json-object "name" (wf-manager-supplied-input-name input)
+                              "source" "literal"
+                              "value" (wf-manager-supplied-input-value input))
+    (wf-manager-json-object "name" (wf-manager-supplied-input-name input)
+                            "source" "capture"
+                            "captureId" (wf-manager-supplied-input-capture-id input))))
+
+(defun wf-manager-decode-input-error (value)
+  "Return the `wf-manager-input-error' of the JSON VALUE.
+Any VALUE other than exactly `name' and a known `code' signals
+`wf-manager-invalid-response'."
+  (wf-manager--decode-resource "input error" #'wf-manager--parse-input-error value))
+
+(defun wf-manager-encode-input-error (input-error)
+  "Return the JSON value of INPUT-ERROR, a `wf-manager-input-error'."
+  (wf-manager-json-object "name" (wf-manager-input-error-name input-error)
+                          "code" (wf-manager-input-error-code input-error)))
+
+(defun wf-manager-decode-readiness (value)
+  "Return the `wf-manager-readiness' of the JSON VALUE.
+Any VALUE that breaks a readiness rule signals
+`wf-manager-invalid-response'."
+  (wf-manager--decode-resource "readiness" #'wf-manager--parse-readiness value))
+
+(defun wf-manager-encode-readiness (readiness)
+  "Return the JSON value of READINESS, a `wf-manager-readiness'."
+  (wf-manager-json-object
+   "declarations" (wf-manager--json-list #'wf-manager-encode-input-declaration
+                                         (wf-manager-readiness-declarations readiness))
+   "supplied" (wf-manager--json-list #'wf-manager-encode-supplied-input
+                                     (wf-manager-readiness-supplied readiness))
+   "missing" (apply #'vector (wf-manager-readiness-missing readiness))
+   "errors" (wf-manager--json-list #'wf-manager-encode-input-error
+                                   (wf-manager-readiness-errors readiness))))
+
+(defun wf-manager-decode-draft (value)
+  "Return the `wf-manager-draft' of the JSON VALUE.
+VALUE is a version 1 request resource, or one item of the request
+collection, whose self link names its own identifier.  Any other VALUE
+signals `wf-manager-invalid-response'."
+  (wf-manager--decode-resource "request" #'wf-manager--parse-draft value))
+
+(defun wf-manager-encode-draft (draft)
+  "Return the JSON value of DRAFT, a `wf-manager-draft'."
+  (let ((position (wf-manager-draft-position draft)))
+    (wf-manager-json-object
+     "version" (wf-manager-json-integer 1)
+     "id" (wf-manager-draft-id draft)
+     "revision" (wf-manager-draft-revision draft)
+     "workflowId" (wf-manager-draft-workflow-id draft)
+     "descriptorRevision" (wf-manager-draft-descriptor-revision draft)
+     "profileId" (wf-manager-draft-profile-id draft)
+     "profileRevision" (wf-manager-draft-profile-revision draft)
+     "phase" (wf-manager-draft-phase draft)
+     "readiness" (wf-manager-encode-readiness (wf-manager-draft-readiness draft))
+     "admission" (wf-manager-json-object
+                  "state" (wf-manager-draft-admission draft)
+                  "position" (if position (wf-manager-json-integer position) :null)
+                  "reasons" (apply #'vector (wf-manager-draft-reasons draft)))
+     "preparationId" (wf-manager--json-nullable (wf-manager-draft-preparation-id draft))
+     "runId" (wf-manager--json-nullable (wf-manager-draft-run-id draft))
+     "parentRunId" (wf-manager--json-nullable (wf-manager-draft-parent-run-id draft))
+     "lineage" (wf-manager--json-nullable (wf-manager-draft-lineage draft))
+     "links" (wf-manager-json-object
+              "self" (concat "/v1/requests/" (wf-manager-draft-id draft))))))
+
+(defun wf-manager-decode-review-input (value)
+  "Return the `wf-manager-review-input' of the JSON VALUE.
+The byte count is canonical unsigned 64-bit decimal text.  Any other
+VALUE signals `wf-manager-invalid-response'."
+  (wf-manager--decode-resource "review input" #'wf-manager--parse-review-input value))
+
+(defun wf-manager-encode-review-input (input)
+  "Return the JSON value of INPUT, a `wf-manager-review-input'."
+  (wf-manager-json-object
+   "name" (wf-manager-review-input-name input)
+   "source" (wf-manager-review-input-source input)
+   "bytes" (number-to-string (wf-manager-review-input-bytes input))
+   "sha256" (wf-manager-review-input-sha256 input)))
+
+(defun wf-manager-decode-review-edit (value)
+  "Return the `wf-manager-review-edit' of the JSON VALUE.
+The occurrence is canonical unsigned 64-bit decimal text.  Any other
+VALUE signals `wf-manager-invalid-response'."
+  (wf-manager--decode-resource "review edit" #'wf-manager--parse-review-edit value))
+
+(defun wf-manager-encode-review-edit (edit)
+  "Return the JSON value of EDIT, a `wf-manager-review-edit'."
+  (let ((object (wf-manager-json-object
+                 "operation" (wf-manager-review-edit-operation edit)
+                 "occurrenceId" (number-to-string
+                                 (wf-manager-review-edit-occurrence-id edit)))))
+    (when (wf-manager-review-edit-sha256 edit)
+      (puthash "sha256" (wf-manager-review-edit-sha256 edit) object))
+    object))
+
+(defun wf-manager-decode-review-lineage (value)
+  "Return the `wf-manager-review-lineage' of the JSON VALUE.
+Any VALUE that breaks a lineage rule signals
+`wf-manager-invalid-response'."
+  (wf-manager--decode-resource "review lineage"
+                               #'wf-manager--parse-review-lineage value))
+
+(defun wf-manager-encode-review-lineage (lineage)
+  "Return the JSON value of LINEAGE, a `wf-manager-review-lineage'."
+  (wf-manager-json-object
+   "parentRunId" (wf-manager-review-lineage-parent-run-id lineage)
+   "operation" (wf-manager-review-lineage-operation lineage)
+   "edits" (wf-manager--json-list #'wf-manager-encode-review-edit
+                                  (wf-manager-review-lineage-edits lineage))))
+
+(defun wf-manager-decode-review (value)
+  "Return the `wf-manager-review' of the JSON VALUE.
+An absent lineage is a root review, and a null lineage refuses.  Any
+VALUE that breaks a review rule signals `wf-manager-invalid-response'."
+  (wf-manager--decode-resource "review" #'wf-manager--parse-review value))
+
+(defun wf-manager-encode-review (review)
+  "Return the JSON value of REVIEW, a `wf-manager-review'.
+A root review has no `lineage' member."
+  (let ((object (wf-manager-json-object
+                 "programHash" (wf-manager-review-program-hash review)
+                 "personAnswering" (wf-manager-review-person-answering review)
+                 "policy" (wf-manager-review-policy review)
+                 "workflowId" (wf-manager-review-workflow-id review)
+                 "profileId" (wf-manager-review-profile-id review)
+                 "workspaceLabel" (wf-manager-review-workspace-label review)
+                 "targetLabel" (wf-manager-review-target-label review)
+                 "inputs" (wf-manager--json-list #'wf-manager-encode-review-input
+                                                 (wf-manager-review-inputs review))
+                 "plan" (wf-manager-review-plan review)
+                 "runFacts" (apply #'vector (wf-manager-review-run-facts review))
+                 "pins" (apply #'vector (wf-manager-review-pins review))
+                 "warnings" (apply #'vector (wf-manager-review-warnings review))
+                 "resultCode" (wf-manager-review-result-code review))))
+    (when (wf-manager-review-lineage review)
+      (puthash "lineage" (wf-manager-encode-review-lineage
+                          (wf-manager-review-lineage review))
+               object))
+    object))
+
+(defun wf-manager-decode-preparation (value)
+  "Return the `wf-manager-preparation' of the JSON VALUE.
+VALUE is a version 1 preparation with a valid expiry time, a lowercase
+review digest and a valid review.  Any other VALUE signals
+`wf-manager-invalid-response'."
+  (wf-manager--decode-resource "preparation" #'wf-manager--parse-preparation value))
+
+(defun wf-manager-encode-preparation (preparation)
+  "Return the JSON value of PREPARATION, a `wf-manager-preparation'."
+  (wf-manager-json-object
+   "version" (wf-manager-json-integer 1)
+   "id" (wf-manager-preparation-id preparation)
+   "revision" (wf-manager-preparation-revision preparation)
+   "requestId" (wf-manager-preparation-request-id preparation)
+   "requestRevision" (wf-manager-preparation-request-revision preparation)
+   "profileId" (wf-manager-preparation-profile-id preparation)
+   "profileRevision" (wf-manager-preparation-profile-revision preparation)
+   "descriptorRevision" (wf-manager-preparation-descriptor-revision preparation)
+   "state" (wf-manager-preparation-state preparation)
+   "expiresAt" (wf-manager-preparation-expires-at preparation)
+   "reviewDigest" (wf-manager-preparation-review-digest preparation)
+   "processGeneration" (wf-manager-preparation-process-generation preparation)
+   "review" (wf-manager-encode-review (wf-manager-preparation-review preparation))
+   "reason" (wf-manager--json-nullable (wf-manager-preparation-reason preparation))))
+
+(defun wf-manager-decode-overview-member (value)
+  "Return the `wf-manager-overview-member' of the JSON VALUE.
+VALUE is {\"kind\":K,K:MEMBER} for a kind of
+`wf-manager--overview-kinds'.  Any other VALUE signals
+`wf-manager-invalid-response'."
+  (wf-manager--decode-resource "overview member"
+                               #'wf-manager--parse-overview-member value))
+
+(defun wf-manager-encode-overview-member (member)
+  "Return the JSON value of MEMBER, a `wf-manager-overview-member'."
+  (let ((kind (wf-manager-overview-member-kind member)))
+    (wf-manager-json-object
+     "kind" kind
+     kind (funcall (nth 2 (assoc kind wf-manager--overview-kinds))
+                   (wf-manager-overview-member-value member)))))
 
 (provide 'wf-manager)
 

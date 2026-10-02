@@ -463,8 +463,9 @@ interactive resize. It does not establish a different host OS or Linux acceptanc
 treated as errors, runs strict `checkdoc` on each of them, and executes
 descriptor, setup, native process, control, artifact, history, and lineage
 regressions. A fourth pass runs the ERT tests of the service-mode transport in
-`emacs/wf-manager-tests.el`, which include the events vectors of
-`test/manager_client_vectors.json` in agent-cat. The human/control fixture and
+`emacs/wf-manager-tests.el`, which include the events vectors and the drafts,
+requests and preparations vectors of `test/manager_client_vectors.json` in
+agent-cat. The human/control fixture and
 the vector file are explicit dependencies, not developer-specific paths or
 skipped tests. The pinned agent-cat source of the development shell does not
 have the vector file, so `WF_MANAGER_VECTORS` names it.
@@ -627,6 +628,34 @@ other body gives a `wf-manager-invalid-response` failure.
 | `wf-manager-invalid-response` | A response is not UTF-8 JSON, or a decoded value breaks a rule. The data is `(KIND REASON)`, where `KIND` names the kind of value, such as `"route record"`. |
 | `wf-manager-response-too-large` | A response has more bytes than the bound. |
 | `wf-manager-refused` | The manager refused with a problem response. The data is `(STATUS CODE)`. |
+
+#### Resource decoders
+
+The resource decoders follow the draft and preparation decoders of
+`ext-pi/src/manager/resources.ts` in agent-cat. They pass the `drafts`,
+`requests` and `preparations` vectors of the resources section of
+`test/manager_client_vectors.json`. Each decoder returns a record, and its
+encoder gives the canonical JSON value of that record. A value that breaks a
+rule signals `wf-manager-invalid-response`, with the kind of value as `KIND`.
+
+| Function | Value |
+| --- | --- |
+| `wf-manager-decode-draft` | A version 1 request resource, or one item of the request collection. The self link names its own identifier. The record keeps the phase, the readiness, the admission state, the queue position from 1 to 100 or nil, at most eight unique blocking reasons, and the preparation, run, parent run and lineage, each one possibly nil. |
+| `wf-manager-decode-readiness` | The declarations, the supplied inputs, the missing names and the input errors, each one at most 256 items. Each supplied input names one declaration one time, and the missing names are the declarations without a supplied input, in declaration order. |
+| `wf-manager-decode-input-declaration` | A declared input with a name, a source of `prompt`, `command-tail` or `stdin`, a null description, a true `required` and the schema `{"type":"string"}`. |
+| `wf-manager-decode-supplied-input` | Literal text of at most 2097152 characters, NUL and empty text included, or a capture with its opaque selector, a bounded identifier. |
+| `wf-manager-decode-input-error` | An input name and one of the codes `unknown-input`, `invalid-input`, `capture-unavailable` and `size-limit`. |
+| `wf-manager-decode-preparation` | A version 1 preparation with a valid RFC 3339 expiry time, a lowercase SHA-256 review digest, a review and a reason or nil. |
+| `wf-manager-decode-review` | The consent facts of a preparation. The policy and the result code stay exact JSON values after their checks. A review without a lineage is a root review, and a null lineage refuses. |
+| `wf-manager-decode-review-input` | An input name, a source of `literal` or `capture`, the byte count as canonical unsigned 64-bit decimal text and a SHA-256 digest. |
+| `wf-manager-decode-review-lineage` | A parent run, an operation of `restart`, `resume` or `fork`, and at most 2048 edits. Only a fork has edits. |
+| `wf-manager-decode-review-edit` | A drop, or a replacement with the SHA-256 digest of its answer, at an occurrence that is canonical unsigned 64-bit decimal text. |
+| `wf-manager-decode-overview-member` | `{"kind":K,K:MEMBER}`, where `K` is `request` or `preparation`. The manager also serves the kinds `run` and `decision`, which this client refuses until it has their decoders. |
+
+A name, a label or a text bound counts characters, which are Unicode code
+points. `wf-manager-valid-timestamp-p` accepts the times that the protocol
+accepts: a valid Gregorian date with a year other than 0, a time below
+24:00:00 with optional fraction digits, and `Z` or an offset below 24:00.
 
 ## What replaces what
 

@@ -14,9 +14,10 @@
 ;; private credential file and the typed refusals.  They check the exact
 ;; JSON codec: false, null and absent members, exact numbers, Unicode and
 ;; the byte bound.  They also run the invalidations, batches, routeRecords,
-;; cursors, etags and problems vectors of the events section of
+;; cursors, etags and problems vectors of the events section and the
+;; drafts, requests and preparations vectors of the resources section of
 ;; `test/manager_client_vectors.json' in agent-cat, which the environment
-;; variable WF_MANAGER_VECTORS names.  A failure lists each vector that
+;; variable WF_MANAGER_VECTORS names.  A failure names each vector that
 ;; does not give its stated result.  The tests start no process and contact
 ;; no host.
 ;;
@@ -29,6 +30,7 @@
 ;;; Code:
 
 (require 'ert)
+(require 'cl-lib)
 (require 'wf-manager)
 
 (defconst wf-manager-tests--ca
@@ -384,9 +386,11 @@ Return the symbol `accepted' when FUNCTION returns."
 ;;;; Event vectors
 
 (defconst wf-manager-tests--vector-counts
-  '(("invalidations" . 16) ("batches" . 13) ("routeRecords" . 17)
-    ("cursors" . 16) ("etags" . 6) ("problems" . 10))
-  "The number of cases of each events subsection of the vector file.
+  '(("events.invalidations" . 16) ("events.batches" . 13)
+    ("events.routeRecords" . 17) ("events.cursors" . 16) ("events.etags" . 6)
+    ("events.problems" . 10) ("resources.drafts" . 39)
+    ("resources.requests" . 11) ("resources.preparations" . 40))
+  "The number of cases of each subsection of the vector file that runs here.
 A change to the vector file changes these counts.")
 
 (defvar wf-manager-tests--vectors nil
@@ -405,8 +409,11 @@ A change to the vector file changes these counts.")
                 (wf-manager-json-decode (buffer-string)))))))
 
 (defun wf-manager-tests--cases (section)
-  "Return the cases of the events SECTION as a list, with their stated count."
-  (let ((cases (append (gethash section (gethash "events" (wf-manager-tests--vectors)))
+  "Return the cases of SECTION as a list, with their stated count.
+SECTION is the dotted path of a subsection, such as \"events.batches\"."
+  (let ((cases (append (cl-reduce (lambda (object name) (gethash name object))
+                                  (split-string section "\\.")
+                                  :initial-value (wf-manager-tests--vectors))
                        nil)))
     (should (equal (cons section (length cases))
                    (assoc section wf-manager-tests--vector-counts)))
@@ -442,7 +449,7 @@ case refuses with `wf-manager-invalid-response'."
 (ert-deftest wf-manager-vectors-invalidations ()
   "Decode and re-encode every invalidation vector as it states."
   (should (equal (wf-manager-tests--wrong
-                  "invalidations"
+                  "events.invalidations"
                   (lambda (vector)
                     (wf-manager-tests--json-vector-passes
                      vector #'wf-manager-decode-invalidation
@@ -452,7 +459,7 @@ case refuses with `wf-manager-invalid-response'."
 (ert-deftest wf-manager-vectors-batches ()
   "Decode and re-encode every event batch vector as it states."
   (should (equal (wf-manager-tests--wrong
-                  "batches"
+                  "events.batches"
                   (lambda (vector)
                     (wf-manager-tests--json-vector-passes
                      vector #'wf-manager-decode-event-batch
@@ -462,7 +469,7 @@ case refuses with `wf-manager-invalid-response'."
 (ert-deftest wf-manager-vectors-route-records ()
   "Decode and re-encode every route record vector as it states."
   (should (equal (wf-manager-tests--wrong
-                  "routeRecords"
+                  "events.routeRecords"
                   (lambda (vector)
                     (wf-manager-tests--json-vector-passes
                      vector #'wf-manager-decode-route-record
@@ -471,7 +478,7 @@ case refuses with `wf-manager-invalid-response'."
 
 (ert-deftest wf-manager-vectors-route-record-body ()
   "Keep false, null, large numbers and Unicode of an inline body, and its bytes."
-  (let* ((vector (car (wf-manager-tests--cases "routeRecords")))
+  (let* ((vector (car (wf-manager-tests--cases "events.routeRecords")))
          (value (wf-manager-json-decode (gethash "json" vector)))
          (record (wf-manager-decode-route-record value))
          (body (cadr (wf-manager-route-record-payload record))))
@@ -490,7 +497,7 @@ case refuses with `wf-manager-invalid-response'."
 (ert-deftest wf-manager-vectors-cursors ()
   "Check the syntax of every cursor vector."
   (should (equal (wf-manager-tests--wrong
-                  "cursors"
+                  "events.cursors"
                   (lambda (vector)
                     (eq (and (wf-manager-valid-cursor-p (gethash "cursor" vector)) t)
                         (eq (gethash "valid" vector) t))))
@@ -499,7 +506,7 @@ case refuses with `wf-manager-invalid-response'."
 (ert-deftest wf-manager-vectors-etags ()
   "Check the syntax and the text equality of every entity tag vector."
   (should (equal (wf-manager-tests--wrong
-                  "etags"
+                  "events.etags"
                   (lambda (vector)
                     (let ((a (gethash "a" vector))
                           (b (gethash "b" vector))
@@ -515,7 +522,7 @@ case refuses with `wf-manager-invalid-response'."
 (ert-deftest wf-manager-vectors-problems ()
   "Map every problem vector to its stated failure."
   (should (equal (wf-manager-tests--wrong
-                  "problems"
+                  "events.problems"
                   (lambda (vector)
                     (let* ((status (wf-manager--bounded-integer
                                     (gethash "status" vector) 100 599))
@@ -530,6 +537,169 @@ case refuses with `wf-manager-invalid-response'."
                                        (wf-manager--bounded-integer (aref refused 0) 100 599)
                                        (aref refused 1))))))))
                  nil)))
+
+;;;; Resource vectors
+
+(defconst wf-manager-tests--resource-outcomes
+  '(("resources.drafts" 12 27) ("resources.requests" 4 7)
+    ("resources.preparations" 13 27))
+  "The number of projections and of refusals that each section states.")
+
+(defconst wf-manager-tests--typed-decoders
+  '(("resources.drafts"
+     ("DraftView" wf-manager-decode-draft wf-manager-encode-draft)
+     ("Readiness" wf-manager-decode-readiness wf-manager-encode-readiness)
+     ("InputDeclaration" wf-manager-decode-input-declaration
+      wf-manager-encode-input-declaration)
+     ("SuppliedInput" wf-manager-decode-supplied-input
+      wf-manager-encode-supplied-input)
+     ("InputError" wf-manager-decode-input-error wf-manager-encode-input-error))
+    ("resources.preparations"
+     ("Preparation" wf-manager-decode-preparation wf-manager-encode-preparation)
+     ("Review" wf-manager-decode-review wf-manager-encode-review)
+     ("ReviewInput" wf-manager-decode-review-input wf-manager-encode-review-input)
+     ("ReviewLineage" wf-manager-decode-review-lineage
+      wf-manager-encode-review-lineage)
+     ("ReviewEdit" wf-manager-decode-review-edit wf-manager-encode-review-edit))
+    ("resources.requests"
+     ("item" wf-manager-decode-draft wf-manager-encode-draft)
+     ("overview" wf-manager-decode-overview-member
+      wf-manager-encode-overview-member)))
+  "The decoder and encoder of each case of a resources section.
+A case names its decoder by its `type' member, or for the requests
+section by its `from' member.")
+
+(defun wf-manager-tests--resource-outcome (section vector)
+  "In SECTION, return the outcome of the resource VECTOR.
+The outcome is (projected TEXT) with the JSON text of the encoded
+record, or the symbol `refused' for `wf-manager-invalid-response'."
+  (let* ((selector (or (gethash "type" vector) (gethash "from" vector)))
+         (entry (or (assoc selector (cdr (assoc section wf-manager-tests--typed-decoders)))
+                    (error "%s names no decoder of its section"
+                           (wf-manager-tests--label section vector))))
+         (value (wf-manager-json-decode (gethash "json" vector))))
+    (condition-case nil
+        (list 'projected
+              (wf-manager-json-encode
+               (funcall (nth 2 entry) (funcall (nth 1 entry) value))))
+      (wf-manager-invalid-response 'refused))))
+
+(defun wf-manager-tests--resource-stated (section vector)
+  "In SECTION, return the outcome that the resource VECTOR states.
+The outcome is (projected TEXT) with the JSON text of the projection, or
+the symbol `refused' for the refusal InvalidResponse."
+  (let ((projection (gethash "projection" vector))
+        (refusal (gethash "refusal" vector)))
+    (cond
+     ((and (stringp projection) (null refusal))
+      (list 'projected (wf-manager-json-encode (wf-manager-json-decode projection))))
+     ((and (null projection) (equal refusal "InvalidResponse")) 'refused)
+     (t (error "%s states neither one projection nor one refusal"
+               (wf-manager-tests--label section vector))))))
+
+(defun wf-manager-tests--resource-section (section)
+  "Check every case of the resources SECTION and return its tally.
+A case that does not give its stated outcome fails the test with its
+label.  The tally is (SECTION PROJECTED REFUSED)."
+  (let ((projected 0) (refused 0))
+    (dolist (vector (wf-manager-tests--cases section))
+      (let ((outcome (wf-manager-tests--resource-outcome section vector)))
+        (should (equal (cons (wf-manager-tests--label section vector) outcome)
+                       (cons (wf-manager-tests--label section vector)
+                             (wf-manager-tests--resource-stated section vector))))
+        (if (eq outcome 'refused)
+            (setq refused (1+ refused))
+          (setq projected (1+ projected)))))
+    (list section projected refused)))
+
+(ert-deftest wf-manager-vectors-drafts ()
+  "Decode every request, readiness and input vector to its projection or refusal."
+  (should (equal (wf-manager-tests--resource-section "resources.drafts")
+                 (assoc "resources.drafts" wf-manager-tests--resource-outcomes))))
+
+(ert-deftest wf-manager-vectors-requests ()
+  "Decode every request item and overview member vector to its projection or refusal."
+  (should (equal (wf-manager-tests--resource-section "resources.requests")
+                 (assoc "resources.requests" wf-manager-tests--resource-outcomes))))
+
+(ert-deftest wf-manager-vectors-preparations ()
+  "Decode every preparation, review, input, lineage and edit vector as it states."
+  (should (equal (wf-manager-tests--resource-section "resources.preparations")
+                 (assoc "resources.preparations" wf-manager-tests--resource-outcomes))))
+
+(defun wf-manager-tests--case (section name)
+  "In SECTION, return the decoded JSON value of the case NAME."
+  (wf-manager-json-decode
+   (gethash "json" (or (cl-find name (wf-manager-tests--cases section)
+                                :key (lambda (vector) (gethash "name" vector))
+                                :test #'equal)
+                       (error "%s has no case %s" section name)))))
+
+(ert-deftest wf-manager-resources-draft-fields ()
+  "Keep the queue position, the blocking reasons, the selectors and literal text."
+  (let* ((draft (wf-manager-decode-draft
+                 (wf-manager-tests--case
+                  "resources.drafts"
+                  "review request keeps Unicode, NUL and newline literal text and a capture")))
+         (supplied (wf-manager-readiness-supplied (wf-manager-draft-readiness draft))))
+    (should (equal (wf-manager-draft-phase draft) "review"))
+    (should (equal (wf-manager-draft-admission draft) "waiting"))
+    (should (eql (wf-manager-draft-position draft) 100))
+    (should (equal (wf-manager-draft-reasons draft) '("profile-busy" "capacity")))
+    (should (equal (wf-manager-draft-preparation-id draft) "prep_9"))
+    (should (null (wf-manager-draft-run-id draft)))
+    (should (equal (mapcar #'wf-manager-supplied-input-source supplied)
+                   '("literal" "capture")))
+    (should (equal (wf-manager-supplied-input-value (car supplied))
+                   "雪\U0001F600 \0 first line\nsecond line"))
+    (should (equal (wf-manager-supplied-input-capture-id (cadr supplied)) "capture_7"))
+    (should (null (wf-manager-readiness-missing (wf-manager-draft-readiness draft))))))
+
+(ert-deftest wf-manager-resources-preparation-fields ()
+  "Keep the review digest, the input digests, the lineage edits and the policy."
+  (let* ((preparation (wf-manager-decode-preparation
+                       (wf-manager-tests--case
+                        "resources.preparations"
+                        "fork preparation keeps lineage edits and Unicode labels")))
+         (review (wf-manager-preparation-review preparation))
+         (input (car (wf-manager-review-inputs review)))
+         (lineage (wf-manager-review-lineage review))
+         (edits (wf-manager-review-lineage-edits lineage)))
+    (should (equal (wf-manager-preparation-review-digest preparation)
+                   (make-string 64 ?a)))
+    (should (equal (wf-manager-preparation-state preparation) "live"))
+    (should (null (wf-manager-preparation-reason preparation)))
+    (should (equal (wf-manager-review-workspace-label review) "作業 雪\U0001F600"))
+    (should (equal (list (wf-manager-review-input-name input)
+                         (wf-manager-review-input-source input)
+                         (wf-manager-review-input-bytes input))
+                   '("subject" "capture" 10)))
+    (should (equal (wf-manager-review-lineage-operation lineage) "fork"))
+    (should (equal (mapcar #'wf-manager-review-edit-occurrence-id edits)
+                   '(0 18446744073709551615)))
+    (should (equal (wf-manager-review-edit-sha256 (cadr edits))
+                   "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"))
+    (should (equal (wf-manager-json-encode (wf-manager-review-policy review))
+                   "{\"kind\":\"scripted\"}")))
+  (let ((policy (wf-manager-review-policy
+                 (wf-manager-preparation-review
+                  (wf-manager-decode-preparation
+                   (wf-manager-tests--case
+                    "resources.preparations"
+                    "routed policy keeps false verbose and null poll interval"))))))
+    (should (eq (gethash "verbose" policy) :false))
+    (should (eq (gethash "pollMs" policy) :null))))
+
+(ert-deftest wf-manager-resources-timestamps ()
+  "Accept the RFC 3339 times that the protocol accepts and refuse the others."
+  (dolist (time '("2026-09-03T00:10:00Z" "2024-02-29t23:59:59.125z"
+                  "2026-09-03T00:10:00+23:59"))
+    (should (equal (list time (and (wf-manager-valid-timestamp-p time) t))
+                   (list time t))))
+  (dolist (time '("2026-02-29T00:00:00Z" "1900-02-29T00:00:00Z" "0000-01-01T00:00:00Z"
+                  "2026-13-01T00:00:00Z" "2026-09-03T24:00:00Z" "2026-09-03T00:10:00+24:00"
+                  "2026-09-03 00:10:00Z" "2026-09-03T00:10Z"))
+    (should (equal (list time (wf-manager-valid-timestamp-p time)) (list time nil)))))
 
 (provide 'wf-manager-tests)
 

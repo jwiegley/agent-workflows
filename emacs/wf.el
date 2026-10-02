@@ -1450,40 +1450,52 @@ TRAMP may use the buffer during connection negotiation."
                                (alist-get 'command event) (alist-get 'state event) (alist-get 'message event)))
        (_ (concat (wf--pretty event) "\n"))))))
 
+(defun wf--redraw (buffer draw)
+  "Erase BUFFER, call DRAW to insert its new text, and keep its windows.
+DRAW is a function of no arguments that inserts the text in BUFFER.
+The point of BUFFER and the point of each window that shows BUFFER
+follow the new end when they were at the end.  Otherwise each keeps its
+position, or the new end when the text is shorter.  So each window of a
+view keeps its own point while the view is drawn again."
+  (with-current-buffer buffer
+    (let ((inhibit-read-only t)
+          (position (point))
+          (bottom (= (point) (point-max)))
+          (windows (mapcar (lambda (window)
+                             (list window (window-point window)
+                                   (= (window-point window) (point-max))))
+                           (get-buffer-window-list buffer nil t))))
+      (erase-buffer)
+      (funcall draw)
+      (goto-char (if bottom (point-max) (min position (point-max))))
+      (dolist (item windows)
+        (set-window-point (car item) (if (nth 2 item) (point-max)
+                                       (min (nth 1 item) (point-max)))))
+      (set-buffer-modified-p nil))))
+
 (defun wf--render (session)
   "Refresh SESSION's view; follow only windows already at bottom."
   (let ((buffer (wf--session-view session)))
     (when (buffer-live-p buffer)
-      (with-current-buffer buffer
-        (let ((inhibit-read-only t)
-              (position (point))
-              (bottom (= (point) (point-max)))
-              (windows (mapcar (lambda (window)
-                                 (list window (window-point window)
-                                       (= (window-point window) (point-max))))
-                               (get-buffer-window-list buffer nil t))))
-          (erase-buffer)
-          (insert (format "Run %s — %s\nRunner cwd: %s\nConnection directory: %s\n"
-                          (alist-get 'runId (wf--session-prepared session))
-                          (wf--session-phase session)
-                          (alist-get 'cwd (wf--session-prepared session))
-                          (wf--session-directory session))
-                  "a answer · c control · C-c C-k cancel · r verified result\n"
-                  "d diagnostics · g new root · R restart · S resume · F fork · = compare\n"
-                  "H history · q bury (does not cancel)\n\n")
-          (insert (format "Pending decisions (FIFO): %s\n\n"
-                          (if (wf--session-pending session)
-                              (string-join (wf--session-pending session) ", ") "none")))
-          (when (wf--session-error session)
-            (insert "FAILURE: " (wf--session-error session) "\n"))
-          ;; ponytail: bounded full redraw; append-only projection if long runs need it.
-          (dolist (frame (reverse (wf--session-events session)))
-            (insert (wf--event-text (alist-get 'event frame)) "\n"))
-          (goto-char (if bottom (point-max) (min position (point-max))))
-          (dolist (item windows)
-            (set-window-point (car item) (if (nth 2 item) (point-max)
-                                           (min (nth 1 item) (point-max)))))
-        (set-buffer-modified-p nil))))))
+      (wf--redraw
+       buffer
+       (lambda ()
+         (insert (format "Run %s — %s\nRunner cwd: %s\nConnection directory: %s\n"
+                         (alist-get 'runId (wf--session-prepared session))
+                         (wf--session-phase session)
+                         (alist-get 'cwd (wf--session-prepared session))
+                         (wf--session-directory session))
+                 "a answer · c control · C-c C-k cancel · r verified result\n"
+                 "d diagnostics · g new root · R restart · S resume · F fork · = compare\n"
+                 "H history · q bury (does not cancel)\n\n")
+         (insert (format "Pending decisions (FIFO): %s\n\n"
+                         (if (wf--session-pending session)
+                             (string-join (wf--session-pending session) ", ") "none")))
+         (when (wf--session-error session)
+           (insert "FAILURE: " (wf--session-error session) "\n"))
+         ;; ponytail: bounded full redraw; append-only projection if long runs need it.
+         (dolist (frame (reverse (wf--session-events session)))
+           (insert (wf--event-text (alist-get 'event frame)) "\n")))))))
 
 (defvar wf-run-mode-map
   (let ((map (make-sparse-keymap)))
@@ -1759,12 +1771,32 @@ Boolean false is :false internally, never JSON null."
                       (not (wf--decision-inflight-p session id))
                       (equal pending (plist-get (cdr (assoc id (wf--session-occurrences session))) :pending)))
            (user-error "Question context changed during verification; select it again"))
-         (wf--notice (generate-new-buffer-name "*wf verified question*")
-                     (concat (or (alist-get 'prompt (alist-get 'question value)) "")
-                             "\n\nVerified question details:\n" (wf--pretty value))
-                     (wf--session-directory session))
+         ;; The question shows in another window, and the window of the
+         ;; view stays selected, so the editor opens from the view and its
+         ;; close returns to the view.
+         (save-selected-window
+           (wf--notice (generate-new-buffer-name "*wf verified question*")
+                       (concat (or (alist-get 'prompt (alist-get 'question value)) "")
+                               "\n\nVerified question details:\n" (wf--pretty value))
+                       (wf--session-directory session)))
          (wf--answer-editor session id value))
        id (alist-get 'code (plist-get occ :event))))))
+
+(defun wf--show-editor (buffer)
+  "Show the editor BUFFER in a new window and select that window.
+The window pops up as `display-buffer-pop-up-window' makes it.  When
+the frame has no room for that, the selected window is split, so the
+editor never takes the window of another buffer, such as a run view
+that another window follows.  `wf--close-editor' deletes the window."
+  (pop-to-buffer buffer '((display-buffer-pop-up-window display-buffer-below-selected))))
+
+(defun wf--close-editor (buffer)
+  "Kill the editor BUFFER and delete the window that `wf--show-editor' made.
+The windows of the frame then return to the layout before the editor."
+  (let ((window (get-buffer-window buffer)))
+    (if window
+        (quit-window t window)
+      (kill-buffer buffer))))
 
 (defun wf--answer-editor (session id question &optional submit initial header)
   "Open a multiline JSON answer editor for SESSION, ID and verified QUESTION.
@@ -1772,7 +1804,8 @@ Service mode passes SUBMIT, a function of the text of the editor that
 sends the answer to the manager, and then SESSION, ID and QUESTION are
 nil.  INITIAL is the text of the editor and HEADER its header line,
 each with a local default when nil.  The send key closes the editor
-after the send returns.  A send that signals keeps the editor and its text."
+after the send returns.  A send that signals keeps the editor and its text.
+`wf--show-editor' shows the editor, and `wf--close-editor' closes it."
   (let ((buffer (generate-new-buffer "*wf answer JSON*")))
     (with-current-buffer buffer
       (text-mode)
@@ -1789,9 +1822,9 @@ after the send returns.  A send that signals keeps the editor and its text."
            (if submit
                (funcall submit text)
              (wf--control-send session `((type . "answerPerson") (answer . ,(wf--json text))) id))
-           (kill-buffer buffer))))
-      (local-set-key (kbd "C-c C-k") (lambda () (interactive) (kill-buffer buffer))))
-    (pop-to-buffer buffer '(display-buffer-pop-up-window))))
+           (wf--close-editor buffer))))
+      (local-set-key (kbd "C-c C-k") (lambda () (interactive) (wf--close-editor buffer))))
+    (wf--show-editor buffer)))
 
 (defun wf-result ()
   "Read the available result through the runner's read-only verifier."

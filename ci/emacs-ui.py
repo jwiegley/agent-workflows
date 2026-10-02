@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise native Emacs widgets, windows, real scripted runs and the service journey in private PTYs."""
+"""Exercise native Emacs widgets, windows, real scripted runs, and the service journey and lifecycle in private PTYs."""
 from __future__ import annotations
 
 import argparse
@@ -431,6 +431,116 @@ SERVICE_REPORT_VERSION = 1
 SERVICE_SIZES = [(40, 12), (140, 36), (80, 24)]
 
 
+def service_body(profile: Path, directory: Path) -> str:
+    """Return the Lisp body of a service case for the client profile PROFILE.
+
+    It sets the profile and the coding systems and defines `wf-ui-extra',
+    whose report states service mode, the runs that the session knows,
+    the review buffers, the run views with their lines, head and control
+    choices, and the service history buffer with its run identifiers."""
+    return f"""
+(set-keyboard-coding-system 'utf-8-unix)
+(set-terminal-coding-system 'utf-8-unix)
+(setq wf-manager-profiles (list {string(str(profile))})
+      suggest-key-bindings nil
+      extended-command-suggest-shorter nil
+      default-directory {string(str(directory) + '/')})
+(defun wf-ui-extra ()
+  (let ((reviews nil) (views nil) (histories nil))
+    (dolist (buffer (buffer-list))
+      (let ((review (buffer-local-value 'wf-service--review-state buffer)))
+        (when review
+          (push `((buffer . ,(buffer-name buffer))
+                  (run . ,(wf-service--review-run review))
+                  (preparation . ,(wf-manager-preparation-id (wf-service--review-preparation review)))
+                  (request . ,(wf-manager-preparation-request-id (wf-service--review-preparation review))))
+                reviews))))
+    (maphash
+     (lambda (_key buffer)
+       (when (buffer-live-p buffer)
+         (let ((view (buffer-local-value 'wf-service--view-state buffer)))
+           (when view
+             (let ((head (cl-find-if
+                          (lambda (decision)
+                            (and (= (wf-manager-decision-position decision) 0)
+                                 (equal (wf-manager-decision-state decision) "pending")))
+                          (append (alist-get 'queue (wf-service--view-kept view)) nil))))
+               (push `((buffer . ,(buffer-name buffer))
+                       (run . ,(wf-service--view-run view))
+                       (lines . ,(vconcat (wf-service-view-lines view)))
+                       (head . ,(and head (wf-manager-decision-id head)))
+                       (kind . ,(and head (if (wf-manager-question-p (wf-manager-decision-content head))
+                                              "question" "recovery")))
+                       (choices . ,(let ((control (alist-get 'control (wf-service--view-kept view))))
+                                     (vconcat
+                                      (and control
+                                           (mapcar (lambda (choice)
+                                                     `((label . ,(car choice)) (description . ,(cadr choice))))
+                                                   (wf-service-control-choices
+                                                    (wf-service--view-run view) control nil nil)))))))
+                     views))))))
+     wf-service--views)
+    (dolist (buffer (buffer-list))
+      (let ((history (buffer-local-value 'wf-service--history-state buffer)))
+        (when history
+          (setq histories
+                (cons `((buffer . ,(buffer-name buffer))
+                        (pages . ,(wf-service--history-pages history))
+                        (runs . ,(vconcat (mapcar #'wf-manager-run-id (wf-service--history-runs history)))))
+                      histories)))))
+    `((service . ,(if wf-service--current t :false))
+      (problem . ,(and wf-service--current (wf-service--state-problem wf-service--current)))
+      (runs . ,(vconcat (and wf-service--current
+                             (wf-service--service-runs (wf-service--state-session wf-service--current)))))
+      (reviews . ,(vconcat reviews))
+      (views . ,(vconcat views))
+      (histories . ,(vconcat histories)))))
+"""
+
+
+def service_extra(state: dict) -> dict:
+    """The value of `wf-ui-extra' in the state report, or an empty one."""
+    return state.get("extra") or {}
+
+
+def service_said(text: str, since: int):
+    """A predicate: the messages after the offset since hold text."""
+    return lambda state: text in state.get("messages", "")[max(0, since - 300):]
+
+
+def service_view(state: dict, run: str) -> dict | None:
+    """The report of the run view of run, or None."""
+    return next((view for view in service_extra(state).get("views", []) if view["run"] == run), None)
+
+
+def service_terminal(view: dict) -> bool:
+    """True when the lines of the view name a terminal status."""
+    return any(line.startswith("Terminal: ") and not line.startswith("Terminal: not yet") for line in view["lines"])
+
+
+def service_resized(session: Emacs, label: str, kept) -> list:
+    """Resize through SERVICE_SIZES and give the text that each size kept."""
+    texts = []
+    for width, height in SERVICE_SIZES:
+        session.resize(width, height)
+        texts.append({"size": f"{width}x{height}",
+                      "text": session.wait(kept, f"{label}-{width}x{height}")["text"]})
+    return texts
+
+
+def service_open_view(session: Emacs, run: str, label: str) -> dict:
+    """Open the view of run with M-x wf-runs and wait until it is selected.
+
+    The choices of wf-runs are the open views and the runs of the
+    installed overview, which the session follows by polling."""
+    session.wait(lambda state: run in service_extra(state).get("runs", []), label + "-run-known", 60)
+    session.command("wf-runs")
+    session.wait(lambda state: "Run:" in state.get("minibuffer", ""), label + "-run-prompt")
+    session.send("service:" + run + "\r")
+    return session.wait(lambda state: state.get("mode") == "wf-service-run-mode" and service_view(state, run) is not None
+                        and state.get("buffer") == service_view(state, run)["buffer"], label + "-view")
+
+
 def service_case(args, directory: Path) -> None:
     """Drive the service journey of wf-service.el by keys at 80x24.
 
@@ -456,82 +566,9 @@ def service_case(args, directory: Path) -> None:
         report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2))
         print("PASS emacs-service keys " + step + ": " + line, flush=True)
 
-    body = f"""
-(set-keyboard-coding-system 'utf-8-unix)
-(set-terminal-coding-system 'utf-8-unix)
-(setq wf-manager-profiles (list {string(str(profile))})
-      suggest-key-bindings nil
-      extended-command-suggest-shorter nil
-      default-directory {string(str(directory) + '/')})
-(defun wf-ui-extra ()
-  (let ((reviews nil) (views nil))
-    (dolist (buffer (buffer-list))
-      (let ((review (buffer-local-value 'wf-service--review-state buffer)))
-        (when review
-          (push `((buffer . ,(buffer-name buffer))
-                  (run . ,(wf-service--review-run review))
-                  (preparation . ,(wf-manager-preparation-id (wf-service--review-preparation review)))
-                  (request . ,(wf-manager-preparation-request-id (wf-service--review-preparation review))))
-                reviews))))
-    (maphash
-     (lambda (_key buffer)
-       (when (buffer-live-p buffer)
-         (let ((view (buffer-local-value 'wf-service--view-state buffer)))
-           (when view
-             (let ((head (cl-find-if
-                          (lambda (decision)
-                            (and (= (wf-manager-decision-position decision) 0)
-                                 (equal (wf-manager-decision-state decision) "pending")))
-                          (append (alist-get 'queue (wf-service--view-kept view)) nil))))
-               (push `((buffer . ,(buffer-name buffer))
-                       (run . ,(wf-service--view-run view))
-                       (lines . ,(vconcat (wf-service-view-lines view)))
-                       (head . ,(and head (wf-manager-decision-id head)))
-                       (kind . ,(and head (if (wf-manager-question-p (wf-manager-decision-content head))
-                                              "question" "recovery"))))
-                     views))))))
-     wf-service--views)
-    `((service . ,(if wf-service--current t :false))
-      (problem . ,(and wf-service--current (wf-service--state-problem wf-service--current)))
-      (runs . ,(vconcat (and wf-service--current
-                             (wf-service--service-runs (wf-service--state-session wf-service--current)))))
-      (reviews . ,(vconcat reviews))
-      (views . ,(vconcat views)))))
-"""
+    body = service_body(profile, directory)
     session = Emacs(args.emacs, sources, directory, 80, 24, body)
     success = False
-
-    def extra(state: dict) -> dict:
-        return state.get("extra") or {}
-
-    def said(text: str, since: int):
-        """A predicate: the messages after the offset since hold text."""
-        return lambda state: text in state.get("messages", "")[max(0, since - 300):]
-
-    def view_of(state: dict, run: str) -> dict | None:
-        return next((view for view in extra(state).get("views", []) if view["run"] == run), None)
-
-    def resized(label: str, kept) -> list:
-        """Resize through SERVICE_SIZES and give the text that each size kept."""
-        texts = []
-        for width, height in SERVICE_SIZES:
-            session.resize(width, height)
-            texts.append({"size": f"{width}x{height}",
-                          "text": session.wait(kept, f"{label}-{width}x{height}")["text"]})
-        return texts
-
-    def open_view(run: str, label: str) -> dict:
-        # The choices of wf-runs are the open views and the runs of the
-        # installed overview, which the session follows by polling.
-        session.wait(lambda state: run in extra(state).get("runs", []), label + "-run-known", 60)
-        session.command("wf-runs")
-        session.wait(lambda state: "Run:" in state.get("minibuffer", ""), label + "-run-prompt")
-        session.send("service:" + run + "\r")
-        return session.wait(lambda state: state.get("mode") == "wf-service-run-mode" and view_of(state, run) is not None
-                            and state.get("buffer") == view_of(state, run)["buffer"], label + "-view")
-
-    def terminal(view: dict) -> bool:
-        return any(line.startswith("Terminal: ") and not line.startswith("Terminal: not yet") for line in view["lines"])
 
     try:
         session.wait(lambda state: state.get("extra") is not None, "service-ready")
@@ -539,7 +576,7 @@ def service_case(args, directory: Path) -> None:
         session.command("wf-service")
         session.wait(lambda state: "Client profile" in state.get("minibuffer", ""), "profile-file-prompt")
         session.send("\r")
-        session.wait(lambda state: extra(state).get("service") is True
+        session.wait(lambda state: service_extra(state).get("service") is True
                      and "wf: service mode, endpoint" in state.get("messages", ""), "service-bound", 60)
         record("1", "M-x wf-service selected the client profile " + str(profile))
         # The catalogue and the setup form.
@@ -555,37 +592,37 @@ def service_case(args, directory: Path) -> None:
         session.resize(*SERVICE_SIZES[0])
         session.wait(lambda state: first in state.get("text", ""), "setup-first-half-40x12")
         session.send(second)
-        setup = resized("setup", lambda state: state.get("mode") == "wf--setup-mode" and SERVICE_LITERAL in state.get("text", ""))
+        setup = service_resized(session, "setup", lambda state: state.get("mode") == "wf--setup-mode" and SERVICE_LITERAL in state.get("text", ""))
         record("2", "wf-run chose mixed-controls, and the setup form kept the typed literal at 40x12, 140x36 and 80x24",
                setupTexts=setup)
         # The exact review.
         session.send(b"\x03\x03")
-        review = session.wait(lambda state: state.get("mode") == "wf-service-review-mode" and extra(state).get("reviews"),
+        review = session.wait(lambda state: state.get("mode") == "wf-service-review-mode" and service_extra(state).get("reviews"),
                               "review", 150)
         text = review["text"]
-        reviewed = resized("review", lambda state: state.get("mode") == "wf-service-review-mode" and state.get("text") == text)
+        reviewed = service_resized(session, "review", lambda state: state.get("mode") == "wf-service-review-mode" and state.get("text") == text)
         record("3", "C-c C-c submitted the form, and the exact review stayed the same at 40x12, 140x36 and 80x24",
-               reviewText=text, reviewTexts=reviewed, reviewPreparation=extra(review)["reviews"][0]["preparation"],
-               reviewRequest=extra(review)["reviews"][0]["request"])
+               reviewText=text, reviewTexts=reviewed, reviewPreparation=service_extra(review)["reviews"][0]["preparation"],
+               reviewRequest=service_extra(review)["reviews"][0]["request"])
         session.send("a")
         prompt = session.wait(lambda state: "Approve preparation" in state.get("minibuffer", ""), "approve-prompt")["minibuffer"]
         session.send("yes\r")
-        approved = session.wait(lambda state: any(item.get("run") for item in extra(state).get("reviews", [])), "approved", 150)
-        run = next(item["run"] for item in extra(approved)["reviews"] if item.get("run"))
+        approved = session.wait(lambda state: any(item.get("run") for item in service_extra(state).get("reviews", [])), "approved", 150)
+        run = next(item["run"] for item in service_extra(approved)["reviews"] if item.get("run"))
         record("4", "a and yes approved the review, and the manager started run " + run, approvePrompt=prompt, run=run)
         # The run view and its heads, in the order that the manager presents them.
-        open_view(run, "first")
+        service_open_view(session, run, "first")
         record("5", "M-x wf-runs opened the view of run " + run)
         handled: list = []
         heads: list = []
         while len(handled) < 2:
-            state = session.wait(lambda state: view_of(state, run) is not None and (
-                view_of(state, run)["kind"] not in (None, *handled) or terminal(view_of(state, run))), f"head-{len(handled)}", 180)
-            view = view_of(state, run)
+            state = session.wait(lambda state: service_view(state, run) is not None and (
+                service_view(state, run)["kind"] not in (None, *handled) or service_terminal(service_view(state, run))), f"head-{len(handled)}", 180)
+            view = service_view(state, run)
             assert view["kind"] not in (None, *handled), ("the run ended before its heads", handled, view["lines"])
             head, kind = view["head"], view["kind"]
             if state.get("buffer") != view["buffer"] or state.get("mode") != "wf-service-run-mode":
-                open_view(run, "head-" + head)
+                service_open_view(session, run, "head-" + head)
             since = len(session.state.get("messages", ""))
             if kind == "question":
                 session.send("a")
@@ -595,45 +632,289 @@ def service_case(args, directory: Path) -> None:
                 session.resize(*SERVICE_SIZES[0])
                 session.wait(lambda state: state.get("text") == answer[:2], "answer-first-40x12")
                 session.send(answer[2:])
-                answered = resized("answer", lambda state: state.get("buffer", "").startswith("*wf answer JSON")
+                answered = service_resized(session, "answer", lambda state: state.get("buffer", "").startswith("*wf answer JSON")
                                    and state.get("text") == answer)
                 session.send(b"\x03\x03")
-                session.wait(said("reached decision " + head, since), "answered", 90)
+                session.wait(service_said("reached decision " + head, since), "answered", 90)
                 report.update(answerTexts=answered, question=head)
                 line = "the typed answer " + answer + " reached question " + head
             else:
                 session.send("c")
                 session.wait(lambda state: "Control of run " + run in state.get("minibuffer", ""), "control-prompt", 60)
                 session.send("retry\r")
-                session.wait(said("retry reached decision " + head, since), "retried", 90)
+                session.wait(service_said("retry reached decision " + head, since), "retried", 90)
                 report.update(recovery=head)
                 line = "the offered retry reached recovery decision " + head
             handled.append(kind)
             heads.append(head)
             record("6" + "ab"[len(handled) - 1], line, heads=heads, kinds=handled)
         # Terminal success and the verified result.
-        final = session.wait(lambda state: view_of(state, run) is not None
-                             and "Terminal: succeeded" in view_of(state, run)["lines"]
-                             and any(line.startswith("Result SHA-256: ") for line in view_of(state, run)["lines"]),
+        final = session.wait(lambda state: service_view(state, run) is not None
+                             and "Terminal: succeeded" in service_view(state, run)["lines"]
+                             and any(line.startswith("Result SHA-256: ") for line in service_view(state, run)["lines"]),
                              "succeeded", 180)
         record("7", "the view of run " + run + " showed terminal success and the verified result",
-               finalLines=view_of(final, run)["lines"])
-        state = open_view(run, "result")
+               finalLines=service_view(final, run)["lines"])
+        state = service_open_view(session, run, "result")
         since = len(state.get("messages", ""))
         session.send("r")
         session.wait(lambda state: "Save the verified result of run " + run in state.get("minibuffer", ""), "result-prompt", 60)
         session.send(b"\x01\x0b" + str(saved).encode())
         session.wait(lambda state: state.get("minibuffer", "").endswith(str(saved)), "result-path")
         session.send("\r")
-        session.wait(lambda state: saved.exists() and said("saved the verified", since)(state), "saved", 60)
+        session.wait(lambda state: saved.exists() and service_said("saved the verified", since)(state), "saved", 60)
         record("8", "r saved the verified result of run " + run + " to " + str(saved), savedPath=str(saved))
         # Local mode, then the exit of Emacs.
         session.command("wf-local")
-        session.wait(lambda state: extra(state).get("service") is False, "local")
+        session.wait(lambda state: service_extra(state).get("service") is False, "local")
         success = True
     finally:
         session.close(success)
     record("9", "M-x wf-local closed the session, and C-x C-c ended Emacs with status 0 and the terminal attributes restored",
+           terminalBefore=session.before, terminalAfter=session.ended["attributes"], exitStatus=session.ended["status"])
+
+
+# The facts of the service lifecycle. The emacs-service-lifecycle mode of
+# agent-cat manager/test/service_http.py states the same values.
+LIFECYCLE_REPORT_VERSION = 1
+LIFECYCLE_FIRST = "Emacs lifecycle λ: first delayed run"
+LIFECYCLE_SECOND = "Emacs lifecycle λ: second delayed run"
+LIFECYCLE_CAPTURE = "Emacs capture λ ✓\nsecond line 雪\n"
+LIFECYCLE_STEER = "Emacs lifecycle steer λ: focus on the patch."
+LIFECYCLE_ANSWER = "false"
+
+
+def service_review(state: dict) -> dict | None:
+    """The report of the review buffer that the selected window shows, or None."""
+    return next((review for review in service_extra(state).get("reviews", [])
+                 if review["buffer"] == state.get("buffer")), None)
+
+
+def service_create(session: Emacs, profile: str, workflow: str, label: str, typed: str | None = None,
+                   capture: str | None = None) -> dict:
+    """Create, review and approve one request by keys and return its facts.
+
+    M-x wf-run chooses profile and workflow. The setup form types the
+    literal typed, or it selects the Buffer source with the keys of its
+    menu and captures the buffer named capture. The typed literal replaces
+    the default of the field, the latest value of its input history.
+    C-c C-c submits the form,
+    and a and yes approve the exact review."""
+    session.command("wf-run")
+    session.wait(lambda state: "Profile" in state.get("minibuffer", ""), label + "-profile-prompt", 60)
+    session.send(profile + "\r")
+    session.wait(lambda state: "Workflow:" in state.get("minibuffer", ""), label + "-workflow-prompt", 60)
+    session.send(workflow + "\r")
+    session.wait(lambda state: state.get("mode") == "wf--setup-mode", label + "-setup", 60)
+    if capture is None:
+        # The latest value of the input history is the default of the
+        # field, so C-k first clears the field from its start.
+        session.send(b"\x0b" + typed.encode())
+        form = session.wait(lambda state: typed in state.get("text", ""), label + "-typed")
+    else:
+        # Backtab twice reaches the Source menu from the value field, RET
+        # opens its choices, and 3 is the Buffer choice.
+        session.send(b"\x1b[Z\x1b[Z\r")
+        session.wait(lambda state: any(window["buffer"] == " widget-choose" for window in state.get("windows", [])),
+                     label + "-source-choices")
+        session.send("3")
+        session.wait(lambda state: "Capture text from buffer" in state.get("minibuffer", ""), label + "-capture-prompt")
+        session.send(capture + "\r")
+        form = session.wait(lambda state: state.get("mode") == "wf--setup-mode"
+                            and LIFECYCLE_CAPTURE in state.get("text", ""), label + "-captured")
+    # The review of the new request is the review buffer of a request that
+    # no review buffer named before the submission.
+    known = {item["request"] for item in service_extra(form).get("reviews", [])}
+    session.send(b"\x03\x03")
+    review = session.wait(lambda state: state.get("mode") == "wf-service-review-mode" and service_review(state) is not None
+                          and service_review(state)["request"] not in known, label + "-review", 150)
+    request = service_review(review)["request"]
+    session.send("a")
+    prompt = session.wait(lambda state: "Approve preparation" in state.get("minibuffer", ""), label + "-approve-prompt")["minibuffer"]
+    session.send("yes\r")
+    approved = session.wait(lambda state: any(item["request"] == request and item.get("run")
+                                              for item in service_extra(state).get("reviews", [])), label + "-approved", 150)
+    run = next(item["run"] for item in service_extra(approved)["reviews"] if item["request"] == request)
+    return {"run": run, "request": request, "preparation": service_review(review)["preparation"],
+            "approvePrompt": prompt, "formText": form["text"]}
+
+
+def service_windows(state: dict, runs: list) -> list:
+    """The window of each view of runs in the state, in the order of runs.
+
+    Each item holds the buffer, the point and the maximum of the window,
+    or None when no window shows the view."""
+    views = [service_view(state, run) for run in runs]
+    return [next(({"buffer": window["buffer"], "point": window["point"], "maximum": window["maximum"]}
+                  for window in state.get("windows", []) if view and window["buffer"] == view["buffer"]), None)
+            for view in views]
+
+
+def service_lifecycle_case(args, directory: Path) -> None:
+    """Drive the service lifecycle of wf-service.el by keys at three sizes.
+
+    At 140x36, delayed-person runs of profile_1 and profile_2 are created
+    and approved, and each is followed in its own window: the window of the
+    first run keeps its point at the start, and the window of the second
+    run keeps its point at the end. The delayed question of the first run
+    is answered in its window while the second run runs. At 80x24, a
+    captured-input request of profile_steer captures the text of an editor
+    buffer through the Buffer source, the second run is cancelled after
+    the confirmation yes, and the offered steer of the captured run is
+    sent through its editor. At 40x12, M-x wf-history lists every page of
+    the runs, the first run is opened from its row and r saves its
+    verified result. The report records the facts of each step and is
+    written again after each step."""
+    profile, report_path = Path(args.service[0]).resolve(), Path(args.service[1]).resolve()
+    emacs_directory = args.source.resolve().parent
+    sources = [emacs_directory / name for name in ("wf.el", "wf-manager.el", "wf-service.el")]
+    saved = directory / "saved-result.bin"
+    report: dict = {"version": LIFECYCLE_REPORT_VERSION, "first": LIFECYCLE_FIRST, "second": LIFECYCLE_SECOND,
+                    "capture": LIFECYCLE_CAPTURE, "steer": LIFECYCLE_STEER, "answer": LIFECYCLE_ANSWER,
+                    "profile": str(profile), "steps": []}
+
+    def record(step: str, line: str, **facts) -> None:
+        report["steps"].append(step)
+        report.update(facts)
+        report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2))
+        print("PASS emacs-service-lifecycle keys " + step + ": " + line, flush=True)
+
+    session = Emacs(args.emacs, sources, directory, 140, 36, service_body(profile, directory))
+    success = False
+    try:
+        session.wait(lambda state: state.get("extra") is not None, "service-ready")
+        session.command("wf-service")
+        session.wait(lambda state: "Client profile" in state.get("minibuffer", ""), "profile-file-prompt")
+        session.send("\r")
+        session.wait(lambda state: service_extra(state).get("service") is True
+                     and "wf: service mode, endpoint" in state.get("messages", ""), "service-bound", 60)
+        record("1", "M-x wf-service selected the client profile " + str(profile) + " at 140x36")
+
+        # 140x36: two runs, each in its own window.
+        first = service_create(session, "profile_1", "delayed-person", "first", typed=LIFECYCLE_FIRST)
+        record("2", "wf-run created, reviewed and approved request " + first["request"] + ", and the manager started run "
+               + first["run"], firstRun=first)
+        second = service_create(session, "profile_2", "delayed-person", "second", typed=LIFECYCLE_SECOND)
+        record("3", "wf-run created, reviewed and approved request " + second["request"] + ", and the manager started run "
+               + second["run"], secondRun=second)
+        runs = [first["run"], second["run"]]
+        # The view of the second run fills the frame and C-x 2 shows it in
+        # two windows. M-x wf-runs in the upper window then shows the view of
+        # the first run in the other window, which it selects.
+        service_open_view(session, second["run"], "second")
+        session.send(b"\x181\x182")
+        session.wait(lambda state: [window["buffer"] for window in state.get("windows", [])]
+                     == [service_view(state, second["run"])["buffer"]] * 2, "second-twice")
+        service_open_view(session, first["run"], "first")
+        session.send(b"\x1b<\x18o\x1b>\x18o")
+
+        def independent(state: dict) -> bool:
+            windows = service_windows(state, runs)
+            return (len(state.get("windows", [])) == 2 and None not in windows
+                    and windows[0]["point"] == 1 and windows[1]["point"] == windows[1]["maximum"] > 1
+                    and state.get("buffer") == windows[0]["buffer"])
+
+        split = session.wait(independent, "windows-split")
+        record("4", "the views of runs " + " and ".join(runs) + " each fill their own window at 140x36, with the point of the "
+               "first at its start and the point of the second at its end", splitWindows=service_windows(split, runs),
+               splitHeads=[service_view(split, run)["head"] for run in runs],
+               splitLines=[service_view(split, run)["lines"] for run in runs])
+        asked = session.wait(lambda state: independent(state) and service_view(state, first["run"])["kind"] == "question",
+                             "first-question", 180)
+        question = service_view(asked, first["run"])["head"]
+        record("5", "the delayed question " + question + " of run " + first["run"] + " arrived, and both windows kept their points",
+               question=question, askedWindows=service_windows(asked, runs),
+               askedLines=[service_view(asked, run)["lines"] for run in runs])
+        # The answer editor opens below the window of the first run, so the
+        # window of the second run keeps its view.
+        since = len(asked.get("messages", ""))
+        session.send("a")
+        editor = session.wait(lambda state: state.get("buffer", "").startswith("*wf answer JSON"), "answer-editor", 60)
+        assert len(editor["windows"]) == 3 and service_windows(editor, runs)[1] is not None, editor["windows"]
+        session.send(LIFECYCLE_ANSWER)
+        session.wait(lambda state: state.get("text") == LIFECYCLE_ANSWER, "answer-typed")
+        session.send(b"\x03\x03")
+        session.wait(service_said("reached decision " + question, since), "answered", 90)
+        both = session.wait(lambda state: independent(state)
+                            and "Terminal: succeeded" in service_view(state, first["run"])["lines"]
+                            and any(line.startswith("Result SHA-256: ") for line in service_view(state, first["run"])["lines"])
+                            and service_view(state, second["run"])["kind"] == "question"
+                            and not service_terminal(service_view(state, second["run"])), "first-succeeded", 180)
+        record("6", "a and " + LIFECYCLE_ANSWER + " answered question " + question + " in the window of run " + first["run"]
+               + ", which succeeded while run " + second["run"] + " ran on to its own delayed question, and both windows kept their points",
+               answeredWindows=service_windows(both, runs), answeredLines=[service_view(both, run)["lines"] for run in runs],
+               editorWindows=len(editor["windows"]))
+
+        # 80x24: a captured input, a cancel and a steer.
+        session.resize(80, 24)
+        session.send(b"\x181\x18bwf-capture\r")
+        session.wait(lambda state: state.get("buffer") == "wf-capture", "capture-buffer")
+        session.send(LIFECYCLE_CAPTURE.replace("\n", "\r"))
+        session.wait(lambda state: state.get("buffer") == "wf-capture" and state.get("text") == LIFECYCLE_CAPTURE, "capture-typed")
+        captured = service_create(session, "profile_steer", "captured-input", "captured", capture="wf-capture")
+        record("7", "the Buffer source of the setup form captured the editor buffer wf-capture for request " + captured["request"]
+               + ", and the manager started run " + captured["run"] + " at 80x24", capturedRun=captured)
+        state = service_open_view(session, second["run"], "cancel")
+        since = len(state.get("messages", ""))
+        session.send(b"\x03\x0b")
+        prompt = session.wait(lambda state: "Cancel run " + second["run"] in state.get("minibuffer", ""), "cancel-prompt", 60)["minibuffer"]
+        session.send("yes\r")
+        session.wait(service_said("the runtime accepted the cancel of run " + second["run"], since), "cancel-accepted", 90)
+        cancelled = session.wait(lambda state: "Terminal: cancelled" in service_view(state, second["run"])["lines"], "cancelled", 120)
+        record("8", "C-c C-k and the confirmation yes cancelled run " + second["run"], cancelPrompt=prompt,
+               cancelledLines=service_view(cancelled, second["run"])["lines"])
+        offered = service_open_view(session, captured["run"], "steer")
+        offered = session.wait(lambda state: any(choice["description"].endswith(", interrupt-now")
+                                                 for choice in service_view(state, captured["run"])["choices"]), "steer-offered", 120)
+        choice = next(choice for choice in service_view(offered, captured["run"])["choices"]
+                      if choice["description"].startswith("steer ") and choice["description"].endswith(", interrupt-now"))
+        since = len(offered.get("messages", ""))
+        session.send("c")
+        session.wait(lambda state: "Control of run " + captured["run"] in state.get("minibuffer", ""), "control-prompt", 60)
+        session.send(choice["label"] + "\r")
+        session.wait(lambda state: state.get("buffer", "").startswith("*wf steer "), "steer-editor", 60)
+        session.send(LIFECYCLE_STEER)
+        session.wait(lambda state: state.get("text") == LIFECYCLE_STEER, "steer-typed")
+        session.send(b"\x03\x03")
+        session.wait(service_said("wf: steer interrupt-now reached occurrence", since), "steered", 90)
+        steered = session.wait(lambda state: "Terminal: succeeded" in service_view(state, captured["run"])["lines"], "steered-succeeded", 120)
+        record("9", "c and " + choice["label"] + " opened the steer editor of run " + captured["run"]
+               + ", C-c C-c sent the typed text with the timing interrupt-now, and the run succeeded",
+               steerChoice=choice, steeredLines=service_view(steered, captured["run"])["lines"])
+
+        # 40x12: the history over every page, an earlier run and its result.
+        session.resize(40, 12)
+        state = session.wait(lambda state: True, "small")
+        since = len(state.get("messages", ""))
+        session.send(b"\x181")
+        session.command("wf-history")
+        listed = session.wait(lambda state: state.get("mode") == "wf-service-history-mode"
+                              and service_said("wf: history of ", since)(state), "history", 120)
+        history = next(item for item in service_extra(listed)["histories"] if item["buffer"] == listed["buffer"])
+        record("10", "M-x wf-history listed " + str(len(history["runs"])) + " runs over " + str(history["pages"]) + " pages at 40x12",
+               historyRuns=history["runs"], historyPages=history["pages"])
+        session.command("search-forward")
+        session.wait(lambda state: "Search:" in state.get("minibuffer", ""), "search-prompt")
+        session.send(first["run"] + "\r")
+        session.send("\r")
+        opened = session.wait(lambda state: state.get("mode") == "wf-service-run-mode" and service_view(state, first["run"]) is not None
+                              and state.get("buffer") == service_view(state, first["run"])["buffer"], "history-opened", 60)
+        record("11", "RET on the history row of run " + first["run"] + " opened its view",
+               openedLines=service_view(opened, first["run"])["lines"])
+        since = len(opened.get("messages", ""))
+        session.send("r")
+        session.wait(lambda state: "Save the verified result of run " + first["run"] in state.get("minibuffer", ""), "result-prompt", 60)
+        session.send(b"\x01\x0b" + str(saved).encode())
+        session.wait(lambda state: state.get("minibuffer", "").endswith(str(saved)), "result-path")
+        session.send("\r")
+        session.wait(lambda state: saved.exists() and service_said("saved the verified", since)(state), "saved", 60)
+        record("12", "r saved the verified result of run " + first["run"] + " to " + str(saved), savedPath=str(saved))
+        session.command("wf-local")
+        session.wait(lambda state: service_extra(state).get("service") is False, "local")
+        success = True
+    finally:
+        session.close(success)
+    record("13", "M-x wf-local closed the session, and C-x C-c ended Emacs with status 0 and the terminal attributes restored",
            terminalBefore=session.before, terminalAfter=session.ended["attributes"], exitStatus=session.ended["status"])
 
 
@@ -648,6 +929,8 @@ def main() -> None:
     parser.add_argument("--service", nargs=2, metavar=("PROFILE", "REPORT"),
                         help="run only the service journey with the client profile PROFILE and write its report to REPORT")
     parser.add_argument("--service-answer", default="false", help="the answer that the service journey types")
+    parser.add_argument("--service-case", choices=["journey", "lifecycle"], default="journey",
+                        help="the service case that --service runs")
     args = parser.parse_args()
     if args.service:
         if not args.emacs or not os.access(args.emacs, os.X_OK):
@@ -655,6 +938,10 @@ def main() -> None:
         artifacts = args.artifacts or Path(tempfile.mkdtemp(prefix="wf-emacs-service-", dir="/tmp")).resolve()
         artifacts.mkdir(exist_ok=True)
         print(artifacts, flush=True)
+        if args.service_case == "lifecycle":
+            service_lifecycle_case(args, artifacts / "lifecycle")
+            print("PASS service lifecycle by keys at 140x36, 80x24 and 40x12, and terminal restoration", flush=True)
+            return
         service_case(args, artifacts / "service")
         print("PASS service journey by keys at 80x24 with resizes to 40x12 and 140x36, and terminal restoration", flush=True)
         return

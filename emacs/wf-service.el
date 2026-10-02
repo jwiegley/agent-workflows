@@ -96,6 +96,12 @@
 ;; and the run identifier, so each window follows its own run.  The
 ;; session watches the run, its snapshot, its controls and its decision
 ;; queue, and each read that the session installs draws the view again.
+;; Each draw keeps the point of each window of the view, as
+;; `wf--redraw' states, so two windows can follow two runs with their
+;; own points.  The answer editor and the steer editor open in a new
+;; window, below the selected window when the frame has no room for a
+;; pop-up window, and their close deletes that window, so an editor never
+;; takes the window of another view.
 ;; The view shows the runtime status, the supervision, the verification,
 ;; the pending decisions and the offered controls on separate lines, and
 ;; it ends with the Terminal and Result lines.  The Result lines of a
@@ -1374,14 +1380,7 @@ verified yet waits for the next change of the snapshot."
                    (not (equal etag (wf-service--view-attempted view))))
           (setf (wf-service--view-attempted view) etag)
           (wf-service--view-retrieve view)))
-      (with-current-buffer buffer
-        (let ((inhibit-read-only t)
-              (line (line-number-at-pos)))
-          (erase-buffer)
-          (insert (wf-service--view-text view))
-          (goto-char (point-min))
-          (forward-line (1- line)))
-        (set-buffer-modified-p nil)))))
+      (wf--redraw buffer (lambda () (insert (wf-service--view-text view)))))))
 
 (defun wf-service--views-changed (session)
   "Draw again each run view of SESSION."
@@ -1995,11 +1994,11 @@ The header line of the editor names both keys."
                                     "attemptId" (number-to-string attempt)
                                     "timing" timing "text" text)
             (wf-manager-reply-etag reply) (wf-service--no-effect))
-           (kill-buffer buffer)
+           (wf--close-editor buffer)
            (message "wf: steer %s reached occurrence %d attempt %d of run %s"
                     timing occurrence attempt run))))
-      (local-set-key (kbd "C-c C-k") (lambda () (interactive) (kill-buffer buffer))))
-    (pop-to-buffer buffer '(display-buffer-pop-up-window))))
+      (local-set-key (kbd "C-c C-k") (lambda () (interactive) (wf--close-editor buffer))))
+    (wf--show-editor buffer)))
 
 (defun wf-service--control-act (session run action reply)
   "On SESSION, act for RUN on the chosen control ACTION.

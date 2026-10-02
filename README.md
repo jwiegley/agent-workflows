@@ -108,8 +108,9 @@ emacs/wf-manager-tests.el  ERT tests of the transport and of the dispatch table,
 emacs/wf-manager-live.el   live checks of the transport and of service mode, run
                            by the emacs-client and emacs-client-controls
                            modes of agent-cat
-ci/emacs-ui.py          isolated Emacs PTY, resize and window acceptance, and
-                        the service journey of the emacs-service modes
+ci/emacs-ui.py          isolated Emacs PTY, resize and window acceptance, the
+                        service journey of the emacs-service modes and the
+                        service lifecycle of the emacs-service-lifecycle mode
 ci/emacs-tramp.py       loopback SSH/TRAMP, typed controls and lineage acceptance
 ```
 
@@ -425,6 +426,9 @@ Output following applies only to windows already at the end.
 A live run buffer provides `a` for the oldest verified human question, `c` for
 available runtime controls, `C-c C-k` for cancellation, `r` for verified result
 content, and `d` for diagnostics. Human and fork answers use native JSON editors.
+The verified question of `a` shows in another window. The answer editor opens
+in a new window, below the run view when the frame has no room for a pop-up
+window. Its close deletes that window and returns to the view.
 `C-c C-c` submits an edited value, while `C-c C-k` abandons the editor. Boolean
 false is preserved separately from JSON null. The runner remains the authority
 for answer types and schemas.
@@ -713,6 +717,36 @@ of the manager. The `emacs-service-broken-answer` mode passes
 `--service-answer true`, and it must fail with the literal message
 "JOURNEY-ASSERT Emacs answer is JSON false".
 
+With `--service-case lifecycle`, the script runs the service lifecycle
+instead. The `emacs-service-lifecycle` mode of `manager/test/service_http.py`
+runs it against a manager whose profiles `profile_1` and `profile_2` hold each
+engine turn for some seconds and whose profile `profile_steer` offers a steer.
+The lifecycle starts `Emacs -Q -nw` at 140×36 and acts only by keys:
+
+1. At 140×36, `M-x wf-run` creates and approves a `delayed-person` request of
+   `profile_1` and one of `profile_2`. The person question of this workflow
+   follows the engine answer, so it arrives late. `M-x wf-runs`, `C-x 1` and
+   `C-x 2` show the two run views in two windows. The window of the first run
+   keeps its point at the start, and the window of the second run keeps its
+   point at the end. When the question of the first run arrives, `a` in its
+   window opens the answer editor below it, and `false` is typed and sent.
+   The first run succeeds while the second run runs, and both windows keep
+   their points.
+2. At 80×24, text is typed in the editor buffer `wf-capture`, and `M-x wf-run`
+   creates a `captured-input` request of `profile_steer`. In the setup form,
+   backtab, `RET` and `3` select the Buffer source, which captures that
+   buffer. `C-c C-k` and the confirmation `yes` then cancel the second run,
+   and `c` in the view of the captured run sends the offered steer with the
+   timing `interrupt-now` through the steer editor.
+3. At 40×12, `M-x wf-history` lists the runs over every page, `RET` on the row
+   of the first run opens its view, and `r` saves its verified result to a new
+   file. `M-x wf-local` closes the session, and `C-x C-c` ends Emacs.
+
+The report holds the runs, the window points and view lines of step 1, the
+captured request, the cancel and steer facts, the history rows, the path of the
+saved file and the terminal attributes. The mode checks each step against the
+reads of the manager and the run logs.
+
 The SSH/TRAMP gate starts an unprivileged server bound only to `127.0.0.1`,
 with temporary host and client keys, strict host-key checking, public-key-only
 authentication, and a private shell environment. It changes no account or
@@ -833,7 +867,13 @@ of the same run selects the same view. The session watches four resources of
 the run: `/v1/runs/{id}`, `/v1/runs/{id}/snapshot`, `/v1/runs/{id}/control`
 and the decision queue `/v1/decisions?runId={id}`. Each read that the session
 installs draws the view again. A read that fails keeps the last complete
-observation in view, and the observation line names the failure.
+observation in view, and the observation line names the failure. Each draw
+keeps the point of each window of the view: a window at the end follows the
+new end, and every other window keeps its position. So two windows can follow
+two runs, each with its own point. The answer editor and the steer editor
+open in a new window, below the selected window when the frame has no room for
+a pop-up window. The close of an editor deletes that window, so an editor
+never takes the window of another view.
 
 The view shows these lines in order:
 

@@ -56,17 +56,21 @@
 ;; batches, route records, cursors, entity tags and problem responses.  An
 ;; entity tag is an opaque token, equal to another tag only as text.
 ;;
-;; The resource decoders follow the draft, preparation, receipt and
-;; decision decoders of `ext-pi/src/manager/resources.ts' and pass the
-;; drafts, requests, preparations, receipts and decisions vectors of the
-;; resources section: requests, readiness, declared and supplied inputs,
-;; input errors, preparations, reviews, review inputs, lineages, edits,
-;; command receipts, decisions and the request, preparation and decision
+;; The resource decoders follow the draft, preparation, receipt,
+;; decision, control and run decoders of `ext-pi/src/manager/resources.ts'
+;; and pass the drafts, requests, preparations, receipts, decisions,
+;; controls and runs vectors of the resources section: requests,
+;; readiness, declared and supplied inputs, input errors, preparations,
+;; reviews, review inputs, lineages, edits, command receipts, decisions,
+;; run controls, runs and the request, preparation, run and decision
 ;; members of the overview.  Each decoder returns a record.  The encoder of
-;; a record gives its canonical JSON value, and
-;; `wf-manager-decision-projection' gives the projection of a decision.  A
-;; command receipt is valid only when its state agrees with its dispatch
-;; attempt time, its acknowledgement, its effect and its refusal.
+;; a record gives its canonical JSON value.
+;; `wf-manager-decision-projection', `wf-manager-control-projection' and
+;; `wf-manager-run-projection' give the projection of a decision, of the
+;; controls of a run and of a run.  A command receipt is valid only when
+;; its state agrees with its dispatch attempt time, its acknowledgement,
+;; its effect and its refusal.  The runtime summary, the supervision, the
+;; integrity and the verification of a run are separate fields.
 ;;
 ;; `wf-manager-answer-value' builds the typed answer of a decision from the
 ;; text of a person, and `wf-manager-answer-body' builds the answer body
@@ -1239,8 +1243,9 @@ or nil."
                (:constructor wf-manager-overview-member-make)
                (:copier nil))
   "One member of the overview page set.
-KIND is \"request\", \"preparation\" or \"decision\".  VALUE is a
-`wf-manager-draft', a `wf-manager-preparation' or a `wf-manager-decision'."
+KIND is \"request\", \"preparation\", \"run\" or \"decision\".  VALUE
+is a `wf-manager-draft', a `wf-manager-preparation', a `wf-manager-run'
+or a `wf-manager-decision'."
   (kind nil :read-only t)
   (value nil :read-only t))
 
@@ -1401,6 +1406,148 @@ A decision grants no control authority."
   (observed-sequence nil :read-only t)
   (content nil :read-only t)
   (value nil :read-only t))
+
+(defconst wf-manager-supervision-states
+  '("owned" "cleanup-pending" "lost" "observer")
+  "The supervision states of a run.")
+
+(defconst wf-manager-offer-operations
+  '("steer" "retry" "choose-recovery" "redirect" "answer")
+  "The operations of a control offer.
+Cancellation is not an offer.  The controls of a run state it apart.")
+
+(defconst wf-manager-steer-timings '("interrupt-now" "next-boundary")
+  "The timings of a steer offer.")
+
+(defconst wf-manager-run-statuses
+  '("starting" "running" "cancelling" "succeeded" "failed" "cancelled" "orphaned")
+  "The runtime statuses of a run.")
+
+(defconst wf-manager-unreadable-categories
+  '("manifest-unavailable" "malformed-manifest" "unsupported-manifest")
+  "The public categories of a catalogue entry whose manifest is unreadable.")
+
+(defconst wf-manager-run-integrities '("valid" "corrupt" "incomplete" "unknown")
+  "The integrity states of the journal of a run.")
+
+(defconst wf-manager-run-limitations
+  '("legacy" "foreign-owner" "corrupt-journal" "incompatible-invocation"
+    "quarantined" "lost-supervision")
+  "The limitations of a run.")
+
+(defconst wf-manager-unavailable-reasons
+  '("missing" "corrupt" "unsupported-version" "size-limit" "ownership-unavailable")
+  "The reasons for an unavailable verification.")
+
+(defconst wf-manager--run-fields
+  '("version" "id" "revision" "profileId" "workflowId" "requestId" "parentRunId"
+    "lineage" "manifest" "runtime" "supervision" "integrity" "verification"
+    "limitations" "links")
+  "The members of a run whose manifest the manager read.")
+
+(cl-defstruct (wf-manager-control-offer
+               (:constructor wf-manager-control-offer-make)
+               (:copier nil))
+  "One control offer of a run.
+OPERATION is one of `wf-manager-offer-operations'.  OCCURRENCE-ID is an
+unsigned 64-bit integer.  ATTEMPT-ID is an unsigned 32-bit integer for
+a steer offer, and nil for every other offer.  GENERATION is a bounded
+identifier, or nil.  TIMINGS is a list of distinct
+`wf-manager-steer-timings'.  CHOICES is a list of
+`wf-manager-recovery-option'.  TARGETS is a list of target texts."
+  (operation nil :read-only t)
+  (occurrence-id nil :read-only t)
+  (attempt-id nil :read-only t)
+  (generation nil :read-only t)
+  (timings nil :read-only t)
+  (choices nil :read-only t)
+  (targets nil :read-only t))
+
+(cl-defstruct (wf-manager-control
+               (:constructor wf-manager-control-make)
+               (:copier nil))
+  "The controls of one run.
+RUN-ID and REVISION are bounded identifiers.  SUPERVISION is one of
+`wf-manager-supervision-states'.  CANCEL-ALLOWED is t or nil.
+DECISION-HEAD-ID is the bounded identifier of the first pending
+decision, or nil.  OFFERS is a list of `wf-manager-control-offer'.
+VALUE is the exact JSON value that was decoded.  The controls are
+display data and grant no control authority."
+  (run-id nil :read-only t)
+  (revision nil :read-only t)
+  (supervision nil :read-only t)
+  (cancel-allowed nil :read-only t)
+  (decision-head-id nil :read-only t)
+  (offers nil :read-only t)
+  (value nil :read-only t))
+
+(cl-defstruct (wf-manager-run-runtime
+               (:constructor wf-manager-run-runtime-make)
+               (:copier nil))
+  "The runtime summary of a run.
+STATUS is one of `wf-manager-run-statuses'.  LAST-SEQUENCE is an
+unsigned 64-bit integer.  PROTOCOL-VERSION is 1, 2 or 3."
+  (status nil :read-only t)
+  (last-sequence nil :read-only t)
+  (protocol-version nil :read-only t))
+
+(cl-defstruct (wf-manager-verification
+               (:constructor wf-manager-verification-make)
+               (:copier nil))
+  "The verification of the result of a run.
+STATE is \"absent\", \"referenced\", \"verified\" or \"unavailable\".
+ARTIFACT-ID is a bounded identifier for a referenced or verified result,
+a bounded identifier or nil for an unavailable result, and nil for an
+absent result.  REASON is one of `wf-manager-unavailable-reasons' for an
+unavailable result, and nil otherwise."
+  (state nil :read-only t)
+  (artifact-id nil :read-only t)
+  (reason nil :read-only t))
+
+(cl-defstruct (wf-manager-known-run
+               (:constructor wf-manager-known-run-make)
+               (:copier nil))
+  "The content of a run whose manifest the manager read.
+WORKFLOW-ID is a bounded identifier.  REQUEST-ID and PARENT-RUN-ID are
+bounded identifiers or nil.  LINEAGE is one of
+`wf-manager-lineage-operations', or nil.  MANIFEST-VERSION is 2 or 3,
+or nil for a legacy manifest.  RUNTIME is a `wf-manager-run-runtime', or
+nil without validated native evidence.  SUPERVISION is one of
+`wf-manager-supervision-states', INTEGRITY is one of
+`wf-manager-run-integrities', and VERIFICATION is a
+`wf-manager-verification'.  These are separate dimensions: no one of
+them gives another.  LIMITATIONS is a list of distinct
+`wf-manager-run-limitations'."
+  (workflow-id nil :read-only t)
+  (request-id nil :read-only t)
+  (parent-run-id nil :read-only t)
+  (lineage nil :read-only t)
+  (manifest-version nil :read-only t)
+  (runtime nil :read-only t)
+  (supervision nil :read-only t)
+  (integrity nil :read-only t)
+  (verification nil :read-only t)
+  (limitations nil :read-only t))
+
+(cl-defstruct (wf-manager-unreadable-run
+               (:constructor wf-manager-unreadable-run-make)
+               (:copier nil))
+  "The content of a catalogue entry whose manifest the manager cannot read.
+CATEGORY is one of `wf-manager-unreadable-categories'."
+  (category nil :read-only t))
+
+(cl-defstruct (wf-manager-run
+               (:constructor wf-manager-run-make)
+               (:copier nil))
+  "One item of the run collection, or the run of one overview member.
+ID, REVISION and PROFILE-ID are bounded identifiers.  CONTENT is a
+`wf-manager-known-run' or a `wf-manager-unreadable-run'.  A run is
+display data and grants no supervision, control or signalling
+authority."
+  (id nil :read-only t)
+  (revision nil :read-only t)
+  (profile-id nil :read-only t)
+  (content nil :read-only t))
 
 ;;;;; Field readers
 
@@ -2162,7 +2309,6 @@ run of the decision."
                                     '("question")
                                   '("gap" "message" "choices")))))
          (run-id (wf-manager--identifier (gethash "runId" fields)))
-         (address (wf-manager--exact (gethash "address" fields) '("occurrenceId")))
          (identity (lambda (name)
                      (wf-manager--identifier (gethash name fields)))))
     (unless (and (wf-manager--version-one-p fields)
@@ -2175,7 +2321,7 @@ run of the decision."
      :run-id run-id
      :profile-id (funcall identity "profileId")
      :generation (funcall identity "generation")
-     :occurrence-id (wf-manager--word64-text (gethash "occurrenceId" address))
+     :occurrence-id (wf-manager--parse-occurrence-address (gethash "address" fields))
      :state (wf-manager--choice (gethash "state" fields) wf-manager-decision-states)
      :position (wf-manager--integer (gethash "position" fields) 0 2047)
      :observed-sequence (wf-manager--word64-text (gethash "observedSequence" fields))
@@ -2184,16 +2330,207 @@ run of the decision."
                 (wf-manager--parse-recovery fields))
      :value value)))
 
+;;;;; Run controls
+
+(defun wf-manager--boolean (value)
+  "Return t for JSON true VALUE and nil for JSON false, and refuse otherwise."
+  (cond ((eq value t) t)
+        ((eq value :false) nil)
+        (t (wf-manager--refuse))))
+
+(defun wf-manager--word32-text (value)
+  "Return the integer of VALUE, a canonical unsigned 32-bit decimal text.
+Refuse any other VALUE."
+  (wf-manager--ensure (wf-manager--decimal-value value 10 wf-manager--word32-max)))
+
+(defun wf-manager--parse-occurrence-address (value)
+  "Return the occurrence of the JSON address VALUE, or refuse.
+VALUE has exactly the member `occurrenceId', a canonical unsigned 64-bit
+decimal text."
+  (wf-manager--word64-text
+   (gethash "occurrenceId" (wf-manager--exact value '("occurrenceId")))))
+
+(defun wf-manager--parse-offer (value)
+  "Return the `wf-manager-control-offer' of the JSON VALUE, or refuse.
+The address of a steer offer is an occurrence and an attempt.  The
+address of every other offer is an occurrence alone."
+  (let* ((fields (wf-manager--exact value '("operation" "address" "generation"
+                                            "timings" "choices" "targets")))
+         (operation (wf-manager--choice (gethash "operation" fields)
+                                        wf-manager-offer-operations))
+         (steer (and (equal operation "steer")
+                     (wf-manager--exact (gethash "address" fields)
+                                        '("occurrenceId" "attemptId"))))
+         (timings (wf-manager--items
+                   (gethash "timings" fields)
+                   (lambda (timing) (wf-manager--choice timing wf-manager-steer-timings))
+                   2)))
+    (unless (wf-manager--unique-p timings)
+      (wf-manager--refuse))
+    (wf-manager-control-offer-make
+     :operation operation
+     :occurrence-id (if steer
+                        (wf-manager--word64-text (gethash "occurrenceId" steer))
+                      (wf-manager--parse-occurrence-address (gethash "address" fields)))
+     :attempt-id (and steer (wf-manager--word32-text (gethash "attemptId" steer)))
+     :generation (wf-manager--nullable (gethash "generation" fields)
+                                       #'wf-manager--identifier)
+     :timings timings
+     :choices (wf-manager--items (gethash "choices" fields)
+                                 #'wf-manager--parse-recovery-option 16)
+     :targets (wf-manager--items (gethash "targets" fields)
+                                 (lambda (target) (wf-manager--bounded-text target 0 1024))
+                                 256))))
+
+(defun wf-manager--parse-control (value)
+  "Return the `wf-manager-control' of the JSON VALUE, or refuse.
+The decision head is JSON null or a bounded identifier, and it is never
+absent.  A run has at most 512 offers."
+  (let ((fields (wf-manager--exact value '("version" "runId" "revision" "supervision"
+                                           "cancelAllowed" "offers" "decisionHeadId"))))
+    (unless (wf-manager--version-one-p fields)
+      (wf-manager--refuse))
+    (wf-manager-control-make
+     :run-id (wf-manager--identifier (gethash "runId" fields))
+     :revision (wf-manager--identifier (gethash "revision" fields))
+     :supervision (wf-manager--choice (gethash "supervision" fields)
+                                      wf-manager-supervision-states)
+     :cancel-allowed (wf-manager--boolean (gethash "cancelAllowed" fields))
+     :decision-head-id (wf-manager--nullable (gethash "decisionHeadId" fields)
+                                             #'wf-manager--identifier)
+     :offers (wf-manager--items (gethash "offers" fields) #'wf-manager--parse-offer 512)
+     :value value)))
+
+;;;;; Runs
+
+(defun wf-manager--parse-verification (value)
+  "Return the `wf-manager-verification' of the JSON VALUE, or refuse.
+An absent result has only its state.  A referenced or verified result
+names its artifact.  An unavailable result names its artifact or JSON
+null, and its reason."
+  (let ((state (wf-manager--choice (wf-manager--member value "state")
+                                   '("absent" "referenced" "verified" "unavailable"))))
+    (pcase state
+      ("absent"
+       (wf-manager--exact value '("state"))
+       (wf-manager-verification-make :state state))
+      ((or "referenced" "verified")
+       (wf-manager-verification-make
+        :state state
+        :artifact-id (wf-manager--identifier
+                      (gethash "artifactId"
+                               (wf-manager--exact value '("state" "artifactId"))))))
+      (_
+       (let ((fields (wf-manager--exact value '("state" "artifactId" "reason"))))
+         (wf-manager-verification-make
+          :state state
+          :artifact-id (wf-manager--nullable (gethash "artifactId" fields)
+                                             #'wf-manager--identifier)
+          :reason (wf-manager--choice (gethash "reason" fields)
+                                      wf-manager-unavailable-reasons)))))))
+
+(defun wf-manager--parse-runtime (value)
+  "Return the `wf-manager-run-runtime' of the JSON VALUE, or refuse.
+The last sequence is canonical unsigned 64-bit decimal text, and the
+protocol version is 1, 2 or 3."
+  (let ((fields (wf-manager--exact value '("status" "lastSequence" "protocolVersion"))))
+    (wf-manager-run-runtime-make
+     :status (wf-manager--choice (gethash "status" fields) wf-manager-run-statuses)
+     :last-sequence (wf-manager--word64-text (gethash "lastSequence" fields))
+     :protocol-version (wf-manager--integer (gethash "protocolVersion" fields) 1 3))))
+
+(defun wf-manager--parse-manifest (value)
+  "Return the frontend manifest version of the JSON manifest VALUE, or refuse.
+A versioned manifest gives 2 or 3.  A legacy manifest has no version
+and gives nil."
+  (if (equal (wf-manager--choice (wf-manager--member value "kind")
+                                 '("legacy" "versioned"))
+             "legacy")
+      (progn (wf-manager--exact value '("kind")) nil)
+    (wf-manager--integer
+     (gethash "frontendManifestVersion"
+              (wf-manager--exact value '("kind" "frontendManifestVersion")))
+     2 3)))
+
+(defun wf-manager--parse-unreadable-run (fields self)
+  "Return the `wf-manager-unreadable-run' of the run FIELDS, or refuse.
+The only link is the link SELF."
+  (let ((fields (wf-manager--exact fields '("version" "kind" "id" "revision"
+                                            "profileId" "category" "links"))))
+    (unless (and (equal (gethash "kind" fields) "unreadable-manifest")
+                 (wf-manager-json-equal (gethash "links" fields)
+                                        (wf-manager-json-object "self" self)))
+      (wf-manager--refuse))
+    (wf-manager-unreadable-run-make
+     :category (wf-manager--choice (gethash "category" fields)
+                                   wf-manager-unreadable-categories))))
+
+(defun wf-manager--parse-known-run (fields self)
+  "Return the `wf-manager-known-run' of the run FIELDS, or refuse.
+The links are SELF and its snapshot, control, outputs, exports and
+lineage request links.  The limitations are distinct."
+  (let* ((fields (wf-manager--exact fields wf-manager--run-fields))
+         (limitations (wf-manager--items
+                       (gethash "limitations" fields)
+                       (lambda (limitation)
+                         (wf-manager--choice limitation wf-manager-run-limitations))
+                       6)))
+    (unless (and (wf-manager--unique-p limitations)
+                 (wf-manager-json-equal
+                  (gethash "links" fields)
+                  (wf-manager-json-object
+                   "self" self
+                   "snapshot" (concat self "/snapshot")
+                   "control" (concat self "/control")
+                   "outputs" (concat self "/outputs")
+                   "exports" (concat self "/exports")
+                   "lineageRequests" (concat self "/lineage-requests"))))
+      (wf-manager--refuse))
+    (wf-manager-known-run-make
+     :workflow-id (wf-manager--identifier (gethash "workflowId" fields))
+     :request-id (wf-manager--nullable (gethash "requestId" fields)
+                                       #'wf-manager--identifier)
+     :parent-run-id (wf-manager--nullable (gethash "parentRunId" fields)
+                                          #'wf-manager--identifier)
+     :lineage (wf-manager--nullable
+               (gethash "lineage" fields)
+               (lambda (operation)
+                 (wf-manager--choice operation wf-manager-lineage-operations)))
+     :manifest-version (wf-manager--parse-manifest (gethash "manifest" fields))
+     :runtime (wf-manager--nullable (gethash "runtime" fields) #'wf-manager--parse-runtime)
+     :supervision (wf-manager--choice (gethash "supervision" fields)
+                                      wf-manager-supervision-states)
+     :integrity (wf-manager--choice (gethash "integrity" fields)
+                                    wf-manager-run-integrities)
+     :verification (wf-manager--parse-verification (gethash "verification" fields))
+     :limitations limitations)))
+
+(defun wf-manager--parse-run (value)
+  "Return the `wf-manager-run' of the JSON VALUE, or refuse.
+VALUE is a version 1 run, or a version 1 catalogue entry of the kind
+\"unreadable-manifest\" with only its public category."
+  (unless (and (hash-table-p value) (wf-manager--version-one-p value))
+    (wf-manager--refuse))
+  (let* ((id (wf-manager--identifier (gethash "id" value)))
+         (self (concat "/v1/runs/" id)))
+    (wf-manager-run-make
+     :id id
+     :revision (wf-manager--identifier (gethash "revision" value))
+     :profile-id (wf-manager--identifier (gethash "profileId" value))
+     :content (if (gethash "kind" value)
+                  (wf-manager--parse-unreadable-run value self)
+                (wf-manager--parse-known-run value self)))))
+
 ;;;;; Overview members
 
 (defconst wf-manager--overview-kinds
   '(("request" wf-manager--parse-draft wf-manager-encode-draft)
     ("preparation" wf-manager--parse-preparation wf-manager-encode-preparation)
+    ("run" wf-manager--parse-run wf-manager-run-projection)
     ("decision" wf-manager--parse-decision wf-manager-decision-projection))
-  "The overview member kinds that this client decodes.
-Each entry is (KIND PARSER ENCODER).  The encoder of a decision gives
-its projection.  The manager also serves the kind \"run\", which this
-client refuses until it has its decoder.")
+  "The overview member kinds.
+Each entry is (KIND PARSER ENCODER).  The encoder of a run or a
+decision gives its projection.")
 
 (defun wf-manager--parse-overview-member (value)
   "Return the `wf-manager-overview-member' of the JSON VALUE, or refuse.
@@ -2452,6 +2789,12 @@ The decision keeps VALUE itself.  Any VALUE that breaks a decision rule
 signals `wf-manager-invalid-response'."
   (wf-manager--decode-resource "decision" #'wf-manager--parse-decision value))
 
+(defun wf-manager--recovery-option-json (option)
+  "Return the JSON value of OPTION, a `wf-manager-recovery-option'."
+  (wf-manager-json-object
+   "choice" (wf-manager-recovery-option-choice option)
+   "target" (wf-manager--json-nullable (wf-manager-recovery-option-target option))))
+
 (defun wf-manager-decision-projection (decision)
   "Return the JSON projection of the decoded fields of DECISION.
 DECISION is a `wf-manager-decision'.  The occurrence and the observed
@@ -2479,13 +2822,101 @@ choices."
         "kind" "recovery"
         "gap" (wf-manager-recovery-gap content)
         "message" (wf-manager-recovery-message content)
-        "choices" (wf-manager--json-list
-                   (lambda (option)
-                     (wf-manager-json-object
-                      "choice" (wf-manager-recovery-option-choice option)
-                      "target" (wf-manager--json-nullable
-                                (wf-manager-recovery-option-target option))))
-                   (wf-manager-recovery-choices content)))))))
+        "choices" (wf-manager--json-list #'wf-manager--recovery-option-json
+                                         (wf-manager-recovery-choices content)))))))
+
+(defun wf-manager-decode-control (value)
+  "Return the `wf-manager-control' of the JSON VALUE.
+The controls keep VALUE itself.  Any VALUE that breaks a control rule
+signals `wf-manager-invalid-response'."
+  (wf-manager--decode-resource "run control" #'wf-manager--parse-control value))
+
+(defun wf-manager--offer-projection (offer)
+  "Return the JSON projection of OFFER, a `wf-manager-control-offer'."
+  (let ((attempt (wf-manager-control-offer-attempt-id offer)))
+    (wf-manager-json-object
+     "operation" (wf-manager-control-offer-operation offer)
+     "occurrenceId" (number-to-string (wf-manager-control-offer-occurrence-id offer))
+     "attemptId" (if attempt (number-to-string attempt) :null)
+     "generation" (wf-manager--json-nullable (wf-manager-control-offer-generation offer))
+     "timings" (apply #'vector (wf-manager-control-offer-timings offer))
+     "choices" (wf-manager--json-list #'wf-manager--recovery-option-json
+                                      (wf-manager-control-offer-choices offer))
+     "targets" (apply #'vector (wf-manager-control-offer-targets offer)))))
+
+(defun wf-manager-control-projection (control)
+  "Return the JSON projection of the decoded fields of CONTROL.
+CONTROL is a `wf-manager-control'.  Each occurrence and attempt is
+canonical decimal text, and an offer without an attempt has a null
+attempt."
+  (wf-manager-json-object
+   "runId" (wf-manager-control-run-id control)
+   "revision" (wf-manager-control-revision control)
+   "supervision" (wf-manager-control-supervision control)
+   "cancelAllowed" (if (wf-manager-control-cancel-allowed control) t :false)
+   "decisionHeadId" (wf-manager--json-nullable (wf-manager-control-decision-head-id control))
+   "offers" (wf-manager--json-list #'wf-manager--offer-projection
+                                   (wf-manager-control-offers control))))
+
+(defun wf-manager-decode-run (value)
+  "Return the `wf-manager-run' of the JSON VALUE.
+VALUE is one item of the run collection whose links name its own
+identifier, or a catalogue entry whose manifest is unreadable.  Any
+VALUE that breaks a run rule signals `wf-manager-invalid-response'."
+  (wf-manager--decode-resource "run" #'wf-manager--parse-run value))
+
+(defun wf-manager--verification-projection (verification)
+  "Return the JSON projection of VERIFICATION, a `wf-manager-verification'."
+  (let ((state (wf-manager-verification-state verification))
+        (artifact (wf-manager-verification-artifact-id verification)))
+    (pcase state
+      ("absent" (wf-manager-json-object "state" state))
+      ("unavailable"
+       (wf-manager-json-object "state" state
+                               "artifactId" (wf-manager--json-nullable artifact)
+                               "reason" (wf-manager-verification-reason verification)))
+      (_ (wf-manager-json-object "state" state "artifactId" artifact)))))
+
+(defun wf-manager--known-run-projection (known)
+  "Return the JSON projection of KNOWN, a `wf-manager-known-run'."
+  (let ((runtime (wf-manager-known-run-runtime known))
+        (manifest (wf-manager-known-run-manifest-version known)))
+    (wf-manager-json-object
+     "kind" "known"
+     "workflowId" (wf-manager-known-run-workflow-id known)
+     "requestId" (wf-manager--json-nullable (wf-manager-known-run-request-id known))
+     "parentRunId" (wf-manager--json-nullable (wf-manager-known-run-parent-run-id known))
+     "lineage" (wf-manager--json-nullable (wf-manager-known-run-lineage known))
+     "manifestVersion" (if manifest (wf-manager-json-integer manifest) :null)
+     "runtime" (if runtime
+                   (wf-manager-json-object
+                    "status" (wf-manager-run-runtime-status runtime)
+                    "lastSequence" (number-to-string
+                                    (wf-manager-run-runtime-last-sequence runtime))
+                    "protocolVersion" (wf-manager-json-integer
+                                       (wf-manager-run-runtime-protocol-version runtime)))
+                 :null)
+     "supervision" (wf-manager-known-run-supervision known)
+     "integrity" (wf-manager-known-run-integrity known)
+     "verification" (wf-manager--verification-projection
+                     (wf-manager-known-run-verification known))
+     "limitations" (apply #'vector (wf-manager-known-run-limitations known)))))
+
+(defun wf-manager-run-projection (run)
+  "Return the JSON projection of the decoded fields of RUN, a `wf-manager-run'.
+The last sequence is canonical decimal text.  The runtime, the
+supervision, the integrity and the verification of a known run are
+separate members."
+  (let ((content (wf-manager-run-content run)))
+    (wf-manager-json-object
+     "id" (wf-manager-run-id run)
+     "revision" (wf-manager-run-revision run)
+     "profileId" (wf-manager-run-profile-id run)
+     "content" (if (wf-manager-unreadable-run-p content)
+                   (wf-manager-json-object
+                    "kind" "unreadable"
+                    "category" (wf-manager-unreadable-run-category content))
+                 (wf-manager--known-run-projection content)))))
 
 (defun wf-manager-decode-overview-member (value)
   "Return the `wf-manager-overview-member' of the JSON VALUE.

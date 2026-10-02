@@ -15,8 +15,9 @@
 ;; JSON codec: false, null and absent members, exact numbers, Unicode and
 ;; the byte bound.  They also run the invalidations, batches, routeRecords,
 ;; cursors, etags and problems vectors of the events section and the
-;; drafts, requests, preparations, receipts, decisions and answers vectors
-;; of the resources section of `test/manager_client_vectors.json' in
+;; drafts, requests, preparations, receipts, decisions, answers, controls
+;; and runs vectors of the resources section of
+;; `test/manager_client_vectors.json' in
 ;; agent-cat, which the environment variable WF_MANAGER_VECTORS names.  A
 ;; failure names each vector that does not give its stated result.  The
 ;; tests start no process and contact no host.
@@ -391,7 +392,8 @@ Return the symbol `accepted' when FUNCTION returns."
     ("events.problems" . 10) ("resources.drafts" . 39)
     ("resources.requests" . 11) ("resources.preparations" . 40)
     ("resources.receipts" . 36) ("resources.decisions" . 20)
-    ("resources.answers" . 22))
+    ("resources.answers" . 22) ("resources.controls" . 16)
+    ("resources.runs" . 24))
   "The number of cases of each subsection of the vector file that runs here.
 A change to the vector file changes these counts.")
 
@@ -545,7 +547,8 @@ case refuses with `wf-manager-invalid-response'."
 (defconst wf-manager-tests--resource-outcomes
   '(("resources.drafts" 12 27) ("resources.requests" 4 7)
     ("resources.preparations" 13 27) ("resources.receipts" 19 17)
-    ("resources.decisions" 6 14) ("resources.answers" 12 10))
+    ("resources.decisions" 6 14) ("resources.answers" 12 10)
+    ("resources.controls" 3 13) ("resources.runs" 6 18))
   "The number of projections and of refusals that each section states.")
 
 (defconst wf-manager-tests--typed-decoders
@@ -574,16 +577,29 @@ case refuses with `wf-manager-invalid-response'."
     ("resources.decisions"
      ("item" wf-manager-tests--decode-decision wf-manager-decision-projection)
      ("overview" wf-manager-decode-overview-member
+      wf-manager-encode-overview-member))
+    ("resources.controls"
+     (nil wf-manager-tests--decode-control wf-manager-control-projection))
+    ("resources.runs"
+     ("item" wf-manager-decode-run wf-manager-run-projection)
+     ("overview" wf-manager-decode-overview-member
       wf-manager-encode-overview-member)))
   "The decoder and encoder of each case of a resources section.
-A case names its decoder by its `type' member, or for the requests and
-decisions sections by its `from' member.")
+A case names its decoder by its `type' member, or for the requests,
+decisions and runs sections by its `from' member.  A case of the
+controls section names no decoder, and the entry nil applies to it.")
 
 (defun wf-manager-tests--decode-decision (value)
   "Return the decision of the JSON VALUE, and check that VALUE stays in it."
   (let ((decision (wf-manager-decode-decision value)))
     (should (eq (wf-manager-decision-value decision) value))
     decision))
+
+(defun wf-manager-tests--decode-control (value)
+  "Return the controls of the JSON VALUE, and check that VALUE stays in them."
+  (let ((control (wf-manager-decode-control value)))
+    (should (eq (wf-manager-control-value control) value))
+    control))
 
 (defun wf-manager-tests--resource-outcome (section vector)
   "In SECTION, return the outcome of the resource VECTOR.
@@ -652,6 +668,16 @@ label.  The tally is (SECTION PROJECTED REFUSED)."
   "Decode every decision item and overview member vector as it states."
   (should (equal (wf-manager-tests--resource-section "resources.decisions")
                  (assoc "resources.decisions" wf-manager-tests--resource-outcomes))))
+
+(ert-deftest wf-manager-vectors-controls ()
+  "Decode every run control vector to its projection or refusal."
+  (should (equal (wf-manager-tests--resource-section "resources.controls")
+                 (assoc "resources.controls" wf-manager-tests--resource-outcomes))))
+
+(ert-deftest wf-manager-vectors-runs ()
+  "Decode every run item and overview member vector to its projection or refusal."
+  (should (equal (wf-manager-tests--resource-section "resources.runs")
+                 (assoc "resources.runs" wf-manager-tests--resource-outcomes))))
 
 (defun wf-manager-tests--answer-outcome (vector)
   "Return the outcome of the answer VECTOR.
@@ -849,6 +875,92 @@ or the symbol `refused' for the refusal InvalidAnswer."
                                    (wf-manager-recovery-option-target option)))
                            (wf-manager-recovery-choices recovery))
                    '(("retry" nil) ("failover" "scripted-backup") ("abandon" nil))))))
+
+(ert-deftest wf-manager-resources-control-fields ()
+  "Keep the offers, the decision head, cancellation and the exact addresses."
+  (let* ((control (wf-manager-decode-control
+                   (wf-manager-tests--case
+                    "resources.controls"
+                    "steer, redirect, recovery and retry offers keep maximum addresses and Unicode targets")))
+         (offers (wf-manager-control-offers control))
+         (steer (nth 0 offers))
+         (redirect (nth 1 offers))
+         (recovery (nth 2 offers)))
+    (should (equal (wf-manager-control-supervision control) "owned"))
+    (should (eq (wf-manager-control-cancel-allowed control) t))
+    (should (equal (wf-manager-control-decision-head-id control) "decision_3"))
+    (should (equal (mapcar #'wf-manager-control-offer-operation offers)
+                   '("steer" "redirect" "choose-recovery" "retry")))
+    (should (eql (wf-manager-control-offer-occurrence-id steer) 18446744073709551615))
+    (should (eql (wf-manager-control-offer-attempt-id steer) 4294967295))
+    (should (null (wf-manager-control-offer-generation steer)))
+    (should (equal (wf-manager-control-offer-timings steer)
+                   '("interrupt-now" "next-boundary")))
+    (should (null (wf-manager-control-offer-attempt-id redirect)))
+    (should (equal (wf-manager-control-offer-targets redirect)
+                   '("agent 雪 [model:alt]" "")))
+    (should (equal (wf-manager-control-offer-generation recovery) "generation_4"))
+    (should (equal (mapcar (lambda (option)
+                             (list (wf-manager-recovery-option-choice option)
+                                   (wf-manager-recovery-option-target option)))
+                           (wf-manager-control-offer-choices recovery))
+                   '(("retry" nil) ("failover" "backup")))))
+  (let ((control (wf-manager-decode-control
+                  (wf-manager-tests--case
+                   "resources.controls"
+                   "lost controls keep false cancellation and a null head"))))
+    (should (equal (wf-manager-control-supervision control) "lost"))
+    (should (null (wf-manager-control-cancel-allowed control)))
+    (should (null (wf-manager-control-decision-head-id control)))
+    (should (null (wf-manager-control-offers control)))
+    (should (eq (gethash "cancelAllowed" (wf-manager-control-projection control))
+                :false))))
+
+(ert-deftest wf-manager-resources-run-fields ()
+  "Keep runtime, supervision, integrity and verification as separate fields."
+  (let* ((run (wf-manager-decode-run
+               (wf-manager-tests--case
+                "resources.runs"
+                "fork run keeps sequence 2^64-1 and an unavailable result")))
+         (known (wf-manager-run-content run))
+         (runtime (wf-manager-known-run-runtime known))
+         (verification (wf-manager-known-run-verification known)))
+    (should (equal (wf-manager-run-id run) "run_21"))
+    (should (equal (list (wf-manager-known-run-parent-run-id known)
+                         (wf-manager-known-run-lineage known)
+                         (wf-manager-known-run-manifest-version known))
+                   '("run_20" "fork" 3)))
+    (should (equal (list (wf-manager-run-runtime-status runtime)
+                         (wf-manager-run-runtime-last-sequence runtime)
+                         (wf-manager-run-runtime-protocol-version runtime))
+                   '("succeeded" 18446744073709551615 3)))
+    (should (equal (wf-manager-known-run-supervision known) "cleanup-pending"))
+    (should (equal (wf-manager-known-run-integrity known) "valid"))
+    (should (equal (list (wf-manager-verification-state verification)
+                         (wf-manager-verification-artifact-id verification)
+                         (wf-manager-verification-reason verification))
+                   '("unavailable" nil "missing")))
+    (should (equal (wf-manager-known-run-limitations known) '("quarantined"))))
+  (let ((known (wf-manager-run-content
+                (wf-manager-decode-run
+                 (wf-manager-tests--case
+                  "resources.runs" "legacy entry keeps null runtime and request")))))
+    (should (null (wf-manager-known-run-runtime known)))
+    (should (null (wf-manager-known-run-manifest-version known)))
+    (should (null (wf-manager-known-run-request-id known)))
+    (should (equal (wf-manager-known-run-supervision known) "observer"))
+    (should (equal (wf-manager-known-run-integrity known) "corrupt"))
+    (should (equal (list (wf-manager-verification-state
+                          (wf-manager-known-run-verification known))
+                         (wf-manager-verification-artifact-id
+                          (wf-manager-known-run-verification known)))
+                   '("verified" "artifact_4"))))
+  (let* ((member (wf-manager-decode-overview-member
+                  (wf-manager-tests--case "resources.runs"
+                                          "overview unreadable run member")))
+         (content (wf-manager-run-content (wf-manager-overview-member-value member))))
+    (should (equal (wf-manager-overview-member-kind member) "run"))
+    (should (equal (wf-manager-unreadable-run-category content) "malformed-manifest"))))
 
 (ert-deftest wf-manager-resources-timestamps ()
   "Accept the RFC 3339 times that the protocol accepts and refuse the others."

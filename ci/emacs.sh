@@ -30,7 +30,7 @@
 #      service-mode transport `emacs/wf-manager.el'. They load client
 #      profiles from temporary files, check the exact JSON codec, and run the
 #      events vectors and the drafts, requests, preparations, receipts,
-#      decisions and answers vectors of agent-cat
+#      decisions, answers, controls and runs vectors of agent-cat
 #      test/manager_client_vectors.json, which WF_MANAGER_VECTORS names. They
 #      contact no host.
 #

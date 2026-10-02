@@ -464,8 +464,8 @@ treated as errors, runs strict `checkdoc` on each of them, and executes
 descriptor, setup, native process, control, artifact, history, and lineage
 regressions. A fourth pass runs the ERT tests of the service-mode transport in
 `emacs/wf-manager-tests.el`, which include the events vectors and the drafts,
-requests, preparations, receipts, decisions and answers vectors of
-`test/manager_client_vectors.json` in agent-cat. The human/control fixture and
+requests, preparations, receipts, decisions, answers, controls and runs vectors
+of `test/manager_client_vectors.json` in agent-cat. The human/control fixture and
 the vector file are explicit dependencies, not developer-specific paths or
 skipped tests. The pinned agent-cat source of the development shell does not
 have the vector file, so `WF_MANAGER_VECTORS` names it.
@@ -632,14 +632,16 @@ other body gives a `wf-manager-invalid-response` failure.
 
 #### Resource decoders
 
-The resource decoders follow the draft, preparation, receipt and decision
-decoders of `ext-pi/src/manager/resources.ts` in agent-cat. They pass the
-`drafts`, `requests`, `preparations`, `receipts` and `decisions` vectors of the
-resources section of `test/manager_client_vectors.json`. Each decoder returns a
-record. The encoder of a record gives its canonical JSON value, and
-`wf-manager-decision-projection` gives the projection of the decoded fields of
-a decision. A value that breaks a rule signals `wf-manager-invalid-response`,
-with the kind of value as `KIND`.
+The resource decoders follow the draft, preparation, receipt, decision, control
+and run decoders of `ext-pi/src/manager/resources.ts` in agent-cat. They pass
+the `drafts`, `requests`, `preparations`, `receipts`, `decisions`, `controls`
+and `runs` vectors of the resources section of
+`test/manager_client_vectors.json`. Each decoder returns a record. The encoder
+of a record gives its canonical JSON value. `wf-manager-decision-projection`,
+`wf-manager-control-projection` and `wf-manager-run-projection` give the
+projection of the decoded fields of a decision, of the controls of a run and of
+a run. A value that breaks a rule signals `wf-manager-invalid-response`, with
+the kind of value as `KIND`.
 
 | Function | Value |
 | --- | --- |
@@ -655,7 +657,9 @@ with the kind of value as `KIND`.
 | `wf-manager-decode-review-edit` | A drop, or a replacement with the SHA-256 digest of its answer, at an occurrence that is canonical unsigned 64-bit decimal text. |
 | `wf-manager-decode-command-receipt` | A version 1 command receipt. The required scopes are the scopes of the operation (`wf-manager-required-scopes`), the self link names the receipt, and the resource link names its resource. The acknowledgement and the effect stay exact JSON values after their checks. |
 | `wf-manager-decode-decision` | A version 1 question or recovery decision whose queue names the decisions of its run. The occurrence and the observed sequence are canonical unsigned 64-bit decimal text, and the position is from 0 to 2047. A question keeps its observation code, its editor schema or nil, and its prompt. A structured code states the semantic schema of the question. A recovery keeps its gap, its message and at most 16 choices, and only a failover choice names a target. The record keeps the exact JSON value that it decodes. |
-| `wf-manager-decode-overview-member` | `{"kind":K,K:MEMBER}`, where `K` is `request`, `preparation` or `decision`. The encoder gives the projection of a decision member. The manager also serves the kind `run`, which this client refuses until it has its decoder. |
+| `wf-manager-decode-control` | The version 1 controls of a run: its supervision state, `cancelAllowed` as JSON true or false, the decision head as a bounded identifier or JSON null, and at most 512 offers. Cancellation is not an offer. An offer is `steer`, `retry`, `choose-recovery`, `redirect` or `answer`. The address of a steer offer is an occurrence and an attempt, and the address of every other offer is an occurrence alone. The occurrence is canonical unsigned 64-bit decimal text and the attempt is canonical unsigned 32-bit decimal text. An offer keeps its generation or nil, at most two distinct timings, at most 16 recovery choices and at most 256 targets. The record keeps the exact JSON value that it decodes. |
+| `wf-manager-decode-run` | One version 1 item of the run collection, or a catalogue entry of the kind `unreadable-manifest` with only its public category. The links of a run name its own identifier. A known run keeps its workflow, its request, parent run and lineage, each one possibly nil, and its manifest version, 2 or 3, or nil for a legacy manifest. It keeps four separate dimensions: the runtime summary or nil (status, last sequence as canonical unsigned 64-bit decimal text, and protocol version 1, 2 or 3), the supervision state, the integrity of the journal and the verification of the result. Its limitations are distinct. A run is display data and grants no supervision, control or signalling authority. |
+| `wf-manager-decode-overview-member` | `{"kind":K,K:MEMBER}`, where `K` is `request`, `preparation`, `run` or `decision`. The encoder gives the projection of a run member and of a decision member. |
 
 The state of a command receipt must agree with its evidence:
 

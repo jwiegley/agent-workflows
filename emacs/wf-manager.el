@@ -80,6 +80,21 @@
 ;; refuses an answer with `wf-manager-invalid-answer' before any command is
 ;; built.
 ;;
+;; The refresh coordinator follows `ext-pi/src/manager/refresh.ts' and
+;; passes the sequences, backoff, jitter and reconciliation vectors of the
+;; refresh section.  It performs no I/O.  `wf-manager-refresh-invalidate'
+;; and `wf-manager-refresh-complete' return the next state and the
+;; actions of the caller.  Each resource has at most one fetch in flight,
+;; and invalidations during that fetch give one later fetch.
+;; `wf-manager-refresh-advance' advances the generation after a
+;; resnapshot or an endpoint switch, and a completed fetch of an earlier
+;; generation installs nothing.  `wf-manager-reconnect-delay' and
+;; `wf-manager-jittered-microseconds' give the reconnection backoff and
+;; its jitter.  `wf-manager-reconcile-read' and `wf-manager-reconcile'
+;; reconcile an uncertain command with one read of its receipt, of its
+;; target or of a supplied resource.  No action and no report is a send,
+;; and an uncertain command keeps its exact bytes, key and precondition.
+;;
 ;; Each refusal signals a condition below `wf-manager-error'.  The data of
 ;; the condition is (FIELD REASON).  For a profile, FIELD is the JSON name
 ;; of the profile field that the refusal is about, or "profile" for the
@@ -132,6 +147,8 @@
               "Refused by the manager" 'wf-manager-error)
 (define-error 'wf-manager-invalid-answer
               "Invalid answer" 'wf-manager-error)
+(define-error 'wf-manager-transport-unavailable
+              "Manager transport unavailable" 'wf-manager-error)
 
 (cl-defstruct (wf-manager-endpoint
                (:constructor wf-manager--endpoint-make)
@@ -3066,6 +3083,224 @@ of `wf-manager-answer-value'."
    "occurrenceId" (number-to-string (wf-manager-decision-occurrence-id decision))
    "generation" (wf-manager-decision-generation decision)
    "value" value))
+
+;;;; Refresh coordination
+
+;; The functions below follow `ext-pi/src/manager/refresh.ts' and
+;; `Agentic.Manager.Client.Refresh' in agent-cat.  They perform no I/O.
+;; Each one returns the next state and the actions that the caller
+;; performs, and no action and no report is a send.
+
+(cl-defstruct (wf-manager-flight
+               (:constructor wf-manager-flight-make)
+               (:copier nil))
+  "The one fetch in flight for a resource.
+GENERATION is the generation of the fetch.  DIRTY is non-nil when an
+invalidation arrived after the fetch started."
+  (generation 0 :read-only t)
+  (dirty nil :read-only t))
+
+(cl-defstruct (wf-manager-refresh
+               (:constructor wf-manager-refresh--make)
+               (:copier nil))
+  "The refresh state of one client session.
+GENERATION is the current generation, a non-negative integer.  FLIGHTS
+is an alist from a resource key to its `wf-manager-flight'.  Keys are
+compared with `equal'.  A key without a flight is idle.  A state is
+never changed in place."
+  (generation 0 :read-only t)
+  (flights nil :read-only t))
+
+(cl-defstruct (wf-manager-refresh-step
+               (:constructor wf-manager-refresh-step-make)
+               (:copier nil))
+  "The result of one refresh step.
+STATE is the next `wf-manager-refresh'.  ACTIONS is the list of the
+actions of the step, in order.  An action is (KIND KEY GENERATION),
+where KIND is `fetch', `install' or `discard'.  The caller starts one
+fetch of KEY for GENERATION on `fetch', installs the result of the
+completed fetch, a value or a refusal, on `install', and drops the
+result of the completed fetch on `discard'."
+  (state nil :read-only t)
+  (actions nil :read-only t))
+
+(defun wf-manager-refresh-new ()
+  "Return the refresh state of generation zero with every resource idle."
+  (wf-manager-refresh--make :generation 0 :flights nil))
+
+(defun wf-manager-refresh-flight (key state)
+  "Return the `wf-manager-flight' of the resource KEY in STATE, or nil."
+  (cdr (assoc key (wf-manager-refresh-flights state))))
+
+(defun wf-manager--refresh-with (state key flight)
+  "Return STATE with KEY idle for a nil FLIGHT, or with FLIGHT as its flight."
+  (let ((others (cl-remove key (wf-manager-refresh-flights state)
+                           :key #'car :test #'equal)))
+    (wf-manager-refresh--make
+     :generation (wf-manager-refresh-generation state)
+     :flights (if flight (cons (cons key flight) others) others))))
+
+(defun wf-manager-refresh-invalidate (key state)
+  "Return the `wf-manager-refresh-step' of an invalidation of KEY in STATE.
+An idle resource starts a fetch of the current generation.  A resource
+with a fetch in flight only becomes dirty, so any number of
+invalidations during one fetch give one later fetch."
+  (let ((flight (wf-manager-refresh-flight key state))
+        (current (wf-manager-refresh-generation state)))
+    (if flight
+        (wf-manager-refresh-step-make
+         :state (wf-manager--refresh-with
+                 state key (wf-manager-flight-make
+                            :generation (wf-manager-flight-generation flight)
+                            :dirty t))
+         :actions nil)
+      (wf-manager-refresh-step-make
+       :state (wf-manager--refresh-with
+               state key (wf-manager-flight-make :generation current :dirty nil))
+       :actions (list (list 'fetch key current))))))
+
+(defun wf-manager-refresh-complete (key generation state)
+  "Return the `wf-manager-refresh-step' of a completed fetch.
+The fetch is of the resource KEY for GENERATION, and STATE is the
+refresh state.  Only the fetch in flight of the current generation
+installs.  When that resource is dirty, exactly one further fetch
+starts, and otherwise the resource becomes idle.  Every other
+completion, in particular one of an earlier generation, is discarded
+and changes nothing."
+  (let ((current (wf-manager-refresh-generation state))
+        (flight (wf-manager-refresh-flight key state)))
+    (cond
+     ((not (and flight (eql generation current)
+                (eql (wf-manager-flight-generation flight) current)))
+      (wf-manager-refresh-step-make
+       :state state :actions (list (list 'discard key generation))))
+     ((wf-manager-flight-dirty flight)
+      (wf-manager-refresh-step-make
+       :state (wf-manager--refresh-with
+               state key (wf-manager-flight-make :generation current :dirty nil))
+       :actions (list (list 'install key generation) (list 'fetch key current))))
+     (t
+      (wf-manager-refresh-step-make
+       :state (wf-manager--refresh-with state key nil)
+       :actions (list (list 'install key generation)))))))
+
+(defun wf-manager-refresh-advance (state)
+  "Return STATE after a resnapshot or an endpoint switch.
+A resnapshot follows a 410 refusal or a new overview.  The generation
+advances and every resource becomes idle, so each fetch still in
+flight is discarded when it completes."
+  (wf-manager-refresh--make
+   :generation (1+ (wf-manager-refresh-generation state)) :flights nil))
+
+(defconst wf-manager-reconnect-backoff-max-seconds 30
+  "The `reconnectBackoffMaxSeconds' limit of /capabilities, in seconds.")
+
+(defconst wf-manager-initial-backoff 1
+  "The first reconnection delay, in seconds.
+A connection that delivered an event resets the backoff to it.")
+
+(defun wf-manager-reconnect-delay (backoff)
+  "Return the delay of a reconnection with BACKOFF, and the next backoff.
+BACKOFF is a delay in seconds.  The result is (DELAY . NEXT).  The
+delay doubles from one second up to
+`wf-manager-reconnect-backoff-max-seconds' and then stays there."
+  (cons backoff (min wf-manager-reconnect-backoff-max-seconds (* 2 backoff))))
+
+(defun wf-manager-jittered-microseconds (seconds fraction)
+  "Return the jittered wait in microseconds for a delay and a fraction.
+SECONDS is the delay in seconds.  FRACTION is a number from zero to
+one.  The wait is between half the delay and the whole delay, so it
+never passes `wf-manager-reconnect-backoff-max-seconds'.  A FRACTION
+outside that range is clamped, and a FRACTION that is not a number
+counts as zero."
+  (let ((clamped (cond ((not (numberp fraction)) 0)
+                       ((>= fraction 1) 1)
+                       ((> fraction 0) fraction)
+                       (t 0))))
+    (floor (* seconds 1000000 (+ 0.5 (* 0.5 clamped))))))
+
+(cl-defstruct (wf-manager-uncertain
+               (:constructor wf-manager-uncertain-make)
+               (:copier nil))
+  "A sent command whose outcome is uncertain.
+COMMAND is the exact pending command, with its bytes, its idempotency
+key and its precondition.  TARGET is the location of the target
+resource.  PRECONDITION is the entity tag of the precondition, or nil.
+RECEIPT is the location of the command receipt when an earlier
+response gave one, or nil."
+  (command nil :read-only t)
+  (target nil :read-only t)
+  (precondition nil :read-only t)
+  (receipt nil :read-only t))
+
+(cl-defstruct (wf-manager-reconcile-target
+               (:constructor wf-manager-reconcile-target-make)
+               (:copier nil))
+  "The resource that reconciles an uncertain command in place of its target.
+A command whose target no longer serves its effect, such as an
+answered decision that reads as 404, names this resource.  LOCATION is
+the location of the resource.  PRECONDITION is the entity tag of that
+resource from before the send, or nil."
+  (location nil :read-only t)
+  (precondition nil :read-only t))
+
+(defun wf-manager--reconcile-basis (uncertain supplied)
+  "Return the uncertain command that the rules compare for UNCERTAIN.
+SUPPLIED is a `wf-manager-reconcile-target' or nil.  Without a receipt
+location, SUPPLIED replaces the target and the precondition, so that
+the rules compare the entity tags of one resource."
+  (if (or (null supplied) (wf-manager-uncertain-receipt uncertain))
+      uncertain
+    (wf-manager-uncertain-make
+     :command (wf-manager-uncertain-command uncertain)
+     :target (wf-manager-reconcile-target-location supplied)
+     :precondition (wf-manager-reconcile-target-precondition supplied)
+     :receipt nil)))
+
+(defun wf-manager-reconcile-read (uncertain &optional supplied)
+  "Return the one read that reconciles UNCERTAIN.
+UNCERTAIN is a `wf-manager-uncertain'.  The read is (receipt LOCATION)
+for the receipt location when one is known, and otherwise
+\(target LOCATION) for the target resource.  SUPPLIED is an optional
+`wf-manager-reconcile-target'.  Without a receipt location, its
+location replaces the target."
+  (let ((basis (wf-manager--reconcile-basis uncertain supplied)))
+    (if (wf-manager-uncertain-receipt basis)
+        (list 'receipt (wf-manager-uncertain-receipt basis))
+      (list 'target (wf-manager-uncertain-target basis)))))
+
+(defun wf-manager-reconcile (uncertain observation &optional supplied)
+  "Return the report of the reconciliation of UNCERTAIN with OBSERVATION.
+OBSERVATION is the result of the read of `wf-manager-reconcile-read'
+with the same SUPPLIED: (receipt STATE) with the state of the receipt,
+\(target ETAG VISIBLE) with the entity tag of the read resource and
+whether the caller sees the effect of the command in it, or
+\(failure FAILURE) for a refused or failed read, where FAILURE is a
+list (CONDITION . DATA).
+
+With a receipt location, only the receipt decides: the state
+effect-observed gives the report (effect-observed), the state refused
+gives (refused), and every other state stays uncertain.  Without one,
+the target observes the effect only when VISIBLE is non-nil and ETAG
+differs from the precondition.  When SUPPLIED is a
+`wf-manager-reconcile-target', its precondition is the precondition
+of that comparison.  A failed read and an observation of the other
+read stay uncertain.  The report of a command that stays uncertain is
+\(uncertain UNCERTAIN), with UNCERTAIN itself, so its exact bytes, key
+and precondition remain for an explicit exact resend.  No report
+carries a send."
+  (let ((basis (wf-manager--reconcile-basis uncertain supplied)))
+    (pcase observation
+      ((and `(receipt ,state)
+            (guard (wf-manager-uncertain-receipt basis))
+            (guard (member state '("effect-observed" "refused"))))
+       (list (intern state)))
+      ((and `(target ,etag ,visible)
+            (guard (null (wf-manager-uncertain-receipt basis)))
+            (guard visible)
+            (guard (not (equal etag (wf-manager-uncertain-precondition basis)))))
+       (list 'effect-observed))
+      (_ (list 'uncertain uncertain)))))
 
 (provide 'wf-manager)
 

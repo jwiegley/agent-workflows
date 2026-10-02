@@ -463,9 +463,10 @@ interactive resize. It does not establish a different host OS or Linux acceptanc
 treated as errors, runs strict `checkdoc` on each of them, and executes
 descriptor, setup, native process, control, artifact, history, and lineage
 regressions. A fourth pass runs the ERT tests of the service-mode transport in
-`emacs/wf-manager-tests.el`, which include the events vectors and the drafts,
-requests, preparations, receipts, decisions, answers, controls and runs vectors
-of `test/manager_client_vectors.json` in agent-cat. The human/control fixture and
+`emacs/wf-manager-tests.el`, which include the events vectors, the drafts,
+requests, preparations, receipts, decisions, answers, controls and runs vectors,
+and the refresh sequences, backoff, jitter and reconciliation vectors of
+`test/manager_client_vectors.json` in agent-cat. The human/control fixture and
 the vector file are explicit dependencies, not developer-specific paths or
 skipped tests. The pinned agent-cat source of the development shell does not
 have the vector file, so `WF_MANAGER_VECTORS` names it.
@@ -517,8 +518,9 @@ WF_CONTROL_RUNNER=/path/to/routing-fixed-point-probe \
 is a client of an agent-cat workflow manager over HTTPS. The file has no user
 interface and uses only libraries that are part of Emacs. It currently loads a
 client profile, reads its credential, decodes and encodes exact JSON, decodes
-the event records and the resources of the manager, and builds the typed
-answer of a decision. The HTTP requests, the server-sent
+the event records and the resources of the manager, builds the typed answer of
+a decision, and coordinates refreshes and the reconciliation of an uncertain
+command without I/O. The HTTP requests, the server-sent
 event parser and the connection of the `wf.el` commands to manager resources
 are not yet in place.
 
@@ -629,6 +631,7 @@ other body gives a `wf-manager-invalid-response` failure.
 | `wf-manager-invalid-response` | A response is not UTF-8 JSON, or a decoded value breaks a rule. The data is `(KIND REASON)`, where `KIND` names the kind of value, such as `"route record"`. |
 | `wf-manager-response-too-large` | A response has more bytes than the bound. |
 | `wf-manager-refused` | The manager refused with a problem response. The data is `(STATUS CODE)`. |
+| `wf-manager-transport-unavailable` | The manager could not be reached. The data is `(KIND REASON)`. |
 
 #### Resource decoders
 
@@ -702,6 +705,43 @@ structured question without an editor schema, and any answer to a recovery
 decision signal `wf-manager-invalid-answer` before any body is built. The data
 is `("answer" REASON)`, for example
 `("answer" "answer field ok must be a boolean")`.
+
+#### Refresh coordination
+
+The refresh coordinator follows `ext-pi/src/manager/refresh.ts` in agent-cat
+and passes the `sequences`, `backoff`, `jitter` and `reconciliation` vectors of
+the refresh section of `test/manager_client_vectors.json`. It performs no I/O.
+Each function returns the next state and the actions that the caller performs.
+No action and no report is a send.
+
+| Function | Behavior |
+| --- | --- |
+| `wf-manager-refresh-new` | The state of generation zero with every resource idle. |
+| `wf-manager-refresh-invalidate` | An invalidation of a resource. An idle resource gives the action `(fetch KEY GENERATION)` for the current generation. A resource with a fetch in flight only becomes dirty, so any number of invalidations during one fetch give one later fetch. |
+| `wf-manager-refresh-complete` | The completion of a fetch. Only the fetch in flight of the current generation gives `(install KEY GENERATION)`, and a dirty resource then gives exactly one more fetch. Every other completion, in particular one of an earlier generation, gives `(discard KEY GENERATION)` and changes nothing. |
+| `wf-manager-refresh-advance` | A resnapshot, after a 410 refusal or a new overview, or an endpoint switch. The generation advances and every resource becomes idle. |
+| `wf-manager-reconnect-delay` | The delay of a reconnection and the next backoff, as `(DELAY . NEXT)`. The delay doubles from one second (`wf-manager-initial-backoff`) up to 30 seconds (`wf-manager-reconnect-backoff-max-seconds`). A connection that delivered an event resets the backoff to one second. |
+| `wf-manager-jittered-microseconds` | The wait in microseconds for a delay and a fraction from zero to one: from half the delay to the whole delay. A fraction outside that range is clamped, and a value that is not a number counts as zero. |
+| `wf-manager-reconcile-read` | The one read that reconciles a `wf-manager-uncertain` command: `(receipt LOCATION)` when a receipt location is known, and otherwise `(target LOCATION)`. |
+| `wf-manager-reconcile` | The report of that read: `(effect-observed)`, `(refused)` or `(uncertain UNCERTAIN)`. |
+
+A `wf-manager-uncertain` record keeps the exact pending command, with its
+bytes, its idempotency key and its precondition, the target location, the
+precondition entity tag and the receipt location, when one is known. With a
+receipt location, only the receipt decides. The state `effect-observed`
+observes the effect, the state `refused` reports the refusal, and every other
+state stays uncertain. Without a receipt location, the target observes the
+effect only when the caller sees the effect in it and its entity tag differs
+from the precondition. A failed read stays uncertain. An uncertain report
+holds the same record, so that the command stays available for an explicit
+exact resend.
+
+Some targets no longer serve the effect of a command, for example an answered
+decision that reads as 404. For such a command, the caller gives a
+`wf-manager-reconcile-target` with another location and the entity tag of that
+resource from before the send. Without a receipt location, that resource
+replaces the target and its entity tag replaces the precondition. With a
+receipt location, the receipt still decides.
 
 ## What replaces what
 

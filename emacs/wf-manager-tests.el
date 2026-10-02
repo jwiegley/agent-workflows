@@ -16,9 +16,9 @@
 ;; the byte bound.  They also run the invalidations, batches, routeRecords,
 ;; cursors, etags and problems vectors of the events section and the
 ;; drafts, requests, preparations, receipts, decisions, answers, controls
-;; and runs vectors of the resources section of
-;; `test/manager_client_vectors.json' in
-;; agent-cat, which the environment variable WF_MANAGER_VECTORS names.  A
+;; and runs vectors of the resources section and the sequences, backoff,
+;; jitter and reconciliation vectors of the refresh section of
+;; `test/manager_client_vectors.json' in agent-cat, which the environment variable WF_MANAGER_VECTORS names.  A
 ;; failure names each vector that does not give its stated result.  The
 ;; tests start no process and contact no host.
 ;;
@@ -972,6 +972,277 @@ or the symbol `refused' for the refusal InvalidAnswer."
                   "2026-13-01T00:00:00Z" "2026-09-03T24:00:00Z" "2026-09-03T00:10:00+24:00"
                   "2026-09-03 00:10:00Z" "2026-09-03T00:10Z"))
     (should (equal (list time (wf-manager-valid-timestamp-p time)) (list time nil)))))
+
+;;;; Refresh vectors
+
+(defconst wf-manager-tests--refresh-counts
+  '(("refresh.sequences" . 13) ("refresh.backoff" . 4) ("refresh.jitter" . 5)
+    ("refresh.reconciliation" . 17))
+  "The number of cases of each subsection of the refresh section.")
+
+(defun wf-manager-tests--refresh-cases (section)
+  "Return the cases of the refresh SECTION, with their stated count."
+  (let ((cases (append (cl-reduce (lambda (object name) (gethash name object))
+                                  (split-string section "\\.")
+                                  :initial-value (wf-manager-tests--vectors))
+                       nil)))
+    (should (equal (cons section (length cases))
+                   (assoc section wf-manager-tests--refresh-counts)))
+    cases))
+
+(defun wf-manager-tests--integer (value)
+  "Return the integer of the JSON number VALUE."
+  (should (wf-manager-json-number-p value))
+  (let ((number (string-to-number (wf-manager-json-number-source value))))
+    (should (integerp number))
+    number))
+
+(defun wf-manager-tests--stated-actions (actions)
+  "Return the stated ACTIONS of a sequence step as (KIND KEY GENERATION)."
+  (mapcar (lambda (action)
+            (should (= (length action) 3))
+            (list (intern (aref action 0)) (aref action 1)
+                  (wf-manager-tests--integer (aref action 2))))
+          (append actions nil)))
+
+(defun wf-manager-tests--run-sequence (vector)
+  "Run the refresh sequence VECTOR and return its step count.
+Each step gives its exact actions.  Each step also keeps the rules of
+the coordinator: an install has the current generation, a completion
+of an earlier generation installs nothing and discards its result, an
+invalidation of a resource in flight starts nothing, a completion
+starts at most one fetch, and an advance leaves every resource idle."
+  (let ((state (wf-manager-refresh-new))
+        (index 0)
+        (name (wf-manager-tests--label "refresh.sequences" vector)))
+    (dolist (step (append (gethash "steps" vector) nil))
+      (setq index (1+ index))
+      (let* ((label (format "%s step %d" name index))
+             (current (wf-manager-refresh-generation state))
+             (expected (wf-manager-tests--stated-actions (gethash "actions" step)))
+             (invalidated (gethash "invalidate" step))
+             (completed (gethash "complete" step))
+             (advanced (or (eq (gethash "resnapshot" step) t)
+                           (eq (gethash "endpointSwitch" step) t)))
+             next rule)
+        (cond
+         ((and (stringp invalidated) (not completed) (not advanced))
+          (let ((in-flight (wf-manager-refresh-flight invalidated state)))
+            (setq next (wf-manager-refresh-invalidate invalidated state))
+            (setq rule (if in-flight
+                           (null (wf-manager-refresh-step-actions next))
+                         (equal (wf-manager-refresh-step-actions next)
+                                (list (list 'fetch invalidated current)))))))
+         ((and (stringp completed) (not invalidated) (not advanced))
+          (let ((generation (wf-manager-tests--integer (gethash "generation" step))))
+            (setq next (wf-manager-refresh-complete completed generation state))
+            (let* ((actions (wf-manager-refresh-step-actions next))
+                   (installs (cl-remove-if-not (lambda (a) (eq (car a) 'install)) actions))
+                   (fetches (cl-remove-if-not (lambda (a) (eq (car a) 'fetch)) actions)))
+              (setq rule (and (cl-every (lambda (a) (eql (nth 2 a) current)) installs)
+                              (or (eql generation current) (null installs))
+                              (or (>= generation current)
+                                  (and (equal actions
+                                              (list (list 'discard completed generation)))
+                                       (eq (wf-manager-refresh-step-state next) state)))
+                              (<= (length fetches) 1))))))
+         ((and advanced (not invalidated) (not completed))
+          (setq next (wf-manager-refresh-step-make
+                      :state (wf-manager-refresh-advance state) :actions nil))
+          (setq rule (let ((advanced-state (wf-manager-refresh-step-state next)))
+                       (and (null (wf-manager-refresh-flights advanced-state))
+                            (eql (wf-manager-tests--integer (gethash "generation" step))
+                                 (1+ current))
+                            (eql (wf-manager-refresh-generation advanced-state)
+                                 (1+ current))))))
+         (t (error "%s names no single step kind" label)))
+        (should (equal (cons label (wf-manager-refresh-step-actions next))
+                       (cons label expected)))
+        (should (equal (list label 'rules rule) (list label 'rules t)))
+        (setq state (wf-manager-refresh-step-state next))))
+    index))
+
+(ert-deftest wf-manager-vectors-refresh-sequences ()
+  "Run every coordinator sequence with its exact actions and the rules."
+  (let ((steps (mapcar #'wf-manager-tests--run-sequence
+                       (wf-manager-tests--refresh-cases "refresh.sequences"))))
+    (should (equal (length steps) 13))
+    (should (equal (apply #'+ steps) 87))))
+
+(ert-deftest wf-manager-vectors-refresh-backoff ()
+  "Double the delay up to the cap and reset it after a delivered event."
+  (let ((total 0))
+    (dolist (vector (wf-manager-tests--refresh-cases "refresh.backoff"))
+      (let ((backoff wf-manager-initial-backoff)
+            (delivered nil)
+            (delays nil)
+            (name (wf-manager-tests--label "refresh.backoff" vector)))
+        (dolist (step (append (gethash "steps" vector) nil))
+          (pcase step
+            ("failure"
+             (let ((result (wf-manager-reconnect-delay backoff)))
+               (should (not (and delivered (/= (car result) 1))))
+               (push (car result) delays)
+               (setq backoff (cdr result) delivered nil)))
+            ("delivered" (setq backoff wf-manager-initial-backoff delivered t))
+            (_ (error "%s has an unknown step" name))))
+        (setq delays (nreverse delays))
+        (should (equal (cons name delays)
+                       (cons name (mapcar #'wf-manager-tests--integer
+                                          (append (gethash "delays" vector) nil)))))
+        (should (cl-every (lambda (delay)
+                            (<= 1 delay wf-manager-reconnect-backoff-max-seconds))
+                          delays))
+        (setq total (+ total (length delays)))))
+    (should (equal total 24))))
+
+(ert-deftest wf-manager-vectors-refresh-jitter ()
+  "Jitter each wait between half the delay and the whole delay."
+  (dolist (vector (wf-manager-tests--refresh-cases "refresh.jitter"))
+    (let* ((name (wf-manager-tests--label "refresh.jitter" vector))
+           (seconds (wf-manager-tests--integer (gethash "seconds" vector)))
+           (fraction (string-to-number
+                      (wf-manager-json-number-source (gethash "fraction" vector))))
+           (waited (wf-manager-jittered-microseconds seconds fraction)))
+      (should (equal (cons name waited)
+                     (cons name (wf-manager-tests--integer
+                                 (gethash "microseconds" vector)))))
+      (should (<= waited (* 1000000 wf-manager-reconnect-backoff-max-seconds)))
+      (should (>= (* 2 waited) (* 1000000 seconds))))))
+
+(defun wf-manager-tests--failure (value)
+  "Return the failure (CONDITION . DATA) that the vector VALUE names."
+  (pcase value
+    ("InvalidResponse"
+     (list 'wf-manager-invalid-response "target" "the response gives no entity tag"))
+    ("TransportUnavailable"
+     (list 'wf-manager-transport-unavailable "transport" "the connection failed"))
+    ((pred hash-table-p)
+     (let ((refused (append (gethash "refused" value) nil)))
+       (should (= (length refused) 2))
+       (list 'wf-manager-refused (wf-manager-tests--integer (car refused))
+             (cadr refused))))
+    (_ (error "Unknown failure %S" value))))
+
+(defun wf-manager-tests--observation (vector)
+  "Return the reconciliation observation of VECTOR."
+  (let* ((observation (gethash "observation" vector))
+         (state (gethash "receiptState" observation))
+         (etag (gethash "targetETag" observation))
+         (failure (gethash "failure" observation)))
+    (cond
+     ((and (stringp state) (null etag) (null failure))
+      (should (member state wf-manager-command-states))
+      (list 'receipt state))
+     ((and (null state) (stringp etag) (null failure))
+      (list 'target etag (eq (gethash "effectVisible" observation) t)))
+     ((and (null state) (null etag) failure)
+      (list 'failure (wf-manager-tests--failure failure)))
+     (t (error "%s has a malformed observation"
+               (wf-manager-tests--label "refresh.reconciliation" vector))))))
+
+(defun wf-manager-tests--nullable-text (value)
+  "Return VALUE as text, or nil for JSON null."
+  (if (eq value :null) nil value))
+
+(defun wf-manager-tests--run-reconciliation (vector)
+  "Run the reconciliation VECTOR and return its report kind.
+The read is the receipt location when one is known and otherwise the
+target.  A command that stays uncertain comes back as the same record
+with its exact bytes, key and precondition, and no report sends."
+  (let* ((name (wf-manager-tests--label "refresh.reconciliation" vector))
+         (command (gethash "command" vector))
+         (bytes (wf-manager-json-encode command))
+         (target (gethash "target" vector))
+         (receipt (wf-manager-tests--nullable-text (gethash "receipt" vector)))
+         (uncertain (wf-manager-uncertain-make
+                     :command command :target target
+                     :precondition (wf-manager-tests--nullable-text
+                                    (gethash "precondition" vector))
+                     :receipt receipt))
+         (read (wf-manager-reconcile-read uncertain))
+         (report (wf-manager-reconcile uncertain
+                                       (wf-manager-tests--observation vector))))
+    (should (equal (cons name read)
+                   (cons name (if receipt (list 'receipt receipt) (list 'target target)))))
+    (should (equal (cons name (symbol-name (car read)))
+                   (cons name (gethash "read" vector))))
+    (should (equal (cons name (symbol-name (car report)))
+                   (cons name (gethash "report" vector))))
+    (should (equal (list name 'no-send (length report))
+                   (list name 'no-send (if (eq (car report) 'uncertain) 2 1))))
+    (when (eq (car report) 'uncertain)
+      (should (eq (nth 1 report) uncertain))
+      (should (eq (wf-manager-uncertain-command (nth 1 report)) command))
+      (should (equal (wf-manager-json-encode (wf-manager-uncertain-command (nth 1 report)))
+                     bytes)))
+    (car report)))
+
+(ert-deftest wf-manager-vectors-refresh-reconciliation ()
+  "Reconcile each uncertain command by one read and keep an uncertain one."
+  (let ((reports (mapcar #'wf-manager-tests--run-reconciliation
+                         (wf-manager-tests--refresh-cases "refresh.reconciliation"))))
+    (should (equal (mapcar (lambda (kind) (cons kind (cl-count kind reports)))
+                           '(effect-observed refused uncertain))
+                   '((effect-observed . 3) (refused . 1) (uncertain . 13))))))
+
+(ert-deftest wf-manager-refresh-reconcile-supplied-read ()
+  "Reconcile through a supplied read in place of a target without its effect."
+  (let* ((command (wf-manager-json-object "operation" "answer"))
+         (uncertain (wf-manager-uncertain-make
+                     :command command :target "/v1/decisions/decision_1"
+                     :precondition "\"dec_1\"" :receipt nil))
+         (supplied (wf-manager-reconcile-target-make
+                    :location "/v1/runs/run_1/snapshot" :precondition "\"snap_1\"")))
+    (should (equal (wf-manager-reconcile-read uncertain supplied)
+                   '(target "/v1/runs/run_1/snapshot")))
+    (should (equal (wf-manager-reconcile uncertain '(target "\"snap_2\"" t) supplied)
+                   '(effect-observed)))
+    (let ((report (wf-manager-reconcile uncertain '(target "\"snap_1\"" t) supplied)))
+      (should (eq (car report) 'uncertain))
+      (should (eq (nth 1 report) uncertain)))
+    (let ((report (wf-manager-reconcile uncertain '(target "\"dec_1\"" t) supplied)))
+      (should (equal report '(effect-observed))))
+    (let ((report (wf-manager-reconcile
+                   uncertain '(failure (wf-manager-refused 404 "resource-unavailable"))
+                   supplied)))
+      (should (eq (nth 1 report) uncertain))))
+  (let* ((uncertain (wf-manager-uncertain-make
+                     :command (wf-manager-json-object "operation" "cancel")
+                     :target "/v1/runs/run_1/control" :precondition "\"rev_1\""
+                     :receipt "/v1/commands/command_1"))
+         (supplied (wf-manager-reconcile-target-make
+                    :location "/v1/runs/run_1/snapshot" :precondition "\"snap_1\"")))
+    (should (equal (wf-manager-reconcile-read uncertain supplied)
+                   '(receipt "/v1/commands/command_1")))
+    (should (eq (car (wf-manager-reconcile uncertain '(target "\"snap_2\"" t) supplied))
+                'uncertain))
+    (should (equal (wf-manager-reconcile uncertain '(receipt "effect-observed") supplied)
+                   '(effect-observed)))))
+
+(ert-deftest wf-manager-refresh-states-are-not-changed ()
+  "Return new refresh states and never change the state that a step receives."
+  (let* ((start (wf-manager-refresh-new))
+         (fetched (wf-manager-refresh-invalidate "/v1/runs/run_1" start))
+         (dirty (wf-manager-refresh-invalidate
+                 "/v1/runs/run_1" (wf-manager-refresh-step-state fetched)))
+         (completed (wf-manager-refresh-complete
+                     "/v1/runs/run_1" 0 (wf-manager-refresh-step-state dirty)))
+         (advanced (wf-manager-refresh-advance
+                    (wf-manager-refresh-step-state completed))))
+    (should (null (wf-manager-refresh-flights start)))
+    (should (null (wf-manager-flight-dirty
+                   (wf-manager-refresh-flight
+                    "/v1/runs/run_1" (wf-manager-refresh-step-state fetched)))))
+    (should (wf-manager-flight-dirty
+             (wf-manager-refresh-flight
+              "/v1/runs/run_1" (wf-manager-refresh-step-state dirty))))
+    (should (null (wf-manager-flight-dirty
+                   (wf-manager-refresh-flight
+                    "/v1/runs/run_1" (wf-manager-refresh-step-state completed)))))
+    (should (= (wf-manager-refresh-generation (wf-manager-refresh-step-state completed)) 0))
+    (should (= (wf-manager-refresh-generation advanced) 1))
+    (should (null (wf-manager-refresh-flights advanced)))))
 
 (provide 'wf-manager-tests)
 

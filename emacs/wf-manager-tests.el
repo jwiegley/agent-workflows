@@ -15,11 +15,11 @@
 ;; JSON codec: false, null and absent members, exact numbers, Unicode and
 ;; the byte bound.  They also run the invalidations, batches, routeRecords,
 ;; cursors, etags and problems vectors of the events section and the
-;; drafts, requests and preparations vectors of the resources section of
-;; `test/manager_client_vectors.json' in agent-cat, which the environment
-;; variable WF_MANAGER_VECTORS names.  A failure names each vector that
-;; does not give its stated result.  The tests start no process and contact
-;; no host.
+;; drafts, requests, preparations, receipts, decisions and answers vectors
+;; of the resources section of `test/manager_client_vectors.json' in
+;; agent-cat, which the environment variable WF_MANAGER_VECTORS names.  A
+;; failure names each vector that does not give its stated result.  The
+;; tests start no process and contact no host.
 ;;
 ;; Run them by hand, from the repository root:
 ;;
@@ -389,7 +389,9 @@ Return the symbol `accepted' when FUNCTION returns."
   '(("events.invalidations" . 16) ("events.batches" . 13)
     ("events.routeRecords" . 17) ("events.cursors" . 16) ("events.etags" . 6)
     ("events.problems" . 10) ("resources.drafts" . 39)
-    ("resources.requests" . 11) ("resources.preparations" . 40))
+    ("resources.requests" . 11) ("resources.preparations" . 40)
+    ("resources.receipts" . 36) ("resources.decisions" . 20)
+    ("resources.answers" . 22))
   "The number of cases of each subsection of the vector file that runs here.
 A change to the vector file changes these counts.")
 
@@ -542,7 +544,8 @@ case refuses with `wf-manager-invalid-response'."
 
 (defconst wf-manager-tests--resource-outcomes
   '(("resources.drafts" 12 27) ("resources.requests" 4 7)
-    ("resources.preparations" 13 27))
+    ("resources.preparations" 13 27) ("resources.receipts" 19 17)
+    ("resources.decisions" 6 14) ("resources.answers" 12 10))
   "The number of projections and of refusals that each section states.")
 
 (defconst wf-manager-tests--typed-decoders
@@ -564,10 +567,23 @@ case refuses with `wf-manager-invalid-response'."
     ("resources.requests"
      ("item" wf-manager-decode-draft wf-manager-encode-draft)
      ("overview" wf-manager-decode-overview-member
+      wf-manager-encode-overview-member))
+    ("resources.receipts"
+     ("CommandReceipt" wf-manager-decode-command-receipt
+      wf-manager-encode-command-receipt))
+    ("resources.decisions"
+     ("item" wf-manager-tests--decode-decision wf-manager-decision-projection)
+     ("overview" wf-manager-decode-overview-member
       wf-manager-encode-overview-member)))
   "The decoder and encoder of each case of a resources section.
-A case names its decoder by its `type' member, or for the requests
-section by its `from' member.")
+A case names its decoder by its `type' member, or for the requests and
+decisions sections by its `from' member.")
+
+(defun wf-manager-tests--decode-decision (value)
+  "Return the decision of the JSON VALUE, and check that VALUE stays in it."
+  (let ((decision (wf-manager-decode-decision value)))
+    (should (eq (wf-manager-decision-value decision) value))
+    decision))
 
 (defun wf-manager-tests--resource-outcome (section vector)
   "In SECTION, return the outcome of the resource VECTOR.
@@ -626,6 +642,95 @@ label.  The tally is (SECTION PROJECTED REFUSED)."
   "Decode every preparation, review, input, lineage and edit vector as it states."
   (should (equal (wf-manager-tests--resource-section "resources.preparations")
                  (assoc "resources.preparations" wf-manager-tests--resource-outcomes))))
+
+(ert-deftest wf-manager-vectors-receipts ()
+  "Decode every command receipt vector to its projection or refusal."
+  (should (equal (wf-manager-tests--resource-section "resources.receipts")
+                 (assoc "resources.receipts" wf-manager-tests--resource-outcomes))))
+
+(ert-deftest wf-manager-vectors-decisions ()
+  "Decode every decision item and overview member vector as it states."
+  (should (equal (wf-manager-tests--resource-section "resources.decisions")
+                 (assoc "resources.decisions" wf-manager-tests--resource-outcomes))))
+
+(defun wf-manager-tests--answer-outcome (vector)
+  "Return the outcome of the answer VECTOR.
+The outcome is (projected TEXT) with the JSON text of the answer body,
+or the symbol `refused' for `wf-manager-invalid-answer'.  The body is
+built only from the value that `wf-manager-answer-value' returns."
+  (let ((decision (wf-manager-decode-decision
+                   (wf-manager-json-decode (gethash "decision" vector)))))
+    (condition-case nil
+        (let ((value (wf-manager-answer-value decision (gethash "input" vector))))
+          (list 'projected
+                (wf-manager-json-encode (wf-manager-answer-body decision value))))
+      (wf-manager-invalid-answer 'refused))))
+
+(defun wf-manager-tests--answer-stated (vector)
+  "Return the outcome that the answer VECTOR states.
+The outcome is (projected TEXT) with the JSON text of the answer body,
+or the symbol `refused' for the refusal InvalidAnswer."
+  (let ((projection (gethash "projection" vector))
+        (refusal (gethash "refusal" vector)))
+    (cond
+     ((and (stringp projection) (null refusal))
+      (list 'projected (wf-manager-json-encode (wf-manager-json-decode projection))))
+     ((and (null projection) (equal refusal "InvalidAnswer")) 'refused)
+     (t (error "%s states neither one projection nor one refusal"
+               (wf-manager-tests--label "resources.answers" vector))))))
+
+(ert-deftest wf-manager-vectors-answers ()
+  "Give the answer body of every answer vector, or refuse it before any body."
+  (let ((projected 0) (refused 0))
+    (dolist (vector (wf-manager-tests--cases "resources.answers"))
+      (let ((label (wf-manager-tests--label "resources.answers" vector))
+            (outcome (wf-manager-tests--answer-outcome vector)))
+        (should (equal (cons label outcome)
+                       (cons label (wf-manager-tests--answer-stated vector))))
+        (if (eq outcome 'refused)
+            (setq refused (1+ refused))
+          (setq projected (1+ projected)))))
+    (should (equal (list "resources.answers" projected refused)
+                   (assoc "resources.answers" wf-manager-tests--resource-outcomes)))))
+
+(defun wf-manager-tests--answer-decision (name)
+  "Return the decoded decision of the answer vector NAME."
+  (wf-manager-decode-decision
+   (wf-manager-json-decode
+    (gethash "decision"
+             (or (cl-find name (wf-manager-tests--cases "resources.answers")
+                          :key (lambda (vector) (gethash "name" vector))
+                          :test #'equal)
+                 (error "Section resources.answers has no case %s" name))))))
+
+(ert-deftest wf-manager-answers-flag-false ()
+  "Give JSON false, not null or text, for the flag answer no."
+  (let* ((decision (wf-manager-tests--answer-decision "flag no is false"))
+         (value (wf-manager-answer-value decision "no"))
+         (body (wf-manager-answer-body decision value)))
+    (should (eq value :false))
+    (should (eq (gethash "value" body) :false))
+    (should (equal (wf-manager-json-encode body)
+                   (concat "{\"generation\":\"generation_3\",\"occurrenceId\":\"0\","
+                           "\"operation\":\"answer\",\"value\":false}")))
+    (should (eq (wf-manager-answer-value decision " FALSE\t") :false))
+    (should (eq (wf-manager-answer-value decision "\u3000Yes\u00a0") t))
+    (should (equal (wf-manager-tests--refusal-of #'wf-manager-answer-value
+                                                 decision "maybe")
+                   'wf-manager-invalid-answer))))
+
+(ert-deftest wf-manager-answers-refuse-before-a-body ()
+  "Refuse a structured answer that disagrees with its code, with its reason."
+  (let ((decision (wf-manager-tests--answer-decision
+                   "structured array item of the wrong type refuses")))
+    (should (equal (condition-case failure
+                       (wf-manager-answer-value decision "{\"notes\":[1],\"ok\":true}")
+                     (wf-manager-invalid-answer (cdr failure)))
+                   '("answer" "answer field notes item 0 must be a string")))
+    (should (equal (condition-case failure
+                       (wf-manager-answer-value decision "{\"ok\":true}")
+                     (wf-manager-invalid-answer (cdr failure)))
+                   '("answer" "answer lacks the field notes")))))
 
 (defun wf-manager-tests--case (section name)
   "In SECTION, return the decoded JSON value of the case NAME."
@@ -689,6 +794,61 @@ label.  The tally is (SECTION PROJECTED REFUSED)."
                     "routed policy keeps false verbose and null poll interval"))))))
     (should (eq (gethash "verbose" policy) :false))
     (should (eq (gethash "pollMs" policy) :null))))
+
+(ert-deftest wf-manager-resources-receipt-fields ()
+  "Keep the state, the acknowledgement, the effect and the refusal of a receipt."
+  (let ((receipt (wf-manager-decode-command-receipt
+                  (wf-manager-tests--case "resources.receipts"
+                                          "refused answer receipt"))))
+    (should (equal (wf-manager-command-receipt-state receipt) "refused"))
+    (should (equal (wf-manager-command-receipt-refusal receipt) "invalid-answer"))
+    (should (null (wf-manager-command-receipt-effect receipt)))
+    (should (equal (gethash "attemptId" (wf-manager-command-receipt-acknowledgement receipt))
+                   :null)))
+  (let ((effect (wf-manager-command-receipt-effect
+                 (wf-manager-decode-command-receipt
+                  (wf-manager-tests--case "resources.receipts"
+                                          "effect-observed steered receipt")))))
+    (should (equal (gethash "kind" effect) "steered"))
+    (should (equal (wf-manager-json-encode (gethash "address" effect))
+                   "{\"attemptId\":\"4294967295\",\"occurrenceId\":\"18446744073709551615\"}")))
+  (should (equal (wf-manager-required-scopes "export") '("observe" "export"))))
+
+(ert-deftest wf-manager-resources-decision-fields ()
+  "Keep the question, the recovery choices and the exact occurrence of a decision."
+  (let* ((decision (wf-manager-decode-decision
+                    (wf-manager-tests--case
+                     "resources.decisions"
+                     "occurrence and sequence at 2^64-1 stay exact")))
+         (question (wf-manager-decision-content decision)))
+    (should (eql (wf-manager-decision-occurrence-id decision) 18446744073709551615))
+    (should (eql (wf-manager-decision-observed-sequence decision) 18446744073709551615))
+    (should (equal (wf-manager-question-code question) "flag"))
+    (should (null (wf-manager-question-editor question)))
+    (should (equal (wf-manager-question-prompt question) "Proceed with 雪\U0001F600?")))
+  (let ((editor (wf-manager-question-editor
+                 (wf-manager-decision-content
+                  (wf-manager-decode-decision
+                   (wf-manager-tests--case
+                    "resources.decisions"
+                    "structured question keeps its schema code, false and null"))))))
+    (should (equal (wf-manager-editor-schema-type editor) "object"))
+    (should (equal (mapcar (lambda (property)
+                             (cons (car property)
+                                   (wf-manager-editor-schema-type (cdr property))))
+                           (wf-manager-editor-schema-properties editor))
+                   '(("ok" . "boolean")))))
+  (let ((recovery (wf-manager-decision-content
+                   (wf-manager-decode-decision
+                    (wf-manager-tests--case
+                     "resources.decisions"
+                     "recovery decision keeps null and named targets")))))
+    (should (equal (wf-manager-recovery-gap recovery) "transport"))
+    (should (equal (mapcar (lambda (option)
+                             (list (wf-manager-recovery-option-choice option)
+                                   (wf-manager-recovery-option-target option)))
+                           (wf-manager-recovery-choices recovery))
+                   '(("retry" nil) ("failover" "scripted-backup") ("abandon" nil))))))
 
 (ert-deftest wf-manager-resources-timestamps ()
   "Accept the RFC 3339 times that the protocol accepts and refuse the others."

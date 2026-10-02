@@ -56,21 +56,34 @@
 ;; batches, route records, cursors, entity tags and problem responses.  An
 ;; entity tag is an opaque token, equal to another tag only as text.
 ;;
-;; The resource decoders follow the draft and preparation decoders of
-;; `ext-pi/src/manager/resources.ts' and pass the drafts, requests and
-;; preparations vectors of the resources section: requests, readiness,
-;; declared and supplied inputs, input errors, preparations, reviews, review
-;; inputs, lineages, edits and the request and preparation members of the
-;; overview.  Each decoder returns a record, and its encoder gives the
-;; canonical JSON value of that record.
+;; The resource decoders follow the draft, preparation, receipt and
+;; decision decoders of `ext-pi/src/manager/resources.ts' and pass the
+;; drafts, requests, preparations, receipts and decisions vectors of the
+;; resources section: requests, readiness, declared and supplied inputs,
+;; input errors, preparations, reviews, review inputs, lineages, edits,
+;; command receipts, decisions and the request, preparation and decision
+;; members of the overview.  Each decoder returns a record.  The encoder of
+;; a record gives its canonical JSON value, and
+;; `wf-manager-decision-projection' gives the projection of a decision.  A
+;; command receipt is valid only when its state agrees with its dispatch
+;; attempt time, its acknowledgement, its effect and its refusal.
+;;
+;; `wf-manager-answer-value' builds the typed answer of a decision from the
+;; text of a person, and `wf-manager-answer-body' builds the answer body
+;; from that answer.  The answer "no" to a flag question is JSON false.  A
+;; structured answer must agree with the editor schema of its decision.
+;; The builder passes the answers vectors of the resources section, and it
+;; refuses an answer with `wf-manager-invalid-answer' before any command is
+;; built.
 ;;
 ;; Each refusal signals a condition below `wf-manager-error'.  The data of
 ;; the condition is (FIELD REASON).  For a profile, FIELD is the JSON name
 ;; of the profile field that the refusal is about, or "profile" for the
 ;; profile file itself.  For a response, FIELD names the kind of value,
-;; such as "invalidation" or "route record".  REASON is a sentence for a
-;; person.  The one exception is `wf-manager-refused', the refusal of a
-;; problem response, whose data is (STATUS CODE).
+;; such as "invalidation" or "route record".  For an answer, FIELD is
+;; "answer".  REASON is a sentence for a person.  The one exception is
+;; `wf-manager-refused', the refusal of a problem response, whose data is
+;; (STATUS CODE).
 
 ;;; Code:
 
@@ -113,6 +126,8 @@
               "Manager response too large" 'wf-manager-error)
 (define-error 'wf-manager-refused
               "Refused by the manager" 'wf-manager-error)
+(define-error 'wf-manager-invalid-answer
+              "Invalid answer" 'wf-manager-error)
 
 (cl-defstruct (wf-manager-endpoint
                (:constructor wf-manager--endpoint-make)
@@ -1224,9 +1239,167 @@ or nil."
                (:constructor wf-manager-overview-member-make)
                (:copier nil))
   "One member of the overview page set.
-KIND is \"request\" or \"preparation\".  VALUE is a `wf-manager-draft' or
-a `wf-manager-preparation'."
+KIND is \"request\", \"preparation\" or \"decision\".  VALUE is a
+`wf-manager-draft', a `wf-manager-preparation' or a `wf-manager-decision'."
   (kind nil :read-only t)
+  (value nil :read-only t))
+
+(defconst wf-manager-operations
+  '("create" "capture" "set-input" "remove-input" "enqueue" "withdraw" "approve"
+    "discard" "cancel" "steer" "retry" "choose-recovery" "redirect" "answer"
+    "export" "restart" "resume" "fork")
+  "The command operations.")
+
+(defconst wf-manager-command-states
+  '("accepted" "dispatch-attempted" "acknowledged" "effect-observed" "refused"
+    "unresolved")
+  "The states of a command receipt.")
+
+(defconst wf-manager-receipt-refusals
+  '("state-conflict" "stale-revision" "unsupported-operation"
+    "ownership-unavailable" "supervision-unavailable" "invalid-answer"
+    "invalid-lineage-edit" "export-conflict" "storage-unavailable")
+  "The refusal codes of a refused command receipt.")
+
+(defconst wf-manager-effect-kinds
+  '("started" "cancelled" "steered" "retried" "recovery-chosen" "redirected"
+    "answer-accepted" "input-changed" "enqueued" "withdrawn" "discarded"
+    "exported" "lineage-created")
+  "The kinds of the observed effect of a command.")
+
+(defconst wf-manager--acknowledgement-states
+  '("accepted" "queued" "delivered" "rejected-stale" "unsupported" "failed")
+  "The states of a runtime acknowledgement.")
+
+(defconst wf-manager--acknowledged-commands
+  '("cancel" "steer" "retry" "choose-recovery" "redirect" "answer")
+  "The commands that a runtime acknowledgement names.")
+
+(defconst wf-manager--receipt-fields
+  '("version" "id" "profileId" "operation" "requiredScopes" "resource" "state"
+    "acceptedAt" "dispatchAttemptedAt" "acknowledgement" "effect" "refusal"
+    "links")
+  "The members of a command receipt.")
+
+(defconst wf-manager--word32-max 4294967295
+  "The largest unsigned 32-bit integer.")
+
+(defconst wf-manager-decision-states
+  '("pending" "submitting" "resolved" "invalidated")
+  "The states of a decision.")
+
+(defconst wf-manager--decision-fields
+  '("version" "id" "revision" "runId" "profileId" "generation" "address" "state"
+    "position" "observedSequence" "queue" "kind")
+  "The members that every decision has.")
+
+(defconst wf-manager--decision-depth '(1 . 63)
+  "The depth rule of the semantic schema of a decision.
+The rule has the form of `wf-manager--review-depth'.")
+
+(defconst wf-manager--editor-types
+  '("null" "boolean" "integer" "number" "string" "array" "object")
+  "The types of an editor schema.")
+
+(defconst wf-manager-person-answer-bytes 1048576
+  "The largest JSON answer text, in UTF-8 bytes.")
+
+(defun wf-manager-required-scopes (operation)
+  "Return the profile scopes that OPERATION requires, in their fixed order."
+  (pcase operation
+    ((or "create" "capture" "set-input" "remove-input" "enqueue" "withdraw")
+     '("submit"))
+    ((or "approve" "discard") '("submit" "control"))
+    ((or "cancel" "steer" "retry" "choose-recovery" "redirect" "answer")
+     '("control"))
+    ("export" '("observe" "export"))
+    ((or "restart" "resume" "fork") '("observe" "submit"))))
+
+(cl-defstruct (wf-manager-command-receipt
+               (:constructor wf-manager-command-receipt-make)
+               (:copier nil))
+  "One command receipt.
+ID and PROFILE-ID are bounded identifiers.  OPERATION is one of
+`wf-manager-operations', and RESOURCE is a resource path below /v1/.
+STATE is one of `wf-manager-command-states'.  ACCEPTED-AT is an RFC 3339
+time, and DISPATCH-ATTEMPTED-AT is one or nil.  ACKNOWLEDGEMENT and
+EFFECT are their validated exact JSON values, or nil.  REFUSAL is one of
+`wf-manager-receipt-refusals', or nil.  Accepted intent is not an
+attempted or acknowledged delivery."
+  (id nil :read-only t)
+  (profile-id nil :read-only t)
+  (operation nil :read-only t)
+  (resource nil :read-only t)
+  (state nil :read-only t)
+  (accepted-at nil :read-only t)
+  (dispatch-attempted-at nil :read-only t)
+  (acknowledgement nil :read-only t)
+  (effect nil :read-only t)
+  (refusal nil :read-only t))
+
+(cl-defstruct (wf-manager-recovery-option
+               (:constructor wf-manager-recovery-option-make)
+               (:copier nil))
+  "One recovery choice.
+CHOICE is \"retry\", \"failover\" or \"abandon\".  TARGET is the target
+text of a failover, or nil.  Only a failover names a target."
+  (choice nil :read-only t)
+  (target nil :read-only t))
+
+(cl-defstruct (wf-manager-editor-schema
+               (:constructor wf-manager-editor-schema-make)
+               (:copier nil))
+  "The editor schema of a question.
+TYPE is one of `wf-manager--editor-types'.  An array schema has the item
+schema ITEMS.  An object schema has PROPERTIES, an alist of each property
+name and its schema, in the order of the UTF-16 code units of the names.
+Each property of an object schema is required, and an object has no
+other property."
+  (type nil :read-only t)
+  (items nil :read-only t)
+  (properties nil :read-only t))
+
+(cl-defstruct (wf-manager-question
+               (:constructor wf-manager-question-make)
+               (:copier nil))
+  "The content of a question decision.
+CODE is the exact JSON value of its observation code.  EDITOR is a
+`wf-manager-editor-schema', or nil when the manager gives none.  PROMPT
+is the prompt text."
+  (code nil :read-only t)
+  (editor nil :read-only t)
+  (prompt nil :read-only t))
+
+(cl-defstruct (wf-manager-recovery
+               (:constructor wf-manager-recovery-make)
+               (:copier nil))
+  "The content of a recovery decision.
+GAP and MESSAGE are text.  CHOICES is a list of
+`wf-manager-recovery-option'."
+  (gap nil :read-only t)
+  (message nil :read-only t)
+  (choices nil :read-only t))
+
+(cl-defstruct (wf-manager-decision
+               (:constructor wf-manager-decision-make)
+               (:copier nil))
+  "One decision.
+ID, REVISION, RUN-ID, PROFILE-ID and GENERATION are bounded identifiers.
+OCCURRENCE-ID and OBSERVED-SEQUENCE are unsigned 64-bit integers.  STATE
+is one of `wf-manager-decision-states'.  POSITION is the queue position,
+from 0 to 2047.  CONTENT is a `wf-manager-question' or a
+`wf-manager-recovery'.  VALUE is the exact JSON value that was decoded.
+A decision grants no control authority."
+  (id nil :read-only t)
+  (revision nil :read-only t)
+  (run-id nil :read-only t)
+  (profile-id nil :read-only t)
+  (generation nil :read-only t)
+  (occurrence-id nil :read-only t)
+  (state nil :read-only t)
+  (position nil :read-only t)
+  (observed-sequence nil :read-only t)
+  (content nil :read-only t)
   (value nil :read-only t))
 
 ;;;;; Field readers
@@ -1318,15 +1491,20 @@ Refuse any other VALUE."
   "Return VALUE when it is a SHA-256 digest, and refuse it otherwise."
   (if (wf-manager--digest-p value) value (wf-manager--refuse)))
 
+(defun wf-manager--decimal-value (value digits maximum)
+  "Return the integer of VALUE, a canonical unsigned decimal text, or nil.
+VALUE has 1 to DIGITS digits and no leading zero.  When MAXIMUM is
+non-nil, the integer is at most MAXIMUM."
+  (and (stringp value)
+       (<= 1 (length value) digits)
+       (wf-manager--matches-p "0\\|[1-9][0-9]*" value)
+       (let ((number (string-to-number value)))
+         (and (or (null maximum) (<= number maximum)) number))))
+
 (defun wf-manager--word64-text (value)
   "Return the integer of VALUE, a canonical unsigned 64-bit decimal text.
 Refuse any other VALUE."
-  (if (and (stringp value)
-           (<= (length value) 20)
-           (wf-manager--matches-p "0\\|[1-9][0-9]*" value)
-           (<= (string-to-number value) wf-manager--word64-max))
-      (string-to-number value)
-    (wf-manager--refuse)))
+  (wf-manager--ensure (wf-manager--decimal-value value 20 wf-manager--word64-max)))
 
 (defun wf-manager--leap-year-p (year)
   "Return non-nil when YEAR is a Gregorian leap year."
@@ -1738,15 +1916,284 @@ An absent lineage is a root review, and a null lineage refuses."
               (lambda (reason)
                 (wf-manager--choice reason wf-manager-preparation-reasons))))))
 
+;;;;; Command receipts
+
+(defun wf-manager--optional-decimal-p (value digits maximum)
+  "Return non-nil when VALUE is JSON null or a decimal text of the bounds.
+The bounds DIGITS and MAXIMUM are those of `wf-manager--decimal-value'.
+An absent VALUE gives nil."
+  (or (eq value :null) (wf-manager--decimal-value value digits maximum)))
+
+(defun wf-manager--encoded-bytes (value)
+  "Return the number of UTF-8 bytes of the compact JSON text of VALUE."
+  (length (wf-manager-json-encode value)))
+
+(defun wf-manager--acknowledgement-p (value)
+  "Return non-nil when the JSON VALUE is a valid runtime acknowledgement.
+An attempt needs an occurrence.  The acknowledgement of an answer names
+an occurrence and no attempt.  The compact text has at most 32768
+bytes."
+  (let* ((fields (wf-manager--closed value '("commandId" "state" "message" "command"
+                                              "occurrenceId" "attemptId")))
+         (command (wf-manager--member fields "command"))
+         (occurrence (wf-manager--member fields "occurrenceId"))
+         (attempt (wf-manager--member fields "attemptId"))
+         (message (wf-manager--member fields "message")))
+    (and fields
+         (wf-manager-valid-id-p (gethash "commandId" fields))
+         (wf-manager--choice-p (gethash "state" fields)
+                               wf-manager--acknowledgement-states)
+         (wf-manager--bounded-text-p message 0 4096)
+         (or (eq command :null)
+             (wf-manager--choice-p command wf-manager--acknowledged-commands))
+         (wf-manager--optional-decimal-p occurrence 20 wf-manager--word64-max)
+         (wf-manager--optional-decimal-p attempt 10 wf-manager--word32-max)
+         (or (eq attempt :null) (not (eq occurrence :null)))
+         (or (not (equal command "answer"))
+             (and (not (eq occurrence :null)) (eq attempt :null)))
+         (<= (wf-manager--encoded-bytes value) 32768))))
+
+(defun wf-manager--effect-address-p (value)
+  "Return non-nil when the JSON VALUE is the address of an observed effect.
+The address is JSON null, an occurrence, or an occurrence and an attempt."
+  (or (eq value :null)
+      (let ((fields (if (wf-manager--member value "attemptId")
+                        (wf-manager--closed value '("occurrenceId" "attemptId"))
+                      (wf-manager--closed value '("occurrenceId")))))
+        (and fields
+             (wf-manager--decimal-value (gethash "occurrenceId" fields)
+                                        20 wf-manager--word64-max)
+             (or (null (gethash "attemptId" fields))
+                 (wf-manager--decimal-value (gethash "attemptId" fields)
+                                            10 wf-manager--word32-max))))))
+
+(defun wf-manager--effect-p (value)
+  "Return non-nil when the JSON VALUE is valid evidence of an observed effect.
+The compact text has at most 16384 bytes."
+  (let ((fields (wf-manager--closed value '("kind" "runtimeSequence" "address"
+                                             "resource"))))
+    (and fields
+         (wf-manager--choice-p (gethash "kind" fields) wf-manager-effect-kinds)
+         (wf-manager--optional-decimal-p (gethash "runtimeSequence" fields)
+                                         20 wf-manager--word64-max)
+         (wf-manager-valid-resource-p (gethash "resource" fields))
+         (wf-manager--effect-address-p (gethash "address" fields))
+         (<= (wf-manager--encoded-bytes value) 16384))))
+
+(defun wf-manager--receipt-state-p (state attempted acknowledged observed refused)
+  "Return non-nil when the receipt STATE agrees with its evidence.
+ATTEMPTED, ACKNOWLEDGED, OBSERVED and REFUSED are non-nil when the
+receipt has a dispatch attempt time, an acknowledgement, an effect and a
+refusal.  An accepted receipt has none of them.  A dispatch-attempted
+receipt has only the attempt.  An acknowledged receipt has the attempt
+and the acknowledgement, and no effect or refusal.  An effect-observed
+receipt has an effect and no refusal, a refused receipt a refusal and no
+effect, and an unresolved receipt neither of the two."
+  (pcase state
+    ("accepted" (not (or attempted acknowledged observed refused)))
+    ("dispatch-attempted" (and attempted (not (or acknowledged observed refused))))
+    ("acknowledged" (and attempted acknowledged (not (or observed refused))))
+    ("effect-observed" (and observed (not refused)))
+    ("refused" (and refused (not observed)))
+    ("unresolved" (not (or observed refused)))))
+
+(defun wf-manager--parse-command-receipt (value)
+  "Return the `wf-manager-command-receipt' of the JSON VALUE, or refuse.
+The required scopes and the links agree with the operation, the
+identifier and the resource, and the state agrees with the evidence as
+`wf-manager--receipt-state-p' states it."
+  (let* ((fields (wf-manager--exact value wf-manager--receipt-fields))
+         (id (wf-manager--identifier (gethash "id" fields)))
+         (operation (wf-manager--choice (gethash "operation" fields)
+                                        wf-manager-operations))
+         (resource (gethash "resource" fields))
+         (state (wf-manager--choice (gethash "state" fields)
+                                    wf-manager-command-states))
+         (accepted-at (gethash "acceptedAt" fields))
+         (attempted-at (wf-manager--nullable
+                        (gethash "dispatchAttemptedAt" fields)
+                        (lambda (time)
+                          (if (wf-manager-valid-timestamp-p time)
+                              time
+                            (wf-manager--refuse)))))
+         (acknowledgement (wf-manager--nullable
+                           (gethash "acknowledgement" fields)
+                           (lambda (evidence)
+                             (wf-manager--ensure
+                              (and (wf-manager--acknowledgement-p evidence)
+                                   evidence)))))
+         (effect (wf-manager--nullable
+                  (gethash "effect" fields)
+                  (lambda (evidence)
+                    (wf-manager--ensure
+                     (and (wf-manager--effect-p evidence) evidence)))))
+         (refusal (wf-manager--nullable
+                   (gethash "refusal" fields)
+                   (lambda (code)
+                     (wf-manager--choice code wf-manager-receipt-refusals)))))
+    (unless (and (wf-manager--version-one-p fields)
+                 (wf-manager-valid-resource-p resource)
+                 (wf-manager-valid-timestamp-p accepted-at)
+                 (wf-manager-json-equal
+                  (gethash "requiredScopes" fields)
+                  (apply #'vector (wf-manager-required-scopes operation)))
+                 (wf-manager-json-equal
+                  (gethash "links" fields)
+                  (wf-manager-json-object "self" (concat "/v1/commands/" id)
+                                          "resource" resource))
+                 (wf-manager--receipt-state-p state attempted-at acknowledgement
+                                              effect refusal))
+      (wf-manager--refuse))
+    (wf-manager-command-receipt-make
+     :id id
+     :profile-id (wf-manager--identifier (gethash "profileId" fields))
+     :operation operation
+     :resource resource
+     :state state
+     :accepted-at accepted-at
+     :dispatch-attempted-at attempted-at
+     :acknowledgement acknowledgement
+     :effect effect
+     :refusal refusal)))
+
+;;;;; Decisions
+
+(defun wf-manager--parse-recovery-option (value)
+  "Return the `wf-manager-recovery-option' of the JSON VALUE, or refuse.
+Only a failover names a target."
+  (let* ((fields (wf-manager--exact value '("choice" "target")))
+         (choice (wf-manager--choice (gethash "choice" fields)
+                                     '("retry" "failover" "abandon")))
+         (target (wf-manager--nullable
+                  (gethash "target" fields)
+                  (lambda (text) (wf-manager--bounded-text text 0 1024)))))
+    (when (and target (not (equal choice "failover")))
+      (wf-manager--refuse))
+    (wf-manager-recovery-option-make :choice choice :target target)))
+
+(defun wf-manager--parse-editor-schema (value depth)
+  "Return the `wf-manager-editor-schema' of the JSON VALUE at DEPTH, or refuse.
+A schema at depth 64 or deeper refuses.  An object schema has at most
+256 properties, each of them required, and no additional property."
+  (unless (and (hash-table-p value) (< depth 64))
+    (wf-manager--refuse))
+  (let ((type (wf-manager--choice (gethash "type" value) wf-manager--editor-types)))
+    (pcase type
+      ("array"
+       (let ((fields (wf-manager--exact value '("type" "items"))))
+         (wf-manager-editor-schema-make
+          :type type
+          :items (wf-manager--parse-editor-schema (gethash "items" fields)
+                                                  (1+ depth)))))
+      ("object"
+       (let* ((fields (wf-manager--exact value '("type" "properties" "required"
+                                                 "additionalProperties")))
+              (properties (gethash "properties" fields))
+              (names (if (hash-table-p properties)
+                         (wf-manager--json-names properties)
+                       (wf-manager--refuse)))
+              (required (wf-manager--items
+                         (gethash "required" fields)
+                         (lambda (name) (wf-manager--bounded-text name 0 1024))
+                         256)))
+         (unless (and (<= (length names) 256)
+                      (cl-every (lambda (name) (wf-manager--bounded-text-p name 0 1024))
+                                names)
+                      (wf-manager--unique-p required)
+                      (eq (gethash "additionalProperties" fields) :false)
+                      (= (length required) (length names))
+                      (cl-every (lambda (name) (member name required)) names))
+           (wf-manager--refuse))
+         (wf-manager-editor-schema-make
+          :type type
+          :properties (mapcar (lambda (name)
+                                (cons name (wf-manager--parse-editor-schema
+                                            (gethash name properties) (1+ depth))))
+                              names))))
+      (_ (wf-manager--exact value '("type"))
+         (wf-manager-editor-schema-make :type type)))))
+
+(defun wf-manager--parse-question (value)
+  "Return the `wf-manager-question' of the JSON VALUE, or refuse.
+The semantic schema is JSON null or a semantic schema, and a structured
+code states the same schema."
+  (let* ((fields (wf-manager--exact value '("code" "semanticSchema" "editorSchema"
+                                            "addressee" "scope" "draw" "prompt")))
+         (code (gethash "code" fields))
+         (schema (gethash "semanticSchema" fields))
+         (scope (wf-manager--exact (gethash "scope" fields) '("model" "mode")))
+         (label (lambda (text) (wf-manager--bounded-text text 0 1024))))
+    (unless (and (wf-manager--observation-code-p code wf-manager--decision-depth)
+                 (or (eq schema :null)
+                     (wf-manager--semantic-schema-p schema 0 wf-manager--decision-depth))
+                 (or (stringp code)
+                     (wf-manager-json-equal (gethash "schema" (gethash "json" code))
+                                            schema))
+                 (wf-manager--decimal-value (gethash "draw" fields) 4096 nil))
+      (wf-manager--refuse))
+    (wf-manager--bounded-text (gethash "addressee" fields) 0 1024)
+    (wf-manager--nullable (gethash "model" scope) label)
+    (wf-manager--nullable (gethash "mode" scope) label)
+    (wf-manager-question-make
+     :code code
+     :editor (wf-manager--nullable
+              (gethash "editorSchema" fields)
+              (lambda (editor) (wf-manager--parse-editor-schema editor 0)))
+     :prompt (wf-manager--bounded-text (gethash "prompt" fields) 0 524288))))
+
+(defun wf-manager--parse-recovery (fields)
+  "Return the `wf-manager-recovery' of the decision FIELDS, or refuse."
+  (wf-manager-recovery-make
+   :gap (wf-manager--bounded-text (gethash "gap" fields) 0 4096)
+   :message (wf-manager--bounded-text (gethash "message" fields) 0 4096)
+   :choices (wf-manager--items (gethash "choices" fields)
+                               #'wf-manager--parse-recovery-option 16)))
+
+(defun wf-manager--parse-decision (value)
+  "Return the `wf-manager-decision' of the JSON VALUE, or refuse.
+A question has the member `question', and a recovery has the members
+`gap', `message' and `choices'.  The queue names the decisions of the
+run of the decision."
+  (let* ((kind (wf-manager--choice (wf-manager--member value "kind")
+                                   '("question" "recovery")))
+         (fields (wf-manager--exact
+                  value (append wf-manager--decision-fields
+                                (if (equal kind "question")
+                                    '("question")
+                                  '("gap" "message" "choices")))))
+         (run-id (wf-manager--identifier (gethash "runId" fields)))
+         (address (wf-manager--exact (gethash "address" fields) '("occurrenceId")))
+         (identity (lambda (name)
+                     (wf-manager--identifier (gethash name fields)))))
+    (unless (and (wf-manager--version-one-p fields)
+                 (equal (gethash "queue" fields)
+                        (concat "/v1/decisions?runId=" run-id)))
+      (wf-manager--refuse))
+    (wf-manager-decision-make
+     :id (funcall identity "id")
+     :revision (funcall identity "revision")
+     :run-id run-id
+     :profile-id (funcall identity "profileId")
+     :generation (funcall identity "generation")
+     :occurrence-id (wf-manager--word64-text (gethash "occurrenceId" address))
+     :state (wf-manager--choice (gethash "state" fields) wf-manager-decision-states)
+     :position (wf-manager--integer (gethash "position" fields) 0 2047)
+     :observed-sequence (wf-manager--word64-text (gethash "observedSequence" fields))
+     :content (if (equal kind "question")
+                  (wf-manager--parse-question (gethash "question" fields))
+                (wf-manager--parse-recovery fields))
+     :value value)))
+
 ;;;;; Overview members
 
 (defconst wf-manager--overview-kinds
   '(("request" wf-manager--parse-draft wf-manager-encode-draft)
-    ("preparation" wf-manager--parse-preparation wf-manager-encode-preparation))
+    ("preparation" wf-manager--parse-preparation wf-manager-encode-preparation)
+    ("decision" wf-manager--parse-decision wf-manager-decision-projection))
   "The overview member kinds that this client decodes.
-Each entry is (KIND PARSER ENCODER).  The manager also serves the kinds
-\"run\" and \"decision\", which this client refuses until it has their
-decoders.")
+Each entry is (KIND PARSER ENCODER).  The encoder of a decision gives
+its projection.  The manager also serves the kind \"run\", which this
+client refuses until it has its decoder.")
 
 (defun wf-manager--parse-overview-member (value)
   "Return the `wf-manager-overview-member' of the JSON VALUE, or refuse.
@@ -1967,6 +2414,79 @@ review digest and a valid review.  Any other VALUE signals
    "review" (wf-manager-encode-review (wf-manager-preparation-review preparation))
    "reason" (wf-manager--json-nullable (wf-manager-preparation-reason preparation))))
 
+(defun wf-manager-decode-command-receipt (value)
+  "Return the `wf-manager-command-receipt' of the JSON VALUE.
+The required scopes and the links agree with the operation, the
+identifier and the resource.  The state agrees with the dispatch attempt
+time, the acknowledgement, the effect and the refusal.  Any other VALUE
+signals `wf-manager-invalid-response'."
+  (wf-manager--decode-resource "command receipt"
+                               #'wf-manager--parse-command-receipt value))
+
+(defun wf-manager-encode-command-receipt (receipt)
+  "Return the JSON value of RECEIPT, a `wf-manager-command-receipt'."
+  (let ((id (wf-manager-command-receipt-id receipt))
+        (operation (wf-manager-command-receipt-operation receipt))
+        (resource (wf-manager-command-receipt-resource receipt)))
+    (wf-manager-json-object
+     "version" (wf-manager-json-integer 1)
+     "id" id
+     "profileId" (wf-manager-command-receipt-profile-id receipt)
+     "operation" operation
+     "requiredScopes" (apply #'vector (wf-manager-required-scopes operation))
+     "resource" resource
+     "state" (wf-manager-command-receipt-state receipt)
+     "acceptedAt" (wf-manager-command-receipt-accepted-at receipt)
+     "dispatchAttemptedAt" (wf-manager--json-nullable
+                            (wf-manager-command-receipt-dispatch-attempted-at receipt))
+     "acknowledgement" (wf-manager--json-nullable
+                        (wf-manager-command-receipt-acknowledgement receipt))
+     "effect" (wf-manager--json-nullable (wf-manager-command-receipt-effect receipt))
+     "refusal" (wf-manager--json-nullable (wf-manager-command-receipt-refusal receipt))
+     "links" (wf-manager-json-object "self" (concat "/v1/commands/" id)
+                                     "resource" resource))))
+
+(defun wf-manager-decode-decision (value)
+  "Return the `wf-manager-decision' of the JSON VALUE.
+The decision keeps VALUE itself.  Any VALUE that breaks a decision rule
+signals `wf-manager-invalid-response'."
+  (wf-manager--decode-resource "decision" #'wf-manager--parse-decision value))
+
+(defun wf-manager-decision-projection (decision)
+  "Return the JSON projection of the decoded fields of DECISION.
+DECISION is a `wf-manager-decision'.  The occurrence and the observed
+sequence are canonical decimal text.  The content of a question is its
+code and prompt, and the content of a recovery is its gap, message and
+choices."
+  (let ((content (wf-manager-decision-content decision)))
+    (wf-manager-json-object
+     "id" (wf-manager-decision-id decision)
+     "revision" (wf-manager-decision-revision decision)
+     "runId" (wf-manager-decision-run-id decision)
+     "profileId" (wf-manager-decision-profile-id decision)
+     "generation" (wf-manager-decision-generation decision)
+     "occurrenceId" (number-to-string (wf-manager-decision-occurrence-id decision))
+     "state" (wf-manager-decision-state decision)
+     "position" (wf-manager-json-integer (wf-manager-decision-position decision))
+     "observedSequence" (number-to-string
+                         (wf-manager-decision-observed-sequence decision))
+     "content"
+     (if (wf-manager-question-p content)
+         (wf-manager-json-object "kind" "question"
+                                 "code" (wf-manager-question-code content)
+                                 "prompt" (wf-manager-question-prompt content))
+       (wf-manager-json-object
+        "kind" "recovery"
+        "gap" (wf-manager-recovery-gap content)
+        "message" (wf-manager-recovery-message content)
+        "choices" (wf-manager--json-list
+                   (lambda (option)
+                     (wf-manager-json-object
+                      "choice" (wf-manager-recovery-option-choice option)
+                      "target" (wf-manager--json-nullable
+                                (wf-manager-recovery-option-target option))))
+                   (wf-manager-recovery-choices content)))))))
+
 (defun wf-manager-decode-overview-member (value)
   "Return the `wf-manager-overview-member' of the JSON VALUE.
 VALUE is {\"kind\":K,K:MEMBER} for a kind of
@@ -1982,6 +2502,139 @@ VALUE is {\"kind\":K,K:MEMBER} for a kind of
      "kind" kind
      kind (funcall (nth 2 (assoc kind wf-manager--overview-kinds))
                    (wf-manager-overview-member-value member)))))
+
+;;;; Typed answers
+
+;; The answer builder follows `answerValue' and `answerBody' of
+;; `ext-pi/src/manager/resources.ts' in agent-cat.  It refuses an answer
+;; with `wf-manager-invalid-answer' before any command is built.
+
+(defconst wf-manager--space
+  "[\t\n\v\f\r    -   　]+"
+  "White space as the Haskell `isSpace' names it.
+This is tab to carriage return and the Unicode space separators.")
+
+(defun wf-manager--refuse-answer (reason &rest args)
+  "Signal `wf-manager-invalid-answer' with the REASON formatted with ARGS."
+  (apply #'wf-manager--fail 'wf-manager-invalid-answer "answer" reason args))
+
+(defun wf-manager--strip (text)
+  "Return TEXT without the white space at its two ends."
+  (string-trim text wf-manager--space wf-manager--space))
+
+(defun wf-manager--json-answer (input)
+  "Return the exact JSON value of the answer text INPUT.
+INPUT of more than `wf-manager-person-answer-bytes' bytes, and INPUT
+that is not JSON, signal `wf-manager-invalid-answer'."
+  (when (> (string-bytes input) wf-manager-person-answer-bytes)
+    (wf-manager--refuse-answer "person answer exceeds %d UTF-8 bytes"
+                               wf-manager-person-answer-bytes))
+  (condition-case nil
+      (wf-manager-json-decode input wf-manager-person-answer-bytes)
+    (wf-manager-error (wf-manager--refuse-answer "answer is not JSON"))))
+
+(defun wf-manager--person-answer (code input)
+  "Return the JSON answer for the primitive CODE of the text INPUT.
+A flag takes yes, no, true or false in any letter case, and y or n, and
+gives t or :false.  A receipt takes empty input and gives :null.  A text
+answer is INPUT itself.  A verdict takes JSON text.  Other INPUT signals
+`wf-manager-invalid-answer'."
+  (pcase code
+    ("text" input)
+    ("flag"
+     ;; Upper case and then lower case folds the letters of these words as
+     ;; full case folding does.
+     (let ((word (downcase (upcase (wf-manager--strip input)))))
+       (cond ((member word '("y" "yes" "true")) t)
+             ((member word '("n" "no" "false")) :false)
+             (t (wf-manager--refuse-answer
+                 "a flag answer must be yes, no, true, or false")))))
+    ("receipt"
+     (if (equal (wf-manager--strip input) "")
+         :null
+       (wf-manager--refuse-answer "a receipt answer must be empty")))
+    ("verdict" (wf-manager--json-answer input))
+    (_ (wf-manager--refuse-answer "unsupported person answer code %s" code))))
+
+(defun wf-manager--editor-noun (type)
+  "Return the noun phrase of the editor schema TYPE."
+  (pcase type
+    ("null" "null")
+    ((or "integer" "array" "object") (concat "an " type))
+    (_ (concat "a " type))))
+
+(defun wf-manager--editor-problem (schema value place)
+  "Return the first disagreement of the editor SCHEMA with the JSON VALUE.
+Return nil when SCHEMA accepts VALUE.  PLACE names VALUE in the
+reason, for example \"answer field ok\", so a reason reads
+\"answer field ok must be a boolean\"."
+  (let* ((type (wf-manager-editor-schema-type schema))
+         (wrong (format "%s must be %s" place (wf-manager--editor-noun type))))
+    (pcase type
+      ("null" (unless (eq value :null) wrong))
+      ("boolean" (unless (memq value '(t :false)) wrong))
+      ("integer" (unless (and (wf-manager-json-number-p value)
+                              (>= (nth 2 (wf-manager--decimal value)) 0))
+                   wrong))
+      ("number" (unless (wf-manager-json-number-p value) wrong))
+      ("string" (unless (stringp value) wrong))
+      ("array"
+       (if (not (vectorp value))
+           wrong
+         (cl-loop for item across value
+                  for index from 0
+                  thereis (wf-manager--editor-problem
+                           (wf-manager-editor-schema-items schema) item
+                           (format "%s item %d" place index)))))
+      ("object"
+       (if (not (hash-table-p value))
+           wrong
+         (let ((properties (wf-manager-editor-schema-properties schema)))
+           (or (cl-loop for (name . _) in properties
+                        unless (gethash name value)
+                        return (format "%s lacks the field %s" place name))
+               (cl-loop for name in (wf-manager--json-names value)
+                        unless (assoc name properties)
+                        return (format "%s has the unknown field %s" place name))
+               (cl-loop for (name . field) in properties
+                        thereis (wf-manager--editor-problem
+                                 field (gethash name value)
+                                 (format "%s field %s" place name))))))))))
+
+(defun wf-manager-answer-value (decision input)
+  "Return the typed JSON answer for DECISION of the text INPUT.
+DECISION is a `wf-manager-decision'.  A question with a primitive code
+converts INPUT by its code, so the flag input \"no\" gives :false, JSON
+false, and an empty receipt gives :null.  A structured question takes
+JSON text that agrees with the editor schema of the decision.  A
+structured question without an editor schema, a recovery decision, and
+INPUT that does not agree with the code, signal
+`wf-manager-invalid-answer' before any command is built."
+  (let ((content (wf-manager-decision-content decision)))
+    (cond
+     ((wf-manager-recovery-p content)
+      (wf-manager--refuse-answer "a recovery decision takes no answer"))
+     ((stringp (wf-manager-question-code content))
+      (wf-manager--person-answer (wf-manager-question-code content) input))
+     ((null (wf-manager-question-editor content))
+      (wf-manager--refuse-answer
+       "the decision gives no editor schema for its structured answer"))
+     (t
+      (let* ((value (wf-manager--json-answer input))
+             (problem (wf-manager--editor-problem
+                       (wf-manager-question-editor content) value "answer")))
+        (if problem (wf-manager--refuse-answer "%s" problem) value))))))
+
+(defun wf-manager-answer-body (decision value)
+  "Return the closed answer body of DECISION with the typed answer VALUE.
+The body names the operation, the occurrence of DECISION as canonical
+decimal text, the generation of DECISION and VALUE.  VALUE is a result
+of `wf-manager-answer-value'."
+  (wf-manager-json-object
+   "operation" "answer"
+   "occurrenceId" (number-to-string (wf-manager-decision-occurrence-id decision))
+   "generation" (wf-manager-decision-generation decision)
+   "value" value))
 
 (provide 'wf-manager)
 

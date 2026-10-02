@@ -29,9 +29,10 @@
 #   4. TRANSPORT TESTS, `emacs/wf-manager-tests.el', the ERT tests of the
 #      service-mode transport `emacs/wf-manager.el'. They load client
 #      profiles from temporary files, check the exact JSON codec, and run the
-#      events vectors and the drafts, requests and preparations vectors of
-#      agent-cat test/manager_client_vectors.json, which WF_MANAGER_VECTORS
-#      names. They contact no host.
+#      events vectors and the drafts, requests, preparations, receipts,
+#      decisions and answers vectors of agent-cat
+#      test/manager_client_vectors.json, which WF_MANAGER_VECTORS names. They
+#      contact no host.
 #
 # No providers are contacted. The native tests use scripted runs and the
 # deterministic human/control fixture named by WF_CONTROL_RUNNER. The

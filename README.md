@@ -464,8 +464,8 @@ treated as errors, runs strict `checkdoc` on each of them, and executes
 descriptor, setup, native process, control, artifact, history, and lineage
 regressions. A fourth pass runs the ERT tests of the service-mode transport in
 `emacs/wf-manager-tests.el`, which include the events vectors and the drafts,
-requests and preparations vectors of `test/manager_client_vectors.json` in
-agent-cat. The human/control fixture and
+requests, preparations, receipts, decisions and answers vectors of
+`test/manager_client_vectors.json` in agent-cat. The human/control fixture and
 the vector file are explicit dependencies, not developer-specific paths or
 skipped tests. The pinned agent-cat source of the development shell does not
 have the vector file, so `WF_MANAGER_VECTORS` names it.
@@ -516,8 +516,9 @@ WF_CONTROL_RUNNER=/path/to/routing-fixed-point-probe \
 `emacs/wf-manager.el` is the transport of the service mode, in which `wf.el`
 is a client of an agent-cat workflow manager over HTTPS. The file has no user
 interface and uses only libraries that are part of Emacs. It currently loads a
-client profile, reads its credential, decodes and encodes exact JSON, and
-decodes the event records of the manager. The HTTP requests, the server-sent
+client profile, reads its credential, decodes and encodes exact JSON, decodes
+the event records and the resources of the manager, and builds the typed
+answer of a decision. The HTTP requests, the server-sent
 event parser and the connection of the `wf.el` commands to manager resources
 are not yet in place.
 
@@ -631,12 +632,14 @@ other body gives a `wf-manager-invalid-response` failure.
 
 #### Resource decoders
 
-The resource decoders follow the draft and preparation decoders of
-`ext-pi/src/manager/resources.ts` in agent-cat. They pass the `drafts`,
-`requests` and `preparations` vectors of the resources section of
-`test/manager_client_vectors.json`. Each decoder returns a record, and its
-encoder gives the canonical JSON value of that record. A value that breaks a
-rule signals `wf-manager-invalid-response`, with the kind of value as `KIND`.
+The resource decoders follow the draft, preparation, receipt and decision
+decoders of `ext-pi/src/manager/resources.ts` in agent-cat. They pass the
+`drafts`, `requests`, `preparations`, `receipts` and `decisions` vectors of the
+resources section of `test/manager_client_vectors.json`. Each decoder returns a
+record. The encoder of a record gives its canonical JSON value, and
+`wf-manager-decision-projection` gives the projection of the decoded fields of
+a decision. A value that breaks a rule signals `wf-manager-invalid-response`,
+with the kind of value as `KIND`.
 
 | Function | Value |
 | --- | --- |
@@ -650,12 +653,51 @@ rule signals `wf-manager-invalid-response`, with the kind of value as `KIND`.
 | `wf-manager-decode-review-input` | An input name, a source of `literal` or `capture`, the byte count as canonical unsigned 64-bit decimal text and a SHA-256 digest. |
 | `wf-manager-decode-review-lineage` | A parent run, an operation of `restart`, `resume` or `fork`, and at most 2048 edits. Only a fork has edits. |
 | `wf-manager-decode-review-edit` | A drop, or a replacement with the SHA-256 digest of its answer, at an occurrence that is canonical unsigned 64-bit decimal text. |
-| `wf-manager-decode-overview-member` | `{"kind":K,K:MEMBER}`, where `K` is `request` or `preparation`. The manager also serves the kinds `run` and `decision`, which this client refuses until it has their decoders. |
+| `wf-manager-decode-command-receipt` | A version 1 command receipt. The required scopes are the scopes of the operation (`wf-manager-required-scopes`), the self link names the receipt, and the resource link names its resource. The acknowledgement and the effect stay exact JSON values after their checks. |
+| `wf-manager-decode-decision` | A version 1 question or recovery decision whose queue names the decisions of its run. The occurrence and the observed sequence are canonical unsigned 64-bit decimal text, and the position is from 0 to 2047. A question keeps its observation code, its editor schema or nil, and its prompt. A structured code states the semantic schema of the question. A recovery keeps its gap, its message and at most 16 choices, and only a failover choice names a target. The record keeps the exact JSON value that it decodes. |
+| `wf-manager-decode-overview-member` | `{"kind":K,K:MEMBER}`, where `K` is `request`, `preparation` or `decision`. The encoder gives the projection of a decision member. The manager also serves the kind `run`, which this client refuses until it has its decoder. |
+
+The state of a command receipt must agree with its evidence:
+
+| State | Dispatch attempt | Acknowledgement | Effect | Refusal |
+| --- | --- | --- | --- | --- |
+| `accepted` | none | none | none | none |
+| `dispatch-attempted` | present | none | none | none |
+| `acknowledged` | present | present | none | none |
+| `effect-observed` | any | any | present | none |
+| `refused` | any | any | none | present |
+| `unresolved` | any | any | none | none |
+
+An acknowledgement names an attempt only together with an occurrence, and the
+acknowledgement of an answer names an occurrence and no attempt. Accepted
+intent is not an attempted or acknowledged delivery.
 
 A name, a label or a text bound counts characters, which are Unicode code
 points. `wf-manager-valid-timestamp-p` accepts the times that the protocol
 accepts: a valid Gregorian date with a year other than 0, a time below
 24:00:00 with optional fraction digits, and `Z` or an offset below 24:00.
+
+#### Typed answers
+
+`wf-manager-answer-value` gives the typed JSON answer of the text of a person
+for a decision. It follows `answerValue` of `ext-pi/src/manager/resources.ts`
+in agent-cat and passes the `answers` vectors of the resources section.
+
+| Code of the question | Answer |
+| --- | --- |
+| `flag` | `yes`, `y` or `true` gives `t`, and `no`, `n` or `false` gives `:false`, which is JSON false. Letter case and the white space at the two ends do not count. |
+| `receipt` | Empty text, or white space only, gives `:null`. |
+| `text` | The text itself, empty text included. |
+| `verdict` | JSON text of at most 1048576 UTF-8 bytes, as an exact JSON value. |
+| structured, `{"json":{"schema":S}}` | JSON text that agrees with the editor schema of the decision: the type of each value, the required fields of each object, and no unknown field. |
+
+`wf-manager-answer-body` gives the answer body from that value: the operation
+`answer`, the occurrence as canonical decimal text, the generation of the
+decision and the value. An answer that does not agree with the code, a
+structured question without an editor schema, and any answer to a recovery
+decision signal `wf-manager-invalid-answer` before any body is built. The data
+is `("answer" REASON)`, for example
+`("answer" "answer field ok must be a boolean")`.
 
 ## What replaces what
 

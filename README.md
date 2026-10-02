@@ -100,6 +100,8 @@ emacs/wf-smoke.el       batch contracts, run by ci/emacs.sh
 emacs/wf-manager.el     service-mode transport: client profile, credential,
                         exact JSON codec and event decoders
 emacs/wf-manager-tests.el  ERT tests of the transport, run by ci/emacs.sh
+emacs/wf-manager-live.el   live check of the transport, run by the emacs-client
+                           mode of agent-cat
 ci/emacs-ui.py          isolated Emacs PTY, resize and window acceptance
 ci/emacs-tramp.py       loopback SSH/TRAMP, typed controls and lineage acceptance
 ```
@@ -480,6 +482,34 @@ WF_MANAGER_VECTORS=/path/to/agent-cat/test/manager_client_vectors.json \
   nix develop path:. -c bash ci/emacs.sh
 ```
 
+The gate also compiles and checks `emacs/wf-manager-live.el`, and it does not
+run it. That file is the live check of the transport against a running
+agent-cat workflow manager. The `emacs-client` mode of
+`manager/test/service_http.py` in agent-cat starts the manager with its mixed
+fixture, issues a client credential with the scopes `observe`, `submit`,
+`control` and `export` and its client profile, and runs the file in a batch
+`Emacs -Q` with an isolated home directory. The mode needs `EMACS` and
+`WF_EMACS_DIR`, the `emacs` directory of this repository. From the root of
+agent-cat:
+
+```sh
+EMACS=/path/to/emacs WF_EMACS_DIR=/path/to/agent-workflows/emacs \
+  python3 -B manager/test/service_http.py "$PWD" "$(mktemp -d)" \
+  "$(bash test/cabal.sh list-bin -ftui-tests routing-fixed-point-probe)" 8 emacs-client
+```
+
+The live check binds a transport over TLS with the CA file of the profile,
+creates a draft and repeats the creation with the same idempotency key,
+supplies a literal input with a set-input command and repeats the command with
+the earlier entity tag, reads after the harness revokes the credential, and
+closes the transport. It requires 201 and the same draft for the repeated
+creation, the typed refusals 412 `stale-revision` and 401 `unauthenticated`,
+no prompt, and no process, url.el buffer or session directory after the close.
+It writes a report whose `harnessVersion` field is
+`wf-manager-live-harness-version`. The mode refuses a report of another
+version with one sentence, so a mismatched pair of the two repositories fails
+at once. The mode then checks the report against the reads of the manager.
+
 `EMACS` can select another Emacs executable. Otherwise the gate uses the pinned
 development shell, which also supplies `WF_CONTROL_ADAPTERS` from the pinned
 agent-cat source. Scripted workflows and deterministic human and ACP fixtures
@@ -784,7 +814,10 @@ Accept header with 400 `malformed-request`. The transport therefore binds that
 variable to the Accept value of the request and never puts Accept in the extra
 headers. It also binds the charset, language and encoding strings, the user
 agent and the extension header to nil, so url.el adds no other negotiation
-header.
+header. url-http joins the extra headers and the body without an encoding, and
+it refuses a request that is multibyte text. The transport therefore sends
+each header name and value as unibyte text, so a command body with non-ASCII
+text goes out as its exact UTF-8 bytes.
 
 url-http writes the request and parses the response in its own buffer, and a
 connection that opens without waiting does so after `url-retrieve` returns. The
@@ -797,7 +830,12 @@ no cache, no cookie, no history, no proxy and no connection of another caller.
 directory. The security check of a TLS connection that opens without waiting
 runs after the handshake, outside the call. Advice on `nsm-verify-connection`
 binds these two variables again for each process of a transport, so no prompt
-occurs.
+occurs. The advice also binds `network-security-level` to `low` for each
+process of a transport, so the network security manager adds no check of its
+own. The GnuTLS verification of the handshake against the CA file of the
+profile is the trust decision. The network security manager would refuse a
+self-signed server certificate even when the CA file holds that certificate,
+which is the certificate that a local manager generates.
 
 A response passes these checks:
 

@@ -24,7 +24,8 @@
 ;; The transport tests start a plain HTTP listener on 127.0.0.1 in the
 ;; same Emacs with `make-network-process'.  The listener keeps the exact
 ;; bytes of each request and answers with canned responses.  The tests
-;; check the exact header set, a 401 refusal with no prompt, a 412
+;; check the exact header set, the exact UTF-8 bytes of a command body
+;; with non-ASCII text, a 401 refusal with no prompt, a 412
 ;; problem, a refused redirect, an oversized body cut at its bound,
 ;; cancellation, the cleanup of processes and buffers on cancel and on
 ;; close, a timer that runs while a response is pending, the polling
@@ -1478,6 +1479,34 @@ Each later call of the callback fails the test."
        (should (= (length (wf-manager-tests--listener-requests listener)) 1))
        (wf-manager-transport-close transport)))))
 
+(ert-deftest wf-manager-transport-post-unicode-body ()
+  "Send a command whose body has non-ASCII text as its exact UTF-8 bytes.
+The key and the entity tag are multibyte strings, as the values of a
+decoded response and of a parsed header are.  url-http joins the extra
+headers and the body without an encoding, so the transport sends
+unibyte header values."
+  (wf-manager-tests--call-transport
+   (wf-manager-tests--answer
+    (wf-manager-tests--json 202 "{\"version\":1}" '("Location: /v1/commands/c_1")))
+   (lambda (listener profile)
+     (let* ((transport (wf-manager-transport-open profile))
+            (body (wf-manager-json-object "operation" "set-input"
+                                          "value" "\u03bb \u96ea\U0001F600"))
+            (reply (wf-manager-tests--outcome
+                    (lambda (callback)
+                      (wf-manager-post transport "/v1/requests/request_1" body
+                                       (string-to-multibyte "epoch_1.AAAAAAAAAAAAAAAAAAAAAA")
+                                       (string-to-multibyte "\"rev_1\"")
+                                       callback))))
+            (request (car (wf-manager-tests--listener-requests listener)))
+            (headers (wf-manager-tests--request-headers request)))
+       (should (equal (wf-manager-reply-location reply) "/v1/commands/c_1"))
+       (should (string-suffix-p (concat "\r\n\r\n" (wf-manager-json-encode body)) request))
+       (should (equal (cdr (assoc "if-match" headers)) "\"rev_1\""))
+       (should (equal (cdr (assoc "content-length" headers))
+                      (number-to-string (length (wf-manager-json-encode body)))))
+       (wf-manager-transport-close transport)))))
+
 (ert-deftest wf-manager-transport-401-refusal ()
   "Give a 401 response as a typed refusal, with no prompt and no resend."
   (wf-manager-tests--call-transport
@@ -1703,18 +1732,24 @@ when the peer closes the connection."
        (wf-manager-transport-close transport)))))
 
 (ert-deftest wf-manager-transport-nsm-binding ()
-  "Check the security of a transport connection with no prompt."
+  "Check a transport connection with the low security level and no prompt.
+The GnuTLS verification against the CA file of the profile is the trust
+decision, so the network security manager adds no check of its own,
+such as the self-signed warning of a CA file that holds the server
+certificate itself.  Another process keeps the settings of the user."
   (let ((process (make-pipe-process :name "wf-manager-tests-nsm" :noquery t))
         (seen nil))
     (unwind-protect
         (let ((verify (lambda (_process &rest _arguments)
-                        (setq seen (list nsm-noninteractive nsm-settings-file)))))
-          (let ((nsm-noninteractive nil))
+                        (setq seen (list nsm-noninteractive nsm-settings-file
+                                         network-security-level)))))
+          (let ((nsm-noninteractive nil)
+                (network-security-level 'medium))
             (wf-manager--nsm-verify verify process "host" 443)
-            (should (equal seen (list nil nsm-settings-file)))
+            (should (equal seen (list nil nsm-settings-file 'medium)))
             (process-put process 'wf-manager-nsm-settings-file "/tmp/session/nsm.data")
             (wf-manager--nsm-verify verify process "host" 443)
-            (should (equal seen '(t "/tmp/session/nsm.data")))))
+            (should (equal seen '(t "/tmp/session/nsm.data" low)))))
       (delete-process process))))
 
 ;;;; Capabilities

@@ -38,6 +38,12 @@
 #      the response bound, cancellation, cleanup and the capability binding.
 #      They contact no other host.
 #
+# Passes 1 and 2 also cover `emacs/wf-manager-live.el', the live check of
+# the transport against a running agent-cat workflow manager. This gate does
+# not run it: the emacs-client mode of agent-cat
+# `manager/test/service_http.py' runs it against a manager that the mode
+# starts.
+#
 # No providers are contacted. The native tests use scripted runs and the
 # deterministic human/control fixture named by WF_CONTROL_RUNNER. The
 # agent-deck listing is supplied by a temporary deterministic shell fixture.

@@ -3361,7 +3361,13 @@ carries a send."
 ;; without waiting has its security check after the handshake, outside
 ;; the dynamic extent of the call.  `wf-manager--nsm-verify' therefore
 ;; binds `nsm-noninteractive' and `nsm-settings-file' again for each
-;; process of a transport.
+;; process of a transport.  It also binds `network-security-level' to
+;; `low', so the network security manager adds no check of its own.  The
+;; GnuTLS verification of the handshake against the CA file of the
+;; profile, with `gnutls-verify-error' t, is the trust decision.  The
+;; network security manager would refuse a self-signed server
+;; certificate even when the CA file holds that certificate, which is
+;; the certificate that a local manager generates.
 ;;
 ;; url.el gives its callback the complete response one time, and it has
 ;; no supported facility that delivers the bytes of an open response to
@@ -3470,13 +3476,16 @@ A failure is a list (CONDITION . DATA) whose CONDITION is below
   "Call VERIFY with PROCESS and ARGUMENTS, without a prompt for a transport.
 This function is :around advice of `nsm-verify-connection'.  When
 PROCESS belongs to a transport, it carries the settings file of that
-transport, and VERIFY runs with `nsm-noninteractive' bound to t and
-`nsm-settings-file' bound to that file."
+transport, and VERIFY runs with `nsm-noninteractive' bound to t,
+`nsm-settings-file' bound to that file and `network-security-level'
+bound to `low'.  The handshake of the process has already verified the
+server certificate against the CA file of the profile."
   (let ((file (and (processp process)
                    (process-get process 'wf-manager-nsm-settings-file))))
     (if file
         (let ((nsm-noninteractive t)
-              (nsm-settings-file file))
+              (nsm-settings-file file)
+              (network-security-level 'low))
           (apply verify process arguments))
       (apply verify process arguments))))
 
@@ -3652,6 +3661,17 @@ buffer-local values."
         (set (make-local-variable (car setting)) (cdr setting))))
     buffer))
 
+(defun wf-manager--unibyte-header (header)
+  "Return HEADER, a cons of a name and a value, with unibyte strings.
+url-http joins the extra headers and the body of a request without an
+encoding, and it refuses a request that is multibyte text.  A
+multibyte header value, such as an entity tag of a parsed response or
+an authority epoch of a decoded body, would make the request multibyte
+when the body has a byte above 127.  Each header of a request is
+ASCII text."
+  (cons (encode-coding-string (car header) 'utf-8)
+        (encode-coding-string (cdr header) 'utf-8)))
+
 (defun wf-manager--send (transport request decode limit callback)
   "On TRANSPORT, send REQUEST and return its `wf-manager-exchange'.
 REQUEST is (METHOD RESOURCE HEADERS BODY ACCEPT).  RESOURCE is a
@@ -3678,7 +3698,9 @@ returns, with the result or a failure (CONDITION . DATA)."
                           (wf-manager--url (wf-manager-profile-endpoint profile)
                                            resource)
                           (list method
-                                (cons (wf-manager-authorization profile) headers)
+                                (mapcar #'wf-manager--unibyte-header
+                                        (cons (wf-manager-authorization profile)
+                                              headers))
                                 body accept)
                           (lambda (status)
                             (wf-manager--received exchange status))))

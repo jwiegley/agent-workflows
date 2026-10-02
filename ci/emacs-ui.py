@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise native Emacs widgets, windows, real scripted runs, and the service journey and lifecycle in private PTYs."""
+"""Exercise native Emacs widgets, windows, real scripted runs, and the service journey, lifecycle and controls in private PTYs."""
 from __future__ import annotations
 
 import argparse
@@ -437,7 +437,15 @@ def service_body(profile: Path, directory: Path) -> str:
     It sets the profile and the coding systems and defines `wf-ui-extra',
     whose report states service mode, the runs that the session knows,
     the review buffers, the run views with their lines, head and control
-    choices, and the service history buffer with its run identifiers."""
+    choices, and the service history buffer with its run identifiers. The
+    report also states each listing of the control prompt, with the label
+    and the description of each choice in the order of the prompt, and
+    each command that the session sent, with its resource, its If-Match
+    and its JSON body. A command that `wf-service--control-act' sends
+    also states the entity tag of the latest read of its resource in that
+    act: the read of the controls that the act received, or a later read
+    of the act. Another command states false there, and a capture body is
+    stated as false."""
     return f"""
 (set-keyboard-coding-system 'utf-8-unix)
 (set-terminal-coding-system 'utf-8-unix)
@@ -445,6 +453,38 @@ def service_body(profile: Path, directory: Path) -> str:
       suggest-key-bindings nil
       extended-command-suggest-shorter nil
       default-directory {string(str(directory) + '/')})
+(defvar wf-ui-listed nil)
+(defvar wf-ui-sent nil)
+(defvar wf-ui-act-tags nil)
+(advice-add 'completing-read :before
+            (lambda (prompt collection &rest _)
+              (when (and (string-prefix-p "Control of run " prompt) (consp collection))
+                (push `((prompt . ,prompt)
+                        (choices . ,(vconcat (mapcar (lambda (choice)
+                                                       `((label . ,(car choice)) (description . ,(cadr choice))))
+                                                     collection))))
+                      wf-ui-listed))))
+(advice-add 'wf-service--control-act :around
+            (lambda (act session run action reply)
+              (let ((wf-ui-act-tags (list (cons (concat "/v1/runs/" run "/control")
+                                                (wf-manager-reply-etag reply)))))
+                (funcall act session run action reply))))
+(advice-add 'wf-service--read :around
+            (lambda (read session uri)
+              (let ((reply (funcall read session uri)))
+                (when wf-ui-act-tags
+                  (push (cons uri (wf-manager-reply-etag reply)) wf-ui-act-tags))
+                reply)))
+(advice-add 'wf-manager-session-send :before
+            (lambda (_session command _callback)
+              (let ((uri (wf-manager-reference-uri (wf-manager-pending-reference command))))
+                (push `((resource . ,uri)
+                        (ifMatch . ,(or (wf-manager-pending-if-match command) :false))
+                        (readEtag . ,(or (cdr (assoc uri wf-ui-act-tags)) :false))
+                        (body . ,(if (wf-manager-pending-media command)
+                                     :false
+                                   (decode-coding-string (wf-manager-pending-bytes command) 'utf-8))))
+                      wf-ui-sent))))
 (defun wf-ui-extra ()
   (let ((reviews nil) (views nil) (histories nil))
     (dolist (buffer (buffer-list))
@@ -494,7 +534,9 @@ def service_body(profile: Path, directory: Path) -> str:
                              (wf-service--service-runs (wf-service--state-session wf-service--current)))))
       (reviews . ,(vconcat reviews))
       (views . ,(vconcat views))
-      (histories . ,(vconcat histories)))))
+      (histories . ,(vconcat histories))
+      (listed . ,(vconcat (reverse wf-ui-listed)))
+      (sent . ,(vconcat (reverse wf-ui-sent))))))
 """
 
 
@@ -1125,6 +1167,130 @@ def service_lifecycle_case(args, directory: Path) -> None:
            laterExitStatus=later.ended["status"])
 
 
+# The version of the report of the service controls. The
+# emacs-service-controls mode of agent-cat manager/test/service_http.py
+# requires the same version.
+CONTROLS_REPORT_VERSION = 1
+
+
+def service_control_choose(session: Emacs, run: str, label: str, choose) -> dict:
+    """Press c in the selected view of run, type a label and confirm it with RET.
+
+    The control prompt lists the choices of `wf-control'. choose takes the
+    choices of that listing, each with its label and description, and
+    returns the label to type. The facts are the listed choices, the
+    minibuffer text of the open prompt, the minibuffer text with the typed
+    label and the typed label."""
+    known = len(service_extra(session.state).get("listed", []))
+    session.send("c")
+    prompt = "Control of run " + run + ": "
+    opened = session.wait(lambda state: state.get("minibuffer", "") == prompt
+                          and len(service_extra(state).get("listed", [])) > known, label + "-control-prompt", 60)
+    listing = service_extra(opened)["listed"][-1]
+    assert listing["prompt"] == prompt, listing
+    choice = choose(listing["choices"])
+    session.send(choice)
+    typed = session.wait(lambda state: state.get("minibuffer", "") == prompt + choice, label + "-control-typed")
+    session.send("\r")
+    return {"choices": listing["choices"], "promptText": opened["minibuffer"], "typedText": typed["minibuffer"], "label": choice}
+
+
+def service_controls_case(args, directory: Path) -> None:
+    """Drive three controls of wf-service.el by keys at 80x24.
+
+    The harness that runs the manager starts each run and names it through
+    the handshakes of service_handshake in the directory of
+    --service-handshake. M-x wf-runs opens the view of each run. In the
+    view of a profile_route run at its recovery decision, c, the label
+    failover:1 and RET send the fail-over choice. In the view of a
+    profile_1 run at its recovery decision, c, the label abandon and RET
+    send the abandon choice. In the view of a profile_live run whose
+    dispatch window offers two targets, c, the redirect label of the
+    second listed target and RET send the redirect. After each send the
+    harness confirms the effect and settles the run, and the view shows
+    the terminal status. M-x wf-local then closes the session, and C-x
+    C-c ends Emacs. The report records the listed choices, the minibuffer
+    texts, the last lines of each view and the commands of the session,
+    and it is written again after each step."""
+    profile, report_path = Path(args.service[0]).resolve(), Path(args.service[1]).resolve()
+    handshake = args.service_handshake.resolve()
+    emacs_directory = args.source.resolve().parent
+    sources = [emacs_directory / name for name in ("wf.el", "wf-manager.el", "wf-service.el")]
+    report: dict = {"version": CONTROLS_REPORT_VERSION, "profile": str(profile), "steps": []}
+
+    def record(step: str, line: str, **facts) -> None:
+        report["steps"].append(step)
+        report.update(facts)
+        report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2))
+        print("PASS emacs-service-controls keys " + step + ": " + line, flush=True)
+
+    def ended(run: str, label: str, status: str) -> list:
+        """The last lines of the view of run once they show the terminal status."""
+        final = session.wait(lambda state: service_view(state, run) is not None
+                             and "Terminal: " + status in service_view(state, run)["lines"], label + "-terminal", 180)
+        return service_view(final, run)["lines"]
+
+    def recovery(name: str, step: str, choice: str, status: str) -> None:
+        """One recovery choice at the recovery decision of the run that the
+        handshake name-ready names."""
+        ready = service_handshake(session, handshake, name + "-ready", {}, 180)
+        run, decision = ready["run"], ready["decision"]
+        service_open_view(session, run, name)
+        session.wait(lambda state: service_view(state, run) is not None and service_view(state, run)["head"] == decision
+                     and service_view(state, run)["kind"] == "recovery", name + "-recovery", 120)
+        since = len(session.state.get("messages", ""))
+        chosen = service_control_choose(session, run, name, lambda choices: choice)
+        session.wait(service_said("wf: " + choice.split(":")[0] + " reached decision " + decision + " of run " + run, since),
+                     name + "-sent", 90)
+        service_handshake(session, handshake, name + "-sent", {"run": run, "decision": decision}, 240)
+        record(step, "c, " + choice + " and RET sent the " + choice.split(":")[0] + " choice of decision " + decision
+               + " of run " + run + ", and the view showed Terminal: " + status,
+               **{name: {"run": run, "decision": decision, **chosen, "finalLines": ended(run, name, status)}})
+
+    session = Emacs(args.emacs, sources, directory, 80, 24, service_body(profile, directory))
+    success = False
+    try:
+        session.wait(lambda state: state.get("extra") is not None, "service-ready")
+        session.command("wf-service")
+        session.wait(lambda state: "Client profile" in state.get("minibuffer", ""), "profile-file-prompt")
+        session.send("\r")
+        session.wait(lambda state: service_extra(state).get("service") is True
+                     and "wf: service mode, endpoint" in state.get("messages", ""), "service-bound", 60)
+        record("1", "M-x wf-service selected the client profile " + str(profile) + " at 80x24")
+        recovery("failover", "2", "failover:1", "succeeded")
+        recovery("abandon", "3", "abandon", "failed")
+
+        # The redirect to the second listed target of the dispatch window.
+        ready = service_handshake(session, handshake, "redirect-ready", {}, 180)
+        run, targets = ready["run"], ready["targets"]
+        service_open_view(session, run, "redirect")
+        session.wait(lambda state: service_view(state, run) is not None and service_view(state, run)["head"] is None
+                     and len([choice for choice in service_view(state, run)["choices"]
+                              if choice["label"].startswith("redirect:")]) >= 2, "redirect-offered", 120)
+        since = len(session.state.get("messages", ""))
+
+        def second_target(choices: list) -> str:
+            redirects = [choice for choice in choices if choice["label"].startswith("redirect:")]
+            assert len(redirects) >= 2 and " to " + targets[1] + ", " in redirects[1]["description"], (redirects, targets)
+            return redirects[1]["label"]
+
+        chosen = service_control_choose(session, run, "redirect", second_target)
+        session.wait(service_said(" of run " + run + " to " + targets[1], since), "redirect-sent", 90)
+        service_handshake(session, handshake, "redirect-sent", {"run": run, "target": targets[1]}, 240)
+        record("4", "c, " + chosen["label"] + " and RET sent the redirect of run " + run + " to the second listed target "
+               + targets[1] + ", and the view showed Terminal: succeeded",
+               redirect={"run": run, "targets": targets, "target": targets[1], **chosen,
+                         "finalLines": ended(run, "redirect", "succeeded")})
+        report["sent"] = service_extra(session.state).get("sent", [])
+        session.command("wf-local")
+        session.wait(lambda state: service_extra(state).get("service") is False, "local")
+        success = True
+    finally:
+        session.close(success)
+    record("5", "M-x wf-local closed the session, and C-x C-c ended Emacs with status 0 and the terminal attributes restored",
+           terminalBefore=session.before, terminalAfter=session.ended["attributes"], exitStatus=session.ended["status"])
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--emacs", default=os.environ.get("EMACS") or shutil.which("emacs"), required=False)
@@ -1136,16 +1302,16 @@ def main() -> None:
     parser.add_argument("--service", nargs=2, metavar=("PROFILE", "REPORT"),
                         help="run only the service journey with the client profile PROFILE and write its report to REPORT")
     parser.add_argument("--service-answer", default="false", help="the answer that the service journey types")
-    parser.add_argument("--service-case", choices=["journey", "lifecycle"], default="journey",
+    parser.add_argument("--service-case", choices=["journey", "lifecycle", "controls"], default="journey",
                         help="the service case that --service runs")
     parser.add_argument("--service-handshake", type=Path,
-                        help="the directory of the handshakes of the lifecycle with the harness that runs the manager")
+                        help="the directory of the handshakes of the lifecycle or the controls with the harness that runs the manager")
     args = parser.parse_args()
     if args.service:
         if not args.emacs or not os.access(args.emacs, os.X_OK):
             parser.error("provide an executable emacs")
-        if args.service_case == "lifecycle" and (not args.service_handshake or not args.service_handshake.is_dir()):
-            parser.error("the lifecycle needs --service-handshake, the directory of its handshakes with the harness")
+        if args.service_case in ("lifecycle", "controls") and (not args.service_handshake or not args.service_handshake.is_dir()):
+            parser.error(f"the {args.service_case} case needs --service-handshake, the directory of its handshakes with the harness")
         artifacts = args.artifacts or Path(tempfile.mkdtemp(prefix="wf-emacs-service-", dir="/tmp")).resolve()
         artifacts.mkdir(exist_ok=True)
         print(artifacts, flush=True)
@@ -1153,6 +1319,11 @@ def main() -> None:
             service_lifecycle_case(args, artifacts / "lifecycle")
             print("PASS service lifecycle by keys at 140x36, 80x24 and 40x12, lineage, export, a manager restart, a quit "
                   "while a run waits and a second Emacs, and terminal restoration", flush=True)
+            return
+        if args.service_case == "controls":
+            service_controls_case(args, artifacts / "controls")
+            print("PASS service controls by keys at 80x24: a fail-over, an abandon and a redirect to the second listed target, "
+                  "and terminal restoration", flush=True)
             return
         service_case(args, artifacts / "service")
         print("PASS service journey by keys at 80x24 with resizes to 40x12 and 140x36, and terminal restoration", flush=True)

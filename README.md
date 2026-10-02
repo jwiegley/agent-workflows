@@ -782,6 +782,38 @@ coordination database and the run logs. It requires that the reconnect sends
 no command again and that the quit of Emacs and the kill of a view send no
 command.
 
+With `--service-case controls`, the script sends three run controls from the
+view of a run instead. The `emacs-service-controls` mode of
+`manager/test/service_http.py` runs it against a manager with three profiles:
+`profile_1`, whose recovery decision offers a retry and an abandon,
+`profile_route`, whose recovery decision also offers the fail-over to the
+spare candidate, and `profile_live`, whose question has two model candidates.
+The harness creates, approves and settles each run, and it names each run
+through a file in the directory of `--service-handshake` when the run is
+ready. The script starts `Emacs -Q -nw` at 80×24 and acts only by keys:
+
+1. `M-x wf-service` selects the profile.
+2. `M-x wf-runs` opens the view of the `profile_route` run at its recovery
+   decision. `c` opens the control prompt, the label `failover:1` is typed,
+   and `RET` sends the fail-over choice. The harness confirms the command and
+   settles the run, and the view shows terminal success.
+3. In the same way, `c`, the label `abandon` and `RET` send the abandon choice
+   in the view of the `profile_1` run, and the view shows the terminal status
+   `failed`.
+4. The harness answers the person question of the `profile_live` run, so that
+   the dispatch window of its model question has no question head before it.
+   `c`, the `redirect:N` label of the second listed target and `RET` send the
+   redirect to that target, and the view shows terminal success.
+5. `M-x wf-local` closes the session, and `C-x C-c` ends Emacs.
+
+The report holds, for each control, the choices of the control prompt, the
+text of the minibuffer when the prompt opened and with the typed label, and
+the last lines of the view. It also holds each command that the session sent,
+with its resource, its body, its If-Match and the entity tag of the read of its
+resource in the act of the control. The mode checks each control against the
+command receipts, the coordination database, `events.ndjson` and the run log,
+and it requires that the session sent only these three controls, each once.
+
 The SSH/TRAMP gate starts an unprivileged server bound only to `127.0.0.1`,
 with temporary host and client keys, strict host-key checking, public-key-only
 authentication, and a private shell environment. It changes no account or

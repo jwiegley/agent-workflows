@@ -95,6 +95,28 @@
 ;; target or of a supplied resource.  No action and no report is a send,
 ;; and an uncertain command keeps its exact bytes, key and precondition.
 ;;
+;; The HTTP transport sends each request with `url-retrieve' over the
+;; GnuTLS of Emacs, so a request does not block editing.
+;; `wf-manager-transport-open' makes the transport of a profile.
+;; `wf-manager-get', `wf-manager-post' and `wf-manager-poll-events'
+;; return a cancellable `wf-manager-exchange' and call their callback one
+;; time with the result or a failure (CONDITION . DATA).
+;; `wf-manager-cancel' ends one request, and `wf-manager-transport-close'
+;; ends every pending request and removes its url.el processes and
+;; buffers.  A request has exactly one Authorization header and one
+;; Accept header, and url.el adds no other negotiation header.  A
+;; response body above its bound ends the request.  `wf-manager-connect'
+;; binds a transport by GET /v1/capabilities, checked by
+;; `wf-manager-check-capabilities' as checkCapabilities of
+;; `ext-pi/src/manager/session.ts' checks it, with a fresh random
+;; endpoint identity.  `wf-manager-command-key' gives the idempotency
+;; keys of a connection, <authorityEpoch>.<nonce>.
+;;
+;; url.el calls its callback one time, after the complete response, and
+;; it has no supported facility that delivers an open response as it
+;; arrives.  The client therefore reads /v1/events in the bounded
+;; polling mode, named `poll', and not as server-sent events.
+;;
 ;; Each refusal signals a condition below `wf-manager-error'.  The data of
 ;; the condition is (FIELD REASON).  For a profile, FIELD is the JSON name
 ;; of the profile field that the refusal is about, or "profile" for the
@@ -107,6 +129,11 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'gnutls)
+(require 'nsm)
+(require 'url)
+(require 'url-cache)
+(require 'url-http)
 
 (defconst wf-manager-profile-file-bytes 16384
   "The largest client profile file, in bytes.")
@@ -149,6 +176,14 @@
               "Invalid answer" 'wf-manager-error)
 (define-error 'wf-manager-transport-unavailable
               "Manager transport unavailable" 'wf-manager-error)
+(define-error 'wf-manager-redirect-refused
+              "Manager redirect refused" 'wf-manager-error)
+(define-error 'wf-manager-unsupported-version
+              "Unsupported manager version" 'wf-manager-error)
+(define-error 'wf-manager-invalid-request
+              "Invalid manager request" 'wf-manager-error)
+(define-error 'wf-manager-closed
+              "Manager client closed" 'wf-manager-error)
 
 (cl-defstruct (wf-manager-endpoint
                (:constructor wf-manager--endpoint-make)
@@ -3301,6 +3336,786 @@ carries a send."
             (guard (not (equal etag (wf-manager-uncertain-precondition basis)))))
        (list 'effect-observed))
       (_ (list 'uncertain uncertain)))))
+
+;;;; HTTP transport
+
+;; The transport sends each request with `url-retrieve' over the GnuTLS
+;; of Emacs, so a request does not block editing.  The response arrives
+;; through a process filter and a callback, and timers run while a
+;; request waits.  At each call, the transport binds the url.el, GnuTLS
+;; and network security manager variables that `wf-manager--retrieve'
+;; names.  The CA file of the profile is the only trust file, and
+;; certificate verification failures are errors.  No proxy, redirect,
+;; keepalive, cookie, cache or history applies, and url.el adds no
+;; negotiation header of its own.
+;;
+;; url-http sends the Accept header of `url-mime-accept-string' with
+;; every request, and the manager refuses a repeated Accept with 400
+;; malformed-request.  The transport therefore binds that variable to
+;; the Accept value of the request and never puts Accept in
+;; `url-request-extra-headers'.  The Authorization header is always in
+;; the extra headers, so `url-http-handle-authentication' consults no
+;; authentication source on a 401 and the response comes back as a
+;; typed refusal.  `url-request-noninteractive' and `nsm-noninteractive'
+;; are t, so no request prompts.  A TLS connection that url.el opens
+;; without waiting has its security check after the handshake, outside
+;; the dynamic extent of the call.  `wf-manager--nsm-verify' therefore
+;; binds `nsm-noninteractive' and `nsm-settings-file' again for each
+;; process of a transport.
+;;
+;; url.el gives its callback the complete response one time, and it has
+;; no supported facility that delivers the bytes of an open response to
+;; a caller as they arrive.  The client therefore follows /v1/events in
+;; the bounded polling mode, which this file names `poll':
+;; `wf-manager-poll-events' sends Accept application/json and the cursor
+;; in the query parameter `after'.
+
+;; url-http declares these buffer-local variables of its buffers only
+;; inside its own file.
+(defvar url-http-end-of-headers)
+(defvar url-http-response-status)
+(defvar url-http-content-length)
+(defvar url-http-no-retry)
+
+(defconst wf-manager-response-seconds 15
+  "The longest wait for a complete response, in seconds.")
+
+(defconst wf-manager-command-bytes 2097152
+  "The largest command body, in bytes.")
+
+(defconst wf-manager--header-count 100
+  "The largest number of response header lines.")
+
+(defconst wf-manager--header-bytes 16384
+  "The largest response header size, in bytes.")
+
+(defconst wf-manager--unique-headers
+  '("content-type" "content-length" "transfer-encoding" "content-encoding"
+    "etag" "location" "cache-control" "content-disposition")
+  "The response headers that occur at most one time.")
+
+(defconst wf-manager--nonce-bytes 16
+  "The number of random bytes of one idempotency key nonce.
+Their unpadded base64url text has 22 characters.")
+
+(defconst wf-manager--epoch-characters 105
+  "The longest authority epoch, in characters.")
+
+(defvar wf-manager--scheme "https"
+  "The URL scheme of the requests of a transport.
+A client profile always names an https endpoint.  The offline tests of
+`wf-manager-tests.el' bind this variable to \"http\" so that a plain
+local listener receives the exact request bytes.")
+
+(cl-defstruct (wf-manager-transport
+               (:constructor wf-manager--transport-make)
+               (:copier nil))
+  "The HTTP transport of one manager session.
+PROFILE is the `wf-manager-profile' of the session.  DIRECTORY is the
+isolated directory of the session.  It holds the settings file of the
+network security manager and the cache directory of url.el, which
+stays empty.  OWNED is non-nil when the transport made DIRECTORY, and
+`wf-manager-transport-close' then removes it.  EXCHANGES is the list of
+the pending `wf-manager-exchange' records.  CLOSED is non-nil after
+`wf-manager-transport-close'."
+  (profile nil :read-only t)
+  (directory nil :read-only t)
+  (owned nil :read-only t)
+  (exchanges nil)
+  (closed nil))
+
+(cl-defstruct (wf-manager-exchange
+               (:constructor wf-manager--exchange-make)
+               (:copier nil))
+  "One request of a transport, a handle that `wf-manager-cancel' takes.
+TRANSPORT is the `wf-manager-transport'.  DECODE turns the received
+response into the result of the request.  CALLBACK receives that
+result or a failure.  LIMIT is the bound of the response body, in
+bytes.  BUFFER and PROCESS are the url.el buffer and network process
+of the request.  TIMER is the response timer.  SETTLED is non-nil
+after the request has its outcome."
+  (transport nil :read-only t)
+  (decode nil :read-only t)
+  (callback nil :read-only t)
+  (limit nil :read-only t)
+  (buffer nil)
+  (process nil)
+  (timer nil)
+  (settled nil))
+
+(cl-defstruct (wf-manager-reply
+               (:constructor wf-manager--reply-make)
+               (:copier nil))
+  "One bounded JSON response of the manager.
+STATUS is the HTTP status, from 200 to 299.  VALUE is the decoded JSON
+body, an object whose `version' is 1.  ETAG is the strong entity tag of
+the response, or nil.  LOCATION is the resource of the Location header,
+or nil.  SIZE is the number of body bytes."
+  (status nil :read-only t)
+  (value nil :read-only t)
+  (etag nil :read-only t)
+  (location nil :read-only t)
+  (size nil :read-only t))
+
+(defun wf-manager-failure-p (value)
+  "Return non-nil when VALUE is a failure of this client.
+A failure is a list (CONDITION . DATA) whose CONDITION is below
+`wf-manager-error'."
+  (and (consp value)
+       (symbolp (car value))
+       (memq 'wf-manager-error (get (car value) 'error-conditions))
+       t))
+
+(defun wf-manager--nsm-verify (verify process &rest arguments)
+  "Call VERIFY with PROCESS and ARGUMENTS, without a prompt for a transport.
+This function is :around advice of `nsm-verify-connection'.  When
+PROCESS belongs to a transport, it carries the settings file of that
+transport, and VERIFY runs with `nsm-noninteractive' bound to t and
+`nsm-settings-file' bound to that file."
+  (let ((file (and (processp process)
+                   (process-get process 'wf-manager-nsm-settings-file))))
+    (if file
+        (let ((nsm-noninteractive t)
+              (nsm-settings-file file))
+          (apply verify process arguments))
+      (apply verify process arguments))))
+
+(defun wf-manager-transport-open (profile &optional directory)
+  "Return a new `wf-manager-transport' for the loaded PROFILE.
+DIRECTORY is the absolute name of an existing directory of the session.
+When DIRECTORY is nil, the transport makes a private temporary
+directory and removes it on close.  A DIRECTORY that is not an
+existing absolute directory signals `wf-manager-file-unavailable'."
+  (unless (wf-manager-profile-p profile)
+    (signal 'wrong-type-argument (list 'wf-manager-profile-p profile)))
+  (when (and directory
+             (not (and (stringp directory)
+                       (file-name-absolute-p directory)
+                       (file-directory-p directory))))
+    (wf-manager--fail 'wf-manager-file-unavailable "directory"
+                      "%s is not an absolute directory" directory))
+  (advice-add 'nsm-verify-connection :around #'wf-manager--nsm-verify)
+  (wf-manager--transport-make
+   :profile profile
+   :directory (file-name-as-directory
+               (or directory (make-temp-file "wf-manager-session" t)))
+   :owned (null directory)))
+
+(defun wf-manager-transport-close (transport)
+  "Close TRANSPORT and end each of its pending requests.
+Each pending request receives the failure (wf-manager-closed
+\"transport\" REASON), and its url.el process and buffer are gone when
+this function returns.  A later request on TRANSPORT signals
+`wf-manager-closed'.  A directory that the transport made is removed."
+  (unless (wf-manager-transport-closed transport)
+    (setf (wf-manager-transport-closed transport) t)
+    (dolist (exchange (copy-sequence (wf-manager-transport-exchanges transport)))
+      (wf-manager--conclude exchange
+                            (list 'wf-manager-closed "transport"
+                                  "the transport was closed")))
+    (when (wf-manager-transport-owned transport)
+      (delete-directory (wf-manager-transport-directory transport) t))))
+
+(defun wf-manager-cancel (exchange)
+  "Cancel the request EXCHANGE.
+A pending request receives the failure (wf-manager-closed \"request\"
+REASON), and its url.el process and buffer are gone when this function
+returns.  A request that already has its outcome does not change."
+  (wf-manager--conclude exchange
+                        (list 'wf-manager-closed "request"
+                              "the request was cancelled")))
+
+(defun wf-manager--release (exchange)
+  "Stop the timer of EXCHANGE, and delete its process and its buffer."
+  (let ((buffer (wf-manager-exchange-buffer exchange))
+        (timer (wf-manager-exchange-timer exchange))
+        (transport (wf-manager-exchange-transport exchange)))
+    (when timer
+      (cancel-timer timer))
+    (dolist (process (delete-dups
+                      (delq nil (list (wf-manager-exchange-process exchange)
+                                      (and (buffer-live-p buffer)
+                                           (get-buffer-process buffer))))))
+      (set-process-query-on-exit-flag process nil)
+      (delete-process process))
+    (when (buffer-live-p buffer)
+      (kill-buffer buffer))
+    (setf (wf-manager-transport-exchanges transport)
+          (delq exchange (wf-manager-transport-exchanges transport)))))
+
+(defun wf-manager--conclude (exchange outcome)
+  "Give EXCHANGE the OUTCOME when it has none yet.
+Release the url.el process and buffer of EXCHANGE, then call its
+callback with OUTCOME."
+  (unless (wf-manager-exchange-settled exchange)
+    (setf (wf-manager-exchange-settled exchange) t)
+    (wf-manager--release exchange)
+    (funcall (wf-manager-exchange-callback exchange) outcome)))
+
+(defun wf-manager--too-large (what limit)
+  "Return the failure of a response WHAT above LIMIT bytes."
+  (list 'wf-manager-response-too-large "response"
+        (format "the response %s has more than %d bytes" what limit)))
+
+(defun wf-manager--watch (exchange)
+  "End EXCHANGE as soon as its response passes a bound.
+This function runs after each output of the url.el process.  A header
+above `wf-manager--header-bytes', a declared length above the limit
+of EXCHANGE and received body bytes above that limit each end the
+request with a `wf-manager-response-too-large' failure."
+  (let ((buffer (wf-manager-exchange-buffer exchange))
+        (limit (wf-manager-exchange-limit exchange)))
+    (when (and (not (wf-manager-exchange-settled exchange))
+               (buffer-live-p buffer))
+      (let ((failure
+             (with-current-buffer buffer
+               (save-restriction
+                 (widen)
+                 (cond
+                  ((markerp url-http-end-of-headers)
+                   (cond
+                    ((and (integerp url-http-content-length)
+                          (> url-http-content-length limit))
+                     (wf-manager--too-large "body" limit))
+                    ((> (- (point-max) (1+ url-http-end-of-headers)) limit)
+                     (wf-manager--too-large "body" limit))))
+                  ((> (buffer-size) wf-manager--header-bytes)
+                   (wf-manager--too-large "header" wf-manager--header-bytes)))))))
+        (when failure
+          (wf-manager--conclude exchange failure))))))
+
+(defun wf-manager--url (endpoint resource)
+  "Return the URL at ENDPOINT, a `wf-manager-endpoint', of RESOURCE."
+  (let ((host (wf-manager-endpoint-host endpoint)))
+    (format "%s://%s:%d%s" wf-manager--scheme
+            (if (string-search ":" host) (concat "[" host "]") host)
+            (wf-manager-endpoint-port endpoint)
+            resource)))
+
+(defun wf-manager--request-settings (transport accept)
+  "Return the url.el settings of one request of TRANSPORT with ACCEPT.
+The value is an alist from a variable to its value.  url-http reads
+these variables when it writes the request and when it parses the
+response, and for a connection that opens without waiting it does so
+in the url.el buffer after `url-retrieve' returns.  The settings make
+url.el send ACCEPT as the one Accept value and no other negotiation,
+agent, extension or cache header, follow no redirect, keep no
+connection alive, store nothing in a cache, and never prompt."
+  (let ((directory (wf-manager-transport-directory transport)))
+    `((url-mime-accept-string . ,accept)
+      (url-mime-charset-string . nil)
+      (url-mime-language-string . nil)
+      (url-mime-encoding-string . nil)
+      (url-user-agent . nil)
+      (url-extensions-header . nil)
+      (url-max-redirections . 0)
+      (url-http-attempt-keepalives . nil)
+      (url-automatic-caching . nil)
+      (url-cache-directory . ,(expand-file-name "url-cache" directory))
+      (url-request-noninteractive . t)
+      (nsm-noninteractive . t)
+      (nsm-settings-file . ,(expand-file-name "network-security.data" directory)))))
+
+(defun wf-manager--retrieve (transport url request callback)
+  "For TRANSPORT, start the retrieval of URL and return its url.el buffer.
+REQUEST is (METHOD HEADERS BODY ACCEPT): the method, the extra headers
+as an alist, the unibyte body or nil, and the Accept value.  CALLBACK
+is the callback of `url-retrieve'.  The call binds the settings of
+`wf-manager--request-settings' and the variables of the connection: no
+proxy, no connection of another caller, no cookie, no history, the CA
+file of the profile as the only trust file, and verification failures
+as errors.  It then gives the url.el buffer the same settings as
+buffer-local values."
+  ;; The setup of url.el reads proxy settings from the environment one
+  ;; time.  It runs here, before the bindings, so that it cannot change
+  ;; them.
+  (url-do-setup)
+  (pcase-let* ((`(,method ,headers ,body ,accept) request)
+               (settings (wf-manager--request-settings transport accept))
+               (buffer
+                (cl-progv (mapcar #'car settings) (mapcar #'cdr settings)
+                  (let ((url-request-method method)
+                        (url-request-extra-headers headers)
+                        (url-request-data body)
+                        (url-current-lastloc nil)
+                        (url-proxy-services nil)
+                        (url-http-open-connections (make-hash-table :test #'equal))
+                        (url-history-track nil)
+                        (url-asynchronous t)
+                        (gnutls-trustfiles
+                         (list (wf-manager-profile-ca-file
+                                (wf-manager-transport-profile transport))))
+                        (gnutls-verify-error t))
+                    (url-retrieve url callback nil t t)))))
+    (with-current-buffer buffer
+      (dolist (setting settings)
+        (set (make-local-variable (car setting)) (cdr setting))))
+    buffer))
+
+(defun wf-manager--send (transport request decode limit callback)
+  "On TRANSPORT, send REQUEST and return its `wf-manager-exchange'.
+REQUEST is (METHOD RESOURCE HEADERS BODY ACCEPT).  RESOURCE is a
+resource path below /v1/.  HEADERS are the extra headers without
+Authorization, which this function adds from the profile.  DECODE
+turns the response (STATUS HEADERS BODY) into the result, or signals a
+condition below `wf-manager-error'.  LIMIT bounds the response body,
+in bytes.  CALLBACK runs exactly one time, after this function
+returns, with the result or a failure (CONDITION . DATA)."
+  (pcase-let ((`(,method ,resource ,headers ,body ,accept) request))
+    (when (wf-manager-transport-closed transport)
+      (signal 'wf-manager-closed (list "transport" "the transport is closed")))
+    (unless (wf-manager-valid-resource-p resource)
+      (wf-manager--fail 'wf-manager-invalid-endpoint "resource"
+                        "%S is not a resource path below /v1/" resource))
+    (let* ((profile (wf-manager-transport-profile transport))
+           (exchange (wf-manager--exchange-make
+                      :transport transport :decode decode
+                      :callback callback :limit limit)))
+      (push exchange (wf-manager-transport-exchanges transport))
+      (condition-case failure
+          (let* ((buffer (wf-manager--retrieve
+                          transport
+                          (wf-manager--url (wf-manager-profile-endpoint profile)
+                                           resource)
+                          (list method
+                                (cons (wf-manager-authorization profile) headers)
+                                body accept)
+                          (lambda (status)
+                            (wf-manager--received exchange status))))
+                 (process (get-buffer-process buffer)))
+            (setf (wf-manager-exchange-buffer exchange) buffer
+                  (wf-manager-exchange-process exchange) process)
+            ;; url-http sends a request again when a reused connection
+            ;; closes before a response.  No request of this transport
+            ;; is ever sent again.
+            (with-current-buffer buffer
+              (setq url-http-no-retry t))
+            (when process
+              (set-process-query-on-exit-flag process nil)
+              (process-put process 'wf-manager-nsm-settings-file
+                           (expand-file-name
+                            "network-security.data"
+                            (wf-manager-transport-directory transport)))
+              (add-function :after (process-filter process)
+                            (lambda (_process _output)
+                              (wf-manager--watch exchange))))
+            (setf (wf-manager-exchange-timer exchange)
+                  (run-at-time wf-manager-response-seconds nil
+                               #'wf-manager--conclude exchange
+                               (list 'wf-manager-transport-unavailable "response"
+                                     (format "no complete response within %d seconds"
+                                             wf-manager-response-seconds)))))
+        (file-error
+         (setf (wf-manager-exchange-timer exchange)
+               (run-at-time 0 nil #'wf-manager--conclude exchange
+                            (list 'wf-manager-transport-unavailable "connection"
+                                  (error-message-string failure))))))
+      exchange)))
+
+(defun wf-manager--received (exchange status)
+  "Conclude EXCHANGE with the response in the current url.el buffer.
+STATUS is the status list that `url-retrieve' gives its callback."
+  (unless (wf-manager-exchange-settled exchange)
+    (wf-manager--conclude
+     exchange
+     (if (not (and (integerp url-http-response-status)
+                   (markerp url-http-end-of-headers)))
+         (list 'wf-manager-transport-unavailable "connection"
+               (format "no complete response: %S" (plist-get status :error)))
+       (save-restriction
+         (widen)
+         (condition-case failure
+             (funcall (wf-manager-exchange-decode exchange)
+                      (wf-manager--response
+                       (wf-manager-exchange-limit exchange)))
+           (wf-manager-error failure)))))))
+
+(defun wf-manager--header (headers name)
+  "In HEADERS, return the value of the header NAME, or nil."
+  (cdr (assoc name headers)))
+
+(defun wf-manager--response (limit)
+  "Return the response in the current url.el buffer as (STATUS HEADERS BODY).
+HEADERS is an alist from lowercase names to values, in order.  BODY is
+a unibyte string.  The response has at most `wf-manager--header-count'
+header lines of at most `wf-manager--header-bytes' bytes and at most
+LIMIT body bytes, or it signals `wf-manager-response-too-large'.  A
+repeated framing header, `Transfer-Encoding' together with
+`Content-Length', and a `Content-Encoding' signal
+`wf-manager-invalid-response'.  A redirect status signals
+`wf-manager-redirect-refused'.  A body shorter than its declared length
+signals `wf-manager-transport-unavailable'."
+  (let* ((end (marker-position url-http-end-of-headers))
+         (lines (cdr (split-string
+                      (buffer-substring-no-properties (point-min) end) "\n" t)))
+         (body (string-to-unibyte
+                (buffer-substring-no-properties (min (1+ end) (point-max))
+                                                (point-max))))
+         (status url-http-response-status)
+         (size 0)
+         (headers nil))
+    (dolist (line lines)
+      (setq size (+ size (length line) 2))
+      (when (string-match "\\`\\([^: \t]+\\):[ \t]*\\(.*?\\)[ \t]*\\'" line)
+        (push (cons (downcase (match-string 1 line)) (match-string 2 line))
+              headers)))
+    (setq headers (nreverse headers))
+    (let ((declared (wf-manager--header headers "content-length")))
+      (cond
+       ((or (> (length lines) wf-manager--header-count)
+            (> size wf-manager--header-bytes))
+        (signal (car (wf-manager--too-large "header" wf-manager--header-bytes))
+                (cdr (wf-manager--too-large "header" wf-manager--header-bytes))))
+       ((or (cl-some (lambda (name)
+                       (> (cl-count name headers :key #'car :test #'equal) 1))
+                     wf-manager--unique-headers)
+            (and declared (wf-manager--header headers "transfer-encoding")))
+        (wf-manager--fail 'wf-manager-invalid-response "headers"
+                          "a framing header occurs more than one time"))
+       ((<= 300 status 399)
+        (wf-manager--fail 'wf-manager-redirect-refused "response"
+                          "the manager answered with the redirect status %d"
+                          status))
+       ((wf-manager--header headers "content-encoding")
+        (wf-manager--fail 'wf-manager-invalid-response "headers"
+                          "the response has a content coding"))
+       ((> (length body) limit)
+        (signal (car (wf-manager--too-large "body" limit))
+                (cdr (wf-manager--too-large "body" limit))))
+       ((and declared (/= (string-to-number declared) (length body)))
+        (wf-manager--fail 'wf-manager-transport-unavailable "response"
+                          "the response ended before its declared length"))))
+    (list status headers body)))
+
+(defun wf-manager--media-type (headers)
+  "Return the media type of the Content-Type header in HEADERS, or nil."
+  (let ((value (wf-manager--header headers "content-type")))
+    (and value (car (split-string value ";")))))
+
+(defun wf-manager--problem (status headers body)
+  "Signal the failure of the problem response with STATUS, HEADERS and BODY.
+The response has the media type application/problem+json and
+`Cache-Control: no-store'.  The failure is the one of
+`wf-manager-problem-failure'."
+  (unless (and (equal (wf-manager--media-type headers) "application/problem+json")
+               (equal (wf-manager--header headers "cache-control") "no-store"))
+    (wf-manager--fail 'wf-manager-invalid-response "problem"
+                      "the status %d response is not a problem response" status))
+  (let ((failure (wf-manager-problem-failure status (wf-manager-json-decode body))))
+    (signal (car failure) (cdr failure))))
+
+(defun wf-manager--json-reply (response)
+  "Return the `wf-manager-reply' of RESPONSE, a list (STATUS HEADERS BODY).
+A status outside 200 to 299 signals the failure of its problem
+response.  A 2xx response has the media type application/json,
+`Cache-Control: no-store' and a JSON object whose `version' is 1, or
+it signals `wf-manager-invalid-response' or
+`wf-manager-unsupported-version'.  Its ETag is a strong entity tag and
+its Location a resource below /v1/, when present."
+  (pcase-let ((`(,status ,headers ,body) response))
+    (unless (<= 200 status 299)
+      (wf-manager--problem status headers body))
+    (unless (and (equal (wf-manager--media-type headers) "application/json")
+                 (equal (wf-manager--header headers "cache-control") "no-store"))
+      (wf-manager--fail 'wf-manager-invalid-response "response"
+                        "the response is not application/json with no-store"))
+    (let ((value (wf-manager-json-decode body))
+          (etag (wf-manager--header headers "etag"))
+          (location (wf-manager--header headers "location")))
+      (unless (and (hash-table-p value) (wf-manager--version-one-p value))
+        (wf-manager--fail 'wf-manager-unsupported-version "response"
+                          "the response version is not 1"))
+      (unless (and (or (null etag) (wf-manager-valid-etag-p etag))
+                   (or (null location) (wf-manager-valid-resource-p location)))
+        (wf-manager--fail 'wf-manager-invalid-response "response"
+                          "the ETag or the Location is not valid"))
+      (wf-manager--reply-make :status status :value value :etag etag
+                              :location location :size (length body)))))
+
+(defun wf-manager-get (transport resource callback)
+  "On TRANSPORT, send one GET of RESOURCE and return its exchange.
+RESOURCE is a resource path below /v1/.  The request has exactly one
+Authorization header and the Accept value application/json.  CALLBACK
+runs one time with a `wf-manager-reply' or a failure (CONDITION . DATA).
+A closed TRANSPORT signals `wf-manager-closed', and an invalid RESOURCE
+signals `wf-manager-invalid-endpoint'."
+  (wf-manager--send transport (list "GET" resource nil nil "application/json")
+                    #'wf-manager--json-reply wf-manager-response-bytes callback))
+
+(defun wf-manager-valid-key-p (key)
+  "Return non-nil when KEY is a valid idempotency key.
+A valid key is 1 to 128 visible ASCII characters."
+  (and (stringp key) (wf-manager--matches-p "[!-~]\\{1,128\\}" key)))
+
+(defun wf-manager-post (transport resource body key if-match callback)
+  "On TRANSPORT, send one POST to RESOURCE of the JSON BODY.
+Return the exchange.  KEY is the idempotency key, and IF-MATCH is a
+strong entity tag or nil.  The request has the headers Authorization,
+Accept, Content-Type, Idempotency-Key and, when IF-MATCH is non-nil,
+If-Match.  The transport sends it one time and never sends it again.
+CALLBACK runs one time with a `wf-manager-reply' or a failure.  A body
+of more than `wf-manager-command-bytes' bytes, an invalid KEY and an
+invalid IF-MATCH signal `wf-manager-invalid-request' before any send."
+  (let ((bytes (wf-manager-json-encode body)))
+    (when (> (length bytes) wf-manager-command-bytes)
+      (wf-manager--fail 'wf-manager-invalid-request "command"
+                        "the command has more than %d bytes"
+                        wf-manager-command-bytes))
+    (unless (wf-manager-valid-key-p key)
+      (wf-manager--fail 'wf-manager-invalid-request "Idempotency-Key"
+                        "the key is not 1 to 128 visible ASCII characters"))
+    (unless (or (null if-match) (wf-manager-valid-etag-p if-match))
+      (wf-manager--fail 'wf-manager-invalid-request "If-Match"
+                        "the precondition is not a strong entity tag"))
+    (wf-manager--send transport
+                      (list "POST" resource
+                            `(("Content-Type" . "application/json")
+                              ,@(and if-match (list (cons "If-Match" if-match)))
+                              ("Idempotency-Key" . ,key))
+                            bytes "application/json")
+                      #'wf-manager--json-reply wf-manager-response-bytes callback)))
+
+(defun wf-manager-poll-events (transport cursor callback)
+  "On TRANSPORT, read one polling batch of /v1/events after CURSOR.
+Return the exchange.  This is the `poll' delivery of the client: the
+request has the Accept value application/json and the cursor in the
+query parameter `after'.  CALLBACK runs one time with a
+`wf-manager-event-batch' or a failure.  A 410 refusal, view-expired or
+cursor-expired, requires a new snapshot.  An invalid CURSOR signals
+`wf-manager-invalid-request' before any send."
+  (unless (wf-manager-valid-cursor-p cursor)
+    (wf-manager--fail 'wf-manager-invalid-request "cursor"
+                      "%S is not an event cursor" cursor))
+  (wf-manager--send transport
+                    (list "GET" (concat "/v1/events?after=" cursor) nil nil
+                          "application/json")
+                    (lambda (response)
+                      (let ((reply (wf-manager--json-reply response)))
+                        (unless (= (wf-manager-reply-status reply) 200)
+                          (wf-manager--fail 'wf-manager-invalid-response "event batch"
+                                            "the batch status is not 200"))
+                        (wf-manager-decode-event-batch (wf-manager-reply-value reply))))
+                    wf-manager-response-bytes callback))
+
+;;;; Capabilities
+
+(defconst wf-manager--capability-fields
+  '("version" "authorityEpoch" "streamId" "versions" "scopes" "profileIds"
+    "transports" "limits")
+  "The fields of the capabilities document.")
+
+(defconst wf-manager--numeric-versions
+  '(("api" 1) ("snapshot" 1) ("event" 1) ("descriptor" 2 3)
+    ("frontendSession" 1 2) ("control" 1 2) ("runtimeProtocol" 1 2 3)
+    ("runtimeStore" 1 2) ("managerStore" 1 2 3 4 5 6 7 8 9 10 11 12)
+    ("invocation" 1))
+  "Each numeric version list of the capabilities and the values it supports.")
+
+(defconst wf-manager--frontend-manifests '("legacy" "2" "3")
+  "The frontend manifest versions that this client supports.")
+
+(defconst wf-manager--fixed-limits
+  '(("requestTargetBytes" . 8192) ("headerBytes" . 16384) ("headerFields" . 100)
+    ("jsonBodyBytes" . 2097152) ("jsonDepth" . 64)
+    ("nativeControlBytes" . 1048576) ("captureBytes" . 67108864)
+    ("aggregateInputBytes" . 67108864) ("artifactBytes" . 67108864)
+    ("sseBlockBytes" . 16384) ("pageBytes" . 1048576)
+    ("pageSetBytes" . 67108864) ("pageSetsPerClient" . 2)
+    ("pageSetLifetimeSeconds" . 60) ("queuedRequests" . 100)
+    ("maxReservations" . 16) ("reviewLifetimeSeconds" . 600)
+    ("sseReadersPerClient" . 2) ("ssePendingBytesPerReader" . 1048576)
+    ("replaySeconds" . 604800) ("replayBytes" . 268435456)
+    ("heartbeatSeconds" . 15) ("reconnectIdleSeconds" . 45)
+    ("reconnectBackoffMaxSeconds" . 30) ("ordinaryMutationsPerMinute" . 30))
+  "Each fixed limit of the capabilities and its value.")
+
+(defconst wf-manager--configured-limits
+  '(("drafts" . 2147483647) ("globalDrafts" . 2147483647)
+    ("globalCaptureBytes" . 2147483647) ("globalPageSets" . 2147483647)
+    ("globalConnections" . 2147483647) ("globalDatabaseReaders" . 2147483647)
+    ("globalMutationLedgerBytes" . 2147483647)
+    ("safetyControlsPerMinute" . 2147483647) ("executionReservations" . 16))
+  "Each configured limit of the capabilities and its largest value.")
+
+(cl-defstruct (wf-manager-capabilities
+               (:constructor wf-manager--capabilities-make)
+               (:copier nil))
+  "The checked capabilities of a manager.
+FIELDS is the decoded capabilities object.  EPOCH is its authority
+epoch, the first part of each idempotency key."
+  (fields nil :read-only t)
+  (epoch nil :read-only t))
+
+(defun wf-manager--strings-p (value)
+  "Return non-nil when VALUE is a JSON array of strings."
+  (and (vectorp value) (cl-every #'stringp value)))
+
+(defun wf-manager--int32-list (value)
+  "Return the integers of the JSON array VALUE, or nil.
+Each item is an integer from -2^31 to 2^31-1."
+  (and (vectorp value)
+       (let ((items (mapcar (lambda (item)
+                              (wf-manager--bounded-integer
+                               item (- (1+ wf-manager--int32-max))
+                               wf-manager--int32-max))
+                            value)))
+         (and (not (memq nil items)) items))))
+
+(defun wf-manager--limit (limits name)
+  "In LIMITS, return the integer of the limit NAME, or nil."
+  (wf-manager--bounded-integer (gethash name limits)
+                               wf-manager--int64-min wf-manager--int64-max))
+
+(defun wf-manager--versions-supported-p (versions)
+  "Return non-nil when this client supports the VERSIONS object.
+VERSIONS has exactly the frontend manifest list and the numeric version
+lists.  Each list is non-empty and distinct, and each value is one that
+this client supports."
+  (let ((manifests (and versions (gethash "frontendManifest" versions))))
+    (and versions
+         (wf-manager--strings-p manifests)
+         (> (length manifests) 0)
+         (wf-manager--unique-p (append manifests nil))
+         (cl-every (lambda (name) (member name wf-manager--frontend-manifests))
+                   manifests)
+         (cl-every (lambda (entry)
+                     (let ((values (wf-manager--int32-list
+                                    (gethash (car entry) versions))))
+                       (and values
+                            (wf-manager--unique-p values)
+                            (cl-every (lambda (value) (memq value (cdr entry)))
+                                      values))))
+                   wf-manager--numeric-versions))))
+
+(defun wf-manager--limits-valid-p (limits)
+  "Return non-nil when LIMITS states exactly the limits of this client.
+Each fixed limit has its value, and each configured limit is above zero
+and at most its largest value."
+  (and limits
+       (cl-every (lambda (entry)
+                   (eql (wf-manager--limit limits (car entry)) (cdr entry)))
+                 wf-manager--fixed-limits)
+       (cl-every (lambda (entry)
+                   (let ((configured (wf-manager--limit limits (car entry))))
+                     (and configured (< 0 configured) (<= configured (cdr entry)))))
+                 wf-manager--configured-limits)))
+
+(defun wf-manager-check-capabilities (value)
+  "Return the `wf-manager-capabilities' of the capabilities document VALUE.
+The rules are the rules of checkCapabilities in
+`ext-pi/src/manager/session.ts' in agent-cat.  VALUE has exactly the
+fields of `wf-manager--capability-fields'.  Versions outside
+`wf-manager--numeric-versions' and `wf-manager--frontend-manifests'
+signal `wf-manager-unsupported-version'.  Every other break of a rule,
+in the version, the authority epoch, the stream, the scopes, the
+profiles, the transports or the limits, signals
+`wf-manager-invalid-response' about \"capabilities\"."
+  (let ((fields (wf-manager--closed value wf-manager--capability-fields)))
+    (unless fields
+      (wf-manager--fail 'wf-manager-invalid-response "capabilities"
+                        "the capabilities do not have exactly their fields"))
+    (unless (wf-manager--versions-supported-p
+             (wf-manager--closed (gethash "versions" fields)
+                                 (cons "frontendManifest"
+                                       (mapcar #'car wf-manager--numeric-versions))))
+      (wf-manager--fail 'wf-manager-unsupported-version "capabilities"
+                        "the manager versions are not versions of this client"))
+    (let ((epoch (gethash "authorityEpoch" fields))
+          (scopes (gethash "scopes" fields))
+          (profiles (gethash "profileIds" fields))
+          (transports (gethash "transports" fields)))
+      (unless (and (wf-manager--bounded-integer (gethash "version" fields) 1 1)
+                   (wf-manager-valid-id-p epoch)
+                   (<= (length epoch) wf-manager--epoch-characters)
+                   (wf-manager-valid-id-p (gethash "streamId" fields))
+                   (wf-manager--strings-p scopes)
+                   (<= (length scopes) 4)
+                   (wf-manager--unique-p (append scopes nil))
+                   (cl-every (lambda (scope)
+                               (member scope '("observe" "submit" "control" "export")))
+                             scopes)
+                   (wf-manager--strings-p profiles)
+                   (<= (length profiles) 256)
+                   (cl-every #'wf-manager-valid-id-p profiles)
+                   (wf-manager--unique-p (append profiles nil))
+                   (wf-manager--strings-p transports)
+                   (= (length transports) 2)
+                   (wf-manager--unique-p (append transports nil))
+                   (cl-every (lambda (name) (member name '("sse" "polling")))
+                             transports)
+                   (wf-manager--limits-valid-p
+                    (wf-manager--closed (gethash "limits" fields)
+                                        (mapcar #'car
+                                                (append wf-manager--fixed-limits
+                                                        wf-manager--configured-limits)))))
+        (wf-manager--fail 'wf-manager-invalid-response "capabilities"
+                          "the capabilities break a rule of this client"))
+      (wf-manager--capabilities-make :fields fields :epoch epoch))))
+
+(cl-defstruct (wf-manager-connection
+               (:constructor wf-manager--connection-make)
+               (:copier nil))
+  "One transport bound to the checked capabilities of its manager.
+TRANSPORT is the `wf-manager-transport'.  IDENTITY is the random
+endpoint identity of the binding, 32 lowercase hexadecimal digits.
+CAPABILITIES is the `wf-manager-capabilities' of the binding.  NONCES
+holds each idempotency key nonce of the binding, so that no nonce
+occurs two times."
+  (transport nil :read-only t)
+  (identity nil :read-only t)
+  (capabilities nil :read-only t)
+  (nonces nil :read-only t))
+
+(defun wf-manager--random-bytes (count)
+  "Return COUNT random bytes as a unibyte string.
+The generator is seeded from the entropy of the system at each call."
+  (random t)
+  (apply #'unibyte-string (cl-loop repeat count collect (random 256))))
+
+(defun wf-manager-connection-epoch (connection)
+  "Return the authority epoch of the capabilities of CONNECTION."
+  (wf-manager-capabilities-epoch (wf-manager-connection-capabilities connection)))
+
+(defun wf-manager-connect (profile callback &optional directory)
+  "Bind a new transport for PROFILE by one GET of /v1/capabilities.
+Return the exchange of that request.  CALLBACK runs one time with a
+`wf-manager-connection' that has a fresh random endpoint identity and
+the checked capabilities, or with a failure.  A status other than 200
+and capabilities that `wf-manager-check-capabilities' refuses are
+failures.  After a failure, the transport is closed.  DIRECTORY is the
+optional session directory of `wf-manager-transport-open'."
+  (let ((transport (wf-manager-transport-open profile directory)))
+    (wf-manager--send
+     transport (list "GET" "/v1/capabilities" nil nil "application/json")
+     (lambda (response)
+       (let ((reply (wf-manager--json-reply response)))
+         (unless (= (wf-manager-reply-status reply) 200)
+           (wf-manager--fail 'wf-manager-invalid-response "capabilities"
+                             "the capabilities status is not 200"))
+         (wf-manager--connection-make
+          :transport transport
+          :identity (mapconcat (lambda (byte) (format "%02x" byte))
+                               (wf-manager--random-bytes 16) "")
+          :capabilities (wf-manager-check-capabilities (wf-manager-reply-value reply))
+          :nonces (make-hash-table :test #'equal))))
+     wf-manager-response-bytes
+     (lambda (outcome)
+       (when (wf-manager-failure-p outcome)
+         (wf-manager-transport-close transport))
+       (funcall callback outcome)))))
+
+(defun wf-manager-command-key (connection)
+  "Return a new idempotency key of CONNECTION.
+The key is the authority epoch of the capabilities, a dot and a nonce:
+16 random bytes in unpadded base64url, 22 characters.  No two keys of
+one connection have the same nonce."
+  (let ((nonces (wf-manager-connection-nonces connection))
+        (nonce nil))
+    (while (or (null nonce) (gethash nonce nonces))
+      (setq nonce (base64url-encode-string
+                   (wf-manager--random-bytes wf-manager--nonce-bytes) t)))
+    (puthash nonce t nonces)
+    (concat (wf-manager-connection-epoch connection) "." nonce)))
 
 (provide 'wf-manager)
 

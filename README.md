@@ -466,7 +466,9 @@ regressions. A fourth pass runs the ERT tests of the service-mode transport in
 `emacs/wf-manager-tests.el`, which include the events vectors, the drafts,
 requests, preparations, receipts, decisions, answers, controls and runs vectors,
 and the refresh sequences, backoff, jitter and reconciliation vectors of
-`test/manager_client_vectors.json` in agent-cat. The human/control fixture and
+`test/manager_client_vectors.json` in agent-cat. The HTTP transport tests run
+against a plain HTTP listener on 127.0.0.1 inside the test Emacs and contact no
+other host. The human/control fixture and
 the vector file are explicit dependencies, not developer-specific paths or
 skipped tests. The pinned agent-cat source of the development shell does not
 have the vector file, so `WF_MANAGER_VECTORS` names it.
@@ -520,9 +522,10 @@ interface and uses only libraries that are part of Emacs. It currently loads a
 client profile, reads its credential, decodes and encodes exact JSON, decodes
 the event records and the resources of the manager, builds the typed answer of
 a decision, and coordinates refreshes and the reconciliation of an uncertain
-command without I/O. The HTTP requests, the server-sent
-event parser and the connection of the `wf.el` commands to manager resources
-are not yet in place.
+command without I/O. Its asynchronous HTTP transport sends requests, binds a
+session to the capabilities of the manager and reads the event polling mode.
+The connection of the `wf.el` commands to manager resources is not yet in
+place.
 
 A client profile is a JSON file of version 1. It has exactly these four
 fields:
@@ -742,6 +745,87 @@ decision that reads as 404. For such a command, the caller gives a
 resource from before the send. Without a receipt location, that resource
 replaces the target and its entity tag replaces the precondition. With a
 receipt location, the receipt still decides.
+
+#### HTTP transport
+
+The transport sends each request with `url-retrieve` over the GnuTLS of Emacs.
+A request does not block editing: the response arrives through a process filter
+and a callback, and timers run while the request waits.
+
+| Function | Behavior |
+| --- | --- |
+| `wf-manager-transport-open` | The transport of a loaded profile. Its optional argument is an existing session directory. Without one, the transport makes a private temporary directory and removes it on close. The directory holds the settings file of the network security manager and an empty url.el cache directory. |
+| `wf-manager-get` | One GET of a resource below `/v1/` with the Accept value `application/json`. |
+| `wf-manager-post` | One POST of a JSON command of at most 2097152 bytes with its idempotency key and an optional `If-Match` entity tag. The transport sends it one time and never sends it again. |
+| `wf-manager-poll-events` | One polling batch of `/v1/events` after a cursor, with the Accept value `application/json` and the cursor in the query parameter `after`. The result is a `wf-manager-event-batch`. |
+| `wf-manager-cancel` | The end of one pending request. |
+| `wf-manager-transport-close` | The end of every pending request. Each url.el process and buffer of the transport is gone when the function returns. A later request signals `wf-manager-closed`. |
+| `wf-manager-connect` | A new transport bound by one GET of `/v1/capabilities`. The result is a `wf-manager-connection` with a fresh random endpoint identity of 32 hexadecimal digits and the checked capabilities. After a failure, the transport is closed. |
+| `wf-manager-check-capabilities` | The rules of `checkCapabilities` in `ext-pi/src/manager/session.ts`: exactly the eight fields, supported versions, the version 1, an authority epoch of at most 105 characters, at most four distinct scopes, at most 256 distinct profile identifiers, the two transports `sse` and `polling`, each fixed limit at its value and each configured limit above zero and at most its largest value. Unsupported versions signal `wf-manager-unsupported-version`, and every other break of a rule signals `wf-manager-invalid-response`. |
+| `wf-manager-command-key` | A new idempotency key of a connection: the authority epoch, a dot and a nonce of 16 random bytes in unpadded base64url, 22 characters. No nonce occurs two times in one connection. |
+
+`wf-manager-get`, `wf-manager-post`, `wf-manager-poll-events` and
+`wf-manager-connect` return a `wf-manager-exchange`, which `wf-manager-cancel`
+takes. Their callback runs exactly one time, after the function returns, with
+the result or a failure `(CONDITION . DATA)`. `wf-manager-failure-p` tells the
+two apart. A successful JSON response is a `wf-manager-reply` with its status,
+its decoded JSON value, its entity tag, its location and its size. An invalid
+argument signals before any send: `wf-manager-invalid-endpoint` for a resource
+that is not a path below `/v1/`, and `wf-manager-invalid-request` for a command
+above its bound, an invalid idempotency key, an invalid `If-Match` value or an
+invalid cursor.
+
+Each request has exactly the headers `Authorization`, built from the
+credential of the profile, `Accept` and, for a command, `Content-Type`,
+`Idempotency-Key` and `If-Match`. url-http adds only `Host`, `Connection:
+close`, `MIME-Version` and, for a command, `Content-Length`. url-http sends the
+Accept value of `url-mime-accept-string`, and the manager refuses a repeated
+Accept header with 400 `malformed-request`. The transport therefore binds that
+variable to the Accept value of the request and never puts Accept in the extra
+headers. It also binds the charset, language and encoding strings, the user
+agent and the extension header to nil, so url.el adds no other negotiation
+header.
+
+url-http writes the request and parses the response in its own buffer, and a
+connection that opens without waiting does so after `url-retrieve` returns. The
+transport therefore gives each url.el buffer the same settings as buffer-local
+values. The settings are: no redirect (`url-max-redirections` 0), no keepalive,
+no cache, no cookie, no history, no proxy and no connection of another caller.
+`gnutls-trustfiles` holds only the CA file of the profile, and
+`gnutls-verify-error` is t. `url-request-noninteractive` and
+`nsm-noninteractive` are t, and `nsm-settings-file` is a file in the session
+directory. The security check of a TLS connection that opens without waiting
+runs after the handshake, outside the call. Advice on `nsm-verify-connection`
+binds these two variables again for each process of a transport, so no prompt
+occurs.
+
+A response passes these checks:
+
+| Response | Result |
+| --- | --- |
+| More than 100 header lines or 16384 header bytes | `wf-manager-response-too-large`. |
+| A body above 1048576 bytes, or a declared length above that bound | `wf-manager-response-too-large`. The transport ends the request as soon as the bound is passed. |
+| A repeated framing header, `Transfer-Encoding` together with `Content-Length`, or a `Content-Encoding` | `wf-manager-invalid-response`. |
+| A redirect status | `wf-manager-redirect-refused`. No second request is sent. |
+| A status outside 200 to 299 | The failure of its problem response, as `wf-manager-problem-failure` gives it, when the response is `application/problem+json` with `Cache-Control: no-store`. A 401 gives `(wf-manager-refused 401 CODE)` and a 412 gives `(wf-manager-refused 412 CODE)`. Every other response is `wf-manager-invalid-response`. |
+| A 2xx response | A `wf-manager-reply`, when the response is `application/json` with `Cache-Control: no-store`, the body is a JSON object whose `version` is 1, the entity tag is strong and the location is a resource below `/v1/`. A version other than 1 is `wf-manager-unsupported-version`. |
+| No complete response, a connection failure, or no response within 15 seconds | `wf-manager-transport-unavailable`. |
+
+On a 401, the Authorization header is already present, so
+`url-http-handle-authentication` consults no authentication source and the
+response comes back as a typed refusal with no prompt.
+
+url.el calls its callback one time, after the complete response. It has no
+supported facility that delivers the bytes of an open response to a caller as
+they arrive. The client therefore reads `/v1/events` in the bounded polling
+mode, which the client names `poll`, and not as server-sent events.
+
+| Condition | Cause |
+| --- | --- |
+| `wf-manager-redirect-refused` | The manager answered with a redirect status. |
+| `wf-manager-unsupported-version` | The capabilities name versions that the client does not support, or a response version is not 1. |
+| `wf-manager-invalid-request` | An argument of a request breaks a rule. The request is not sent. |
+| `wf-manager-closed` | The request was cancelled, or its transport was closed. |
 
 ## What replaces what
 

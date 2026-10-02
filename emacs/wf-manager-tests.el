@@ -19,8 +19,19 @@
 ;; and runs vectors of the resources section and the sequences, backoff,
 ;; jitter and reconciliation vectors of the refresh section of
 ;; `test/manager_client_vectors.json' in agent-cat, which the environment variable WF_MANAGER_VECTORS names.  A
-;; failure names each vector that does not give its stated result.  The
-;; tests start no process and contact no host.
+;; failure names each vector that does not give its stated result.
+;;
+;; The transport tests start a plain HTTP listener on 127.0.0.1 in the
+;; same Emacs with `make-network-process'.  The listener keeps the exact
+;; bytes of each request and answers with canned responses.  The tests
+;; check the exact header set, a 401 refusal with no prompt, a 412
+;; problem, a refused redirect, an oversized body cut at its bound,
+;; cancellation, the cleanup of processes and buffers on cancel and on
+;; close, a timer that runs while a response is pending, the polling
+;; batch and the capability binding.  The capability checks follow
+;; checkCapabilities of `ext-pi/src/manager/session.ts' over the canned
+;; capabilities document of the ext-pi tests.  No other host is
+;; contacted.
 ;;
 ;; Run them by hand, from the repository root:
 ;;
@@ -1243,6 +1254,611 @@ with its exact bytes, key and precondition, and no report sends."
     (should (= (wf-manager-refresh-generation (wf-manager-refresh-step-state completed)) 0))
     (should (= (wf-manager-refresh-generation advanced) 1))
     (should (null (wf-manager-refresh-flights advanced)))))
+
+;;;; HTTP transport
+
+;; These tests start a plain HTTP listener on 127.0.0.1 in the same
+;; Emacs, made with `make-network-process', and bind `wf-manager--scheme'
+;; to "http".  The listener keeps the exact bytes of each request and
+;; answers with canned responses.  No other host is contacted.
+
+(cl-defstruct (wf-manager-tests--listener
+               (:constructor wf-manager-tests--listener-make)
+               (:copier nil))
+  "A local plain HTTP listener of the transport tests.
+PROCESS is the server process.  RESPOND is called with each accepted
+connection and the exact bytes of its complete request.  REQUESTS is
+the list of the complete requests, newest first.  PARTIAL maps each
+connection to the bytes of its incomplete request.  CONNECTIONS is the
+list of the accepted connections."
+  (process nil)
+  (respond nil)
+  (requests nil)
+  (partial (make-hash-table :test #'eq))
+  (connections nil))
+
+(defun wf-manager-tests--request-complete-p (bytes)
+  "Return the length of the complete request at the start of BYTES, or nil."
+  (let ((end (string-search "\r\n\r\n" bytes)))
+    (when end
+      (let* ((case-fold-search t)
+             (length (if (string-match "^content-length: *\\([0-9]+\\)\r?$"
+                                       (substring bytes 0 end))
+                         (string-to-number (match-string 1 (substring bytes 0 end)))
+                       0))
+             (total (+ end 4 length)))
+        (and (>= (length bytes) total) total)))))
+
+(defun wf-manager-tests--receive (listener connection bytes)
+  "For LISTENER, keep from CONNECTION the BYTES and answer each request.
+A request is answered when it is complete."
+  (cl-pushnew connection (wf-manager-tests--listener-connections listener))
+  (let* ((partial (wf-manager-tests--listener-partial listener))
+         (data (concat (gethash connection partial "") bytes))
+         (total (wf-manager-tests--request-complete-p data)))
+    (if (not total)
+        (puthash connection data partial)
+      (remhash connection partial)
+      (push (substring data 0 total) (wf-manager-tests--listener-requests listener))
+      (funcall (wf-manager-tests--listener-respond listener)
+               connection (substring data 0 total)))))
+
+(defun wf-manager-tests--listen (respond)
+  "Start a local listener that answers each request with RESPOND."
+  (let ((listener (wf-manager-tests--listener-make :respond respond)))
+    (setf (wf-manager-tests--listener-process listener)
+          (make-network-process
+           :name "wf-manager-tests-listener" :server t :host "127.0.0.1"
+           :service t :family 'ipv4 :coding 'binary :noquery t
+           :filter (lambda (connection bytes)
+                     (wf-manager-tests--receive listener connection bytes))
+           :sentinel #'ignore))
+    listener))
+
+(defun wf-manager-tests--stop (listener)
+  "Delete LISTENER and each connection that it accepted."
+  (dolist (connection (wf-manager-tests--listener-connections listener))
+    (delete-process connection))
+  (delete-process (wf-manager-tests--listener-process listener)))
+
+(defun wf-manager-tests--new-processes (listener before)
+  "Return the processes that are not of LISTENER and not in BEFORE."
+  (cl-set-difference (process-list)
+                     (append before
+                             (list (wf-manager-tests--listener-process listener))
+                             (wf-manager-tests--listener-connections listener))))
+
+(defun wf-manager-tests--port (listener)
+  "Return the TCP port of LISTENER."
+  (process-contact (wf-manager-tests--listener-process listener) :service))
+
+(defun wf-manager-tests--http (status headers body)
+  "Return an HTTP/1.1 response with STATUS, HEADERS and BODY.
+HEADERS is a list of header lines without their line ends.  The
+response has a Content-Length header for BODY."
+  (concat (format "HTTP/1.1 %d Status\r\n" status)
+          (mapconcat (lambda (line) (concat line "\r\n")) headers "")
+          (format "Content-Length: %d\r\n\r\n" (string-bytes body))
+          body))
+
+(defun wf-manager-tests--json (status body &optional headers)
+  "Return a JSON response with STATUS, BODY and the extra HEADERS."
+  (wf-manager-tests--http
+   status
+   (append (list (if (<= 200 status 299)
+                     "Content-Type: application/json"
+                   "Content-Type: application/problem+json")
+                 "Cache-Control: no-store")
+           headers)
+   body))
+
+(defun wf-manager-tests--answer (response)
+  "Return a responder that sends RESPONSE and closes the connection."
+  (lambda (connection _request)
+    (process-send-string connection response)
+    (delete-process connection)))
+
+(defun wf-manager-tests--wait (predicate &optional seconds)
+  "Wait for PREDICATE to be non-nil, at most SECONDS, by default 10.
+Return the value of PREDICATE."
+  (let ((deadline (+ (float-time) (or seconds 10))))
+    (while (and (not (funcall predicate)) (< (float-time) deadline))
+      (accept-process-output nil 0.02))
+    (funcall predicate)))
+
+(defun wf-manager-tests--request-headers (request)
+  "Return the header lines of REQUEST as a list of (NAME . VALUE).
+NAME is lowercase."
+  (let ((head (substring request 0 (string-search "\r\n\r\n" request))))
+    (mapcar (lambda (line)
+              (string-match "\\`\\([^:]+\\): \\(.*\\)\\'" line)
+              (cons (downcase (match-string 1 line)) (match-string 2 line)))
+            (cdr (split-string head "\r\n")))))
+
+(defun wf-manager-tests--call-transport (respond function)
+  "With a listener that answers with RESPOND, call FUNCTION.
+FUNCTION receives the listener and a loaded profile, whose endpoint
+names the port of the listener.  The listener stops after FUNCTION returns or
+signals, and `wf-manager--scheme' is \"http\" during the call."
+  (wf-manager-tests--call
+   (lambda (dir)
+     (let ((listener (wf-manager-tests--listen respond))
+           (wf-manager--scheme "http"))
+       (unwind-protect
+           (funcall function listener
+                    (wf-manager-profile-load
+                     (wf-manager-tests--profile
+                      dir (wf-manager-tests--with-field
+                           dir 'endpoint
+                           (format "https://127.0.0.1:%d/v1"
+                                   (wf-manager-tests--port listener))))))
+         (wf-manager-tests--stop listener))))))
+
+(defun wf-manager-tests--outcome (start)
+  "Call START with a callback, wait for its one outcome, and return it.
+Each later call of the callback fails the test."
+  (let ((outcomes nil))
+    (funcall start (lambda (outcome) (push outcome outcomes)))
+    (should (wf-manager-tests--wait (lambda () outcomes)))
+    (accept-process-output nil 0.1)
+    (should (= (length outcomes) 1))
+    (car outcomes)))
+
+(defconst wf-manager-tests--problem-401
+  "{\"version\":1,\"status\":401,\"code\":\"unauthorized\",\"title\":\"Unauthorized\"}"
+  "The body of a 401 problem response.")
+
+(ert-deftest wf-manager-transport-exact-headers ()
+  "Send exactly one Accept and one Authorization and no negotiation header."
+  (wf-manager-tests--call-transport
+   (wf-manager-tests--answer
+    (wf-manager-tests--json 200 "{\"version\":1,\"ok\":true}" '("ETag: \"rev_1\"")))
+   (lambda (listener profile)
+     (let* ((transport (wf-manager-transport-open profile))
+            ;; Settings of a user configuration that url.el would send.
+            (url-mime-accept-string "text/html")
+            (url-mime-charset-string "utf-8")
+            (url-mime-language-string "en")
+            (url-mime-encoding-string "gzip")
+            (url-user-agent "Agent/1")
+            (reply (wf-manager-tests--outcome
+                    (lambda (callback)
+                      (wf-manager-get transport "/v1/runs/run_1" callback))))
+            (headers (wf-manager-tests--request-headers
+                      (car (wf-manager-tests--listener-requests listener)))))
+       (should (wf-manager-reply-p reply))
+       (should (= (wf-manager-reply-status reply) 200))
+       (should (equal (wf-manager-reply-etag reply) "\"rev_1\""))
+       (should (eq (gethash "ok" (wf-manager-reply-value reply)) t))
+       (should (string-prefix-p "GET /v1/runs/run_1 HTTP/1.1\r\n"
+                                (car (wf-manager-tests--listener-requests listener))))
+       (should (equal (sort (mapcar #'car headers) #'string<)
+                      '("accept" "authorization" "connection" "host" "mime-version")))
+       (should (equal (cl-remove "accept" headers :key #'car :test-not #'equal)
+                      '(("accept" . "application/json"))))
+       (should (equal (cl-remove "authorization" headers :key #'car :test-not #'equal)
+                      (list (cons "authorization"
+                                  (concat "Bearer " wf-manager-tests--credential)))))
+       (should (equal (cdr (assoc "connection" headers)) "close"))
+       (wf-manager-transport-close transport)))))
+
+(ert-deftest wf-manager-transport-post-headers ()
+  "Send a command with exactly its headers, its bytes and one Accept."
+  (wf-manager-tests--call-transport
+   (wf-manager-tests--answer
+    (wf-manager-tests--json 202 "{\"version\":1}" '("Location: /v1/commands/c_1")))
+   (lambda (listener profile)
+     (let* ((transport (wf-manager-transport-open profile))
+            (reply (wf-manager-tests--outcome
+                    (lambda (callback)
+                      (wf-manager-post transport "/v1/runs/run_1/control"
+                                       (wf-manager-json-object "operation" "cancel")
+                                       "epoch_1.AAAAAAAAAAAAAAAAAAAAAA" "\"rev_1\""
+                                       callback))))
+            (request (car (wf-manager-tests--listener-requests listener)))
+            (headers (wf-manager-tests--request-headers request)))
+       (should (equal (wf-manager-reply-location reply) "/v1/commands/c_1"))
+       (should (string-prefix-p "POST /v1/runs/run_1/control HTTP/1.1\r\n" request))
+       (should (string-suffix-p "\r\n\r\n{\"operation\":\"cancel\"}" request))
+       (should (equal (sort (mapcar #'car headers) #'string<)
+                      '("accept" "authorization" "connection" "content-length"
+                        "content-type" "host" "idempotency-key" "if-match"
+                        "mime-version")))
+       (should (equal (cdr (assoc "accept" headers)) "application/json"))
+       (should (equal (cdr (assoc "content-type" headers)) "application/json"))
+       (should (equal (cdr (assoc "if-match" headers)) "\"rev_1\""))
+       (should (equal (cdr (assoc "idempotency-key" headers))
+                      "epoch_1.AAAAAAAAAAAAAAAAAAAAAA"))
+       (should-error (wf-manager-post transport "/v1/runs/run_1/control"
+                                      (wf-manager-json-object) "" nil #'ignore)
+                     :type 'wf-manager-invalid-request)
+       (should-error (wf-manager-post transport "/v1/runs/run_1/control"
+                                      (wf-manager-json-object) "k" "rev_1" #'ignore)
+                     :type 'wf-manager-invalid-request)
+       (should (= (length (wf-manager-tests--listener-requests listener)) 1))
+       (wf-manager-transport-close transport)))))
+
+(ert-deftest wf-manager-transport-401-refusal ()
+  "Give a 401 response as a typed refusal, with no prompt and no resend."
+  (wf-manager-tests--call-transport
+   (wf-manager-tests--answer
+    (wf-manager-tests--json 401 wf-manager-tests--problem-401
+                            '("WWW-Authenticate: Basic realm=\"manager\"")))
+   (lambda (listener profile)
+     (cl-letf (((symbol-function 'read-string)
+                (lambda (&rest _) (error "The transport prompted")))
+               ((symbol-function 'read-passwd)
+                (lambda (&rest _) (error "The transport prompted"))))
+       (let ((transport (wf-manager-transport-open profile)))
+         (should (equal (wf-manager-tests--outcome
+                         (lambda (callback)
+                           (wf-manager-get transport "/v1/snapshot" callback)))
+                        '(wf-manager-refused 401 "unauthorized")))
+         (should (= (length (wf-manager-tests--listener-requests listener)) 1))
+         (wf-manager-transport-close transport))))))
+
+(ert-deftest wf-manager-transport-412-problem ()
+  "Give a 412 problem response as a typed refusal with its code."
+  (wf-manager-tests--call-transport
+   (wf-manager-tests--answer
+    (wf-manager-tests--json
+     412 "{\"version\":1,\"status\":412,\"code\":\"precondition-failed\"}"))
+   (lambda (_listener profile)
+     (let ((transport (wf-manager-transport-open profile)))
+       (should (equal (wf-manager-tests--outcome
+                       (lambda (callback)
+                         (wf-manager-post transport "/v1/decisions/d_1/answer"
+                                          (wf-manager-json-object "operation" "answer")
+                                          "epoch_1.BBBBBBBBBBBBBBBBBBBBBB" "\"rev_1\""
+                                          callback)))
+                      '(wf-manager-refused 412 "precondition-failed")))
+       (wf-manager-transport-close transport)))))
+
+(ert-deftest wf-manager-transport-redirect-refused ()
+  "Refuse a redirect and send no second request."
+  (wf-manager-tests--call-transport
+   (wf-manager-tests--answer
+    (wf-manager-tests--http 302 '("Location: /v1/other" "Cache-Control: no-store") ""))
+   (lambda (listener profile)
+     (let ((transport (wf-manager-transport-open profile)))
+       (should (eq (car (wf-manager-tests--outcome
+                         (lambda (callback)
+                           (wf-manager-get transport "/v1/snapshot" callback))))
+                   'wf-manager-redirect-refused))
+       (accept-process-output nil 0.2)
+       (should (= (length (wf-manager-tests--listener-requests listener)) 1))
+       (wf-manager-transport-close transport)))))
+
+(defun wf-manager-tests--stream (connection head total sent)
+  "To CONNECTION, send HEAD and then TOTAL body bytes in 65536-byte parts.
+SENT is a cons whose car counts the body bytes sent.  Sending stops
+when the peer closes the connection."
+  (process-send-string connection head)
+  (let ((part (make-string 65536 ?x)))
+    (cl-labels ((next ()
+                  (when (and (process-live-p connection) (< (car sent) total))
+                    (condition-case nil
+                        (progn
+                          (process-send-string connection part)
+                          (setcar sent (+ (car sent) (length part)))
+                          (run-at-time 0.01 nil #'next))
+                      (file-error (delete-process connection))))))
+      (next))))
+
+(ert-deftest wf-manager-transport-oversized-body ()
+  "Cut a response body at its bound and give a typed failure."
+  (let* ((sent (list 0))
+         (total (* 4 wf-manager-response-bytes)))
+    (wf-manager-tests--call-transport
+     (lambda (connection _request)
+       ;; No Content-Length: the body ends when the connection closes.
+       (wf-manager-tests--stream
+        connection
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nCache-Control: no-store\r\n\r\n"
+        total sent))
+     (lambda (_listener profile)
+       (let ((transport (wf-manager-transport-open profile))
+             (before (buffer-list)))
+         (should (equal (wf-manager-tests--outcome
+                         (lambda (callback)
+                           (wf-manager-get transport "/v1/snapshot" callback)))
+                        (list 'wf-manager-response-too-large "response"
+                              (format "the response body has more than %d bytes"
+                                      wf-manager-response-bytes))))
+         (should (< (car sent) total))
+         (should (null (cl-set-difference (buffer-list) before)))
+         (wf-manager-transport-close transport))))))
+
+(ert-deftest wf-manager-transport-declared-length-too-large ()
+  "Refuse a response whose declared length passes the bound."
+  (let ((sent (list 0)))
+    (wf-manager-tests--call-transport
+     (lambda (connection _request)
+       (wf-manager-tests--stream
+        connection
+        (format "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: %d\r\n\r\n"
+                (* 2 wf-manager-response-bytes))
+        (* 2 wf-manager-response-bytes) sent))
+     (lambda (_listener profile)
+       (let ((transport (wf-manager-transport-open profile)))
+         (should (eq (car (wf-manager-tests--outcome
+                           (lambda (callback)
+                             (wf-manager-get transport "/v1/snapshot" callback))))
+                     'wf-manager-response-too-large))
+         (should (< (car sent) (* 2 wf-manager-response-bytes)))
+         (wf-manager-transport-close transport))))))
+
+(defun wf-manager-tests--silent (_connection _request)
+  "Answer no request, so that each request stays pending."
+  nil)
+
+(ert-deftest wf-manager-transport-cancel-cleans-up ()
+  "Leave no url.el process or buffer after a cancelled request."
+  (wf-manager-tests--call-transport
+   #'wf-manager-tests--silent
+   (lambda (listener profile)
+     (let* ((processes (process-list))
+            (buffers (buffer-list))
+            (transport (wf-manager-transport-open profile))
+            (outcomes nil)
+            (exchange (wf-manager-get transport "/v1/snapshot"
+                                      (lambda (outcome) (push outcome outcomes)))))
+       (should (wf-manager-tests--wait
+                (lambda () (wf-manager-tests--listener-requests listener))))
+       (should (process-live-p (wf-manager-exchange-process exchange)))
+       (should (buffer-live-p (wf-manager-exchange-buffer exchange)))
+       (should (equal (process-get (wf-manager-exchange-process exchange)
+                                   'wf-manager-nsm-settings-file)
+                      (expand-file-name "network-security.data"
+                                        (wf-manager-transport-directory transport))))
+       (wf-manager-cancel exchange)
+       (should (equal outcomes
+                      '((wf-manager-closed "request" "the request was cancelled"))))
+       (wf-manager-cancel exchange)
+       (accept-process-output nil 0.1)
+       (should (= (length outcomes) 1))
+       (should (null (wf-manager-tests--new-processes listener processes)))
+       (should (null (cl-set-difference (buffer-list) buffers)))
+       (should (null (wf-manager-transport-exchanges transport)))
+       (wf-manager-transport-close transport)))))
+
+(ert-deftest wf-manager-transport-close-cleans-up ()
+  "End every pending request on close and leave no process or buffer."
+  (wf-manager-tests--call-transport
+   #'wf-manager-tests--silent
+   (lambda (listener profile)
+     (let* ((processes (process-list))
+            (buffers (buffer-list))
+            (transport (wf-manager-transport-open profile))
+            (directory (wf-manager-transport-directory transport))
+            (outcomes nil))
+       (dotimes (_ 2)
+         (wf-manager-get transport "/v1/snapshot"
+                         (lambda (outcome) (push outcome outcomes))))
+       (should (wf-manager-tests--wait
+                (lambda () (= (length (wf-manager-tests--listener-requests listener)) 2))))
+       (should (file-directory-p directory))
+       (wf-manager-transport-close transport)
+       (should (equal outcomes
+                      '((wf-manager-closed "transport" "the transport was closed")
+                        (wf-manager-closed "transport" "the transport was closed"))))
+       (should (null (wf-manager-tests--new-processes listener processes)))
+       (should (null (cl-set-difference (buffer-list) buffers)))
+       (should-not (file-exists-p directory))
+       (should-error (wf-manager-get transport "/v1/snapshot" #'ignore)
+                     :type 'wf-manager-closed)))))
+
+(ert-deftest wf-manager-transport-timer-runs-while-pending ()
+  "Run a timer while a delayed response is pending."
+  (wf-manager-tests--call-transport
+   (lambda (connection _request)
+     (run-at-time 0.5 nil
+                  (lambda ()
+                    (process-send-string
+                     connection (wf-manager-tests--json 200 "{\"version\":1}"))
+                    (delete-process connection))))
+   (lambda (_listener profile)
+     (let* ((transport (wf-manager-transport-open profile))
+            (ticks 0)
+            (ticks-at-outcome nil)
+            (timer (run-at-time 0.05 0.05 (lambda () (setq ticks (1+ ticks)))))
+            (outcome nil))
+       (unwind-protect
+           (progn
+             (wf-manager-get transport "/v1/snapshot"
+                             (lambda (value)
+                               (setq outcome value
+                                     ticks-at-outcome ticks)))
+             ;; A blocking request would have run its callback by now.
+             (should (null outcome))
+             (should (wf-manager-tests--wait (lambda () outcome)))
+             (should (wf-manager-reply-p outcome))
+             (should (>= ticks-at-outcome 5)))
+         (cancel-timer timer)
+         (wf-manager-transport-close transport))))))
+
+(ert-deftest wf-manager-transport-poll-events ()
+  "Read one polling batch with the cursor in the query and Accept JSON."
+  (wf-manager-tests--call-transport
+   (wf-manager-tests--answer
+    (wf-manager-tests--json
+     200 (concat "{\"version\":1,\"cursor\":\"s.9\",\"oldestCursor\":\"s.0\","
+                 "\"events\":[{\"id\":\"s.5\",\"event\":\"run.changed\","
+                 "\"data\":{\"version\":1,\"resource\":\"/v1/runs/run_1\","
+                 "\"revision\":\"r1\"}}],\"hasMore\":false}")))
+   (lambda (listener profile)
+     (let* ((transport (wf-manager-transport-open profile))
+            (batch (wf-manager-tests--outcome
+                    (lambda (callback)
+                      (wf-manager-poll-events transport "s.0" callback))))
+            (request (car (wf-manager-tests--listener-requests listener))))
+       (should (wf-manager-event-batch-p batch))
+       (should (equal (wf-manager-event-batch-cursor batch) "s.9"))
+       (should (string-prefix-p "GET /v1/events?after=s.0 HTTP/1.1\r\n" request))
+       (should (equal (cdr (assoc "accept" (wf-manager-tests--request-headers request)))
+                      "application/json"))
+       (should-not (assoc "last-event-id" (wf-manager-tests--request-headers request)))
+       (should-error (wf-manager-poll-events transport "bad" #'ignore)
+                     :type 'wf-manager-invalid-request)
+       (wf-manager-transport-close transport)))))
+
+(ert-deftest wf-manager-transport-nsm-binding ()
+  "Check the security of a transport connection with no prompt."
+  (let ((process (make-pipe-process :name "wf-manager-tests-nsm" :noquery t))
+        (seen nil))
+    (unwind-protect
+        (let ((verify (lambda (_process &rest _arguments)
+                        (setq seen (list nsm-noninteractive nsm-settings-file)))))
+          (let ((nsm-noninteractive nil))
+            (wf-manager--nsm-verify verify process "host" 443)
+            (should (equal seen (list nil nsm-settings-file)))
+            (process-put process 'wf-manager-nsm-settings-file "/tmp/session/nsm.data")
+            (wf-manager--nsm-verify verify process "host" 443)
+            (should (equal seen '(t "/tmp/session/nsm.data")))))
+      (delete-process process))))
+
+;;;; Capabilities
+
+(defun wf-manager-tests--capabilities (&optional edit)
+  "Return the canned capabilities document of ext-pi as a JSON value.
+EDIT, when non-nil, is called with the decoded value and changes it."
+  (let ((value (wf-manager-json-decode
+                (concat
+                 "{\"version\":1,\"authorityEpoch\":\"epoch-1\",\"streamId\":\"s\","
+                 "\"scopes\":[\"observe\",\"submit\"],\"profileIds\":[\"profile_1\"],"
+                 "\"transports\":[\"sse\",\"polling\"],\"limits\":{"
+                 "\"requestTargetBytes\":8192,\"headerBytes\":16384,\"headerFields\":100,"
+                 "\"jsonBodyBytes\":2097152,\"jsonDepth\":64,\"nativeControlBytes\":1048576,"
+                 "\"captureBytes\":67108864,\"aggregateInputBytes\":67108864,"
+                 "\"artifactBytes\":67108864,\"sseBlockBytes\":16384,\"pageBytes\":1048576,"
+                 "\"pageSetBytes\":67108864,\"pageSetsPerClient\":2,"
+                 "\"pageSetLifetimeSeconds\":60,\"queuedRequests\":100,\"maxReservations\":16,"
+                 "\"reviewLifetimeSeconds\":600,\"sseReadersPerClient\":2,"
+                 "\"ssePendingBytesPerReader\":1048576,\"replaySeconds\":604800,"
+                 "\"replayBytes\":268435456,\"heartbeatSeconds\":15,"
+                 "\"reconnectIdleSeconds\":45,\"reconnectBackoffMaxSeconds\":30,"
+                 "\"ordinaryMutationsPerMinute\":30,\"drafts\":100,\"globalDrafts\":100,"
+                 "\"globalCaptureBytes\":67108864,\"globalPageSets\":2,"
+                 "\"globalConnections\":8,\"globalDatabaseReaders\":2,"
+                 "\"globalMutationLedgerBytes\":16777216,\"safetyControlsPerMinute\":100,"
+                 "\"executionReservations\":1},\"versions\":{\"api\":[1],\"snapshot\":[1],"
+                 "\"event\":[1],\"descriptor\":[2,3],\"frontendSession\":[1,2],"
+                 "\"control\":[1,2],\"runtimeProtocol\":[1,2,3],\"runtimeStore\":[1,2],"
+                 "\"managerStore\":[1,2,3,4,5,6,7,8,9,10,11,12],\"invocation\":[1],"
+                 "\"frontendManifest\":[\"legacy\",\"2\",\"3\"]}}"))))
+    (when edit (funcall edit value))
+    value))
+
+(defun wf-manager-tests--capability-refusal (edit)
+  "Return the condition of the refusal of the capabilities after EDIT.
+Return the symbol `accepted' when the capabilities pass."
+  (condition-case failure
+      (progn (wf-manager-check-capabilities (wf-manager-tests--capabilities edit))
+             'accepted)
+    (wf-manager-error (car failure))))
+
+(defun wf-manager-tests--number (integer)
+  "Return the JSON number of INTEGER."
+  (wf-manager-json-integer integer))
+
+(ert-deftest wf-manager-capabilities-parity ()
+  "Check capabilities as checkCapabilities of ext-pi checks them."
+  (let ((capabilities (wf-manager-check-capabilities (wf-manager-tests--capabilities))))
+    (should (equal (wf-manager-capabilities-epoch capabilities) "epoch-1")))
+  (dolist (case
+           `((nil accepted)
+             (,(lambda (v) (puthash "managerStore"
+                                    (vconcat (list (wf-manager-tests--number 13))
+                                             (gethash "managerStore" (gethash "versions" v)))
+                                    (gethash "versions" v)))
+              wf-manager-unsupported-version)
+             (,(lambda (v) (puthash "frontendManifest" [] (gethash "versions" v)))
+              wf-manager-unsupported-version)
+             (,(lambda (v) (puthash "frontendManifest" ["4"] (gethash "versions" v)))
+              wf-manager-unsupported-version)
+             (,(lambda (v) (puthash "api" (vector (wf-manager-tests--number 1)
+                                                  (wf-manager-tests--number 1))
+                                    (gethash "versions" v)))
+              wf-manager-unsupported-version)
+             (,(lambda (v) (remhash "invocation" (gethash "versions" v)))
+              wf-manager-unsupported-version)
+             (,(lambda (v) (puthash "extra" t v)) wf-manager-invalid-response)
+             (,(lambda (v) (puthash "version" (wf-manager-tests--number 2) v))
+              wf-manager-invalid-response)
+             (,(lambda (v) (puthash "authorityEpoch" (make-string 106 ?e) v))
+              wf-manager-invalid-response)
+             (,(lambda (v) (puthash "authorityEpoch" (make-string 105 ?e) v)) accepted)
+             (,(lambda (v) (puthash "streamId" "s.1" v)) wf-manager-invalid-response)
+             (,(lambda (v) (puthash "scopes" [] v)) accepted)
+             (,(lambda (v) (puthash "scopes" ["observe" "observe"] v))
+              wf-manager-invalid-response)
+             (,(lambda (v) (puthash "scopes" ["admin"] v)) wf-manager-invalid-response)
+             (,(lambda (v) (puthash "profileIds" ["a b"] v)) wf-manager-invalid-response)
+             (,(lambda (v) (puthash "transports" ["sse"] v)) wf-manager-invalid-response)
+             (,(lambda (v) (puthash "transports" ["sse" "sse"] v))
+              wf-manager-invalid-response)
+             (,(lambda (v) (puthash "headerBytes" (wf-manager-tests--number 1)
+                                    (gethash "limits" v)))
+              wf-manager-invalid-response)
+             (,(lambda (v) (puthash "executionReservations" (wf-manager-tests--number 17)
+                                    (gethash "limits" v)))
+              wf-manager-invalid-response)
+             (,(lambda (v) (puthash "drafts" (wf-manager-tests--number 0)
+                                    (gethash "limits" v)))
+              wf-manager-invalid-response)
+             (,(lambda (v) (puthash "executionReservations" (wf-manager-tests--number 16)
+                                    (gethash "limits" v)))
+              accepted)
+             (,(lambda (v) (remhash "drafts" (gethash "limits" v)))
+              wf-manager-invalid-response)))
+    (should (equal (list (car case) (wf-manager-tests--capability-refusal (car case)))
+                   (list (car case) (cadr case))))))
+
+(ert-deftest wf-manager-connect-binds-capabilities ()
+  "Bind a connection by GET /v1/capabilities with a fresh identity and keys."
+  (wf-manager-tests--call-transport
+   (lambda (connection _request)
+     (process-send-string
+      connection
+      (wf-manager-tests--json 200 (wf-manager-json-encode (wf-manager-tests--capabilities))))
+     (delete-process connection))
+   (lambda (listener profile)
+     (let* ((first (wf-manager-tests--outcome
+                    (lambda (callback) (wf-manager-connect profile callback))))
+            (second (wf-manager-tests--outcome
+                     (lambda (callback) (wf-manager-connect profile callback))))
+            (keys (make-hash-table :test #'equal)))
+       (should (wf-manager-connection-p first))
+       (should (string-prefix-p "GET /v1/capabilities HTTP/1.1\r\n"
+                                (car (wf-manager-tests--listener-requests listener))))
+       (should (equal (wf-manager-connection-epoch first) "epoch-1"))
+       (should (string-match-p "\\`[0-9a-f]\\{32\\}\\'" (wf-manager-connection-identity first)))
+       (should-not (equal (wf-manager-connection-identity first)
+                          (wf-manager-connection-identity second)))
+       (dotimes (_ 1000)
+         (let ((key (wf-manager-command-key first)))
+           (should (string-match-p "\\`epoch-1\\.[A-Za-z0-9_-]\\{22\\}\\'" key))
+           (should (wf-manager-valid-key-p key))
+           (should-not (gethash key keys))
+           (puthash key t keys)))
+       (wf-manager-transport-close (wf-manager-connection-transport first))
+       (wf-manager-transport-close (wf-manager-connection-transport second))))))
+
+(ert-deftest wf-manager-connect-refuses-capabilities ()
+  "Refuse unsupported capabilities and close the transport."
+  (wf-manager-tests--call-transport
+   (wf-manager-tests--answer
+    (wf-manager-tests--json
+     200 (wf-manager-json-encode
+          (wf-manager-tests--capabilities
+           (lambda (v) (puthash "managerStore" (vector (wf-manager-tests--number 13))
+                                (gethash "versions" v)))))))
+   (lambda (_listener profile)
+     (let ((buffers (buffer-list)))
+       (should (eq (car (wf-manager-tests--outcome
+                         (lambda (callback) (wf-manager-connect profile callback))))
+                   'wf-manager-unsupported-version))
+       (should (null (cl-set-difference (buffer-list) buffers)))))))
 
 (provide 'wf-manager-tests)
 

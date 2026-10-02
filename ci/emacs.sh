@@ -32,8 +32,11 @@
 #      events vectors, the drafts, requests, preparations, receipts,
 #      decisions, answers, controls and runs vectors, and the refresh
 #      sequences, backoff, jitter and reconciliation vectors of agent-cat
-#      test/manager_client_vectors.json, which WF_MANAGER_VECTORS names. They
-#      contact no host.
+#      test/manager_client_vectors.json, which WF_MANAGER_VECTORS names. The
+#      HTTP transport tests start a plain HTTP listener on 127.0.0.1 inside
+#      the test Emacs and check the exact request bytes, the typed refusals,
+#      the response bound, cancellation, cleanup and the capability binding.
+#      They contact no other host.
 #
 # No providers are contacted. The native tests use scripted runs and the
 # deterministic human/control fixture named by WF_CONTROL_RUNNER. The
@@ -192,9 +195,10 @@ fi
 # 4. The transport tests
 # ---------------------------------------------------------------------------
 #
-# ERT over temporary files and the client vectors. No process starts and no
-# host is contacted, so this pass needs neither the wf binary nor the control
-# fixture. It needs the vector file.
+# ERT over temporary files, the client vectors and a plain HTTP listener on
+# 127.0.0.1 inside the test Emacs. No other host is contacted, and this pass
+# needs neither the wf binary nor the control fixture. It needs the vector
+# file.
 
 if WF_MANAGER_VECTORS="$vectors" "$emacs" -Q --batch -L emacs -l emacs/wf-manager-tests.el \
      -f ert-run-tests-batch-and-exit < /dev/null > "$work/manager.out" 2>&1; then

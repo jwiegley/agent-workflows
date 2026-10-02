@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise native Emacs widgets, windows, real scripted runs, and the service journey, lifecycle and controls in private PTYs."""
+"""Exercise native Emacs widgets, windows, real scripted runs, and the service journey, lifecycle, controls and cross-client witness in private PTYs."""
 from __future__ import annotations
 
 import argparse
@@ -1291,6 +1291,63 @@ def service_controls_case(args, directory: Path) -> None:
            terminalBefore=session.before, terminalAfter=session.ended["attributes"], exitStatus=session.ended["status"])
 
 
+# The version of the report of the cross-client witness. The cross-client
+# mode of agent-cat manager/test/service_http.py requires the same version.
+WITNESS_REPORT_VERSION = 1
+
+
+def service_witness_case(args, directory: Path) -> None:
+    """Observe a run that other clients created and approved, by keys at 80x24.
+
+    M-x wf-service selects the client profile. The harness that runs the
+    manager names the run and its pending person question in its answer
+    to the handshake witness-ready of service_handshake in the directory
+    of --service-handshake. M-x wf-runs opens the view of the run, which
+    must show the pending question. The session sends no command. M-x
+    wf-local then closes the session, and C-x C-c ends Emacs. The report
+    records the lines of the view and the commands of the session, and it
+    is written again after each step."""
+    profile, report_path = Path(args.service[0]).resolve(), Path(args.service[1]).resolve()
+    handshake = args.service_handshake.resolve()
+    emacs_directory = args.source.resolve().parent
+    sources = [emacs_directory / name for name in ("wf.el", "wf-manager.el", "wf-service.el")]
+    report: dict = {"version": WITNESS_REPORT_VERSION, "profile": str(profile), "steps": []}
+
+    def record(step: str, line: str, **facts) -> None:
+        report["steps"].append(step)
+        report.update(facts)
+        report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2))
+        print("PASS cross-client witness keys " + step + ": " + line, flush=True)
+
+    session = Emacs(args.emacs, sources, directory, 80, 24, service_body(profile, directory))
+    success = False
+    try:
+        session.wait(lambda state: state.get("extra") is not None, "service-ready")
+        session.command("wf-service")
+        session.wait(lambda state: "Client profile" in state.get("minibuffer", ""), "profile-file-prompt")
+        session.send("\r")
+        session.wait(lambda state: service_extra(state).get("service") is True
+                     and "wf: service mode, endpoint" in state.get("messages", ""), "service-bound", 60)
+        record("1", "M-x wf-service selected the client profile " + str(profile) + " at 80x24")
+        ready = service_handshake(session, handshake, "witness-ready", {}, 180)
+        run, question = ready["run"], ready["question"]
+        service_open_view(session, run, "witness")
+        viewed = session.wait(lambda state: service_view(state, run) is not None
+                              and any(question + ": pending question" in line for line in service_view(state, run)["lines"]),
+                              "witness-question", 120)
+        view = service_view(viewed, run)
+        record("2", "M-x wf-runs opened the view of run " + run + ", which showed the pending question " + question,
+               run=run, question=question, viewLines=view["lines"], head=view["head"], kind=view["kind"])
+        report["sent"] = service_extra(session.state).get("sent", [])
+        session.command("wf-local")
+        session.wait(lambda state: service_extra(state).get("service") is False, "local")
+        success = True
+    finally:
+        session.close(success)
+    record("3", "M-x wf-local closed the session, and C-x C-c ended Emacs with status 0 and the terminal attributes restored",
+           terminalBefore=session.before, terminalAfter=session.ended["attributes"], exitStatus=session.ended["status"])
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--emacs", default=os.environ.get("EMACS") or shutil.which("emacs"), required=False)
@@ -1302,15 +1359,15 @@ def main() -> None:
     parser.add_argument("--service", nargs=2, metavar=("PROFILE", "REPORT"),
                         help="run only the service journey with the client profile PROFILE and write its report to REPORT")
     parser.add_argument("--service-answer", default="false", help="the answer that the service journey types")
-    parser.add_argument("--service-case", choices=["journey", "lifecycle", "controls"], default="journey",
+    parser.add_argument("--service-case", choices=["journey", "lifecycle", "controls", "witness"], default="journey",
                         help="the service case that --service runs")
     parser.add_argument("--service-handshake", type=Path,
-                        help="the directory of the handshakes of the lifecycle or the controls with the harness that runs the manager")
+                        help="the directory of the handshakes of the lifecycle, the controls or the witness with the harness that runs the manager")
     args = parser.parse_args()
     if args.service:
         if not args.emacs or not os.access(args.emacs, os.X_OK):
             parser.error("provide an executable emacs")
-        if args.service_case in ("lifecycle", "controls") and (not args.service_handshake or not args.service_handshake.is_dir()):
+        if args.service_case in ("lifecycle", "controls", "witness") and (not args.service_handshake or not args.service_handshake.is_dir()):
             parser.error(f"the {args.service_case} case needs --service-handshake, the directory of its handshakes with the harness")
         artifacts = args.artifacts or Path(tempfile.mkdtemp(prefix="wf-emacs-service-", dir="/tmp")).resolve()
         artifacts.mkdir(exist_ok=True)
@@ -1324,6 +1381,11 @@ def main() -> None:
             service_controls_case(args, artifacts / "controls")
             print("PASS service controls by keys at 80x24: a fail-over, an abandon and a redirect to the second listed target, "
                   "and terminal restoration", flush=True)
+            return
+        if args.service_case == "witness":
+            service_witness_case(args, artifacts / "witness")
+            print("PASS cross-client witness by keys at 80x24: the view of a run of other clients showed its pending question, "
+                  "the session sent no command, and terminal restoration", flush=True)
             return
         service_case(args, artifacts / "service")
         print("PASS service journey by keys at 80x24 with resizes to 40x12 and 140x36, and terminal restoration", flush=True)

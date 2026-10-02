@@ -109,8 +109,9 @@ emacs/wf-manager-live.el   live checks of the transport and of service mode, run
                            by the emacs-client and emacs-client-controls
                            modes of agent-cat
 ci/emacs-ui.py          isolated Emacs PTY, resize and window acceptance, the
-                        service journey of the emacs-service modes and the
+                        service journey of the emacs-service modes, the
                         service lifecycle of the emacs-service-lifecycle mode
+                        and the observer of the cross-client mode
 ci/emacs-tramp.py       loopback SSH/TRAMP, typed controls and lineage acceptance
 ```
 
@@ -813,6 +814,24 @@ with its resource, its body, its If-Match and the entity tag of the read of its
 resource in the act of the control. The mode checks each control against the
 command receipts, the coordination database, `events.ndjson` and the run log,
 and it requires that the session sent only these three controls, each once.
+
+With `--service-case witness`, the script is the observer of the cross-client
+witness. The `cross-client` mode of `manager/test/service_http.py` runs it
+against one manager with three client credentials, one for each of the TUI,
+Pi and Emacs. The TUI creates and enqueues a `mixed-controls` request by keys,
+and Pi approves its exact review. When the run waits at its person question,
+the harness names the run and the question through a file in the directory
+of `--service-handshake`. The script starts `Emacs -Q -nw` at 80×24 with the
+client profile of the Emacs credential and acts only by keys:
+
+1. `M-x wf-service` selects the profile.
+2. `M-x wf-runs` opens the view of the run, and the view shows the pending
+   question.
+3. `M-x wf-local` closes the session, and `C-x C-c` ends Emacs.
+
+The report holds the lines of the view and the commands of the session. The
+mode requires that the session sent no command and that the coordination
+database holds no command of the Emacs credential.
 
 The SSH/TRAMP gate starts an unprivileged server bound only to `127.0.0.1`,
 with temporary host and client keys, strict host-key checking, public-key-only

@@ -97,6 +97,8 @@ src/
 bin/Main.hs             `wf`, two lines over Agentic.Cli
 emacs/wf.el             native setup, prepared runs, controls, history and lineage
 emacs/wf-smoke.el       batch contracts, run by ci/emacs.sh
+emacs/wf-manager.el     service-mode transport: client profile and credential
+emacs/wf-manager-tests.el  ERT tests of the transport, run by ci/emacs.sh
 ci/emacs-ui.py          isolated Emacs PTY, resize and window acceptance
 ci/emacs-tramp.py       loopback SSH/TRAMP, typed controls and lineage acceptance
 ```
@@ -456,10 +458,12 @@ macOS. This exercises the real SSH/TRAMP path, including binary file capture,
 typed human answers, verification, history, semantic resume, cancellation, and
 interactive resize. It does not establish a different host OS or Linux acceptance.
 
-**Verification.** The gate compiles both Lisp files with warnings treated as
-errors, runs strict `checkdoc`, and executes descriptor, setup, native process,
-control, artifact, history, and lineage regressions. The human/control fixture
-is an explicit dependency, not a developer-specific path or a skipped test.
+**Verification.** The gate compiles every `emacs/*.el` file with warnings
+treated as errors, runs strict `checkdoc` on each of them, and executes
+descriptor, setup, native process, control, artifact, history, and lineage
+regressions. A fourth pass runs the ERT tests of the service-mode transport in
+`emacs/wf-manager-tests.el`. The human/control fixture is an explicit
+dependency, not a developer-specific path or a skipped test.
 
 ```sh
 WF=/path/to/compatible/wf \
@@ -500,6 +504,56 @@ system configuration and removes the server and temporary keys afterward.
 WF_CONTROL_RUNNER=/path/to/routing-fixed-point-probe \
   nix develop path:. -c python3 ci/emacs-tramp.py --artifacts /path/to/new/artifacts
 ```
+
+### Service-mode transport
+
+`emacs/wf-manager.el` is the transport of the service mode, in which `wf.el`
+is a client of an agent-cat workflow manager over HTTPS. The file has no user
+interface and uses only libraries that are part of Emacs. It currently loads a
+client profile and reads its credential. The HTTP requests and the connection
+of the `wf.el` commands to manager resources are not yet in place.
+
+A client profile is a JSON file of version 1. It has exactly these four
+fields:
+
+```json
+{
+  "version": 1,
+  "endpoint": "https://127.0.0.1:8443/v1",
+  "credentialFile": "/Users/me/.config/agent-cat/client.credential",
+  "caFile": "/Users/me/.config/agent-cat/manager-ca.pem"
+}
+```
+
+`wf-manager-profile-load` applies the client profile rules of agent-cat
+(`doc/api/README.md` and `ext-pi/src/manager/profile.ts`):
+
+| Item | Rule |
+| --- | --- |
+| Profile file | An absolute path. A private file of at most 16384 bytes, in UTF-8, that holds one JSON object. |
+| `version` | The integer 1. |
+| `endpoint` | An `https` URL of at most 8192 characters whose path is `/v1` or `/v1/`. It has no user information, query or fragment, and no space or control character. The port, when present, is from 1 to 65535. |
+| `credentialFile` | An absolute path of at most 4096 UTF-8 bytes, with no NUL, line feed or carriage return. The file is private and holds 32 to 512 visible ASCII bytes other than the comma, with no final newline. |
+| `caFile` | An absolute path with the same limits. The file is a regular file of at most 1048576 bytes that no group or other user can write. It holds at least one PEM certificate. |
+
+A private file is a regular file, not a symbolic link, that belongs to the user,
+has no group or other permission bits (mode 0600 or 0400) and has one link.
+
+The loader reads the credential file one time, when the profile loads. The
+profile record keeps the bearer in its `credential` slot. Only
+`wf-manager-authorization` reads that slot, to build the one `Authorization`
+header of a request.
+
+Each refusal signals a condition below `wf-manager-error`. The data of the
+condition is `(FIELD REASON)`, where `FIELD` is the JSON name of the field, or
+`"profile"` for the profile file itself.
+
+| Condition | Cause |
+| --- | --- |
+| `wf-manager-invalid-profile` | The profile is not UTF-8 JSON, has a missing, extra or repeated field, has a field of the wrong type, has a relative path, or names a CA file without a certificate. |
+| `wf-manager-invalid-endpoint` | The endpoint breaks one of its rules. |
+| `wf-manager-file-unavailable` | A file is missing, too large, not a regular file, writable by a group or other user, or, for a private file, not private. |
+| `wf-manager-credential-unavailable` | The credential bytes are outside the bounds. |
 
 ## What replaces what
 

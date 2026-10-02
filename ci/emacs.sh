@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# The Emacs gate — `emacs/wf.el' and its smoke, in three passes.
+# The Emacs gate — every `emacs/*.el' file, in four passes.
 #
 #     ./ci/emacs.sh              # from the repository root
 #
@@ -10,7 +10,7 @@
 # Interactive terminal and SSH/TRAMP checks live in ci/emacs-ui.py and
 # ci/emacs-tramp.py.
 #
-# Three passes, in the order that a failure is cheapest to read:
+# Four passes, in the order that a failure is cheapest to read:
 #
 #   1. BYTE-COMPILE, with `byte-compile-error-on-warn'. Not a warning count —
 #      a warning is the failure. A free variable or a wrong arity in a branch
@@ -26,14 +26,18 @@
 #      deterministic control fixture. These exercise native session behavior
 #      and descriptor-driven discovery, completion, and input histories.
 #
+#   4. TRANSPORT TESTS, `emacs/wf-manager-tests.el', the ERT tests of the
+#      service-mode transport `emacs/wf-manager.el'. They load client
+#      profiles from temporary files and contact no host.
+#
 # No providers are contacted. The native tests use scripted runs and the
 # deterministic human/control fixture named by WF_CONTROL_RUNNER. The
 # agent-deck listing is supplied by a temporary deterministic shell fixture.
 #
-# Exits 0 only if all three passed.
+# Exits 0 only if all four passed.
 set -uo pipefail
 # `|| exit` and not `set -e`: this gate counts failures rather than stopping at
-# the first one, so that one afternoon sees all three. Everything below is
+# the first one, so that one afternoon sees all four. Everything below is
 # relative to the repository root, which is also the package root.
 cd "$(dirname "$0")/.." || exit 1
 
@@ -105,13 +109,14 @@ note "ACP fixtures at $adapters"
 # 1. Byte-compilation, where a warning is a failure
 # ---------------------------------------------------------------------------
 #
-# Both files, the smoke included: a test script that byte-compiles clean is a
+# Every file, the tests included: a test script that byte-compiles clean is a
 # script whose every free variable is a real one. The `.elc' this leaves beside
 # each source is deleted before and after, because a stale one is the single
 # way this package can be loaded and not be the file somebody is reading.
 
-rm -f emacs/wf.elc emacs/wf-smoke.elc
-for f in emacs/wf.el emacs/wf-smoke.el; do
+lisp=(emacs/*.el)
+rm -f emacs/*.elc
+for f in "${lisp[@]}"; do
   if "$emacs" -Q --batch -L emacs \
        --eval '(setq byte-compile-error-on-warn t)' \
        -f batch-byte-compile "$f" > "$work/compile.out" 2>&1; then
@@ -121,7 +126,7 @@ for f in emacs/wf.el emacs/wf-smoke.el; do
     cat "$work/compile.out" >&2
   fi
 done
-rm -f emacs/wf.elc emacs/wf-smoke.elc
+rm -f emacs/*.elc
 
 # ---------------------------------------------------------------------------
 # 2. Checkdoc, strictly
@@ -133,7 +138,7 @@ rm -f emacs/wf.elc emacs/wf-smoke.elc
 # signature the function does not have, and a keyword outside the standard set
 # is a package that will not be found by the word it is about.
 
-for f in emacs/wf.el emacs/wf-smoke.el; do
+for f in "${lisp[@]}"; do
   "$emacs" -Q --batch --eval "(progn
       (require 'checkdoc)
       (setq checkdoc-arguments-in-order-flag t
@@ -169,9 +174,25 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 4. The transport tests
+# ---------------------------------------------------------------------------
+#
+# ERT over temporary files. No process starts and no host is contacted, so
+# this pass needs neither the wf binary nor the control fixture.
+
+if "$emacs" -Q --batch -L emacs -l emacs/wf-manager-tests.el \
+     -f ert-run-tests-batch-and-exit < /dev/null > "$work/manager.out" 2>&1; then
+  cat "$work/manager.out"
+  note "transport tests: green"
+else
+  bad "transport tests" "every ERT test to pass" "exit $?"
+  cat "$work/manager.out" >&2
+fi
+
+# ---------------------------------------------------------------------------
 
 if [ "$failures" = 0 ]; then
-  echo "ci/emacs: 3 pass(es) over 2 file(s), 0 failed"
+  echo "ci/emacs: 4 pass(es) over ${#lisp[@]} file(s), 0 failed"
 else
   echo "ci/emacs: $failures check(s) failed" >&2
 fi

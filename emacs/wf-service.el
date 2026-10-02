@@ -54,7 +54,10 @@
 ;;            session, `wf-runs' opens the view of a local or a service
 ;;            run, `wf-answer' answers the head decision of a run,
 ;;            `wf-control' sends one control that the controls of a run
-;;            offer, and `wf-kill' cancels a run after a confirmation.
+;;            offer, `wf-kill' cancels a run after a confirmation,
+;;            `wf-result' saves the verified result of a run to a new
+;;            file, and `wf-history', `wf-history-refresh' and
+;;            `wf-history-open' list and open the runs of the manager.
 ;;   pending  The command has no manager behavior yet, and it refuses
 ;;            with a message that says so.
 ;;   local    The command reads the local runner or its store, and it
@@ -119,6 +122,22 @@
 ;; A recovery choice binds the entity tag of its decision.  Each control
 ;; is sent one time.  An uncertain send is reconciled one time with
 ;; `wf-manager-session-reconcile', and it is never sent again.
+;;
+;; `wf-result' reads GET /v1/runs/{id}/outputs for the run of the view,
+;; or for a run that the session knows, and downloads the verified
+;; artifact of the result with the verified download of the session.
+;; It saves the exact bytes to a new file with mode 0600.  The creation
+;; is exclusive, so a second save to the same file refuses and the file
+;; stays as it is.
+;;
+;; `wf-history' lists every run of /v1/runs over every page in a buffer
+;; of `wf-service-history-mode', in the order of the collection, managed
+;; runs and legacy observer entries alike.  Each row keeps the reference
+;; of its run on the binding that listed it.  RET opens the run view of
+;; the row with that reference.  After a switch to another endpoint, the
+;; reference refuses with `wf-manager-wrong-endpoint', nothing is sent,
+;; and the row is never opened on the new endpoint.  Local mode keeps
+;; `wf-history' and the observer over the local stores.
 
 ;;; Code:
 
@@ -145,10 +164,10 @@ default until `wf-service' runs."
     (wf-answer service wf-service--answer)
     (wf-control service wf-service--control)
     (wf-kill service wf-service--kill)
-    (wf-result pending)
-    (wf-history pending)
-    (wf-history-refresh pending)
-    (wf-history-open pending)
+    (wf-result service wf-service--result)
+    (wf-history service wf-service--history)
+    (wf-history-refresh service wf-service-history-refresh)
+    (wf-history-open service wf-service-history-open)
     (wf-restart pending)
     (wf-resume pending)
     (wf-fork pending)
@@ -350,8 +369,8 @@ runs and requests of the manager continue."
     (user-error "Service mode has no session.  Select a profile with `wf-service'"))
   (wf-service--state-session wf-service--current))
 
-(defun wf-service--collection (session uri what)
-  "On SESSION, return the items of the complete page set URI.
+(defun wf-service--page-set (session uri what)
+  "On SESSION, return the complete `wf-manager-page-set' of URI.
 WHAT names the collection in the message of a failure."
   (let ((set (wf-service--await
               (lambda (callback)
@@ -360,7 +379,12 @@ WHAT names the collection in the message of a failure."
                 nil))))
     (when (wf-manager-failure-p set)
       (wf-service--refuse (format "The %s cannot be read" what) set))
-    (wf-manager-page-set-items set)))
+    set))
+
+(defun wf-service--collection (session uri what)
+  "On SESSION, return the items of the complete page set URI.
+WHAT names the collection in the message of a failure."
+  (wf-manager-page-set-items (wf-service--page-set session uri what)))
 
 (defun wf-service--number (value)
   "Return the Lisp number of the JSON number VALUE, or nil for JSON null."
@@ -1235,7 +1259,8 @@ Terminal and Result lines end the list."
   "Return the text of the buffer of VIEW."
   (let ((lines (wf-service-view-lines view)))
     (concat (car lines) "\n"
-            "a answer the head decision · c control · C-c C-k cancel · d diagnostics · q bury (does not cancel)\n"
+            "a answer the head decision · c control · C-c C-k cancel · r save the verified result\n"
+            "H history · d diagnostics · q bury (does not cancel)\n"
             "The kill of this buffer sends no command.\n\n"
             (mapconcat (lambda (line) (concat line "\n")) (cdr lines) ""))))
 
@@ -2064,6 +2089,238 @@ continue."
     (wf-manager-session-close (wf-service--state-session wf-service--current))))
 
 (add-hook 'kill-emacs-hook #'wf-service--kill-emacs)
+
+
+;;; Results and history
+
+(defun wf-service--result-run (session)
+  "Return the run of `wf-result' on SESSION.
+In a run view of SESSION, this is the run of the view.  Elsewhere, read
+one run that SESSION knows."
+  (let ((view wf-service--view-state))
+    (if (and view (eq (wf-service--view-session view) session))
+        (wf-service--view-run view)
+      (let ((runs (wf-service--service-runs session)))
+        (unless runs
+          (user-error "No run of the manager is known.  Open a run with `wf-history' first"))
+        (completing-read "Run whose result to save: " runs nil t)))))
+
+(defun wf-service-save-exact (file bytes)
+  "Save as the new FILE the unibyte BYTES unchanged, with mode 0600.
+The creation is exclusive, so an existing FILE, a directory included,
+refuses the save and stays as it is.  The bytes are written with no
+coding conversion."
+  (when (multibyte-string-p bytes)
+    (error "The bytes of a saved result must be a unibyte string"))
+  (condition-case failure
+      (with-file-modes #o600
+        (let ((coding-system-for-write 'no-conversion)
+              (write-region-annotate-functions nil)
+              (write-region-post-annotation-function nil))
+          (write-region bytes nil file nil 'silent nil 'excl)))
+    (file-already-exists
+     (user-error "%s" (wf-service--problem
+                       (format "%s exists, so the result was not saved.  Choose a new file"
+                               file))))
+    (file-error
+     (user-error "%s" (wf-service--problem
+                       (format "The result cannot be saved to %s: %s"
+                               file (error-message-string failure)))))))
+
+(defun wf-service--download (session download size sha256)
+  "On SESSION, download the artifact DOWNLOAD and return its verified bytes.
+SIZE and SHA256 are the size and the digest that the manager states.
+A failure refuses."
+  (let ((bytes (wf-service--await
+                (lambda (callback)
+                  (condition-case failure
+                      (wf-manager-session-download
+                       session (wf-manager-session-reference session download)
+                       size sha256 callback)
+                    (wf-manager-error (funcall callback failure)))
+                  nil))))
+    (when (wf-manager-failure-p bytes)
+      (wf-service--refuse (format "The download of %s failed" download) bytes))
+    bytes))
+
+(defun wf-service--result ()
+  "Save the verified result of a run of the manager to a new file.
+The command reads GET /v1/runs/{id}/outputs, downloads the verified
+artifact of the result with the verified download of the session and
+then reads the name of a new file.  It saves the exact bytes there with
+`wf-service-save-exact'.  A run with no verified result refuses, and
+it sends nothing."
+  (let* ((session (wf-service--session))
+         (run (wf-service--result-run session))
+         (outputs (wf-service--read session (format "/v1/runs/%s/outputs" run)))
+         (artifact (wf-service--verified-artifact (wf-manager-reply-value outputs))))
+    (unless artifact
+      (user-error "%s" (wf-service--problem
+                        (format "Run %s has no verified result to save" run))))
+    (pcase-let* ((`(,download ,size ,sha256) artifact)
+                 (bytes (wf-service--download session download size sha256))
+                 (file (expand-file-name
+                        (read-file-name
+                         (format "Save the verified result of run %s to new file: " run)))))
+      (wf-service-save-exact file bytes)
+      (message "wf: saved the verified %d bytes of run %s to %s, SHA-256 %s"
+               (length bytes) run file sha256)
+      file)))
+
+(cl-defstruct (wf-service--history
+               (:constructor wf-service--history-make)
+               (:copier nil))
+  "The listing of one service history buffer.
+IDENTITY is the endpoint identity of the binding that read it.  RUNS
+is the list of its `wf-manager-run' records in the order of the
+collection.  PAGES is the number of pages of the page set."
+  identity runs pages)
+
+(defvar-local wf-service--history-state nil
+  "The `wf-service--history' of this service history buffer.")
+
+(defvar-keymap wf-service-history-mode-map
+  :doc "The keys of a service history buffer."
+  :parent tabulated-list-mode-map
+  "RET" #'wf-service-history-open
+  "g" #'wf-service-history-refresh)
+
+(define-derived-mode wf-service-history-mode tabulated-list-mode "wf-service-history"
+  "Browse every run of the run collection of the manager.
+The rows are in the order of the collection, managed runs and legacy
+entries alike.  `wf-service-history-open' opens the run view of a row,
+and `wf-service-history-refresh' reads the collection again.  Each row
+keeps the reference of the endpoint that listed it, and a row is never
+opened on another endpoint.
+
+\\{wf-service-history-mode-map}"
+  (setq tabulated-list-format [("Run" 54 nil) ("Workflow" 20 nil) ("Profile" 12 nil)
+                               ("Status" 18 nil) ("Supervision" 34 nil)
+                               ("Lineage" 24 nil) ("Result" 12 nil)]
+        tabulated-list-sort-key nil)
+  (tabulated-list-init-header))
+
+(defun wf-service-history-row (run)
+  "Return the columns of the `wf-manager-run' RUN in a service history.
+The columns are the run, the workflow, the profile, the runtime status,
+the supervision, the lineage and the verification of the result.  A
+legacy entry has the supervision `observer' and is labelled as a
+read-only observer entry."
+  (let ((content (wf-manager-run-content run)))
+    (if (wf-manager-unreadable-run-p content)
+        (vector (wf-manager-run-id run) "" (wf-manager-run-profile-id run)
+                (format "unreadable (%s)" (wf-manager-unreadable-run-category content))
+                "" "" "")
+      (let ((runtime (wf-manager-known-run-runtime content))
+            (supervision (wf-manager-known-run-supervision content))
+            (parent (wf-manager-known-run-parent-run-id content)))
+        (vector (wf-manager-run-id run)
+                (wf-manager-known-run-workflow-id content)
+                (wf-manager-run-profile-id run)
+                (if runtime (wf-manager-run-runtime-status runtime) "no runtime evidence")
+                (if (equal supervision "observer")
+                    "observer (legacy entry, read only)"
+                  supervision)
+                (if (and parent (wf-manager-known-run-lineage content))
+                    (format "%s of %s" (wf-manager-known-run-lineage content) parent)
+                  "root")
+                (wf-manager-verification-state
+                 (wf-manager-known-run-verification content)))))))
+
+(defun wf-service-history-observers (history)
+  "Return the number of the legacy observer entries of HISTORY."
+  (cl-count-if (lambda (run)
+                 (let ((content (wf-manager-run-content run)))
+                   (and (wf-manager-known-run-p content)
+                        (equal (wf-manager-known-run-supervision content) "observer"))))
+               (wf-service--history-runs history)))
+
+(defun wf-service--history-load (session)
+  "Read every page of the run collection on SESSION and draw this history.
+Each row keeps the `wf-manager-reference' of its run on the binding of
+SESSION.  A failure refuses and keeps the earlier rows."
+  (let* ((set (wf-service--page-set session "/v1/runs" "run history"))
+         (runs (mapcar (lambda (item)
+                         (wf-service--decode #'wf-manager-decode-run item "run history"))
+                       (wf-manager-page-set-items set)))
+         (history (wf-service--history-make
+                   :identity (wf-manager-session-identity session) :runs runs
+                   :pages (wf-manager-page-set-pages set))))
+    (setq wf-service--history-state history
+          tabulated-list-entries
+          (mapcar (lambda (run)
+                    (list (cons (wf-manager-session-reference
+                                 session (concat "/v1/runs/" (wf-manager-run-id run)))
+                                run)
+                          (wf-service-history-row run)))
+                  runs))
+    (tabulated-list-print t)
+    (message "wf: history of %d managed runs and %d observer entries over %d pages"
+             (- (length runs) (wf-service-history-observers history))
+             (wf-service-history-observers history) (wf-service--history-pages history))))
+
+(defun wf-service--history ()
+  "Show every run of the run collection of the manager in a new history.
+The buffer of `wf-service-history-mode' lists the runs over every page
+of the collection, in its order.  A failure refuses and shows no
+buffer."
+  (let ((session (wf-service--session))
+        (buffer (generate-new-buffer "*wf service history*"))
+        (shown nil))
+    (unwind-protect
+        (progn
+          (with-current-buffer buffer
+            (wf-service-history-mode)
+            (wf-service--history-load session))
+          (setq shown t))
+      (unless shown (kill-buffer buffer)))
+    (pop-to-buffer buffer)
+    buffer))
+
+(defun wf-service--history-here ()
+  "Return the `wf-service--history' of this buffer, or refuse."
+  (unless (and (derived-mode-p 'wf-service-history-mode) wf-service--history-state)
+    (user-error "This buffer is not a service history.  Open one with `wf-history'"))
+  wf-service--history-state)
+
+(defun wf-service-history-refresh ()
+  "Read every page of the run collection again and draw this history again.
+The history is read only on the endpoint that listed it.  When service
+mode is bound to another endpoint, the command refuses and reads
+nothing."
+  (interactive)
+  (let ((history (wf-service--history-here))
+        (session (wf-service--session)))
+    (unless (equal (wf-service--history-identity history)
+                   (wf-manager-session-identity session))
+      (user-error "%s" (wf-service--problem
+                        (format "This history lists the runs of endpoint %s, and service mode is bound to endpoint %s.  Nothing was read"
+                                (wf-service--history-identity history)
+                                (wf-manager-session-identity session)))))
+    (wf-service--history-load session)))
+
+(defun wf-service-history-open ()
+  "Open the run view of the history row at point.
+The command reads the run with the reference that the row keeps, and
+it then opens the view of the run with `wf-service-open-view'.  A
+reference of another endpoint refuses with `wf-manager-wrong-endpoint'
+and sends nothing, so the row is never opened on another endpoint."
+  (interactive)
+  (wf-service--history-here)
+  (let ((entry (tabulated-list-get-id)))
+    (unless entry
+      (user-error "Select a run of the history"))
+    (pcase-let* ((`(,reference . ,run) entry)
+                 (session (wf-service--session))
+                 (reply (wf-service--await
+                         (lambda (callback)
+                           (wf-manager-session-read session reference callback)
+                           nil))))
+      (when (wf-manager-failure-p reply)
+        (wf-service--refuse (format "The history row of run %s cannot be opened"
+                                    (wf-manager-run-id run))
+                            reply))
+      (wf-service-open-view session (wf-manager-run-id run)))))
 
 
 ;;; Diagnostics

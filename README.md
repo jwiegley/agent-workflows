@@ -495,7 +495,11 @@ to the size and digest of its verified download, and a view kill and the
 function of `kill-emacs-hook` that send nothing. The answer tests require
 the answer `no` as JSON `false` with the entity tag of the decision, a 412
 refusal that keeps and reports the draft and sends nothing again, and an
-uncertain answer that one read of the run snapshot reconciles. The
+uncertain answer that one read of the run snapshot reconciles. The result
+and history tests require the exact bytes of a saved result with mode 0600
+and a refusal of a second save to the same file, a history of every page of
+the run collection in its order, and a refusal of a history row of another
+endpoint that sends nothing. The
 human/control fixture and
 the vector file are explicit dependencies, not developer-specific paths or
 skipped tests. The pinned agent-cat source of the development shell does not
@@ -583,6 +587,17 @@ after the kill, and it then drives both runs to their terminal success. The
 view of the first run must end with the Terminal line and the Result lines of
 the verified result that the harness downloads, and the function of
 `kill-emacs-hook` must close the transport with no command. The
+mode also fills a local retention root with 300 legacy entries, which the
+manager serves through `--legacy-history`, and issues a third credential. The
+history step lists every run with `M-x wf-history`, and the harness requires
+the run identifiers of every page of `/v1/runs`, over at least two pages and
+in the order of the collection. `RET` on the row of the answered run opens its
+view, and `r` there saves the verified result to a new file. The harness
+requires the bytes, the size and the SHA-256 digest of its own download and
+the mode 0600, and a second save to the same file must refuse. After the
+switch of the session to the profile of the third credential, `RET` on the
+same row must refuse, and no read and no view of the run may follow on the
+new binding. The
 check writes a report whose `harnessVersion` field is
 `wf-manager-live-harness-version`. The mode refuses a report of another
 version with one sentence, so a mismatched pair of the two repositories fails
@@ -687,7 +702,10 @@ for it:
 | `wf-refresh` | In a setup form of service mode, read the request of the form again and draw the form again with every draft. Elsewhere, show a message and send nothing, because service mode keeps no row listing. |
 | `wf-control` | Send one control of a run of the manager that the controls of the run offer (see [Service controls](#service-controls)). In a service run view, the run is the run of the view. Elsewhere, the command asks for one run that the session knows. |
 | `wf-kill` | Cancel a run of the manager after a confirmation, when its controls allow a cancel. The run is chosen as for `wf-control`. |
-| `wf-result`, `wf-history`, `wf-history-refresh`, `wf-history-open`, `wf-restart`, `wf-resume`, `wf-fork`, `wf-fork-submit`, `wf-rerun` | Refuse with the message "COMMAND is not yet available in service mode". |
+| `wf-result` | Save the verified result of a run of the manager to a new file (see [Service results and history](#service-results-and-history)). In a service run view, the run is the run of the view. Elsewhere, the command asks for one run that the session knows. |
+| `wf-history` | List every run of `/v1/runs` over every page in a new buffer `*wf service history*` of `wf-service-history-mode` (see [Service results and history](#service-results-and-history)). |
+| `wf-history-refresh`, `wf-history-open` | In a service history buffer, read the run collection again, or open the run view of the row at point. Elsewhere, refuse with a message. |
+| `wf-restart`, `wf-resume`, `wf-fork`, `wf-fork-submit`, `wf-rerun` | Refuse with the message "COMMAND is not yet available in service mode". |
 | `wf-plan`, `wf-cost` | Refuse with the message "COMMAND works only in local mode.  In service mode, use the review of `wf-run` instead". |
 | `wf-lineage-compare`, `wf-observer-result`, `wf-observer-refresh` | Refuse with the message "COMMAND works only in local mode.  Service mode has no equivalent". |
 
@@ -797,6 +815,38 @@ The kill of a run view stops the watches of its resources and sends no
 command, so the run continues. The kill of any other buffer, the answer editor
 included, sends no command. The function `wf-service--kill-emacs` of
 `kill-emacs-hook` closes the session and its transport and sends no command.
+
+#### Service results and history
+
+`r` in a service run view runs `wf-result`. The command reads the outputs of
+the run with `GET /v1/runs/{id}/outputs` and selects the result whose
+verification is `verified` and names its artifact. It downloads that artifact
+with the verified download of the session, which requires the stated size and
+SHA-256 digest. It then asks for the name of a new file and saves the exact
+bytes there, with no coding conversion and with mode 0600. The creation is
+exclusive: when the file exists, a directory included, the save refuses and
+the file stays as it is, so a second save to the same file refuses. A run
+with no verified result refuses. The command sends no command to the
+manager.
+
+`M-x wf-history`, and `H` in a service run view, open a new buffer
+`*wf service history*` of `wf-service-history-mode`. The buffer lists every
+run of `/v1/runs` over every page of the collection, in the order of the
+collection, managed runs and legacy entries alike. The columns are the run,
+the workflow, the profile, the runtime status, the supervision, the lineage
+and the verification of the result. A legacy entry has the supervision
+`observer (legacy entry, read only)`. The keys are these:
+
+| Key | Behavior |
+| --- | --- |
+| `RET` | Read the run of the row with the reference that the row keeps, and open the service run view of the run. |
+| `g` | Read every page of `/v1/runs` again and draw the rows again. |
+
+Each row keeps the reference of its run on the binding that listed it. After
+a switch of service mode to another endpoint, `RET` on such a row refuses
+with `wf-manager-wrong-endpoint` and sends nothing, and `g` refuses and reads
+nothing. A row is never opened on another endpoint. In local mode,
+`wf-history` and the observer read the local stores as before.
 
 #### Service controls
 

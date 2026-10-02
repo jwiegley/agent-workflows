@@ -2923,7 +2923,7 @@ not in the list."
             (should (string-match-p "review of .wf-run" (wf-service-refusal 'wf-plan)))
             (should (string-match-p "review of .wf-run" (wf-service-refusal 'wf-cost)))
             (should (string-match-p "no equivalent" (wf-service-refusal 'wf-lineage-compare)))
-            (should (string-match-p "not yet available" (wf-service-refusal 'wf-result)))
+            (should (string-match-p "not yet available" (wf-service-refusal 'wf-restart)))
             ;; A service command with no session refuses before any read.
             (should-error (call-interactively 'wf-diagnostics) :type 'user-error)
             (should-error (call-interactively 'wf-run) :type 'user-error)
@@ -2931,6 +2931,8 @@ not in the list."
             (should-error (call-interactively 'wf-answer) :type 'user-error)
             (should-error (call-interactively 'wf-control) :type 'user-error)
             (should-error (call-interactively 'wf-kill) :type 'user-error)
+            (should-error (call-interactively 'wf-result) :type 'user-error)
+            (should-error (call-interactively 'wf-history) :type 'user-error)
             (should (null calls)))
         (dolist (advice advices)
           (advice-remove (car advice) (cdr advice)))))))
@@ -3357,6 +3359,158 @@ closes and the draft is gone."
        (should (= (wf-manager-tests--posts listener) 1))
        (should (= (wf-manager-tests--targets listener wf-manager-tests--run-snapshot-uri) 2))
        (should-not (wf-service-answer-draft (wf-manager-session-identity session) "decision_3"))))))
+
+;;;; Results and history
+
+(defun wf-manager-tests--outputs-response ()
+  "Return the outputs response of run_21 with the verified test artifact."
+  (wf-manager-tests--json
+   200 (concat "{\"version\":1,\"runId\":\"run_21\",\"items\":[{\"kind\":\"result\","
+               "\"verification\":{\"state\":\"verified\",\"artifactId\":\"artifact_1\"},"
+               "\"artifact\":{\"id\":\"artifact_1\",\"download\":\"/v1/artifacts/artifact_1\","
+               "\"bytes\":\"" (number-to-string (length wf-manager-tests--artifact))
+               "\",\"sha256\":\"" (secure-hash 'sha256 wf-manager-tests--artifact) "\"}}]}")))
+
+(defun wf-manager-tests--file-bytes (file)
+  "Return the exact bytes of FILE as a unibyte string."
+  (with-temp-buffer
+    (set-buffer-multibyte nil)
+    (insert-file-contents-literally file)
+    (buffer-string)))
+
+(ert-deftest wf-service-result-saves-exact-bytes-once ()
+  "`wf-result' saves the verified bytes unchanged to a new file with mode 0600.
+A second save to the same file refuses, and the file stays as it is.
+Neither save sends a command."
+  (let* ((directory (make-temp-file "wf-result-" t))
+         (file (expand-file-name "result.bin" directory)))
+    (unwind-protect
+        (wf-manager-tests--with-view
+         (list "/v1/runs/run_21/outputs" (list (wf-manager-tests--outputs-response))
+               "/v1/artifacts/artifact_1" (list (wf-manager-tests--artifact-response)))
+         (lambda (listener session)
+           (let ((view (generate-new-buffer " *wf result test*")))
+             (unwind-protect
+                 (with-current-buffer view
+                   (setq-local wf-service--view-state
+                               (wf-service--view-make :session session :run "run_21"))
+                   (cl-letf (((symbol-function 'read-file-name) (lambda (&rest _) file)))
+                     (should (equal (call-interactively #'wf-result) nil))
+                     (should (equal (wf-manager-tests--file-bytes file) wf-manager-tests--artifact))
+                     (should (= (file-modes file) #o600))
+                     (should (= (file-attribute-size (file-attributes file))
+                                (length wf-manager-tests--artifact)))
+                     (let ((refusal (should-error (call-interactively #'wf-result)
+                                                  :type 'user-error)))
+                       (should (string-search "exists, so the result was not saved"
+                                              (cadr refusal))))
+                     (should (equal (wf-manager-tests--file-bytes file)
+                                    wf-manager-tests--artifact))
+                     (should (= (file-modes file) #o600))))
+               (kill-buffer view))
+             (should (= (wf-manager-tests--targets listener "/v1/runs/run_21/outputs") 2))
+             (should (= (wf-manager-tests--posts listener) 0)))))
+      (delete-directory directory t))))
+
+(defun wf-manager-tests--run-json (case id)
+  "Return the JSON text of the run vector CASE with the identifier ID."
+  (string-replace "run_21" id (wf-manager-tests--vector-json "resources.runs" case)))
+
+(defun wf-manager-tests--runs-page (index next &rest runs)
+  "Return the response of page INDEX of a run page set of four items.
+NEXT is the next page or nil, and RUNS are the JSON texts of the items."
+  (wf-manager-tests--json
+   200 (concat "{\"version\":1,\"page\":{\"setId\":\"set_r\",\"revision\":\"rev_r\","
+               "\"expiresAt\":\"2999-01-01T00:00:00Z\",\"index\":" (number-to-string index)
+               ",\"totalItems\":4,\"next\":" (if next (concat "\"" next "\"") "null")
+               "},\"items\":[" (string-join runs ",") "]}")))
+
+(defun wf-manager-tests--history-ids (buffer)
+  "Return the run identifiers of the rows of the history BUFFER, top first."
+  (with-current-buffer buffer
+    (save-excursion
+      (goto-char (point-min))
+      (let ((ids nil))
+        (while (not (eobp))
+          (let ((entry (tabulated-list-get-id)))
+            (when entry (push (wf-manager-run-id (cdr entry)) ids)))
+          (forward-line 1))
+        (nreverse ids)))))
+
+(ert-deftest wf-service-history-lists-pages-and-keeps-the-endpoint ()
+  "`wf-history' lists every run over every page in the order of the collection.
+RET opens the view of a row with the reference of the row.  A row whose
+reference names another endpoint refuses and sends nothing, and so
+does a refresh of a history of another endpoint."
+  (wf-manager-tests--with-view
+   (list "/v1/runs"
+         (list (wf-manager-tests--runs-page
+                0 "/v1/runs?pageToken=p1"
+                (wf-manager-tests--vector-json
+                 "resources.runs" "managed run with lost supervision keeps a sequence beyond 2^53")
+                (wf-manager-tests--run-json "legacy entry keeps null runtime and request"
+                                            "run_legacy")))
+         "/v1/runs?pageToken=p1"
+         (list (wf-manager-tests--runs-page
+                1 nil
+                (wf-manager-tests--run-json
+                 "fork run keeps sequence 2^64-1 and an unavailable result" "run_fork")
+                (wf-manager-tests--vector-json "resources.runs" "unreadable manifest entry")))
+         "/v1/runs/run_21"
+         (list (wf-manager-tests--json
+                200 (wf-manager-tests--vector-json
+                     "resources.runs"
+                     "managed run with lost supervision keeps a sequence beyond 2^53"))))
+   (lambda (listener session)
+     (let ((history (progn (call-interactively #'wf-history) (current-buffer)))
+           (identity (wf-manager-session-identity session)))
+       (unwind-protect
+           (progn
+             (should (eq (buffer-local-value 'major-mode history) 'wf-service-history-mode))
+             (should (equal (wf-manager-tests--history-ids history)
+                            '("run_21" "run_legacy" "run_fork" "run_unreadable")))
+             (with-current-buffer history
+               (should (= (wf-service--history-pages wf-service--history-state) 2))
+               (should (= (wf-service-history-observers wf-service--history-state) 1))
+               (should (equal (mapcar (lambda (entry) (append (cadr entry) nil))
+                                      tabulated-list-entries)
+                              '(("run_21" "wf_review" "profile_main" "running" "lost" "root" "absent")
+                                ("run_legacy" "wf_review" "profile_main" "no runtime evidence"
+                                 "observer (legacy entry, read only)" "root" "verified")
+                                ("run_fork" "wf_review" "profile_main" "succeeded"
+                                 "cleanup-pending" "fork of run_20" "unavailable")
+                                ("run_unreadable" "" "profile_main"
+                                 "unreadable (malformed-manifest)" "" "" ""))))
+               (should (eq (lookup-key wf-service-history-mode-map (kbd "RET"))
+                           #'wf-service-history-open))
+               ;; RET on the first row opens the view of its run.
+               (goto-char (point-min))
+               (let ((view (wf-service-history-open)))
+                 (should (eq (gethash (cons identity "run_21") wf-service--views) view))
+                 ;; The read of the row, then the read of the watch of the view.
+                 (should (wf-manager-tests--wait
+                          (lambda () (= (wf-manager-tests--targets listener "/v1/runs/run_21") 2))))
+                 (kill-buffer view)
+                 ;; The open selected the view, so the history is made current again.
+                 (set-buffer history))
+               ;; A row of another endpoint refuses and reads nothing.
+               (let ((reads (wf-manager-tests--targets listener "/v1/runs/run_21")))
+                 (setf (car (car tabulated-list-entries))
+                       (cons (wf-manager-reference-make :endpoint "endpoint_other"
+                                                        :uri "/v1/runs/run_21")
+                             (cdr (car (car tabulated-list-entries)))))
+                 (tabulated-list-print t)
+                 (goto-char (point-min))
+                 (let ((refusal (should-error (wf-service-history-open) :type 'user-error)))
+                   (should (string-search "Reference of another endpoint" (cadr refusal))))
+                 (should-not (gethash (cons identity "run_21") wf-service--views))
+                 (setf (wf-service--history-identity wf-service--history-state) "endpoint_other")
+                 (let ((refusal (should-error (wf-service-history-refresh) :type 'user-error)))
+                   (should (string-search "Nothing was read" (cadr refusal))))
+                 (should (= (wf-manager-tests--targets listener "/v1/runs/run_21") reads))
+                 (should (= (wf-manager-tests--targets listener "/v1/runs") 1))))
+             (should (= (wf-manager-tests--posts listener) 0)))
+         (kill-buffer history))))))
 
 ;;;; Controls
 

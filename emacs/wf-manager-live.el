@@ -14,9 +14,11 @@
 ;; its mixed fixture, issues two client credentials with the scopes
 ;; observe, submit, control and export and writes the version 1 client
 ;; profile of each.  It also writes a third profile with the second
-;; credential, whose endpoint names a local port with no listener.  It
-;; then runs this file in a batch Emacs with an isolated home directory
-;; and `user-emacs-directory':
+;; credential, whose endpoint names a local port with no listener, and
+;; it issues a third credential with its own profile.  It fills a local
+;; retention root with legacy entries, which the manager serves in
+;; /v1/runs through --legacy-history.  It then runs this file in a batch
+;; Emacs with an isolated home directory and `user-emacs-directory':
 ;;
 ;;     WF_MANAGER_PROFILE=/path/to/client-profile.json \
 ;;     WF_MANAGER_SECOND_PROFILE=/path/to/second-profile.json \
@@ -28,11 +30,13 @@
 ;;     WF_MANAGER_DOWNLOAD=/path/to/download.bin \
 ;;     WF_MANAGER_ANSWER=/path/to/answer.json \
 ;;     WF_MANAGER_DRIVE=/path/to/drive.json \
+;;     WF_MANAGER_THIRD_PROFILE=/path/to/third-profile.json \
+;;     WF_MANAGER_RESULT=/path/to/saved-result.bin \
 ;;       "$EMACS" -Q --batch -L ./emacs -l wf-manager-live \
 ;;       --eval '(ert-run-tests-batch-and-exit "wf-manager-live-session")'
 ;;
 ;; `ci/emacs.sh' compiles and checks this file, and it does not run it.
-;; The test `wf-manager-live-session' runs these fourteen steps in order:
+;; The test `wf-manager-live-session' runs these fifteen steps in order:
 ;;
 ;;   1. bind: `wf-manager-connect' binds a transport by GET
 ;;      /v1/capabilities over TLS, with the CA file of the profile as the
@@ -156,6 +160,20 @@
 ;;      must then end with the Terminal and Result lines of its verified
 ;;      result.  The function `wf-service--kill-emacs' of
 ;;      `kill-emacs-hook' closes the session, and no command follows.
+;;  15. history: the keys select the profile of WF_MANAGER_PROFILE again,
+;;      with the profile of WF_MANAGER_THIRD_PROFILE as the second item
+;;      of `wf-manager-profiles'.  M-x wf-history lists every run of
+;;      /v1/runs over every page, the legacy entries included, and the
+;;      test keeps the run of each row in order.  RET on the row of the
+;;      answered run of the views step opens its run view.  \`r' in the
+;;      view runs `wf-result', which saves the verified result to the new
+;;      file that WF_MANAGER_RESULT names.  A second \`r' to the same file
+;;      refuses, and the file keeps its bytes.  The test kills the view
+;;      and switches the session to the profile of
+;;      WF_MANAGER_THIRD_PROFILE with M-x wf-service.  RET on the same row
+;;      of the history then refuses, the session opens no view of the run
+;;      on the new binding, and no read names the run.  M-x wf-local then
+;;      closes the session.
 ;;
 ;; No step before the service step may prompt.  Each prompt function of
 ;; `wf-manager-live--prompt-functions' counts a call and signals an
@@ -272,6 +290,21 @@
 ;;   requestCommands   each command of the requests step in order, with
 ;;                     its resource, media type, If-Match and body.  A
 ;;                     capture body is its byte count and SHA-256 digest.
+;;   historyIdentity   the endpoint identity of the history step
+;;   historyRuns       the run of each row of the history, top first
+;;   historyPages      the number of pages of the history page set
+;;   historyObservers  the number of its legacy observer entries
+;;   historyViewLines  the lines of the view that RET opened
+;;   resultFile, resultBytes, resultSha256, resultMode
+;;                     the saved file, its size, its SHA-256 digest and
+;;                     its mode in octal
+;;   resultRefusal     the refusal of the second save
+;;   resultKept        true when the file kept its bytes after it
+;;   historySwitchIdentity  the endpoint identity after the switch
+;;   historyForeignRefusal  the refusal of RET after the switch
+;;   historyForeignReads    the reads after the switch that name the run
+;;   historyForeignView     true when the session opened a view of the run
+;;                     on the new binding
 ;;
 ;; The harness compares `harnessVersion' with its own constant and
 ;; refuses a report of another version, so that a mismatched pair of the
@@ -359,7 +392,7 @@
 (require 'wf-manager)
 (require 'wf-service)
 
-(defconst wf-manager-live-harness-version 8
+(defconst wf-manager-live-harness-version 9
   "The version of the report of this file.
 The emacs-client mode of agent-cat states the same version.")
 
@@ -1481,6 +1514,122 @@ the answers and the sent commands in REPORT."
       (when wf-service--current
         (wf-local)))))
 
+;;;; The history step
+
+(defun wf-manager-live--history-ids (buffer)
+  "Return the run identifiers of the rows of the history BUFFER, top first."
+  (with-current-buffer buffer
+    (save-excursion
+      (goto-char (point-min))
+      (let ((ids nil))
+        (while (not (eobp))
+          (let ((entry (tabulated-list-get-id)))
+            (when entry (push (wf-manager-run-id (cdr entry)) ids)))
+          (forward-line 1))
+        (nreverse ids)))))
+
+(defun wf-manager-live--history-row (buffer run)
+  "Select the history BUFFER and move point to the row of RUN."
+  (pop-to-buffer buffer)
+  (goto-char (point-min))
+  (while (and (not (eobp))
+              (let ((entry (tabulated-list-get-id)))
+                (not (and entry (equal (wf-manager-run-id (cdr entry)) run)))))
+    (forward-line 1))
+  (should (equal (wf-manager-run-id (cdr (tabulated-list-get-id))) run)))
+
+(defun wf-manager-live--history (file third result-file report)
+  "Drive the history step: the result, the history and another endpoint.
+FILE is the client profile file and THIRD the profile of another
+credential of the same manager.  RESULT-FILE is the new file of the
+saved result.  Record the history, the saved result and the refusal of
+the row of the other endpoint in REPORT."
+  (let ((wf-manager-profiles (list file third))
+        (suggest-key-bindings nil)
+        (extended-command-suggest-shorter nil)
+        (run (gethash "answeredRunId" report))
+        (reads nil))
+    (let ((record (lambda (_transport resource &rest _) (push resource reads))))
+      (unwind-protect
+          (progn
+            (should-not (wf-manager-live--keys "M-x wf-service RET" (vconcat file) "RET"))
+            (let* ((session (wf-service--state-session wf-service--current))
+                   (identity (wf-manager-session-identity session)))
+              (should-not (wf-manager-live--keys "M-x wf-history RET"))
+              (let* ((history (window-buffer (selected-window)))
+                     (state (buffer-local-value 'wf-service--history-state history)))
+                (should (eq (buffer-local-value 'major-mode history) 'wf-service-history-mode))
+                (puthash "historyIdentity" identity report)
+                (puthash "historyRuns" (vconcat (wf-manager-live--history-ids history)) report)
+                (puthash "historyPages"
+                         (wf-manager-live--integer (wf-service--history-pages state)) report)
+                (puthash "historyObservers"
+                         (wf-manager-live--integer (wf-service-history-observers state)) report)
+                ;; RET on the row of the answered run opens its view.
+                (wf-manager-live--history-row history run)
+                (should-not (wf-manager-live--keys "RET"))
+                (let ((view (gethash (cons identity run) wf-service--views)))
+                  (should (buffer-live-p view))
+                  (should (eq (window-buffer (selected-window)) view))
+                  (puthash "historyViewLines" (wf-manager-live--final view "Terminal: succeeded")
+                           report)
+                  ;; The key r in the view saves the verified result to a new file.
+                  (should-not (wf-manager-live--keys "r C-a C-k" (vconcat result-file) "RET"))
+                  (let ((bytes (with-temp-buffer
+                                 (set-buffer-multibyte nil)
+                                 (insert-file-contents-literally result-file)
+                                 (buffer-string))))
+                    (puthash "resultFile" result-file report)
+                    (puthash "resultBytes" (wf-manager-live--integer (length bytes)) report)
+                    (puthash "resultSha256" (secure-hash 'sha256 bytes) report)
+                    (puthash "resultMode" (format "%o" (file-modes result-file)) report)
+                    ;; A second save to the same file refuses.
+                    (pop-to-buffer view)
+                    (let ((refusal (wf-manager-live--keys "r C-a C-k" (vconcat result-file) "RET")))
+                      (puthash "resultRefusal" (or refusal :null) report)
+                      (should (stringp refusal)))
+                    (puthash "resultKept"
+                             (if (equal (secure-hash 'sha256 bytes)
+                                        (secure-hash 'sha256 (with-temp-buffer
+                                                               (set-buffer-multibyte nil)
+                                                               (insert-file-contents-literally
+                                                                result-file)
+                                                               (buffer-string))))
+                                 t :false)
+                             report))
+                  ;; The view watches its run on this binding, so it closes
+                  ;; before the switch.
+                  (kill-buffer view))
+                ;; The switch to the profile of another credential.
+                (should-not (wf-manager-live--keys "M-x wf-service RET" (vconcat third) "RET"))
+                (puthash "historySwitchIdentity" (wf-manager-session-identity session) report)
+                (should-not (equal (wf-manager-session-identity session) identity))
+                (wf-manager-live--history-row history run)
+                (advice-add 'wf-manager-get :before record)
+                (advice-add 'wf-manager-download :before record)
+                (let ((refusal (wf-manager-live--keys "RET"))
+                      (polls (wf-manager-session-polls session)))
+                  (should (wf-manager-live--wait
+                           (lambda () (>= (wf-manager-session-polls session) (+ polls 2)))))
+                  (puthash "historyForeignRefusal" (or refusal :null) report)
+                  (puthash "historyForeignReads"
+                           (vconcat (cl-remove-if-not (lambda (resource) (string-search run resource))
+                                                      reads))
+                           report)
+                  (puthash "historyForeignView"
+                           (if (gethash (cons (wf-manager-session-identity session) run)
+                                        wf-service--views)
+                               t :false)
+                           report)
+                  (should (stringp refusal))
+                  (should-not (gethash (cons (wf-manager-session-identity session) run)
+                                       wf-service--views))))
+              (should-not (wf-manager-live--keys "M-x wf-local RET"))))
+        (advice-remove 'wf-manager-get record)
+        (advice-remove 'wf-manager-download record)
+        (when wf-service--current
+          (wf-local))))))
+
 ;;;; The controls check
 
 (defconst wf-manager-live-steer-text "Emacs steer λ: focus on the patch."
@@ -1690,7 +1839,7 @@ completed steps."
     (write-region (wf-manager-json-encode value) nil file nil 'silent)))
 
 (ert-deftest wf-manager-live-session ()
-  "Run the fourteen steps of one live session against the manager."
+  "Run the fifteen steps of one live session against the manager."
   (let* ((profile (wf-manager-profile-load
                    (wf-manager-live--variable "WF_MANAGER_PROFILE")))
          (second (wf-manager-profile-load
@@ -1704,6 +1853,8 @@ completed steps."
          (download-file (wf-manager-live--variable "WF_MANAGER_DOWNLOAD"))
          (answer-file (wf-manager-live--variable "WF_MANAGER_ANSWER"))
          (drive-file (wf-manager-live--variable "WF_MANAGER_DRIVE"))
+         (third-file (wf-manager-live--variable "WF_MANAGER_THIRD_PROFILE"))
+         (result-file (wf-manager-live--variable "WF_MANAGER_RESULT"))
          (report (wf-manager-json-object
                   "harnessVersion"
                   (wf-manager-live--integer wf-manager-live-harness-version)))
@@ -1756,7 +1907,10 @@ completed steps."
               (push "requests" steps)
               (wf-manager-live--views (wf-manager-live--variable "WF_MANAGER_PROFILE")
                                       answer-file drive-file report)
-              (push "views" steps))))
+              (push "views" steps)
+              (wf-manager-live--history (wf-manager-live--variable "WF_MANAGER_PROFILE")
+                                        third-file result-file report)
+              (push "history" steps))))
       (dolist (function wf-manager-live--prompt-functions)
         (advice-remove function #'wf-manager-live--prompted))
       (puthash "prompts" (wf-manager-live--integer wf-manager-live--prompts) report)

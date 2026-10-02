@@ -111,7 +111,7 @@ emacs/wf-manager-live.el   live checks of the transport and of service mode, run
 ci/emacs-ui.py          isolated Emacs PTY, resize and window acceptance, the
                         service journey of the emacs-service modes, the
                         service lifecycle of the emacs-service-lifecycle mode
-                        and the observer of the cross-client mode
+                        and the Emacs client of the three cross-client modes
 ci/emacs-tramp.py       loopback SSH/TRAMP, typed controls and lineage acceptance
 ```
 
@@ -815,6 +815,15 @@ resource in the act of the control. The mode checks each control against the
 command receipts, the coordination database, `events.ndjson` and the run log,
 and it requires that the session sent only these three controls, each once.
 
+Emacs takes part in the three modes of the cross-client witness of
+`manager/test/service_http.py`: `cross-client`, with its control
+`cross-client-broken-answer`, `cross-client-lifecycle` and
+`cross-client-lineage`. In each mode the TUI, Pi and Emacs act on one
+manager, each with its own credential and client identifier. The witness is
+local single-machine evidence. The manager, the three clients and the harness
+run on one machine, so the witness is not evidence of clients on other
+machines.
+
 With `--service-case witness`, the script is the Emacs client of the
 cross-client witness. The `cross-client` mode of
 `manager/test/service_http.py` runs it against one manager with three client
@@ -899,6 +908,30 @@ requires that the first session sent no command, that the views after each
 restart offer no cancel, that the view of the second run sent nothing
 across the manager loss, and that the one answer of the second session is
 from the rotated credential.
+
+With `--service-case witness-lineage`, the script is the Emacs client of the
+`cross-client-lineage` mode of `manager/test/service_http.py`. The harness
+settles two parent runs, the TUI forks the first parent with one
+replacement, and Pi approves the exact review of the fork child. The script
+then starts `Emacs -Q -nw` at 80×24 with the client profile of the Emacs
+credential and acts only by keys:
+
+1. `M-x wf-service` selects the profile. The handshake `lineage-ready` names
+   the parent run and the run of the fork child.
+2. `M-x wf-history` lists every page of the runs.
+3. `RET` on the row of the parent opens its view, which shows `Lineage:
+   root` and terminal success.
+4. `M-x wf-history` again and `RET` on the row of the child open its view,
+   which shows `Lineage: fork of run PARENT`, terminal success and the
+   SHA-256 of the verified result.
+5. `M-x wf-local` closes the session, and `C-x C-c` ends Emacs.
+
+The report has version 1. It holds the process identifier of Emacs, the runs
+and the pages of the history, the lines of the two views, the commands of the
+session and the exit status and terminal attributes of Emacs. The mode
+requires that the history rows equal every page of `/v1/runs` in order, that
+the session sent no command, and that the SHA-256 of the child view is the
+SHA-256 of the verified download of the harness.
 
 The SSH/TRAMP gate starts an unprivileged server bound only to `127.0.0.1`,
 with temporary host and client keys, strict host-key checking, public-key-only
@@ -1046,15 +1079,18 @@ never takes the window of another view.
 The view shows these lines in order:
 
 1. The run and its workflow.
-2. The endpoint identity, the delivery state and the freshness of the
+2. The lineage of the run. A lineage child shows `Lineage: OPERATION of run
+   PARENT`, for example `Lineage: fork of run run_20`, and a root run shows
+   `Lineage: root`.
+3. The endpoint identity, the delivery state and the freshness of the
    observation.
-3. The runtime status of the snapshot, the supervision and the verification
+4. The runtime status of the snapshot, the supervision and the verification
    of the run, each on its own line.
-4. The pending decisions of the queue, with the head first. A question line
+5. The pending decisions of the queue, with the head first. A question line
    names its code and its prompt, and a recovery line names its gap, its
    message and its choices.
-5. The offered controls, with `cancel` when the controls allow a cancel.
-6. The Terminal line and the Result lines. A run that has not ended shows
+6. The offered controls, with `cancel` when the controls allow a cancel.
+7. The Terminal line and the Result lines. A run that has not ended shows
    `Terminal: not yet` and no result. A succeeded run whose snapshot names a
    referenced or verified result reads the outputs of the run, downloads the
    verified result once with the verified download of the session, and shows

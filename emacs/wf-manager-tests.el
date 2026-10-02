@@ -3141,6 +3141,7 @@ offer an answer, and the queue holds the flag question at its head."
                 (wf-manager-tests--view
                  "{\"runtime\":{\"status\":\"running\"},\"workflow\":\"review λ\"}" nil))))
     (should (equal (car lines) "Service run run_21, workflow review λ"))
+    (should (equal (cadr lines) "Lineage: root"))
     (dolist (line '("Endpoint identity: endpoint_1" "Delivery: poll" "Observation: current"
                     "Runtime: running" "Supervision: lost" "Verification: absent"
                     "Decisions: 1 pending"
@@ -3166,6 +3167,18 @@ offer an answer, and the queue holds the flag question at its head."
                        3)
                  '("Terminal: failed" "Failure: transport: gap end"
                    "Result: no download for a run that did not succeed"))))
+
+(ert-deftest wf-service-view-lines-state-the-lineage ()
+  "A run view of a lineage child names its operation and its parent run."
+  (let ((view (wf-manager-tests--view "{\"runtime\":{\"status\":\"succeeded\"}}" nil)))
+    (setf (alist-get 'run (wf-service--view-kept view))
+          (wf-manager-decode-run
+           (wf-manager-tests--resource
+            "resources.runs" "fork run keeps sequence 2^64-1 and an unavailable result")))
+    (should (equal (cadr (wf-service-view-lines view)) "Lineage: fork of run run_20")))
+  (let ((view (wf-manager-tests--view "{}" nil)))
+    (setf (alist-get 'run (wf-service--view-kept view) nil 'remove) nil)
+    (should (equal (cadr (wf-service-view-lines view)) "Lineage: not yet observed"))))
 
 (ert-deftest wf-service-runs-lists-local-and-service-runs ()
   "`wf-runs' in service mode offers the local sessions and the service runs."

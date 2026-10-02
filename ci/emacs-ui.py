@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise native Emacs widgets, windows, real scripted runs, and the service journey, lifecycle, controls, cross-client witness and its lifecycle in private PTYs."""
+"""Exercise native Emacs widgets, windows, real scripted runs, and the service journey, lifecycle, controls, cross-client witness, its lifecycle and its lineage in private PTYs."""
 from __future__ import annotations
 
 import argparse
@@ -1595,6 +1595,88 @@ def service_witness_lifecycle_case(args, directory: Path) -> None:
            laterExitStatus=later.ended["status"])
 
 
+# The version of the report of the lineage of the cross-client witness. The
+# cross-client-lineage mode of agent-cat manager/test/service_http.py
+# requires the same version.
+WITNESS_LINEAGE_REPORT_VERSION = 1
+
+
+def service_witness_lineage_case(args, directory: Path) -> None:
+    """List the history of runs of other clients and show a lineage child and
+    its parent, by keys at 80x24.
+
+    M-x wf-service selects the client profile. The harness that runs the
+    manager names a parent run and the run of its fork child in its answer
+    to the handshake lineage-ready. M-x wf-history lists every page of the
+    runs. RET on the row of the parent opens its view, which must show the
+    lineage line of a root run and terminal success. M-x wf-history again
+    and RET on the row of the child open its view, which must show the
+    lineage line of the fork of the parent, terminal success and the
+    SHA-256 of the verified result. M-x wf-local then closes the session,
+    and C-x C-c ends Emacs. The report records the process identifier of
+    Emacs, the runs and pages of the history, the lines of each view and
+    the commands of the session, and it is written again after each step."""
+    profile, report_path = Path(args.service[0]).resolve(), Path(args.service[1]).resolve()
+    handshake = args.service_handshake.resolve()
+    emacs_directory = args.source.resolve().parent
+    sources = [emacs_directory / name for name in ("wf.el", "wf-manager.el", "wf-service.el")]
+    report: dict = {"version": WITNESS_LINEAGE_REPORT_VERSION, "profile": str(profile), "steps": []}
+
+    def record(step: str, line: str, **facts) -> None:
+        report["steps"].append(step)
+        report.update(facts)
+        report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2))
+        print("PASS cross-client lineage keys " + step + ": " + line, flush=True)
+
+    def lines(state: dict, run: str) -> list:
+        view = service_view(state, run)
+        return view["lines"] if view else []
+
+    def history(label: str) -> dict:
+        since = len(session.state.get("messages", ""))
+        session.command("wf-history")
+        listed = session.wait(lambda state: state.get("mode") == "wf-service-history-mode"
+                              and service_said("wf: history of ", since)(state), label, 120)
+        return next(item for item in service_extra(listed)["histories"] if item["buffer"] == listed["buffer"])
+
+    session = Emacs(args.emacs, sources, directory, 80, 24, service_body(profile, directory))
+    success = False
+    try:
+        session.wait(lambda state: state.get("extra") is not None, "service-ready")
+        session.command("wf-service")
+        session.wait(lambda state: "Client profile" in state.get("minibuffer", ""), "profile-file-prompt")
+        session.send("\r")
+        session.wait(lambda state: service_extra(state).get("service") is True
+                     and "wf: service mode, endpoint" in state.get("messages", ""), "service-bound", 60)
+        record("1", "M-x wf-service selected the client profile " + str(profile) + " at 80x24", emacsPid=session.process.pid)
+        ready = service_handshake(session, handshake, "lineage-ready", {}, 300)
+        parent, child = ready["parent"], ready["child"]
+        listed = history("lineage-history")
+        record("2", "M-x wf-history listed " + str(len(listed["runs"])) + " runs over " + str(listed["pages"]) + " pages",
+               historyRuns=listed["runs"], historyPages=listed["pages"])
+        service_history_open(session, parent, "lineage-parent")
+        shown = session.wait(lambda state: "Lineage: root" in lines(state, parent)
+                             and "Terminal: succeeded" in lines(state, parent), "lineage-parent-root", 120)
+        record("3", "RET on the history row of run " + parent + " opened its view with the lineage line of a root run",
+               parentLines=lines(shown, parent))
+        history("lineage-history-again")
+        service_history_open(session, child, "lineage-child")
+        lineage = "Lineage: fork of run " + parent
+        shown = session.wait(lambda state: lineage in lines(state, child)
+                             and "Terminal: succeeded" in lines(state, child)
+                             and any(line.startswith("Result SHA-256: ") for line in lines(state, child)),
+                             "lineage-child-succeeded", 180)
+        record("4", "RET on the history row of run " + child + " opened its view, which showed " + lineage + " and terminal success",
+               childLines=lines(shown, child), sent=service_extra(shown).get("sent", []))
+        session.command("wf-local")
+        session.wait(lambda state: service_extra(state).get("service") is False, "local")
+        success = True
+    finally:
+        session.close(success)
+    record("5", "M-x wf-local closed the session, and C-x C-c ended Emacs with status 0 and the terminal attributes restored",
+           terminalBefore=session.before, terminalAfter=session.ended["attributes"], exitStatus=session.ended["status"])
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--emacs", default=os.environ.get("EMACS") or shutil.which("emacs"), required=False)
@@ -1606,15 +1688,17 @@ def main() -> None:
     parser.add_argument("--service", nargs=2, metavar=("PROFILE", "REPORT"),
                         help="run only the service journey with the client profile PROFILE and write its report to REPORT")
     parser.add_argument("--service-answer", default="false", help="the answer that the service journey types")
-    parser.add_argument("--service-case", choices=["journey", "lifecycle", "controls", "witness", "witness-lifecycle"], default="journey",
+    parser.add_argument("--service-case", choices=["journey", "lifecycle", "controls", "witness", "witness-lifecycle", "witness-lineage"],
+                        default="journey",
                         help="the service case that --service runs")
     parser.add_argument("--service-handshake", type=Path,
-                        help="the directory of the handshakes of the lifecycle, the controls or the witness with the harness that runs the manager")
+                        help="the directory of the handshakes of the lifecycle, the controls or a witness case with the harness that runs the manager")
     args = parser.parse_args()
     if args.service:
         if not args.emacs or not os.access(args.emacs, os.X_OK):
             parser.error("provide an executable emacs")
-        if args.service_case in ("lifecycle", "controls", "witness", "witness-lifecycle") and (not args.service_handshake or not args.service_handshake.is_dir()):
+        if args.service_case in ("lifecycle", "controls", "witness", "witness-lifecycle", "witness-lineage") \
+                and (not args.service_handshake or not args.service_handshake.is_dir()):
             parser.error(f"the {args.service_case} case needs --service-handshake, the directory of its handshakes with the harness")
         artifacts = args.artifacts or Path(tempfile.mkdtemp(prefix="wf-emacs-service-", dir="/tmp")).resolve()
         artifacts.mkdir(exist_ok=True)
@@ -1635,6 +1719,12 @@ def main() -> None:
                   "sent nothing, a second Emacs with the rotated credential showed it lost after the manager restart, "
                   "followed a second run across a manager loss to its lost supervision, answered a later question, and "
                   "terminal restoration", flush=True)
+            return
+        if args.service_case == "witness-lineage":
+            service_witness_lineage_case(args, artifacts / "witness-lineage")
+            print("PASS cross-client lineage by keys at 80x24: the history listed the runs of other clients, the view of a "
+                  "parent showed a root run, the view of its fork child showed its lineage and terminal success, and terminal "
+                  "restoration", flush=True)
             return
         if args.service_case == "witness":
             service_witness_case(args, artifacts / "witness")

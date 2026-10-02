@@ -1264,8 +1264,10 @@ read keeps the earlier value and records its failure."
 
 (defun wf-service-view-lines (view)
   "Return the lines of the run VIEW, a `wf-service--view'.
-The lines name the run and its workflow, the endpoint identity, the
-delivery state and the freshness of the observation.  The runtime
+The lines name the run and its workflow, the lineage of the run, the
+endpoint identity, the delivery state and the freshness of the
+observation.  The lineage line names the operation and the parent run
+of a lineage child, or states that the run is a root run.  The runtime
 status, the supervision, the verification, the pending decisions with
 the head first and the offered controls follow on separate lines.  The
 Terminal and Result lines end the list."
@@ -1287,6 +1289,15 @@ Terminal and Result lines end the list."
     (append
      (list (format "Service run %s%s" (wf-service--view-run view)
                    (if workflow (format ", workflow %s" workflow) ""))
+           (format "Lineage: %s"
+                   (cond ((and known (wf-manager-known-run-parent-run-id known)
+                               (wf-manager-known-run-lineage known))
+                          (format "%s of run %s" (wf-manager-known-run-lineage known)
+                                  (wf-manager-known-run-parent-run-id known)))
+                         (known "root")
+                         (content (format "unreadable (%s)"
+                                          (wf-manager-unreadable-run-category content)))
+                         (t "not yet observed")))
            (format "Endpoint identity: %s" (wf-service--view-identity view))
            (format "Delivery: %s" (wf-service--view-delivery view))
            (wf-service--observation-line view)

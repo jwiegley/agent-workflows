@@ -371,6 +371,7 @@ Without `use-package`, add `emacs/` to `load-path` and autoload the commands:
 | `wf-plan`, `wf-cost`, `wf-help` | Display the runner's inspection output without executing a workflow. |
 | `wf-refresh` | Clear descriptor discovery caches. A prefix argument also refreshes discovery for the inspection and run commands. |
 | `wf-restart`, `wf-resume`, `wf-fork` | Prepare a separately owned lineage child and require fresh approval. |
+| `wf-export` | Export the verified result of a manager run under a new name. Only service mode has this command. |
 | `wf-lineage-compare` | Display authoritative parent and child records and snapshots. |
 | `wf-diagnostics` | Display the diagnostics of the current run view. |
 | `wf-service`, `wf-local` | Select service mode with a client profile, or return to local mode (see [Service mode](#service-mode)). |
@@ -487,8 +488,8 @@ The download tests require the exact bytes for the stated size and digest and
 a refusal for a wrong digest, a wrong size and an inline disposition. The
 service-mode tests require that `wf-service-commands` states each public
 command of `wf.el` once, that local mode is the default, and that each
-pending and local-only command refuses with its message in service mode and
-starts no process and sends no request. The run view tests require the
+local-only command refuses with its message in service mode and starts no
+process and sends no request. The run view tests require the
 separate lines of a run view and its Terminal and Result lines, the choices
 of `wf-runs` for local and service runs, a view that follows a succeeded run
 to the size and digest of its verified download, and a view kill and the
@@ -499,7 +500,16 @@ uncertain answer that one read of the run snapshot reconciles. The result
 and history tests require the exact bytes of a saved result with mode 0600
 and a refusal of a second save to the same file, a history of every page of
 the run collection in its order, and a refusal of a history row of another
-endpoint that sends nothing. The
+endpoint that sends nothing. The lineage and export tests require the
+decoders of the lineage and export collections and of the export receipt,
+the body of a fork with its edits in occurrence order, the fork edits of the
+completed and reused occurrences of a snapshot with a refused replacement
+read again, one lineage request with the entity tag of its collection
+followed by the enqueue of the child, a refusal that sends nothing when the
+operation is not eligible, and one export with the entity tag of its
+collection, the verified download of the export and the export buffer, and
+an uncertain export that one read of its collection reconciles and that is
+not sent again. The
 human/control fixture and
 the vector file are explicit dependencies, not developer-specific paths or
 skipped tests. The pinned agent-cat source of the development shell does not
@@ -597,7 +607,17 @@ requires the bytes, the size and the SHA-256 digest of its own download and
 the mode 0600, and a second save to the same file must refuse. After the
 switch of the session to the profile of the third credential, `RET` on the
 same row must refuse, and no read and no view of the run may follow on the
-new binding. The
+new binding. Before the history step, the lineage step creates lineage
+children with keys: `M-x wf-restart` on the history row of the literal run, `S`
+and `g` in the view of the captured run, and `F` in the view of the restart
+child, which replaces the answer of its first completed text occurrence. Each
+child opens its exact review, which shows its lineage, and its run starts only
+after `a` and the answer `yes`. The harness reads the lineage collection of
+each parent, the child request, its consumed preparation with the lineage of
+its review and the succeeded child run, which names its parent and its
+operation. The step then exports the verified result of the answered run with
+`M-x wf-export`, and the harness requires the published export and the bytes
+of its own download. The
 check writes a report whose `harnessVersion` field is
 `wf-manager-live-harness-version`. The mode refuses a report of another
 version with one sentence, so a mismatched pair of the two repositories fails
@@ -700,16 +720,21 @@ for it:
 | `wf-runs` | Ask for one local session of this Emacs process, with the label `local:RUN — DIRECTORY`, or one run of the manager, with the label `service:RUN`, and open its view. The service runs are the runs of the open service run views and the runs of the installed overview (see [Service run views and answers](#service-run-views-and-answers)). |
 | `wf-answer` | Answer the head decision of a run of the manager in the answer editor. In a service run view, the run is the run of the view. Elsewhere, the command asks for one run with a pending decision of the installed overview. |
 | `wf-refresh` | In a setup form of service mode, read the request of the form again and draw the form again with every draft. Elsewhere, show a message and send nothing, because service mode keeps no row listing. |
-| `wf-control` | Send one control of a run of the manager that the controls of the run offer (see [Service controls](#service-controls)). In a service run view, the run is the run of the view. Elsewhere, the command asks for one run that the session knows. |
+| `wf-control` | Send one control of a run of the manager that the controls of the run offer (see [Service controls](#service-controls)). In a service run view, the run is the run of the view, and in a service history of the endpoint of the session, it is the run of the row at point. Elsewhere, the command asks for one run that the session knows. |
 | `wf-kill` | Cancel a run of the manager after a confirmation, when its controls allow a cancel. The run is chosen as for `wf-control`. |
-| `wf-result` | Save the verified result of a run of the manager to a new file (see [Service results and history](#service-results-and-history)). In a service run view, the run is the run of the view. Elsewhere, the command asks for one run that the session knows. |
+| `wf-result` | Save the verified result of a run of the manager to a new file (see [Service results and history](#service-results-and-history)). The run is chosen as for `wf-control`. |
 | `wf-history` | List every run of `/v1/runs` over every page in a new buffer `*wf service history*` of `wf-service-history-mode` (see [Service results and history](#service-results-and-history)). |
 | `wf-history-refresh`, `wf-history-open` | In a service history buffer, read the run collection again, or open the run view of the row at point. Elsewhere, refuse with a message. |
-| `wf-restart`, `wf-resume`, `wf-fork`, `wf-fork-submit`, `wf-rerun` | Refuse with the message "COMMAND is not yet available in service mode". |
+| `wf-restart`, `wf-resume`, `wf-fork` | Create a restart, resume or fork child request of a run of the manager and show its exact review (see [Service lineage and exports](#service-lineage-and-exports)). |
+| `wf-rerun` | Create a restart child request of a run of the manager, as `wf-restart` does. |
+| `wf-fork-submit` | Refuse with the message "wf-fork-submit works only in local mode.  In service mode, use `wf-fork` instead". |
 | `wf-plan`, `wf-cost` | Refuse with the message "COMMAND works only in local mode.  In service mode, use the review of `wf-run` instead". |
 | `wf-lineage-compare`, `wf-observer-result`, `wf-observer-refresh` | Refuse with the message "COMMAND works only in local mode.  Service mode has no equivalent". |
 
-No refusal starts a process or sends a request. The dispatch is global: in
+No refusal starts a process or sends a request. `wf-export` of
+`wf-service.el` exports the verified result of a run of the manager (see
+[Service lineage and exports](#service-lineage-and-exports)). Local mode has no
+export, so `wf-export` refuses there. The dispatch is global: in
 service mode, a command acts on the manager also in the view of a local run.
 `wf-local` gives such a view its local commands again.
 
@@ -762,7 +787,8 @@ with a message, and nothing is sent again.
 #### Service run views and answers
 
 A service run view is the buffer `*wf service run RUN*` of
-`wf-service-run-mode`, a mode derived from `wf-run-mode` with the same keys.
+`wf-service-run-mode`, a mode derived from `wf-run-mode` with the same keys
+and `E` for `wf-export`.
 `wf-runs` opens it. The view is keyed by the endpoint identity of the session
 and the run identifier, so each window follows its own run, and a second open
 of the same run selects the same view. The session watches four resources of
@@ -883,6 +909,69 @@ and it is never sent again. A retry or a recovery choice shows its effect when
 one read of the controls no longer names the decision as the head. A cancel,
 a steer and a redirect show their effect only in their receipt, so their
 reconciliation without a receipt stays uncertain and reports it.
+
+#### Service lineage and exports
+
+`wf-restart`, `wf-resume` and `wf-fork` create a child request of a run of the
+manager with `POST /v1/runs/{id}/lineage-requests`, and `wf-rerun` creates a
+restart child in the same way. In a service run view, `R`, `S`, `F` and `g`
+run these four commands. The run is chosen as for `wf-control`: the run of the
+view, the run of the history row at point, or a run that the session knows.
+A history of another endpoint refuses and sends nothing. Each command follows
+these steps:
+
+1. It reads the first page of the lineage collection of the run. The page must
+   name the run, and its entity tag must be the strong tag of its revision.
+   When the page does not list the operation as eligible, the command refuses
+   with the eligible operations or the refusal code of the page, and it sends
+   nothing.
+2. A fork reads the run snapshot and lists its fork targets, the occurrences
+   that the runtime completed or reused, in occurrence order, as
+   `wf-service-fork-targets` states. Each target has the label `occurrence:N`
+   and a description with its code, its current edit and its intent. The
+   choice `keep`, `drop` or `replace` edits the answer of the target. A
+   replacement is read in the minibuffer, which starts with the published
+   answer of the occurrence or the earlier replacement.
+   `wf-manager-fork-replacement-value` types the text by the code of the
+   occurrence: text as given, a flag from yes, no, true or false, an
+   acknowledgement from empty text, and a verdict or a structured answer from
+   JSON text. A refused text is read again with the text. The label `send`
+   sends the fork with its edits, and `stop` ends the command with nothing
+   sent.
+3. It sends the lineage request one time, with the body of
+   `wf-manager-lineage-body` and the entity tag of the page as `If-Match`. A
+   restart and a resume name only the operation. A fork carries its edits in
+   occurrence order.
+4. After the effect `lineage-created`, the child request takes its inputs from
+   the parent run. The command enqueues it without `set-input` and shows its
+   exact review in the review buffer of `wf-run`. The lineage lines of the
+   review name the parent run, the operation and each edit, and a replacement
+   shows the SHA-256 digest of its answer, not the answer. Only `a` and a yes
+   start the child run.
+
+`E` in a service run view runs `wf-export`, which exports the verified result
+of a run under a new name. The run is chosen as for `wf-control`. The name is
+one ASCII component of 1 to 128 letters, digits, dots, underscores and
+hyphens that starts with a letter or a digit. Another name refuses before any
+read. The command reads the first page of the export collection of the run
+and sends `POST /v1/runs/{id}/exports` one time, with the body `{"name":
+NAME}` and the entity tag of the page as `If-Match`. After the effect
+`exported`, it reads the export receipt `/v1/exports/export_{commandId}`,
+which must be published with the name, the run and the command. It downloads
+the exported bytes with the verified download of the session, which requires
+the size and the SHA-256 digest of the receipt. The buffer
+`*wf export RUN/NAME*` then shows the receipt, the verified size and digest
+and each receipt of the export collection of the run.
+
+A lineage request and an export are each sent one time. A refused command
+shows its refusal, and nothing is sent again. The retrieval of the verified
+result of a run changes the revision of the run, so a lineage request sent
+while a run view retrieves that result can receive 412 `stale-revision`. A
+second run of the command then reads the collection again. An uncertain send
+is reconciled one time with one read of its collection: a lineage request
+shows its effect when the collection lists a new child of the operation, and
+an export when the collection lists a published export of the name. It is
+never sent again.
 
 ### Service-mode transport
 
@@ -1042,6 +1131,9 @@ the kind of value as `KIND`.
 | `wf-manager-decode-control` | The version 1 controls of a run: its supervision state, `cancelAllowed` as JSON true or false, the decision head as a bounded identifier or JSON null, and at most 512 offers. Cancellation is not an offer. An offer is `steer`, `retry`, `choose-recovery`, `redirect` or `answer`. The address of a steer offer is an occurrence and an attempt, and the address of every other offer is an occurrence alone. The occurrence is canonical unsigned 64-bit decimal text and the attempt is canonical unsigned 32-bit decimal text. An offer keeps its generation or nil, at most two distinct timings, at most 16 recovery choices and at most 256 targets. The record keeps the exact JSON value that it decodes. |
 | `wf-manager-decode-run` | One version 1 item of the run collection, or a catalogue entry of the kind `unreadable-manifest` with only its public category. The links of a run name its own identifier. A known run keeps its workflow, its request, parent run and lineage, each one possibly nil, and its manifest version, 2 or 3, or nil for a legacy manifest. It keeps four separate dimensions: the runtime summary or nil (status, last sequence as canonical unsigned 64-bit decimal text, and protocol version 1, 2 or 3), the supervision state, the integrity of the journal and the verification of the result. Its limitations are distinct. A run is display data and grants no supervision, control or signalling authority. |
 | `wf-manager-decode-overview-member` | `{"kind":K,K:MEMBER}`, where `K` is `request`, `preparation`, `run` or `decision`. The encoder gives the projection of a run member and of a decision member. |
+| `wf-manager-decode-export-receipt` | A version 1 export receipt with exactly the members `version`, `id`, `runId`, `commandId`, `name`, `code`, `state`, `sha256`, `bytes` and `download`. The name satisfies `wf-manager-export-name-valid-p`, the code is an observation code, and the state is `published` or `unresolved`. The digest, the size of at most 67108864 bytes as canonical decimal text and the download resource are each JSON null or valid. |
+| `wf-manager-decode-export-collection` | The first page of the export collection of a run: the run, the page with its revision, and at most 256 unique export receipts, each of that run. |
+| `wf-manager-decode-lineage-collection` | The first page of the lineage collection of a parent run: the run, the page with its revision, the unique eligible operations, the refusal code (`incompatible-parent`, `ownership-unavailable`, `quarantined` or `unsupported-operation`) exactly when no operation is eligible, and at most 256 unique child requests, each of which names the run as its parent. The vectors file has no export or lineage collection, so the ERT tests check these decoders on their own values. |
 
 The state of a command receipt must agree with its evidence:
 
@@ -1084,6 +1176,18 @@ structured question without an editor schema, and any answer to a recovery
 decision signal `wf-manager-invalid-answer` before any body is built. The data
 is `("answer" REASON)`, for example
 `("answer" "answer field ok must be a boolean")`.
+
+`wf-manager-fork-replacement-value` types the replacement answer of a fork
+edit in the same way, by the code of the occurrence in the run snapshot, as
+`forkReplacementValue` of `ext-pi/src/manager/resources.ts` does. The code
+`ack` takes empty text and gives `:null`, the code `structured` takes JSON
+text, and the codes of the table convert as the table states.
+`wf-manager-lineage-body` gives the closed body of a lineage request:
+`{"operation":OPERATION}` for a restart and a resume, and for a fork its
+records of `wf-manager-fork-edit` as edits in occurrence order, each
+occurrence as canonical decimal text. `wf-manager-export-name-valid-p` accepts
+one ASCII component of 1 to 128 letters, digits, dots, underscores and hyphens
+that starts with a letter or a digit.
 
 #### Refresh coordination
 

@@ -2076,13 +2076,17 @@ Store discovery never grants control and never creates a state directory."
     (wf--approve session)))
 
 (defun wf-restart ()
-  "Prepare semantic restart with parent source bytes; require same-worker approval."
+  "Prepare semantic restart with parent source bytes; require same-worker approval.
+In service mode, the command creates a restart child request of a run
+of the manager and shows its exact review."
   (interactive)
   (unless (wf--service 'wf-restart)
     (wf--lineage "restart")))
 
 (defun wf-resume ()
-  "Prepare semantic resume; backend validates checkpoint, effects and ownership."
+  "Prepare semantic resume; backend validates checkpoint, effects and ownership.
+In service mode, the command creates a resume child request of a run
+of the manager and shows its exact review."
   (interactive)
   (unless (wf--service 'wf-resume)
     (wf--lineage "resume")))
@@ -2092,7 +2096,11 @@ Store discovery never grants control and never creates a state directory."
 
 (defun wf-fork ()
   "Edit immutable fork drop/replacement JSON, with explicit confirmation.
-Replacement answer is a JSON value, including false; backend checks its type."
+Replacement answer is a JSON value, including false; backend checks its type.
+
+In service mode, the command reads the fork edits of a run of the
+manager from its snapshot, creates a fork child request and shows its
+exact review."
   (interactive)
   (unless (wf--service 'wf-fork)
     (let ((context (wf--lineage-context)) (buffer (generate-new-buffer "*wf fork edits*")))
@@ -2173,7 +2181,9 @@ exact review of its manager preparation."
             (delete-process (wf--session-process session))))))))
 
 (defun wf-rerun ()
-  "Open fresh root setup in this session's directory, not resume or fork."
+  "Open fresh root setup in this session's directory, not resume or fork.
+In service mode, the command creates a restart child request of a run
+of the manager, as `wf-restart' does."
   (interactive)
   (unless (wf--service 'wf-rerun)
     (let* ((session (wf--current))

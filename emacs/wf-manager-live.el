@@ -36,7 +36,7 @@
 ;;       --eval '(ert-run-tests-batch-and-exit "wf-manager-live-session")'
 ;;
 ;; `ci/emacs.sh' compiles and checks this file, and it does not run it.
-;; The test `wf-manager-live-session' runs these fifteen steps in order:
+;; The test `wf-manager-live-session' runs these sixteen steps in order:
 ;;
 ;;   1. bind: `wf-manager-connect' binds a transport by GET
 ;;      /v1/capabilities over TLS, with the CA file of the profile as the
@@ -160,7 +160,29 @@
 ;;      must then end with the Terminal and Result lines of its verified
 ;;      result.  The function `wf-service--kill-emacs' of
 ;;      `kill-emacs-hook' closes the session, and no command follows.
-;;  15. history: the keys select the profile of WF_MANAGER_PROFILE again,
+;;  15. lineage: the step starts `wf-manager-live--mutation-window'
+;;      seconds after the start of the views step.  The keys select the
+;;      profile of WF_MANAGER_PROFILE again and open M-x wf-history.  M-x
+;;      wf-restart on the row of the literal run of the requests step
+;;      creates a restart child.  RET on the row of the captured run
+;;      opens its view.  The retrieval of the verified result of a view
+;;      changes the revision of its run, so each view first shows its
+;;      verified result.  \`S' in the view then creates a resume child,
+;;      and \`g', which runs `wf-rerun', creates a restart child.  \`g' in
+;;      the history then reads the runs again, RET opens the view of the
+;;      restart child, and \`F' forks it.  The fork replaces the answer of the
+;;      first completed text occurrence of `wf-service-fork-targets'
+;;      with `wf-manager-live-forked': the minibuffer starts with the
+;;      published answer, which a probe key keeps and clears.  Each child
+;;      opens its exact review, which a probe key keeps before and after
+;;      \`a' and the answer yes.  Each child run must then succeed and
+;;      name its parent and its operation.  M-x wf-export on the row of
+;;      the answered run of the views step then exports its verified
+;;      result as `wf-manager-live-service-export' and shows the export
+;;      buffer.  Advice of `wf-manager-session-send' keeps every command
+;;      and the Location of its reply.  M-x wf-local then closes the
+;;      session.
+;;  16. history: the keys select the profile of WF_MANAGER_PROFILE again,
 ;;      with the profile of WF_MANAGER_THIRD_PROFILE as the second item
 ;;      of `wf-manager-profiles'.  M-x wf-history lists every run of
 ;;      /v1/runs over every page, the legacy entries included, and the
@@ -305,6 +327,29 @@
 ;;   historyForeignReads    the reads after the switch that name the run
 ;;   historyForeignView     true when the session opened a view of the run
 ;;                     on the new binding
+;;   restartParentRunId, restartRequestId, restartPreparationId,
+;;   restartRunId, restartReviewText, restartReviewRun, restartOutcomes,
+;;   restartRunParent, restartRunLineage
+;;                     the parent run, the child request, its preparation
+;;                     and its run, the text of the review buffer before
+;;                     the approval, the run of the request when the
+;;                     review opened, the operations that the review sent,
+;;                     and the parent and the lineage of the child run of
+;;                     the restart.  The fields with the prefixes resume,
+;;                     fork and rerun are those of the resume, the fork and
+;;                     the restart of `wf-rerun'.
+;;   forkOccurrenceId  the occurrence whose answer the fork replaces
+;;   forkPrefill       the text with which the replacement minibuffer
+;;                     started
+;;   forkTargetAnswer  the published answer of that occurrence
+;;   serviceExportRunId, serviceExportName, serviceExportText,
+;;   serviceExportCommand
+;;                     the run, the name, the text of the export buffer
+;;                     and the Location of the export command of the
+;;                     lineage step
+;;   lineageCommands   each command of the lineage step in order, in the
+;;                     form of requestCommands, with the Location of its
+;;                     delivered reply as the field location
 ;;
 ;; The harness compares `harnessVersion' with its own constant and
 ;; refuses a report of another version, so that a mismatched pair of the
@@ -392,7 +437,7 @@
 (require 'wf-manager)
 (require 'wf-service)
 
-(defconst wf-manager-live-harness-version 9
+(defconst wf-manager-live-harness-version 10
   "The version of the report of this file.
 The emacs-client mode of agent-cat states the same version.")
 
@@ -1337,6 +1382,9 @@ commands of the pages step have left that minute.")
 (defvar wf-manager-live--pages-end nil
   "The `float-time' at the end of the pages step, or nil.")
 
+(defvar wf-manager-live--views-start nil
+  "The `float-time' at the start of the commands of the views step, or nil.")
+
 (defvar wf-manager-live--harness-command nil
   "The answer command of the harness in the views step.")
 
@@ -1410,6 +1458,7 @@ the answers and the sent commands in REPORT."
   (should wf-manager-live--pages-end)
   (while (< (float-time) (+ wf-manager-live--pages-end wf-manager-live--mutation-window))
     (accept-process-output nil 0.25))
+  (setq wf-manager-live--views-start (float-time))
   (let ((wf-manager-profiles (list file))
         (suggest-key-bindings nil)
         (extended-command-suggest-shorter nil))
@@ -1511,6 +1560,220 @@ the answers and the sent commands in REPORT."
       (advice-remove 'wf-manager-session-send #'wf-manager-live--record-send)
       (global-set-key (kbd "<f6>") nil)
       (global-set-key (kbd "<f8>") nil)
+      (when wf-service--current
+        (wf-local)))))
+
+;;;; The lineage step
+
+(defvar wf-manager-live--locations nil
+  "The commands of the lineage step or the controls check, the newest first.
+Each item is (RESOURCE LOCATION): the target of one send and the
+Location of its delivered reply, or nil.")
+
+(defun wf-manager-live--record-location (send session command callback)
+  "Call SEND with SESSION, COMMAND and CALLBACK, and keep its Location.
+The Location of the outcome goes into `wf-manager-live--locations'."
+  (funcall send session command
+           (lambda (sent)
+             (push (list (wf-manager-reference-uri (wf-manager-pending-reference command))
+                         (and (wf-manager-sent-location sent)
+                              (wf-manager-reference-uri (wf-manager-sent-location sent))))
+                   wf-manager-live--locations)
+             (funcall callback sent))))
+
+(defconst wf-manager-live-forked "Emacs fork λ: the replaced answer."
+  "The replacement answer of the fork edit of the lineage step.
+EMACS_FORKED of `manager/test/service_http.py' states the same text.")
+
+(defconst wf-manager-live-service-export "emacs-service-export.json"
+  "The name of the export of the lineage step.")
+
+(defvar wf-manager-live--cleared nil
+  "The minibuffer contents that `wf-manager-live--clear' deleted, newest first.")
+
+(defun wf-manager-live--clear ()
+  "Keep the contents of the minibuffer and delete them."
+  (interactive)
+  (push (minibuffer-contents-no-properties) wf-manager-live--cleared)
+  (delete-minibuffer-contents))
+
+(defun wf-manager-live--succeeded (session run)
+  "On SESSION, wait until RUN succeeded and its supervision ended.
+Return its `wf-manager-known-run'."
+  (let ((known nil)
+        (reference (wf-manager-session-reference session (concat "/v1/runs/" run))))
+    (should (wf-manager-live--wait-long
+             (lambda ()
+               (let ((reply (wf-service--await
+                             (lambda (callback)
+                               (wf-manager-session-read session reference callback)
+                               nil))))
+                 (accept-process-output nil 0.2)
+                 (when (wf-manager-reply-p reply)
+                   (let* ((content (wf-manager-run-content
+                                    (wf-manager-decode-run (wf-manager-reply-value reply))))
+                          (runtime (and (wf-manager-known-run-p content)
+                                        (wf-manager-known-run-runtime content))))
+                     (and runtime
+                          (equal (wf-manager-run-runtime-status runtime) "succeeded")
+                          (not (member (wf-manager-known-run-supervision content)
+                                       '("owned" "cleanup-pending")))
+                          (setq known content))))))))
+    known))
+
+(defun wf-manager-live--child (session prefix operation parent report &rest keys)
+  "On SESSION, create a lineage child and approve it with keys.
+PREFIX names the fields of the child, OPERATION is its operation and
+PARENT is its parent run.  The fields go into REPORT.  KEYS run the lineage
+command in the selected buffer and continue in the review buffer of the
+child.  The review must show the
+lineage, and the child run must succeed and name PARENT and
+OPERATION.  Return the child run."
+  (setq wf-manager-live--reviews nil)
+  (should-not (apply #'wf-manager-live--keys
+                     (append keys (list "<f8> a" (vconcat "yes") "RET <f8>"))))
+  (should (= (length wf-manager-live--reviews) 2))
+  (pcase-let* ((`(,text ,review ,outcomes) (nth 1 wf-manager-live--reviews))
+               (preparation (wf-service--review-preparation review))
+               (draft (wf-service--review-draft review))
+               (run (wf-service--review-run review)))
+    (should (null outcomes))
+    (should (stringp run))
+    (should (string-search (format "Lineage: %s of run %s\n" operation parent) text))
+    (should (equal (wf-manager-draft-parent-run-id draft) parent))
+    (should (equal (wf-manager-draft-lineage draft) operation))
+    (puthash (concat prefix "ParentRunId") parent report)
+    (puthash (concat prefix "RequestId") (wf-manager-draft-id draft) report)
+    (puthash (concat prefix "PreparationId") (wf-manager-preparation-id preparation) report)
+    (puthash (concat prefix "RunId") run report)
+    (puthash (concat prefix "ReviewText") text report)
+    (puthash (concat prefix "ReviewRun") (or (wf-manager-draft-run-id draft) :null) report)
+    (puthash (concat prefix "Outcomes") (vconcat (nth 2 (car wf-manager-live--reviews))) report)
+    (let ((known (wf-manager-live--succeeded session run)))
+      (puthash (concat prefix "RunParent") (or (wf-manager-known-run-parent-run-id known) :null)
+               report)
+      (puthash (concat prefix "RunLineage") (or (wf-manager-known-run-lineage known) :null) report)
+      (should (equal (wf-manager-known-run-parent-run-id known) parent))
+      (should (equal (wf-manager-known-run-lineage known) operation)))
+    run))
+
+(defun wf-manager-live--verified (buffer)
+  "Wait until the run view BUFFER ends with the digest of its verified result.
+The retrieval of the result verifies it, which changes the revision of
+the run and with it the entity tag of its lineage collection, so a
+lineage command of the view waits for it."
+  (should (wf-manager-live--wait-long
+           (lambda ()
+             (string-prefix-p "Result SHA-256: "
+                              (car (last (wf-service-view-lines
+                                          (buffer-local-value 'wf-service--view-state buffer)))))))))
+
+(defun wf-manager-live--lineage-commands ()
+  "Return the JSON array of the commands of the lineage step.
+Each item is an item of `wf-manager-live--commands-json' with the
+Location of its delivered reply as the field location."
+  (let ((locations (reverse wf-manager-live--locations)))
+    (should (= (length locations) (length wf-manager-live--sent)))
+    (vconcat
+     (cl-mapcar (lambda (item location)
+                  (should (equal (gethash "resource" item) (car location)))
+                  (puthash "location" (or (nth 1 location) :null) item)
+                  item)
+                (wf-manager-live--commands-json) locations))))
+
+(defun wf-manager-live--lineage (file report)
+  "Drive the lineage step: restart, resume, fork, rerun and export.
+FILE is the client profile file.  Record the children, the fork edit,
+the export and the sent commands in REPORT."
+  (setq wf-manager-live--sent nil
+        wf-manager-live--locations nil
+        wf-manager-live--cleared nil)
+  (should wf-manager-live--views-start)
+  (while (< (float-time) (+ wf-manager-live--views-start wf-manager-live--mutation-window))
+    (accept-process-output nil 0.25))
+  (let ((wf-manager-profiles (list file))
+        (suggest-key-bindings nil)
+        (extended-command-suggest-shorter nil)
+        (literal (gethash "literalRunId" report))
+        (captured (gethash "capturedRunId" report))
+        (answered (gethash "answeredRunId" report)))
+    (global-set-key (kbd "<f8>") #'wf-manager-live--probe-review)
+    (define-key minibuffer-local-map (kbd "<f5>") #'wf-manager-live--clear)
+    (advice-add 'wf-manager-session-send :before #'wf-manager-live--record-send)
+    (advice-add 'wf-manager-session-send :around #'wf-manager-live--record-location)
+    (unwind-protect
+        (progn
+          (should-not (wf-manager-live--keys "M-x wf-service RET" (vconcat file) "RET"))
+          (let* ((session (wf-service--state-session wf-service--current))
+                 (identity (wf-manager-session-identity session)))
+            (should-not (wf-manager-live--keys "M-x wf-history RET"))
+            (let ((history (window-buffer (selected-window))))
+              (should (eq (buffer-local-value 'major-mode history) 'wf-service-history-mode))
+              ;; The restart of the history row of the literal run.
+              (wf-manager-live--history-row history literal)
+              (let ((restarted (wf-manager-live--child session "restart" "restart" literal report
+                                                       "M-x wf-restart RET")))
+                ;; The resume and the rerun in the view of the captured run.
+                (wf-manager-live--history-row history captured)
+                (should-not (wf-manager-live--keys "RET"))
+                (let ((view (gethash (cons identity captured) wf-service--views)))
+                  (should (eq (window-buffer (selected-window)) view))
+                  (wf-manager-live--verified view)
+                  (wf-manager-live--child session "resume" "resume" captured report "S")
+                  (pop-to-buffer view)
+                  (wf-manager-live--child session "rerun" "restart" captured report "g")
+                  (kill-buffer view))
+                ;; The fork of the restart child, in its view.
+                (pop-to-buffer history)
+                (should-not (wf-manager-live--keys "g"))
+                (wf-manager-live--history-row history restarted)
+                (should-not (wf-manager-live--keys "RET"))
+                (let* ((view (gethash (cons identity restarted) wf-service--views))
+                       (snapshot (car (wf-service--read-optional
+                                       session (format "/v1/runs/%s/snapshot" restarted)
+                                       #'wf-service--decode-object)))
+                       (target (cl-find "text" (wf-service-fork-targets snapshot)
+                                        :key (lambda (target) (plist-get target :code))
+                                        :test #'equal))
+                       (occurrence (and target (plist-get target :occurrence))))
+                  (should (eq (window-buffer (selected-window)) view))
+                  (wf-manager-live--verified view)
+                  (should target)
+                  (puthash "forkOccurrenceId" (number-to-string occurrence) report)
+                  (puthash "forkTargetAnswer" (or (plist-get target :answer) :null) report)
+                  (wf-manager-live--child session "fork" "fork" restarted report
+                                          "F" (vconcat (format "occurrence:%d" occurrence)) "RET"
+                                          (vconcat "replace") "RET <f5>"
+                                          (vconcat wf-manager-live-forked) "RET"
+                                          (vconcat "send") "RET")
+                  (should (= (length wf-manager-live--cleared) 1))
+                  (puthash "forkPrefill" (car wf-manager-live--cleared) report)
+                  (should (equal (car wf-manager-live--cleared) (or (plist-get target :answer) "")))
+                  (kill-buffer view)))
+              ;; The export of the history row of the answered run.
+              (pop-to-buffer history)
+              (wf-manager-live--history-row history answered)
+              (should-not (wf-manager-live--keys "M-x wf-export RET"
+                                                 (vconcat wf-manager-live-service-export) "RET"))
+              (let ((buffer (get-buffer (format "*wf export %s/%s*" answered
+                                                wf-manager-live-service-export))))
+                (should buffer)
+                (puthash "serviceExportRunId" answered report)
+                (puthash "serviceExportName" wf-manager-live-service-export report)
+                (puthash "serviceExportText" (with-current-buffer buffer
+                                               (buffer-substring-no-properties (point-min) (point-max)))
+                         report)
+                (should (string-search "Export download: verified " (gethash "serviceExportText" report))))
+              (let ((commands (wf-manager-live--lineage-commands)))
+                (puthash "lineageCommands" commands report)
+                (puthash "serviceExportCommand" (gethash "location" (aref commands (1- (length commands))))
+                         report))
+              (kill-buffer history)))
+          (should-not (wf-manager-live--keys "M-x wf-local RET")))
+      (advice-remove 'wf-manager-session-send #'wf-manager-live--record-send)
+      (advice-remove 'wf-manager-session-send #'wf-manager-live--record-location)
+      (global-set-key (kbd "<f8>") nil)
+      (define-key minibuffer-local-map (kbd "<f5>") nil)
       (when wf-service--current
         (wf-local)))))
 
@@ -1636,22 +1899,6 @@ the row of the other endpoint in REPORT."
   "The steering text of the controls check.
 EMACS_CONTROLS_STEER_TEXT of `manager/test/service_http.py' states the
 same text.")
-
-(defvar wf-manager-live--locations nil
-  "The commands that the controls check sent, the newest first.
-Each item is (RESOURCE LOCATION): the target of one send and the
-Location of its delivered reply, or nil.")
-
-(defun wf-manager-live--record-location (send session command callback)
-  "Call SEND with SESSION, COMMAND and CALLBACK, and keep its Location.
-The Location of the outcome goes into `wf-manager-live--locations'."
-  (funcall send session command
-           (lambda (sent)
-             (push (list (wf-manager-reference-uri (wf-manager-pending-reference command))
-                         (and (wf-manager-sent-location sent)
-                              (wf-manager-reference-uri (wf-manager-sent-location sent))))
-                   wf-manager-live--locations)
-             (funcall callback sent))))
 
 (defun wf-manager-live--control-of (buffer)
   "Return the kept controls of the run view BUFFER, or nil."
@@ -1839,7 +2086,7 @@ completed steps."
     (write-region (wf-manager-json-encode value) nil file nil 'silent)))
 
 (ert-deftest wf-manager-live-session ()
-  "Run the fifteen steps of one live session against the manager."
+  "Run the sixteen steps of one live session against the manager."
   (let* ((profile (wf-manager-profile-load
                    (wf-manager-live--variable "WF_MANAGER_PROFILE")))
          (second (wf-manager-profile-load
@@ -1908,6 +2155,8 @@ completed steps."
               (wf-manager-live--views (wf-manager-live--variable "WF_MANAGER_PROFILE")
                                       answer-file drive-file report)
               (push "views" steps)
+              (wf-manager-live--lineage (wf-manager-live--variable "WF_MANAGER_PROFILE") report)
+              (push "lineage" steps)
               (wf-manager-live--history (wf-manager-live--variable "WF_MANAGER_PROFILE")
                                         third-file result-file report)
               (push "history" steps))))

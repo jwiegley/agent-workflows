@@ -71,6 +71,10 @@
 ;; its state agrees with its dispatch attempt time, its acknowledgement,
 ;; its effect and its refusal.  The runtime summary, the supervision, the
 ;; integrity and the verification of a run are separate fields.
+;; `wf-manager-decode-export-receipt', `wf-manager-decode-export-collection'
+;; and `wf-manager-decode-lineage-collection' follow the export and
+;; lineage decoders of the same file, and `wf-manager-lineage-body' gives
+;; the closed body of a restart, resume or fork request.
 ;;
 ;; `wf-manager-answer-value' builds the typed answer of a decision from the
 ;; text of a person, and `wf-manager-answer-body' builds the answer body
@@ -78,7 +82,8 @@
 ;; structured answer must agree with the editor schema of its decision.
 ;; The builder passes the answers vectors of the resources section, and it
 ;; refuses an answer with `wf-manager-invalid-answer' before any command is
-;; built.
+;; built.  `wf-manager-fork-replacement-value' types the replacement
+;; answer of a fork edit by the code of its occurrence in the same way.
 ;;
 ;; The refresh coordinator follows `ext-pi/src/manager/refresh.ts' and
 ;; passes the sequences, backoff, jitter and reconciliation vectors of the
@@ -2647,6 +2652,202 @@ VALUE is a version 1 run, or a version 1 catalogue entry of the kind
                   (wf-manager--parse-unreadable-run value self)
                 (wf-manager--parse-known-run value self)))))
 
+;;;;; Exports and lineage requests
+
+(defconst wf-manager-export-states '("published" "unresolved")
+  "The states of an export receipt.")
+
+(defconst wf-manager-export-bytes 67108864
+  "The largest exported document, in bytes.")
+
+(defconst wf-manager-lineage-refusals
+  '("incompatible-parent" "ownership-unavailable" "quarantined" "unsupported-operation")
+  "The refusal codes of a lineage collection that lists no eligible operation.")
+
+(cl-defstruct (wf-manager-export-receipt
+               (:constructor wf-manager-export-receipt-make)
+               (:copier nil))
+  "One export receipt, as /v1/exports/{id} and the export collection state it.
+ID, RUN-ID and COMMAND-ID are bounded identifiers.  NAME is a name of
+`wf-manager-export-name-valid-p', and CODE the exact JSON observation
+code of the result.  STATE is one of `wf-manager-export-states'.  A
+published receipt states SHA256, the digest of the exported bytes,
+BYTES, their size, and DOWNLOAD, the resource of the bytes.  Each of
+the three is nil otherwise.  A receipt is metadata and not a download
+capability."
+  (id nil :read-only t)
+  (run-id nil :read-only t)
+  (command-id nil :read-only t)
+  (name nil :read-only t)
+  (code nil :read-only t)
+  (state nil :read-only t)
+  (sha256 nil :read-only t)
+  (bytes nil :read-only t)
+  (download nil :read-only t))
+
+(cl-defstruct (wf-manager-export-collection
+               (:constructor wf-manager-export-collection-make)
+               (:copier nil))
+  "The first page of the export collection of one run.
+RUN-ID is the run, REVISION the collection revision that the strong
+entity tag of the page carries, and ITEMS the list of its
+`wf-manager-export-receipt' records."
+  (run-id nil :read-only t)
+  (revision nil :read-only t)
+  (items nil :read-only t))
+
+(cl-defstruct (wf-manager-lineage-collection
+               (:constructor wf-manager-lineage-collection-make)
+               (:copier nil))
+  "The first page of the lineage collection of one parent run.
+RUN-ID is the parent run and REVISION the revision that the strong
+entity tag of the page carries.  ELIGIBLE is the list of the operations
+of `wf-manager-lineage-operations' that a new lineage request may name
+now.  REFUSAL is one of `wf-manager-lineage-refusals' when ELIGIBLE is
+empty, and nil otherwise.  CHILDREN is the list of the child requests of
+the run, each a `wf-manager-draft'."
+  (run-id nil :read-only t)
+  (revision nil :read-only t)
+  (eligible nil :read-only t)
+  (refusal nil :read-only t)
+  (children nil :read-only t))
+
+(cl-defstruct (wf-manager-fork-edit
+               (:constructor wf-manager-fork-edit-make)
+               (:copier nil))
+  "One edit of a fork.
+OPERATION is \"drop\", which drops the persisted answer of the
+occurrence OCCURRENCE-ID of the parent run, or \"replace\", which
+replaces it with ANSWER, a typed JSON value."
+  (operation nil :read-only t)
+  (occurrence-id nil :read-only t)
+  (answer nil :read-only t))
+
+(defun wf-manager-export-name-valid-p (name)
+  "Return non-nil when NAME is a valid export name.
+A valid name is one ASCII component of 1 to 128 letters, digits, dots,
+underscores and hyphens, and it starts with a letter or a digit.  This
+is `exportNameValid' of `ext-pi/src/manager/resources.ts'.  The manager
+checks the name again."
+  (and (stringp name) (wf-manager--matches-p "[A-Za-z0-9][A-Za-z0-9._-]\\{0,127\\}" name)))
+
+(defun wf-manager--page-revision (fields)
+  "Return the revision of the `page' member of the collection FIELDS, or refuse."
+  (plist-get (wf-manager--ensure (wf-manager--page-info (gethash "page" fields)))
+             :revision))
+
+(defun wf-manager--parse-export-receipt (value)
+  "Return the `wf-manager-export-receipt' of the JSON VALUE, or refuse."
+  (let* ((fields (wf-manager--exact value '("version" "id" "runId" "commandId" "name"
+                                            "code" "state" "sha256" "bytes" "download")))
+         (name (gethash "name" fields))
+         (code (gethash "code" fields)))
+    (unless (and (wf-manager--version-one-p fields)
+                 (wf-manager-export-name-valid-p name)
+                 (wf-manager--observation-code-p code wf-manager--decision-depth))
+      (wf-manager--refuse))
+    (wf-manager-export-receipt-make
+     :id (wf-manager--identifier (gethash "id" fields))
+     :run-id (wf-manager--identifier (gethash "runId" fields))
+     :command-id (wf-manager--identifier (gethash "commandId" fields))
+     :name name
+     :code code
+     :state (wf-manager--choice (gethash "state" fields) wf-manager-export-states)
+     :sha256 (wf-manager--nullable (gethash "sha256" fields) #'wf-manager--digest)
+     :bytes (wf-manager--nullable
+             (gethash "bytes" fields)
+             (lambda (size)
+               (wf-manager--ensure (wf-manager--decimal-value size 20 wf-manager-export-bytes))))
+     :download (wf-manager--nullable
+                (gethash "download" fields)
+                (lambda (resource)
+                  (if (wf-manager-valid-resource-p resource) resource (wf-manager--refuse)))))))
+
+(defun wf-manager--parse-export-collection (value)
+  "Return the `wf-manager-export-collection' of the JSON VALUE, or refuse.
+Every receipt belongs to the run of the page, and no receipt occurs two
+times."
+  (let* ((fields (wf-manager--exact value '("version" "page" "items" "runId")))
+         (run (wf-manager--identifier (gethash "runId" fields)))
+         (items (wf-manager--items (gethash "items" fields)
+                                   #'wf-manager--parse-export-receipt 256)))
+    (unless (and (wf-manager--version-one-p fields)
+                 (wf-manager--unique-p (mapcar #'wf-manager-export-receipt-id items))
+                 (cl-every (lambda (item) (equal (wf-manager-export-receipt-run-id item) run))
+                           items))
+      (wf-manager--refuse))
+    (wf-manager-export-collection-make
+     :run-id run :revision (wf-manager--page-revision fields) :items items)))
+
+(defun wf-manager--parse-lineage-collection (value)
+  "Return the `wf-manager-lineage-collection' of the JSON VALUE, or refuse.
+The page states a refusal exactly when it lists no eligible operation,
+and every child request names the run as its parent."
+  (let* ((fields (wf-manager--exact value '("version" "page" "items" "runId"
+                                            "eligible" "refusal")))
+         (run (wf-manager--identifier (gethash "runId" fields)))
+         (eligible (wf-manager--items (gethash "eligible" fields)
+                                      (lambda (operation)
+                                        (wf-manager--choice operation
+                                                            wf-manager-lineage-operations))
+                                      3))
+         (refusal (wf-manager--nullable (gethash "refusal" fields)
+                                        (lambda (code)
+                                          (wf-manager--choice code wf-manager-lineage-refusals))))
+         (children (wf-manager--items (gethash "items" fields) #'wf-manager--parse-draft 256)))
+    (unless (and (wf-manager--version-one-p fields)
+                 (wf-manager--unique-p eligible)
+                 (eq (null eligible) (and refusal t))
+                 (wf-manager--unique-p (mapcar #'wf-manager-draft-id children))
+                 (cl-every (lambda (child) (equal (wf-manager-draft-parent-run-id child) run))
+                           children))
+      (wf-manager--refuse))
+    (wf-manager-lineage-collection-make
+     :run-id run :revision (wf-manager--page-revision fields) :eligible eligible
+     :refusal refusal :children children)))
+
+(defun wf-manager-decode-export-receipt (value)
+  "Return the `wf-manager-export-receipt' of the JSON VALUE.
+This is `decodeExportReceipt' of `ext-pi/src/manager/resources.ts'.  Any
+other VALUE signals `wf-manager-invalid-response'."
+  (wf-manager--decode-resource "export receipt" #'wf-manager--parse-export-receipt value))
+
+(defun wf-manager-decode-export-collection (value)
+  "Return the `wf-manager-export-collection' of the JSON VALUE.
+This is `decodeExportCollection' of `ext-pi/src/manager/resources.ts'.
+Any other VALUE signals `wf-manager-invalid-response'."
+  (wf-manager--decode-resource "export collection" #'wf-manager--parse-export-collection
+                               value))
+
+(defun wf-manager-decode-lineage-collection (value)
+  "Return the `wf-manager-lineage-collection' of the JSON VALUE.
+This is `decodeLineageCollection' of `ext-pi/src/manager/resources.ts'.
+Any other VALUE signals `wf-manager-invalid-response'."
+  (wf-manager--decode-resource "lineage collection" #'wf-manager--parse-lineage-collection
+                               value))
+
+(defun wf-manager-lineage-body (operation &optional edits)
+  "Return the closed body of a lineage request of OPERATION.
+OPERATION is one of `wf-manager-lineage-operations'.  A fork carries
+EDITS, a list of `wf-manager-fork-edit' records, in occurrence order,
+with each occurrence as canonical decimal text.  A restart and a resume
+carry no edits.  This is `lineageBody' of
+`ext-pi/src/manager/resources.ts'."
+  (if (not (equal operation "fork"))
+      (wf-manager-json-object "operation" operation)
+    (wf-manager-json-object
+     "operation" operation
+     "edits" (wf-manager--json-list
+              (lambda (edit)
+                (let ((id (number-to-string (wf-manager-fork-edit-occurrence-id edit))))
+                  (if (equal (wf-manager-fork-edit-operation edit) "drop")
+                      (wf-manager-json-object "occurrenceId" id "operation" "drop")
+                    (wf-manager-json-object "occurrenceId" id "operation" "replace"
+                                            "answer" (wf-manager-fork-edit-answer edit)))))
+              (sort (copy-sequence edits)
+                    (lambda (a b) (< (wf-manager-fork-edit-occurrence-id a)
+                                     (wf-manager-fork-edit-occurrence-id b))))))))
+
 ;;;;; Overview members
 
 (defconst wf-manager--overview-kinds
@@ -3191,6 +3392,21 @@ INPUT that does not agree with the code, signal
              (problem (wf-manager--editor-problem
                        (wf-manager-question-editor content) value "answer")))
         (if problem (wf-manager--refuse-answer "%s" problem) value))))))
+
+(defun wf-manager-fork-replacement-value (code input)
+  "Return the typed replacement answer of a fork edit for CODE and INPUT.
+INPUT is the typed text.  CODE is the observation code of the
+occurrence in the snapshot of the parent run.  The text converts as an
+answer to a question of CODE: text as given, a flag from yes, no, true
+or false, an acknowledgement (\"ack\") from empty text, and a verdict
+or a structured answer from JSON text.  This is `forkReplacementValue' of
+`ext-pi/src/manager/resources.ts'.  Other INPUT signals
+`wf-manager-invalid-answer'.  The native preparation checks the value
+against the persisted code and schema of the occurrence."
+  (pcase code
+    ("ack" (wf-manager--person-answer "receipt" input))
+    ("structured" (wf-manager--json-answer input))
+    (_ (wf-manager--person-answer code input))))
 
 (defun wf-manager-answer-body (decision value)
   "Return the closed answer body of DECISION with the typed answer VALUE.

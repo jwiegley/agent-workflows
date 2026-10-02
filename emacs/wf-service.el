@@ -42,7 +42,7 @@
 ;; commands of the local setup form have no entry, because only local
 ;; mode makes that form.  Service mode never
 ;; starts the `wf' binary or a local frontend worker, and it never reads
-;; a file system path of the manager.  The table has three kinds of
+;; a file system path of the manager.  The table has two kinds of
 ;; entry:
 ;;
 ;;   service  The command has a manager behavior.  `wf-run' creates a
@@ -56,10 +56,10 @@
 ;;            `wf-control' sends one control that the controls of a run
 ;;            offer, `wf-kill' cancels a run after a confirmation,
 ;;            `wf-result' saves the verified result of a run to a new
-;;            file, and `wf-history', `wf-history-refresh' and
-;;            `wf-history-open' list and open the runs of the manager.
-;;   pending  The command has no manager behavior yet, and it refuses
-;;            with a message that says so.
+;;            file, `wf-history', `wf-history-refresh' and
+;;            `wf-history-open' list and open the runs of the manager,
+;;            and `wf-restart', `wf-resume', `wf-fork' and `wf-rerun'
+;;            create a lineage child of a run and show its exact review.
 ;;   local    The command reads the local runner or its store, and it
 ;;            refuses in service mode with a message that names the
 ;;            service equivalent when one exists.  It sends nothing.
@@ -138,6 +138,33 @@
 ;; reference refuses with `wf-manager-wrong-endpoint', nothing is sent,
 ;; and the row is never opened on the new endpoint.  Local mode keeps
 ;; `wf-history' and the observer over the local stores.
+;;
+;; `wf-restart', `wf-resume' and `wf-fork' create a child request of a
+;; run with POST /v1/runs/{id}/lineage-requests, and `wf-rerun' is a
+;; restart in service mode.  The run is the run of the run view, the run
+;; of the history row at point, or a run that the session knows.  The
+;; command reads the first page of the lineage collection of the run, and
+;; it sends the request only when the page lists the operation as
+;; eligible, with the entity tag of the page as If-Match.  A fork first
+;; collects its edits from the run snapshot, as `forkTargets' of
+;; `ext-pi/src/manager-ui.ts' does: each completed or reused occurrence
+;; keeps, drops or replaces its answer, and a replacement is typed by the
+;; code of the occurrence.  The child takes its inputs from the parent,
+;; so the command enqueues it at once and shows its exact review, whose
+;; lineage lines name the parent, the operation and the edits.  Only the
+;; approval of that review starts the child run.
+;;
+;; `wf-export' exports the verified result of a run under a name with
+;; POST /v1/runs/{id}/exports and the entity tag of the first page of
+;; the export collection as If-Match.  After the effect `exported', it
+;; reads the export receipt, downloads the exported bytes with the
+;; verified download of the session, and shows the receipt, the
+;; verified size and digest and the export collection of the run.
+;; Local mode has no export, so `wf-export' refuses there.
+;;
+;; A lineage request and an export are each sent one time.  An uncertain
+;; send is reconciled with one read of its collection, and it is never
+;; sent again.
 
 ;;; Code:
 
@@ -168,11 +195,11 @@ default until `wf-service' runs."
     (wf-history service wf-service--history)
     (wf-history-refresh service wf-service-history-refresh)
     (wf-history-open service wf-service-history-open)
-    (wf-restart pending)
-    (wf-resume pending)
-    (wf-fork pending)
-    (wf-fork-submit pending)
-    (wf-rerun pending)
+    (wf-restart service wf-service--restart)
+    (wf-resume service wf-service--resume)
+    (wf-fork service wf-service--fork)
+    (wf-rerun service wf-service--rerun)
+    (wf-fork-submit local "`wf-fork'")
     (wf-plan local "the review of `wf-run'")
     (wf-cost local "the review of `wf-run'")
     (wf-lineage-compare local nil)
@@ -180,11 +207,10 @@ default until `wf-service' runs."
     (wf-observer-refresh local nil))
   "The service behavior of each public interactive command of `wf.el'.
 Each entry is (COMMAND KIND DETAIL).  KIND `service' runs the function
-DETAIL with the arguments of COMMAND.  KIND `pending' refuses with the
-message of `wf-service-refusal', because COMMAND has no manager
-behavior yet.  KIND `local' refuses with that message too, and DETAIL is
-the text that names the service equivalent of COMMAND, or nil when
-there is none.  No refusal sends a request or starts a process.")
+DETAIL with the arguments of COMMAND.  KIND `local' refuses with the
+message of `wf-service-refusal', and DETAIL is the text that names the
+service equivalent of COMMAND, or nil when there is none.  No refusal
+sends a request or starts a process.")
 
 (cl-defstruct (wf-service--state
                (:constructor wf-service--state-make)
@@ -204,8 +230,6 @@ service mode, or nil."
   "Return the refusal message of COMMAND in service mode, or nil.
 A COMMAND of kind `service' has no refusal."
   (pcase (alist-get command wf-service-commands)
-    (`(pending)
-     (format "%s is not yet available in service mode" command))
     (`(local ,equivalent)
      (if equivalent
          (format "%s works only in local mode.  In service mode, use %s instead"
@@ -219,7 +243,7 @@ A COMMAND of kind `service' has no refusal."
 table signals an error, because the table states every command."
   (pcase (alist-get command wf-service-commands)
     (`(service ,function) (apply function arguments))
-    ((or `(pending) `(local ,_)) (user-error "%s" (wf-service-refusal command)))
+    (`(local ,_) (user-error "%s" (wf-service-refusal command)))
     (_ (error "`wf-service-commands' states no behavior for %s" command))))
 
 
@@ -1070,10 +1094,18 @@ ATTEMPTED is the entity tag of the snapshot at the last retrieval."
 (defvar-local wf-service--view-state nil
   "The `wf-service--view' of this run view.")
 
+(defvar-keymap wf-service-run-mode-map
+  :doc "Keys of a service run view."
+  :parent wf-run-mode-map
+  "E" #'wf-export)
+
 (define-derived-mode wf-service-run-mode wf-run-mode "Workflow service"
   "Display a run of the manager in service mode.
-The keys are those of `wf-run-mode'.  The view sends no command by
-itself, and the kill of the view sends no command.")
+The keys are those of `wf-run-mode', and \\`E' runs `wf-export'.  The
+view sends no command by itself, and the kill of the view sends no
+command.
+
+\\{wf-service-run-mode-map}")
 
 (defun wf-service--decode-object (value)
   "Return the JSON object VALUE, or signal `wf-manager-invalid-response'."
@@ -1260,6 +1292,7 @@ Terminal and Result lines end the list."
   (let ((lines (wf-service-view-lines view)))
     (concat (car lines) "\n"
             "a answer the head decision · c control · C-c C-k cancel · r save the verified result\n"
+            "R restart · S resume · F fork · g rerun as a restart · E export\n"
             "H history · d diagnostics · q bury (does not cancel)\n"
             "The kill of this buffer sends no command.\n\n"
             (mapconcat (lambda (line) (concat line "\n")) (cdr lines) ""))))
@@ -1821,18 +1854,6 @@ retry, abandon and one failover:N for each failover choice."
               choices)))
     (nreverse choices)))
 
-(defun wf-service--control-run (session)
-  "Return the run whose controls `wf-control' and `wf-kill' use on SESSION.
-In a run view of SESSION, this is the run of the view.  Elsewhere, read
-one run that SESSION knows."
-  (let ((view wf-service--view-state))
-    (if (and view (eq (wf-service--view-session view) session))
-        (wf-service--view-run view)
-      (let ((runs (wf-service--service-runs session)))
-        (unless runs
-          (user-error "No run of the manager is known"))
-        (completing-read "Run to control: " runs nil t)))))
-
 (defun wf-service--controls (session run)
   "On SESSION, read the controls of RUN one time.
 Return (CONTROL . REPLY): the `wf-manager-control' and the
@@ -2060,7 +2081,7 @@ through its editor, or a redirect, a retry or a recovery choice at
 once.  Each control is sent one time, and an uncertain send is
 reconciled with one read and never sent again."
   (let* ((session (wf-service--session))
-         (run (wf-service--control-run session)))
+         (run (wf-service--run-here session "Run to control: ")))
     (pcase-let ((`(,choices . ,reply) (wf-service-control-read session run)))
       (unless choices
         (user-error "The manager offers no control for run %s.  Nothing was sent" run))
@@ -2075,7 +2096,7 @@ reconciled with one read and never sent again."
 In a run view, the run is the run of the view.  The command reads the
 controls of the run, and it refuses when they do not allow a cancel."
   (let* ((session (wf-service--session))
-         (run (wf-service--control-run session)))
+         (run (wf-service--run-here session "Run to cancel: ")))
     (pcase-let ((`(,control . ,reply) (wf-service--controls session run)))
       (unless (wf-service--cancel-offered-p control)
         (user-error "The manager offers no cancel for run %s.  Nothing was sent" run))
@@ -2092,18 +2113,6 @@ continue."
 
 
 ;;; Results and history
-
-(defun wf-service--result-run (session)
-  "Return the run of `wf-result' on SESSION.
-In a run view of SESSION, this is the run of the view.  Elsewhere, read
-one run that SESSION knows."
-  (let ((view wf-service--view-state))
-    (if (and view (eq (wf-service--view-session view) session))
-        (wf-service--view-run view)
-      (let ((runs (wf-service--service-runs session)))
-        (unless runs
-          (user-error "No run of the manager is known.  Open a run with `wf-history' first"))
-        (completing-read "Run whose result to save: " runs nil t)))))
 
 (defun wf-service-save-exact (file bytes)
   "Save as the new FILE the unibyte BYTES unchanged, with mode 0600.
@@ -2151,7 +2160,7 @@ then reads the name of a new file.  It saves the exact bytes there with
 `wf-service-save-exact'.  A run with no verified result refuses, and
 it sends nothing."
   (let* ((session (wf-service--session))
-         (run (wf-service--result-run session))
+         (run (wf-service--run-here session "Run whose result to save: "))
          (outputs (wf-service--read session (format "/v1/runs/%s/outputs" run)))
          (artifact (wf-service--verified-artifact (wf-manager-reply-value outputs))))
     (unless artifact
@@ -2283,6 +2292,32 @@ buffer."
     (user-error "This buffer is not a service history.  Open one with `wf-history'"))
   wf-service--history-state)
 
+(defun wf-service--run-here (session prompt)
+  "Return the run that a command of SESSION acts on, reading it with PROMPT.
+In a run view of SESSION, this is the run of the view.  In a service
+history of the endpoint of SESSION, it is the run of the row at point.
+Elsewhere, read one run that SESSION knows.  A history of another
+endpoint refuses and reads nothing."
+  (let ((view wf-service--view-state)
+        (history (and (derived-mode-p 'wf-service-history-mode) wf-service--history-state))
+        (row (and (derived-mode-p 'wf-service-history-mode) (tabulated-list-get-id))))
+    (cond
+     ((and view (eq (wf-service--view-session view) session))
+      (wf-service--view-run view))
+     ((and history row)
+      (unless (equal (wf-service--history-identity history)
+                     (wf-manager-session-identity session))
+        (user-error "%s" (wf-service--problem
+                          (format "This history lists the runs of endpoint %s, and service mode is bound to endpoint %s.  Nothing was sent"
+                                  (wf-service--history-identity history)
+                                  (wf-manager-session-identity session)))))
+      (wf-manager-run-id (cdr row)))
+     (t
+      (let ((runs (wf-service--service-runs session)))
+        (unless runs
+          (user-error "No run of the manager is known.  Open a run with `wf-history' first"))
+        (completing-read prompt runs nil t))))))
+
 (defun wf-service-history-refresh ()
   "Read every page of the run collection again and draw this history again.
 The history is read only on the endpoint that listed it.  When service
@@ -2321,6 +2356,369 @@ and sends nothing, so the row is never opened on another endpoint."
                                     (wf-manager-run-id run))
                             reply))
       (wf-service-open-view session (wf-manager-run-id run)))))
+
+
+;;; Lineage and exports
+
+(defun wf-service--first-page (session uri decode run-of revision-of run what)
+  "On SESSION, read the first page of the run collection URI one time.
+DECODE decodes the JSON value of the page, RUN-OF gives the run of the
+decoded page and REVISION-OF its revision.  The page must name RUN, and
+its entity tag must be the strong tag of its revision, which a command
+of the collection binds as If-Match.  WHAT names the collection in a
+message.  Return (PAGE . ETAG)."
+  (let* ((reply (wf-service--read session uri))
+         (page (wf-service--decode decode (wf-manager-reply-value reply) what))
+         (etag (wf-manager-reply-etag reply)))
+    (unless (and (equal (funcall run-of page) run)
+                 (equal etag (format "\"%s\"" (funcall revision-of page))))
+      (user-error "%s" (wf-service--problem
+                        (format "The %s does not name run %s with the entity tag of its revision.  Nothing was sent"
+                                what run))))
+    (cons page etag)))
+
+(defun wf-service--reconciled-command (session uri body if-match what visible)
+  "On SESSION, send to URI the command BODY with IF-MATCH one time and settle it.
+WHAT names the command in a message.  VISIBLE is a function of the JSON
+value of one read of URI, and it returns non-nil when that value shows
+the effect of the command.  Return the receipt that reached
+effect-observed, or the symbol `effect-observed' for an uncertain send
+whose effect one read of URI observed.  A refused command refuses.  An
+uncertain send is reconciled with that one read, and it is never sent
+again."
+  (let* ((command (wf-service--prepare session uri body if-match))
+         (sent (wf-service--await
+                (lambda (callback) (wf-manager-session-send session command callback) nil)))
+         (failure (wf-manager-sent-failure sent)))
+    (pcase (wf-manager-sent-kind sent)
+      ('delivered (wf-service--settle session sent what))
+      ('refused
+       (wf-service--refuse (format "The manager refused the %s command.  Nothing was sent again" what)
+                           failure))
+      (_
+       (pcase (wf-service--await
+               (lambda (callback)
+                 (wf-manager-session-reconcile
+                  session (wf-manager-sent-uncertain sent)
+                  (wf-manager-reconciliation-make
+                   :visible visible
+                   :supplied (wf-manager-reconcile-target-make
+                              :location (wf-manager-session-reference session uri)
+                              :precondition if-match))
+                  callback)
+                 nil))
+         ('(effect-observed)
+          (message "wf: the send of the %s command was uncertain, and one read observes its effect.  It was not sent again"
+                   what)
+          'effect-observed)
+         ('(refused)
+          (user-error "%s" (wf-service--problem
+                            (format "The send of the %s command was uncertain, and its receipt states refused"
+                                    what))))
+         (_ (user-error "%s" (wf-service--problem
+                              (format "The outcome of the %s command is uncertain after one read%s.  Nothing was sent again"
+                                      what (if failure
+                                               (concat " (" (wf-service--failure-text failure) ")")
+                                             ""))))))))))
+
+(defun wf-service--effect (receipt kind)
+  "Return the resource of the effect of RECEIPT when its kind is KIND.
+Return nil otherwise.  RECEIPT is a `wf-manager-command-receipt' or the
+symbol `effect-observed' of a reconciled send, which names no effect."
+  (let ((effect (and (wf-manager-command-receipt-p receipt)
+                     (wf-manager-command-receipt-effect receipt))))
+    (and (equal (wf-service--member effect "kind") kind)
+         (wf-service--member effect "resource"))))
+
+(defun wf-service-fork-targets (snapshot)
+  "Return the fork targets of the run SNAPSHOT, in occurrence order.
+SNAPSHOT is the JSON object of a run snapshot, or nil.  A target is an
+occurrence that the runtime completed or reused, so its answer is
+persisted.  This is `forkTargets' of `ext-pi/src/manager-ui.ts'.  Each
+target is a plist with :occurrence, the occurrence number, :code, the
+observation code, :intent, the intent text, and :answer, the published
+answer text or nil."
+  (let ((items (wf-service--member snapshot "items"))
+        (targets nil))
+    (when (vectorp items)
+      (dolist (item (append items nil))
+        (let ((id (wf-service--member item "occurrenceId"))
+              (code (wf-service--member item "code"))
+              (intent (wf-service--member item "intent"))
+              (answer (wf-service--member item "answer")))
+          (when (and (stringp id)
+                     (string-match-p "\\`\\(?:0\\|[1-9][0-9]*\\)\\'" id)
+                     (stringp code)
+                     (member (wf-service--member item "state") '("completed" "reused")))
+            (push (list :occurrence (string-to-number id) :code code
+                        :intent (if (stringp intent) intent "")
+                        :answer (and (stringp answer) answer))
+                  targets)))))
+    (sort targets (lambda (a b) (< (plist-get a :occurrence) (plist-get b :occurrence))))))
+
+(defun wf-service--edit-label (edit)
+  "Return the text of the fork EDIT of an occurrence, or keep for nil."
+  (cond ((null edit) "keep")
+        ((equal (wf-manager-fork-edit-operation edit) "drop") "drop")
+        (t (concat "replace with " (wf-service--json-text (wf-manager-fork-edit-answer edit))))))
+
+(defun wf-service--fork-replacement (run target current)
+  "For RUN, read the replacement answer of the fork TARGET in the minibuffer.
+TARGET is a plist of `wf-service-fork-targets', and CURRENT is the
+earlier edit of its occurrence, or nil.  The minibuffer starts with the
+answer of CURRENT, or else with the published answer of TARGET.
+`wf-manager-fork-replacement-value' types the text by the code of
+TARGET, and a refused text is read again with the text.  Return the
+replace edit."
+  (let* ((occurrence (plist-get target :occurrence))
+         (code (plist-get target :code))
+         (text (if (and current (equal (wf-manager-fork-edit-operation current) "replace"))
+                   (let ((answer (wf-manager-fork-edit-answer current)))
+                     (if (and (stringp answer) (equal code "text"))
+                         answer
+                       (wf-service--json-text answer)))
+                 (or (plist-get target :answer) "")))
+         (edit nil))
+    (while (not edit)
+      (setq text (read-from-minibuffer
+                  (format "Replacement answer of occurrence %d (%s) of run %s: " occurrence code run)
+                  text))
+      (condition-case failure
+          (setq edit (wf-manager-fork-edit-make
+                      :operation "replace" :occurrence-id occurrence
+                      :answer (wf-manager-fork-replacement-value code text)))
+        (wf-manager-invalid-answer
+         (message "wf: the replacement is refused before any send: %s.  The text is read again"
+                  (nth 2 failure)))))
+    edit))
+
+(defun wf-service--fork-edits (session run)
+  "On SESSION, collect the edits of a fork of RUN from its snapshot.
+For each target of `wf-service-fork-targets', the choice keep, drop or
+replace edits its answer, and a replacement is read by
+`wf-service--fork-replacement'.  The label `send' returns the list of
+the `wf-manager-fork-edit' records, and the label `stop' refuses with
+nothing sent."
+  (let* ((snapshot (car (wf-service--read-optional
+                         session (format "/v1/runs/%s/snapshot" run) #'wf-service--decode-object)))
+         (targets (wf-service-fork-targets snapshot))
+         (edits nil)
+         (done nil))
+    (unless snapshot
+      (user-error "%s" (wf-service--problem
+                        (format "The snapshot of run %s cannot be read.  Nothing was sent" run))))
+    (unless targets
+      (user-error "Run %s has no completed occurrence whose answer a fork edits.  Nothing was sent" run))
+    (while (not done)
+      (let* ((choices (append
+                       (mapcar (lambda (target)
+                                 (let ((occurrence (plist-get target :occurrence)))
+                                   (list (format "occurrence:%d" occurrence)
+                                         (format "(%s): %s; %s" (plist-get target :code)
+                                                 (wf-service--edit-label
+                                                  (alist-get occurrence edits nil nil #'eql))
+                                                 (wf-service--one-line (plist-get target :intent)))
+                                         target)))
+                               targets)
+                       (list (list "send" "send the fork with these edits")
+                             (list "stop" "stop without a fork"))))
+             (completion-extra-properties
+              (list :annotation-function
+                    (lambda (label) (concat "  " (cadr (assoc label choices))))))
+             (label (completing-read (format "Fork edits of run %s: " run) choices nil t)))
+        (pcase label
+          ("send" (setq done t))
+          ("stop" (user-error "No fork was sent for run %s" run))
+          (_
+           (let* ((target (nth 2 (assoc label choices)))
+                  (occurrence (plist-get target :occurrence))
+                  (current (alist-get occurrence edits nil nil #'eql))
+                  (action (completing-read (format "Answer of occurrence %d of run %s: " occurrence run)
+                                           '("keep" "drop" "replace") nil t)))
+             (setq edits (cl-remove occurrence edits :key #'car :test #'eql))
+             (pcase action
+               ("drop" (push (cons occurrence (wf-manager-fork-edit-make
+                                               :operation "drop" :occurrence-id occurrence))
+                             edits))
+               ("replace" (push (cons occurrence (wf-service--fork-replacement run target current))
+                                edits))))))))
+    (mapcar #'cdr edits)))
+
+(defun wf-service--continue (session reference)
+  "On SESSION, enqueue the child request REFERENCE and show its exact review.
+The child takes its inputs from its parent run, so a draft is enqueued
+at once.  A request that has left the open phases refuses with its
+admission line."
+  (let ((draft (car (wf-service--read-draft session reference))))
+    (when (equal (wf-manager-draft-phase draft) "draft")
+      (wf-service--enqueue session reference)
+      (setq draft (car (wf-service--read-draft session reference))))
+    (unless (member (wf-manager-draft-phase draft) wf-service--open-phases)
+      (user-error "%s" (wf-service--problem (wf-service-admission-line draft))))
+    (wf-service--open-review session reference)))
+
+(defun wf-service--lineage (operation)
+  "Create a child request of OPERATION for a run and show its exact review.
+OPERATION is restart, resume or fork.  The run is chosen by
+`wf-service--run-here'.  The command reads the first page of the
+lineage collection of the run and refuses unless the page lists
+OPERATION as eligible.  A fork collects its edits with
+`wf-service--fork-edits'.  The lineage request binds the entity tag of
+the page as If-Match, and it is sent one time.  After the effect
+lineage-created, the child request is enqueued, and its exact review
+shows its lineage.  Only the approval of that review starts the child
+run."
+  (let* ((session (wf-service--session))
+         (run (wf-service--run-here session (format "Run to %s: " operation)))
+         (uri (format "/v1/runs/%s/lineage-requests" run)))
+    (pcase-let ((`(,page . ,etag)
+                 (wf-service--first-page session uri #'wf-manager-decode-lineage-collection
+                                         #'wf-manager-lineage-collection-run-id
+                                         #'wf-manager-lineage-collection-revision run
+                                         (format "lineage collection of run %s" run))))
+      (let ((eligible (wf-manager-lineage-collection-eligible page)))
+        (unless (member operation eligible)
+          (user-error "%s" (wf-service--problem
+                            (if eligible
+                                (format "%s is not eligible: the manager lists only %s for run %s.  Nothing was sent"
+                                        operation (string-join eligible ", ") run)
+                              (format "%s is not eligible: the manager lists no lineage operation for run %s, refusal %s.  Nothing was sent"
+                                      operation run (wf-manager-lineage-collection-refusal page)))))))
+      (let* ((edits (and (equal operation "fork") (wf-service--fork-edits session run)))
+             (known (mapcar #'wf-manager-draft-id (wf-manager-lineage-collection-children page)))
+             (receipt (wf-service--reconciled-command
+                       session uri (wf-manager-lineage-body operation edits) etag operation
+                       (lambda (value)
+                         (let ((current (condition-case nil
+                                            (wf-manager-decode-lineage-collection value)
+                                          (wf-manager-error nil))))
+                           (and current
+                                (cl-some (lambda (child)
+                                           (and (not (member (wf-manager-draft-id child) known))
+                                                (equal (wf-manager-draft-lineage child) operation)))
+                                         (wf-manager-lineage-collection-children current)))))))
+             (resource (wf-service--effect receipt "lineage-created")))
+        (unless (and (stringp resource) (string-prefix-p "/v1/requests/" resource))
+          (user-error "%s" (wf-service--problem
+                            (format "The %s of run %s created a child request, and no receipt names it.  The lineage collection of run %s lists it"
+                                    operation run run))))
+        (message "wf: %s of run %s created child request %s.  Its inputs come from the parent run"
+                 operation run (substring resource (length "/v1/requests/")))
+        (wf-service--continue session (wf-manager-session-reference session resource))))))
+
+(defun wf-service--restart ()
+  "Create a restart child of a run of the manager and show its exact review."
+  (wf-service--lineage "restart"))
+
+(defun wf-service--resume ()
+  "Create a resume child of a run of the manager and show its exact review."
+  (wf-service--lineage "resume"))
+
+(defun wf-service--fork ()
+  "Create a fork child of a run of the manager with edits and show its review."
+  (wf-service--lineage "fork"))
+
+(defun wf-service--rerun ()
+  "Run a run of the manager again as a restart child.
+The manager has no fresh root setup of the directory of a run, so the
+rerun of service mode is the restart of `wf-service--restart'."
+  (wf-service--lineage "restart"))
+
+(defun wf-service-export-lines (receipt downloaded collection)
+  "Return the lines of the export RECEIPT, its DOWNLOADED size and COLLECTION.
+DOWNLOADED is the number of the verified bytes of the download, and
+COLLECTION is the `wf-manager-export-collection' of the run.  This is
+`exportLines' of `ext-pi/src/manager-ui.ts' with the export list."
+  (append
+   (list (format "Export %s: %s state %s, command %s" (wf-manager-export-receipt-name receipt)
+                 (wf-manager-export-receipt-id receipt) (wf-manager-export-receipt-state receipt)
+                 (wf-manager-export-receipt-command-id receipt))
+         (format "Export download: verified %d bytes, SHA-256 %s" downloaded
+                 (or (wf-manager-export-receipt-sha256 receipt) "none"))
+         (format "Exports of run %s: %d" (wf-manager-export-collection-run-id collection)
+                 (length (wf-manager-export-collection-items collection))))
+   (mapcar (lambda (item)
+             (format "  %s  %s  %s  %s  SHA-256 %s" (wf-manager-export-receipt-name item)
+                     (wf-manager-export-receipt-id item) (wf-manager-export-receipt-state item)
+                     (if (wf-manager-export-receipt-bytes item)
+                         (format "%d bytes" (wf-manager-export-receipt-bytes item))
+                       "no size")
+                     (or (wf-manager-export-receipt-sha256 item) "none")))
+           (wf-manager-export-collection-items collection))))
+
+;;;###autoload
+(defun wf-export ()
+  "Export the verified result of a run of the manager under a new name.
+The run is chosen by `wf-service--run-here'.  The name is one ASCII
+component of `wf-manager-export-name-valid-p'.  The command sends POST
+/v1/runs/{id}/exports one time, with the entity tag of the first page
+of the export collection as If-Match.  After the effect exported, it
+reads the export receipt, downloads the exported bytes with the
+verified download of the session, and shows the receipt, the verified
+size and digest and the export collection in the buffer
+`*wf export RUN/NAME*'.  Return that buffer.  Local mode has no export,
+so the command refuses there and sends nothing."
+  (interactive)
+  (unless wf--service-dispatch
+    (user-error "The command wf-export works only in service mode.  Select a profile with `wf-service'"))
+  (let* ((session (wf-service--session))
+         (run (wf-service--run-here session "Run whose result to export: "))
+         (name (read-string (format "Export name for the verified result of run %s: " run)))
+         (uri (format "/v1/runs/%s/exports" run))
+         (what (format "export collection of run %s" run)))
+    (unless (wf-manager-export-name-valid-p name)
+      (user-error "The export name must be 1 to 128 ASCII letters, digits, dots, underscores or hyphens that start with a letter or a digit.  Nothing was sent"))
+    (pcase-let* ((`(,_ . ,etag)
+                  (wf-service--first-page session uri #'wf-manager-decode-export-collection
+                                          #'wf-manager-export-collection-run-id
+                                          #'wf-manager-export-collection-revision run what))
+                 (receipt (wf-service--reconciled-command
+                           session uri (wf-manager-json-object "name" name) etag "export"
+                           (lambda (value)
+                             (let ((current (condition-case nil
+                                                (wf-manager-decode-export-collection value)
+                                              (wf-manager-error nil))))
+                               (and current
+                                    (cl-some (lambda (item)
+                                               (and (equal (wf-manager-export-receipt-name item) name)
+                                                    (equal (wf-manager-export-receipt-state item)
+                                                           "published")))
+                                             (wf-manager-export-collection-items current)))))))
+                 (command (and (wf-manager-command-receipt-p receipt)
+                               (wf-manager-command-receipt-id receipt)))
+                 (resource (and command (concat "/v1/exports/export_" command))))
+      (unless (and resource (equal (wf-service--effect receipt "exported") resource))
+        (user-error "%s" (wf-service--problem
+                          (format "The export %s of run %s reached its effect, and no receipt names its export.  The export collection of run %s lists it"
+                                  name run run))))
+      (let ((detail (wf-service--decode #'wf-manager-decode-export-receipt
+                                        (wf-manager-reply-value (wf-service--read session resource))
+                                        "export receipt")))
+        (unless (and (equal (wf-manager-export-receipt-id detail) (concat "export_" command))
+                     (equal (wf-manager-export-receipt-command-id detail) command)
+                     (equal (wf-manager-export-receipt-run-id detail) run)
+                     (equal (wf-manager-export-receipt-name detail) name)
+                     (equal (wf-manager-export-receipt-state detail) "published")
+                     (wf-manager-export-receipt-bytes detail)
+                     (wf-manager-export-receipt-sha256 detail)
+                     (wf-manager-export-receipt-download detail))
+          (user-error "%s" (wf-service--problem
+                            (format "The export receipt %s does not state the published export %s of run %s"
+                                    resource name run))))
+        (let* ((bytes (wf-service--download session (wf-manager-export-receipt-download detail)
+                                            (wf-manager-export-receipt-bytes detail)
+                                            (wf-manager-export-receipt-sha256 detail)))
+               (collection (car (wf-service--first-page
+                                 session uri #'wf-manager-decode-export-collection
+                                 #'wf-manager-export-collection-run-id
+                                 #'wf-manager-export-collection-revision run what)))
+               (lines (wf-service-export-lines detail (length bytes) collection))
+               (buffer (wf--show (format "*wf export %s/%s*" run name)
+                                 (mapconcat (lambda (line) (concat line "\n")) lines "")
+                                 default-directory)))
+          (pop-to-buffer buffer)
+          (message "wf: %s" (car lines))
+          buffer)))))
 
 
 ;;; Diagnostics

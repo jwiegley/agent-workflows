@@ -2902,7 +2902,7 @@ not in the list."
   (should-not (wf--service 'wf-plan)))
 
 (ert-deftest wf-service-refusals-send-nothing ()
-  "In service mode, each pending and local-only command refuses and sends nothing."
+  "In service mode, each local-only command refuses and sends nothing."
   (let* ((wf--service-dispatch #'wf-service--dispatch)
          (wf-service--current nil)
          (calls nil)
@@ -2923,7 +2923,8 @@ not in the list."
             (should (string-match-p "review of .wf-run" (wf-service-refusal 'wf-plan)))
             (should (string-match-p "review of .wf-run" (wf-service-refusal 'wf-cost)))
             (should (string-match-p "no equivalent" (wf-service-refusal 'wf-lineage-compare)))
-            (should (string-match-p "not yet available" (wf-service-refusal 'wf-restart)))
+            (should (string-match-p "use .wf-fork. instead" (wf-service-refusal 'wf-fork-submit)))
+            (should-not (wf-service-refusal 'wf-restart))
             ;; A service command with no session refuses before any read.
             (should-error (call-interactively 'wf-diagnostics) :type 'user-error)
             (should-error (call-interactively 'wf-run) :type 'user-error)
@@ -2933,6 +2934,8 @@ not in the list."
             (should-error (call-interactively 'wf-kill) :type 'user-error)
             (should-error (call-interactively 'wf-result) :type 'user-error)
             (should-error (call-interactively 'wf-history) :type 'user-error)
+            (dolist (command '(wf-restart wf-resume wf-fork wf-rerun wf-export))
+              (should-error (call-interactively command) :type 'user-error))
             (should (null calls)))
         (dolist (advice advices)
           (advice-remove (car advice) (cdr advice)))))))
@@ -3678,6 +3681,327 @@ second send key in the editor refuses and sends nothing."
              (should (= (wf-manager-tests--posts listener) 1)))
          (kill-buffer view)
          (when (buffer-live-p editor) (kill-buffer editor)))))))
+
+;;;; Lineage and exports
+
+(defun wf-manager-tests--collection-page (run revision fields items)
+  "Return the JSON text of the first page of a collection of RUN.
+REVISION is the page revision, FIELDS the JSON text of the other members
+after the run, each with a leading comma, and ITEMS the JSON texts of
+the items."
+  (concat "{\"version\":1,\"runId\":\"" run "\"" fields ",\"page\":{\"setId\":\"set_c\","
+          "\"revision\":\"" revision "\",\"expiresAt\":\"2999-01-01T00:00:00Z\",\"index\":0,"
+          "\"totalItems\":" (number-to-string (length items)) ",\"next\":null},\"items\":["
+          (string-join items ",") "]}"))
+
+(defun wf-manager-tests--lineage-page (revision eligible refusal &rest children)
+  "Return the response of the lineage collection of run_21 with REVISION.
+ELIGIBLE is the JSON text of the eligible operations, REFUSAL the JSON
+text of the refusal, and CHILDREN the JSON texts of the child requests.
+The entity tag is the strong tag of REVISION."
+  (wf-manager-tests--json
+   200 (wf-manager-tests--collection-page
+        "run_21" revision (concat ",\"eligible\":" eligible ",\"refusal\":" refusal) children)
+   (list (concat "ETag: \"" revision "\""))))
+
+(defun wf-manager-tests--child-json (phase)
+  "Return the JSON text of the fork child req_9 of run_21 in PHASE.
+Its one input comes from the parent run, so no input is missing."
+  (let ((draft (wf-manager-tests--vector-json "resources.drafts"
+                                              "associated lineage request keeps empty literal text")))
+    (dolist (edit `(("req_8" . "req_9")
+                    ("\"phase\":\"associated\"" . ,(format "\"phase\":\"%s\"" phase))
+                    ("\"state\":\"reserved\"" . ,(if (equal phase "draft")
+                                                     "\"state\":\"not-queued\""
+                                                   "\"state\":\"waiting\""))
+                    ("\"preparationId\":\"prep_9\",\"runId\":\"run_22\""
+                     . "\"preparationId\":null,\"runId\":null"))
+                  draft)
+      (should (string-search (car edit) draft))
+      (setq draft (string-replace (car edit) (cdr edit) draft)))))
+
+(defconst wf-manager-tests--fork-snapshot
+  (concat "{\"version\":1,\"runtime\":{\"status\":\"succeeded\"},\"items\":["
+          "{\"occurrenceId\":\"2\",\"state\":\"waiting\",\"code\":\"text\",\"intent\":\"Later\",\"answer\":null},"
+          "{\"occurrenceId\":\"1\",\"state\":\"reused\",\"code\":\"flag\",\"intent\":\"Approve?\",\"answer\":\"yes\"},"
+          "{\"occurrenceId\":\"0\",\"state\":\"completed\",\"code\":\"text\",\"intent\":\"Ask\\nagain\",\"answer\":\"old\"},"
+          "{\"occurrenceId\":\"01\",\"state\":\"completed\",\"code\":\"text\",\"intent\":\"Bad\",\"answer\":\"x\"}]}")
+  "The JSON text of a run snapshot with two fork targets, 0 and 1.
+Occurrence 2 still waits, and the identifier 01 is not canonical.")
+
+(defun wf-manager-tests--post-body (listener &optional target)
+  "Return the body of the last POST of LISTENER and its If-Match.
+With TARGET, the POST is the last POST of that request target."
+  (let ((posted (car (cl-remove-if-not
+                      (lambda (request)
+                        (string-prefix-p (concat "POST " (or target "")) request))
+                      (wf-manager-tests--listener-requests listener)))))
+    (list (substring posted (+ 4 (string-search "\r\n\r\n" posted)))
+          (cdr (assoc "if-match" (wf-manager-tests--request-headers posted))))))
+
+(ert-deftest wf-manager-lineage-and-export-decoders ()
+  "Decode the lineage and export collections and build their bodies.
+A lineage page states a refusal exactly when it lists no eligible
+operation, and each child names the parent.  An export receipt has a
+valid single-component name.  The fork body orders its edits by
+occurrence, and a fork replacement is typed by the code of its
+occurrence."
+  (let* ((child (wf-manager-tests--child-json "draft"))
+         (page (wf-manager-decode-lineage-collection
+                (wf-manager-json-decode
+                 (wf-manager-tests--collection-page
+                  "run_21" "lineage_rev_1" ",\"eligible\":[\"restart\",\"fork\"],\"refusal\":null"
+                  (list child))))))
+    (should (equal (wf-manager-lineage-collection-run-id page) "run_21"))
+    (should (equal (wf-manager-lineage-collection-revision page) "lineage_rev_1"))
+    (should (equal (wf-manager-lineage-collection-eligible page) '("restart" "fork")))
+    (should (null (wf-manager-lineage-collection-refusal page)))
+    (should (equal (mapcar #'wf-manager-draft-id (wf-manager-lineage-collection-children page))
+                   '("req_9")))
+    (should (equal (wf-manager-lineage-collection-refusal
+                    (wf-manager-decode-lineage-collection
+                     (wf-manager-json-decode
+                      (wf-manager-tests--collection-page
+                       "run_21" "lineage_rev_1" ",\"eligible\":[],\"refusal\":\"quarantined\"" nil))))
+                   "quarantined"))
+    (dolist (fields '(",\"eligible\":[],\"refusal\":null"
+                      ",\"eligible\":[\"restart\"],\"refusal\":\"quarantined\""
+                      ",\"eligible\":[\"restart\",\"restart\"],\"refusal\":null"
+                      ",\"eligible\":[\"rerun\"],\"refusal\":null"))
+      (should (eq (car (should-error
+                        (wf-manager-decode-lineage-collection
+                         (wf-manager-json-decode
+                          (wf-manager-tests--collection-page "run_21" "lineage_rev_1" fields nil)))))
+                  'wf-manager-invalid-response)))
+    ;; A child of another parent refuses.
+    (should-error (wf-manager-decode-lineage-collection
+                   (wf-manager-json-decode
+                    (wf-manager-tests--collection-page
+                     "run_7" "lineage_rev_1" ",\"eligible\":[\"restart\"],\"refusal\":null"
+                     (list child))))
+                  :type 'wf-manager-invalid-response))
+  (let* ((digest (make-string 64 ?b))
+         (item (concat "{\"version\":1,\"id\":\"export_cmd_11\",\"runId\":\"run_21\","
+                       "\"commandId\":\"cmd_11\",\"name\":\"result.v1_x-y\",\"code\":\"text\","
+                       "\"state\":\"published\",\"sha256\":\"" digest "\",\"bytes\":\"67108864\","
+                       "\"download\":\"/v1/artifacts/artifact_1\"}"))
+         (page (wf-manager-decode-export-collection
+                (wf-manager-json-decode
+                 (wf-manager-tests--collection-page "run_21" "export_rev_1" "" (list item)))))
+         (receipt (car (wf-manager-export-collection-items page))))
+    (should (equal (wf-manager-export-collection-revision page) "export_rev_1"))
+    (should (equal (wf-manager-export-receipt-name receipt) "result.v1_x-y"))
+    (should (equal (wf-manager-export-receipt-sha256 receipt) digest))
+    (should (equal (wf-manager-export-receipt-download receipt) "/v1/artifacts/artifact_1"))
+    (should (equal (wf-manager-export-receipt-bytes receipt) 67108864))
+    ;; A size above the largest exported document refuses.
+    (dolist (edit '(("result.v1_x-y" . "../result") ("\"published\"" . "\"lost\"")
+                    ("\"sha256\":\"b" . "\"sha256\":\"B") ("67108864" . "67108865")))
+      (should-error (wf-manager-decode-export-receipt
+                     (wf-manager-json-decode (string-replace (car edit) (cdr edit) item)))
+                    :type 'wf-manager-invalid-response))
+    (should-error (wf-manager-decode-export-collection
+                   (wf-manager-json-decode
+                    (wf-manager-tests--collection-page "run_7" "export_rev_1" "" (list item))))
+                  :type 'wf-manager-invalid-response))
+  (should (wf-manager-export-name-valid-p "a"))
+  (should (wf-manager-export-name-valid-p (make-string 128 ?z)))
+  (dolist (name (list "" ".hidden" "a/b" "a b" "é" (make-string 129 ?z)))
+    (should-not (wf-manager-export-name-valid-p name)))
+  (should (equal (wf-manager-json-encode (wf-manager-lineage-body "restart"))
+                 "{\"operation\":\"restart\"}"))
+  (should (equal (wf-manager-json-encode
+                  (wf-manager-lineage-body
+                   "fork" (list (wf-manager-fork-edit-make :operation "drop"
+                                                           :occurrence-id 18446744073709551615)
+                                (wf-manager-fork-edit-make :operation "replace" :occurrence-id 2
+                                                           :answer :false))))
+                 (concat "{\"edits\":[{\"answer\":false,\"occurrenceId\":\"2\",\"operation\":\"replace\"},"
+                         "{\"occurrenceId\":\"18446744073709551615\",\"operation\":\"drop\"}],"
+                         "\"operation\":\"fork\"}")))
+  (should (equal (wf-manager-fork-replacement-value "text" " as typed ") " as typed "))
+  (should (eq (wf-manager-fork-replacement-value "flag" "No") :false))
+  (should (eq (wf-manager-fork-replacement-value "ack" "") :null))
+  (should (wf-manager-json-equal (wf-manager-fork-replacement-value "structured" "{\"a\":[1]}")
+                                 (wf-manager-json-decode "{\"a\":[1]}")))
+  (should-error (wf-manager-fork-replacement-value "flag" "maybe") :type 'wf-manager-invalid-answer)
+  (should-error (wf-manager-fork-replacement-value "ack" "x") :type 'wf-manager-invalid-answer))
+
+(ert-deftest wf-service-fork-sends-the-snapshot-edits-and-opens-the-review ()
+  "`wf-fork' edits the answers of the fork targets of the snapshot.
+The targets are the completed and reused occurrences in occurrence
+order.  A replacement starts from the published answer, and a refused
+text is read again.  The one lineage request carries the typed edits in
+occurrence order and binds the entity tag of the lineage collection.
+The child is enqueued without set-input, and its exact review opens."
+  (let ((reviewed nil) (labels nil) (prompts nil) (initials nil))
+    (wf-manager-tests--with-view
+     (list "/v1/runs/run_21/lineage-requests"
+           (list (wf-manager-tests--lineage-page "lineage_rev_1" "[\"restart\",\"resume\",\"fork\"]" "null")
+                 (wf-manager-tests--json
+                  202 (wf-manager-tests--vector-json "resources.receipts"
+                                                     "effect-observed lineage-created receipt")
+                  '("Location: /v1/commands/cmd_11")))
+           "/v1/runs/run_21/snapshot"
+           (list (wf-manager-tests--json 200 wf-manager-tests--fork-snapshot '("ETag: \"snap_1\"")))
+           "/v1/requests/req_9"
+           (let ((draft (wf-manager-tests--json 200 (wf-manager-tests--child-json "draft")
+                                                '("ETag: \"request_rev_1\""))))
+             (list draft draft
+                   (wf-manager-tests--json
+                    202 (string-replace "req_8" "req_9"
+                                        (wf-manager-tests--vector-json "resources.receipts"
+                                                                       "effect-observed enqueued receipt"))
+                    '("Location: /v1/commands/cmd_11"))
+                   (wf-manager-tests--json 200 (wf-manager-tests--child-json "queued")
+                                           '("ETag: \"request_rev_2\"")))))
+     (lambda (listener session)
+       (let ((view (wf-manager-tests--control-view session))
+             (picks (list "occurrence:1" "drop" "occurrence:1" "keep" "occurrence:0" "replace"
+                          "occurrence:1" "replace" "occurrence:0" "replace" "send"))
+             (typed (list "Forked text" "maybe" "no" "Forked again")))
+         (unwind-protect
+             (with-current-buffer view
+               (cl-letf (((symbol-function 'completing-read)
+                          (lambda (prompt collection &rest _)
+                            (push prompt prompts)
+                            (push (mapcar (lambda (choice) (if (consp choice) (car choice) choice))
+                                          collection)
+                                  labels)
+                            (pop picks)))
+                         ((symbol-function 'read-from-minibuffer)
+                          (lambda (_prompt initial &rest _)
+                            (push initial initials)
+                            (pop typed)))
+                         ((symbol-function 'wf-service--open-review)
+                          (lambda (_session reference)
+                            (setq reviewed (wf-manager-reference-uri reference)))))
+                 (call-interactively #'wf-fork)))
+           (kill-buffer view))
+         (should (equal reviewed "/v1/requests/req_9"))
+         (should (equal (car (last labels)) '("occurrence:0" "occurrence:1" "send" "stop")))
+         (should (equal (car (last prompts)) "Fork edits of run run_21: "))
+         (should (member "Answer of occurrence 1 of run run_21: " prompts))
+         ;; The first replacement of occurrence 0 starts from its answer,
+         ;; the second from the first replacement.  The refused flag text
+         ;; is read again with the text.
+         (should (equal (reverse initials) '("old" "yes" "maybe" "Forked text")))
+         (should (= (wf-manager-tests--posts listener) 2))
+         (let ((requests (wf-manager-tests--listener-requests listener)))
+           (should (equal (wf-manager-tests--post-body listener "/v1/runs/run_21/lineage-requests ")
+                          (list (concat "{\"edits\":[{\"answer\":\"Forked again\",\"occurrenceId\":\"0\","
+                                        "\"operation\":\"replace\"},{\"answer\":false,\"occurrenceId\":\"1\","
+                                        "\"operation\":\"replace\"}],\"operation\":\"fork\"}")
+                                "\"lineage_rev_1\"")))
+           (should (equal (car (wf-manager-tests--post-body listener))
+                          "{\"operation\":\"enqueue\"}"))
+           (should (= (cl-count-if (lambda (request) (string-prefix-p "POST /v1/requests/req_9" request))
+                                   requests)
+                      1))))))))
+
+(ert-deftest wf-service-lineage-refuses-an-operation-that-is-not-eligible ()
+  "`wf-restart' and `wf-rerun' send nothing when the manager lists no restart."
+  (wf-manager-tests--with-view
+   (list "/v1/runs/run_21/lineage-requests"
+         (list (wf-manager-tests--lineage-page "lineage_rev_1" "[]" "\"quarantined\"")))
+   (lambda (listener session)
+     (let ((view (wf-manager-tests--control-view session)))
+       (unwind-protect
+           (with-current-buffer view
+             (dolist (command '(wf-restart wf-rerun))
+               (should (string-search
+                        "restart is not eligible: the manager lists no lineage operation for run run_21, refusal quarantined"
+                        (cadr (should-error (call-interactively command) :type 'user-error))))))
+         (kill-buffer view))
+       (should (= (wf-manager-tests--targets listener "/v1/runs/run_21/lineage-requests") 2))
+       (should (= (wf-manager-tests--posts listener) 0))))))
+
+(ert-deftest wf-service-export-shows-the-receipt-and-the-verified-download ()
+  "`wf-export' exports a run with the entity tag of its export collection.
+A name that is not one component refuses before any read.  The export
+is sent one time, and the command shows the published receipt, the
+verified download and the export collection.  Local mode refuses."
+  (let* ((digest (secure-hash 'sha256 wf-manager-tests--artifact))
+         (item (concat "{\"version\":1,\"id\":\"export_cmd_11\",\"runId\":\"run_21\","
+                       "\"commandId\":\"cmd_11\",\"name\":\"result.json\",\"code\":\"text\","
+                       "\"state\":\"published\",\"sha256\":\"" digest "\",\"bytes\":\""
+                       (number-to-string (length wf-manager-tests--artifact)) "\","
+                       "\"download\":\"/v1/artifacts/artifact_1\"}")))
+    (should (string-search "works only in service mode"
+                           (cadr (should-error (let ((wf--service-dispatch nil))
+                                                 (call-interactively #'wf-export))
+                                               :type 'user-error))))
+    (wf-manager-tests--with-view
+     (list "/v1/runs/run_21/exports"
+           (list (wf-manager-tests--json
+                  200 (wf-manager-tests--collection-page "run_21" "export_rev_1" "" nil)
+                  '("ETag: \"export_rev_1\""))
+                 (wf-manager-tests--json
+                  202 (wf-manager-tests--vector-json "resources.receipts" "effect-observed exported receipt")
+                  '("Location: /v1/commands/cmd_11"))
+                 (wf-manager-tests--json
+                  200 (wf-manager-tests--collection-page "run_21" "export_rev_2" "" (list item))
+                  '("ETag: \"export_rev_2\"")))
+           "/v1/exports/export_cmd_11" (list (wf-manager-tests--json 200 item))
+           "/v1/artifacts/artifact_1" (list (wf-manager-tests--artifact-response)))
+     (lambda (listener session)
+       (let ((view (wf-manager-tests--control-view session))
+             (names (list "../result" "result.json"))
+             (buffer nil))
+         (unwind-protect
+             (with-current-buffer view
+               (cl-letf (((symbol-function 'read-string) (lambda (&rest _) (pop names))))
+                 (should (string-search "The export name must be 1 to 128"
+                                        (cadr (should-error (call-interactively #'wf-export)
+                                                            :type 'user-error))))
+                 (should (= (wf-manager-tests--targets listener "/v1/runs/run_21/exports") 0))
+                 (setq buffer (call-interactively #'wf-export))))
+           (kill-buffer view))
+         (should (equal (buffer-name buffer) "*wf export run_21/result.json*"))
+         (should (equal (with-current-buffer buffer
+                          (buffer-substring-no-properties (point-min) (point-max)))
+                        (concat "Export result.json: export_cmd_11 state published, command cmd_11\n"
+                                "Export download: verified 8 bytes, SHA-256 " digest "\n"
+                                "Exports of run run_21: 1\n"
+                                "  result.json  export_cmd_11  published  8 bytes  SHA-256 " digest "\n")))
+         (kill-buffer buffer)
+         (should (= (wf-manager-tests--posts listener) 1))
+         (should (equal (wf-manager-tests--post-body listener)
+                        (list "{\"name\":\"result.json\"}" "\"export_rev_1\"")))
+         (should (= (wf-manager-tests--targets listener "/v1/artifacts/artifact_1") 1)))))))
+
+(ert-deftest wf-service-export-uncertain-reconciles-once ()
+  "An uncertain export is reconciled with one read and never sent again.
+The connection of the export closes with no response.  One read of the
+export collection lists the published export of the name with a new
+entity tag, so the effect is observed, and the command reports that no
+receipt names the export."
+  (let ((item (concat "{\"version\":1,\"id\":\"export_cmd_11\",\"runId\":\"run_21\","
+                      "\"commandId\":\"cmd_11\",\"name\":\"result.json\",\"code\":\"text\","
+                      "\"state\":\"published\",\"sha256\":\"" (make-string 64 ?c) "\",\"bytes\":\"8\","
+                      "\"download\":\"/v1/artifacts/artifact_1\"}")))
+    (wf-manager-tests--with-view
+     (list "/v1/runs/run_21/exports"
+           (list (wf-manager-tests--json
+                  200 (wf-manager-tests--collection-page "run_21" "export_rev_1" "" nil)
+                  '("ETag: \"export_rev_1\""))
+                 'drop
+                 (wf-manager-tests--json
+                  200 (wf-manager-tests--collection-page "run_21" "export_rev_2" "" (list item))
+                  '("ETag: \"export_rev_2\""))))
+     (lambda (listener session)
+       (let ((view (wf-manager-tests--control-view session)))
+         (unwind-protect
+             (with-current-buffer view
+               (cl-letf (((symbol-function 'read-string) (lambda (&rest _) "result.json")))
+                 (should (string-search "reached its effect, and no receipt names its export"
+                                        (cadr (should-error (call-interactively #'wf-export)
+                                                            :type 'user-error))))))
+           (kill-buffer view))
+         (accept-process-output nil 0.2)
+         (should (= (wf-manager-tests--posts listener) 1))
+         (should (= (wf-manager-tests--targets listener "/v1/runs/run_21/exports") 3))
+         (should (= (wf-manager-tests--targets listener "/v1/exports/export_cmd_11") 0)))))))
 
 (provide 'wf-manager-tests)
 

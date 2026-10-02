@@ -46,11 +46,17 @@
 #      the verified download of an artifact. The service-mode tests
 #      check that wf-service-commands of emacs/wf-service.el states each
 #      public command of emacs/wf.el once, that local mode is the default,
-#      and that each pending and local-only command refuses in service mode
-#      and starts no process and sends no request. They also check that a
-#      refresh of the setup form keeps every draft, that the setup sources
-#      give literal or capture specs, and that the review text states every
-#      approval selector, the entity tag and the admission. The control tests
+#      and that each local-only command refuses in service mode and starts
+#      no process and sends no request. They also check that a refresh of
+#      the setup form keeps every draft, that the setup sources give literal
+#      or capture specs, and that the review text states every approval
+#      selector, the entity tag and the admission. The lineage and export
+#      tests check the lineage and export decoders, that a fork sends the
+#      typed edits of the snapshot targets with one lineage request and then
+#      enqueues the child, that an operation that is not eligible sends
+#      nothing, that an export shows its receipt and its verified
+#      download, and that an uncertain export is reconciled with one read
+#      of its collection and not sent again. The control tests
 #      check that wf-control lists only the controls that the controls of a run
 #      offer, that wf-kill sends one cancel only after a yes to its
 #      confirmation, and that an uncertain steer is reconciled with one read and

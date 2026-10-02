@@ -11,12 +11,16 @@
 ;; The live check of the transport `wf-manager.el' against a running
 ;; agent-cat workflow manager.  The emacs-client mode of
 ;; `manager/test/service_http.py' in agent-cat starts the manager with
-;; its mixed fixture, issues the client credential with the scopes
-;; observe, submit, control and export and writes its version 1 client
-;; profile.  It then runs this file in a batch Emacs with an isolated
-;; home directory and `user-emacs-directory':
+;; its mixed fixture, issues two client credentials with the scopes
+;; observe, submit, control and export and writes the version 1 client
+;; profile of each.  It also writes a third profile with the second
+;; credential, whose endpoint names a local port with no listener.  It
+;; then runs this file in a batch Emacs with an isolated home directory
+;; and `user-emacs-directory':
 ;;
 ;;     WF_MANAGER_PROFILE=/path/to/client-profile.json \
+;;     WF_MANAGER_SECOND_PROFILE=/path/to/second-profile.json \
+;;     WF_MANAGER_UNREACHABLE_PROFILE=/path/to/unreachable-profile.json \
 ;;     WF_MANAGER_REPORT=/path/to/report.json \
 ;;     WF_MANAGER_RUN=/path/to/run.json \
 ;;     WF_MANAGER_REVOKE=/path/to/revoke.json \
@@ -48,13 +52,35 @@
 ;;      credential.  The run must then appear in the installed overview
 ;;      of the session through an event poll, with no other read by the
 ;;      test, and the delivery state must be `poll'.
-;;   7. revoke: the test writes the file that WF_MANAGER_REVOKE names and
+;;   7. unreachable: `wf-manager-session-switch' to the profile of
+;;      WF_MANAGER_UNREACHABLE_PROFILE fails with
+;;      `wf-manager-transport-unavailable'.  The session keeps its
+;;      connection, its endpoint identity, its watched resources and its
+;;      overview, and its follow loop sends at least two more polling
+;;      batches with the delivery state `poll'.
+;;   8. switch: the session watches the first draft and one page draft
+;;      on the first binding.  The read of the page draft completes, and
+;;      advice of `wf-manager--session-complete' delays its delivery.
+;;      `wf-manager-session-switch' to the profile of
+;;      WF_MANAGER_SECOND_PROFILE then commits with a new endpoint
+;;      identity and the complete overview of the second credential.
+;;      Each member reference of that overview resolves to a 200 read.
+;;      The delayed read of the earlier generation is then delivered, and
+;;      it changes neither the newer read of the page draft nor the
+;;      overview.  A reference of the first binding gives
+;;      `wf-manager-wrong-endpoint', both for a watch and for the current
+;;      read, and the follow loop polls on the second binding.
+;;   9. revoke: the test writes the file that WF_MANAGER_REVOKE names and
 ;;      waits for that name with the suffix .done, which the harness
-;;      writes after it revokes the credential of the profile.  The
-;;      follow loop of the session then ends with `refused', and the
-;;      next GET gives the typed refusal 401 unauthenticated.
-;;   8. close: `wf-manager-session-close' leaves no network process, no
-;;      url.el buffer and no session directory.
+;;      writes after it revokes the second credential.  The follow loop
+;;      of the session then ends with `refused', and the next GET gives
+;;      the typed refusal 401 unauthenticated.
+;;  10. close: a buffer that holds the session and a reference of the run
+;;      is killed, and `wf-manager-session-close' then leaves no network
+;;      process, no url.el buffer, no timer and no session directory of
+;;      either binding.  The harness then reads that the run of the
+;;      harness has not ended and that the check sent no command after
+;;      the run handshake.
 ;;
 ;; No step may prompt.  Each prompt function of
 ;; `wf-manager-live--prompt-functions' counts a call and signals an
@@ -88,11 +114,29 @@
 ;;   deliveryState     the delivery state when the run appeared
 ;;   polls             the number of polling batches until then
 ;;   generation        the refresh generation when the run appeared
+;;   unreachableFailure  the condition of the unreachable switch
+;;   unreachableKept   true when the session kept its binding
+;;   pollsBeforeUnreachable  the polling batches before that switch
+;;   pollsAfterUnreachable   the polling batches after it
+;;   switchIdentity    the endpoint identity of the second binding
+;;   switchEpoch       the authority epoch of the second binding
+;;   switchGeneration  the refresh generation after the switch
+;;   switchOverviewRequests  the sorted request members of its overview
+;;   switchOverviewRuns      the sorted run members of its overview
+;;   overviewItems     the number of members of that overview
+;;   resolvedReferences  the number of those members that read 200
+;;   delayedReads      the number of delayed reads of the earlier binding
+;;   delayedOverwrote  true when a delayed read changed the newer state
+;;   earlierRefusal    the conditions of a watch and of the current read
+;;                     of a reference of the first binding
+;;   switchDelivery    the delivery state of the second binding
 ;;   followEnd         the end of the follow loop after the revocation
 ;;   revokedRefusal    [401, CODE], the refusal after the revocation
 ;;   processesAfterClose  the number of new processes after close
 ;;   buffersAfterClose    the names of the new buffers after close
-;;   directoryRemoved  true when the session directory is gone
+;;   timersAfterClose  the number of new timers after close
+;;   bufferKilled      true after the kill of the reference buffer
+;;   directoryRemoved  true when the directories of both bindings are gone
 ;;
 ;; The harness compares `harnessVersion' with its own constant and
 ;; refuses a report of another version, so that a mismatched pair of the
@@ -102,9 +146,10 @@
 
 (require 'ert)
 (require 'cl-lib)
+(require 'url)
 (require 'wf-manager)
 
-(defconst wf-manager-live-harness-version 2
+(defconst wf-manager-live-harness-version 3
   "The version of the report of this file.
 The emacs-client mode of agent-cat states the same version.")
 
@@ -411,6 +456,7 @@ the overview again.  Record the run and the delivery state in REPORT."
 
 (defun wf-manager-live--revoke (session connection file report)
   "For SESSION, have the harness revoke the credential of CONNECTION.
+CONNECTION is the current connection of SESSION.
 Write FILE, wait for FILE with the suffix .done, wait for the end of
 the follow loop of SESSION, and record that end and the refusal of the
 next GET in REPORT."
@@ -430,22 +476,185 @@ next GET in REPORT."
     (puthash "revokedRefusal" (wf-manager-live--refusal refused) report)
     (should (equal refused '(wf-manager-refused 401 "unauthenticated")))))
 
-(defun wf-manager-live--close (session processes buffers report)
-  "Close SESSION and record what remains.
-PROCESSES and BUFFERS are the processes and the buffers before the
-session.  The record goes to REPORT."
-  (let* ((transport (wf-manager-session-transport session))
-         (directory (wf-manager-transport-directory transport)))
+(defvar-local wf-manager-live--held nil
+  "The session and the reference that the reference buffer holds.")
+
+(defun wf-manager-live--close (session state directories report)
+  "Kill a buffer with a reference of SESSION, close SESSION, and check.
+STATE is (PROCESSES BUFFERS TIMERS), the processes, the buffers and the
+timers before the session.  DIRECTORIES are the transport directories
+of the bindings of SESSION.  The record goes to REPORT."
+  (pcase-let ((`(,processes ,buffers ,timers) state)
+              (buffer (generate-new-buffer " wf-manager-live-reference")))
+    (with-current-buffer buffer
+      (setq wf-manager-live--held
+            (list session (wf-manager-session-reference
+                           session (concat "/v1/runs/" (gethash "followRunId" report))))))
+    (kill-buffer buffer)
+    (puthash "bufferKilled" (if (buffer-live-p buffer) :false t) report)
     (wf-manager-session-close session)
     (should (null (wf-manager-session-timers session)))
     (let ((new-processes (cl-set-difference (process-list) processes))
-          (new-buffers (cl-set-difference (buffer-list) buffers)))
+          (new-buffers (cl-set-difference (buffer-list) buffers))
+          (new-timers (cl-set-difference timer-list timers)))
       (puthash "processesAfterClose" (wf-manager-live--integer (length new-processes)) report)
       (puthash "buffersAfterClose" (vconcat (mapcar #'buffer-name new-buffers)) report)
-      (puthash "directoryRemoved" (if (file-exists-p directory) :false t) report)
+      (puthash "timersAfterClose" (wf-manager-live--integer (length new-timers)) report)
+      (puthash "directoryRemoved"
+               (if (cl-some #'file-exists-p directories) :false t) report)
+      (should-not (buffer-live-p buffer))
       (should (null new-processes))
       (should (null new-buffers))
-      (should-not (file-exists-p directory)))))
+      (should (null new-timers))
+      (should-not (cl-some #'file-exists-p directories)))))
+
+(defun wf-manager-live--wait (predicate)
+  "Wait at most `wf-manager-live--seconds' for PREDICATE to be non-nil.
+Return the value of PREDICATE."
+  (let ((deadline (+ (float-time) wf-manager-live--seconds)))
+    (while (and (not (funcall predicate)) (< (float-time) deadline))
+      (accept-process-output nil 0.05))
+    (funcall predicate)))
+
+(defun wf-manager-live--unreachable (session profile report)
+  "Switch SESSION to PROFILE, whose endpoint has no listener.
+Require that SESSION keeps its binding and its follow loop, and record
+the failure and the polling batches in REPORT."
+  (let* ((connection (wf-manager-session-connection session))
+         (identity (wf-manager-session-identity session))
+         (watched (copy-sequence (wf-manager-session-watched session)))
+         (before (wf-manager-session-polls session))
+         (outcome (wf-manager-live--await
+                   (lambda (callback)
+                     (wf-manager-session-switch session profile callback))))
+         (polled (wf-manager-live--wait
+                  (lambda () (>= (wf-manager-session-polls session) (+ before 2)))))
+         (overview (wf-manager-session-overview session))
+         (kept (and (eq connection (wf-manager-session-connection session))
+                    (equal identity (wf-manager-session-identity session))
+                    (equal watched (wf-manager-session-watched session))
+                    (wf-manager-overview-p overview)
+                    (cl-every (lambda (item)
+                                (equal (wf-manager-reference-endpoint
+                                        (wf-manager-overview-item-reference item))
+                                       identity))
+                              (wf-manager-overview-items overview))
+                    (null (wf-manager-session-switches session))
+                    (null (wf-manager-session-follow-end session))
+                    (eq (wf-manager-session-delivery session) 'poll))))
+    (puthash "unreachableFailure"
+             (symbol-name (if (wf-manager-failure-p outcome) (car outcome) 'none)) report)
+    (puthash "unreachableKept" (if kept t :false) report)
+    (puthash "pollsBeforeUnreachable" (wf-manager-live--integer before) report)
+    (puthash "pollsAfterUnreachable"
+             (wf-manager-live--integer (wf-manager-session-polls session)) report)
+    (should (eq (car-safe outcome) 'wf-manager-transport-unavailable))
+    (should polled)
+    (should kept)))
+
+(defun wf-manager-live--condition (function)
+  "Call FUNCTION and return the name of the condition that it gives.
+FUNCTION signals a condition or returns a failure.  Return \"none\"
+when it does neither."
+  (condition-case failure
+      (let ((value (funcall function)))
+        (symbol-name (if (wf-manager-failure-p value) (car value) 'none)))
+    (wf-manager-error (symbol-name (car failure)))))
+
+(defun wf-manager-live--switch (session profile report)
+  "Switch SESSION to PROFILE with a delayed read of the earlier binding.
+Return the transport directory of the earlier binding.  Record the
+switch, the delayed read and the refusal of an earlier reference in
+REPORT."
+  (let* ((generation (wf-manager-session-generation session))
+         (draft-uri (concat "/v1/requests/" (gethash "requestId" report)))
+         (page-uri (concat "/v1/requests/" (aref (gethash "pageRequests" report) 0)))
+         (earlier (wf-manager-session-reference session draft-uri))
+         (directory (wf-manager-transport-directory (wf-manager-session-transport session)))
+         (held nil)
+         (resolved nil)
+         (total nil)
+         (hold (lambda (original &rest arguments)
+                 ;; The arguments are SESSION KEY GENERATION OUTCOME INSTALL.
+                 (if (and (equal (nth 1 arguments) page-uri)
+                          (eql (nth 2 arguments) generation))
+                     (push (cons original arguments) held)
+                   (apply original arguments)))))
+    (wf-manager-session-watch session earlier)
+    (should (wf-manager-live--wait
+             (lambda () (wf-manager-reply-p (wf-manager-session-current session earlier)))))
+    (advice-add 'wf-manager--session-complete :around hold)
+    (unwind-protect
+        (progn
+          (wf-manager-session-watch session (wf-manager-session-reference session page-uri))
+          (should (wf-manager-live--wait (lambda () held)))
+          (let* ((overview (wf-manager-live--await
+                            (lambda (callback)
+                              (wf-manager-session-switch session profile callback))))
+                 (items (progn (should (wf-manager-overview-p overview))
+                               (wf-manager-overview-items overview)))
+                 (references (mapcar #'wf-manager-overview-item-reference items))
+                 (page (cl-find page-uri references
+                                :key #'wf-manager-reference-uri :test #'equal)))
+            (puthash "switchIdentity" (wf-manager-session-identity session) report)
+            (puthash "switchEpoch"
+                     (wf-manager-connection-epoch (wf-manager-session-connection session))
+                     report)
+            (puthash "switchGeneration"
+                     (wf-manager-live--integer (wf-manager-session-generation session)) report)
+            (puthash "switchOverviewRequests"
+                     (vconcat (wf-manager-live--members overview "request")) report)
+            (puthash "switchOverviewRuns" (vconcat (wf-manager-live--members overview "run"))
+                     report)
+            (puthash "overviewItems" (wf-manager-live--integer (length items)) report)
+            (should page)
+            ;; Each member reference of the new overview resolves.
+            (dolist (reference references)
+              (wf-manager-session-watch session reference))
+            (should (wf-manager-live--wait
+                     (lambda ()
+                       (cl-every (lambda (reference)
+                                   (wf-manager-session-current session reference))
+                                 references))))
+            (setq resolved (cl-count-if (lambda (reference)
+                                          (wf-manager-reply-p
+                                           (wf-manager-session-current session reference)))
+                                        references)
+                  total (length references))
+            (puthash "resolvedReferences" (wf-manager-live--integer resolved) report)
+            ;; The delayed read of the earlier generation arrives last.
+            (let ((newer (wf-manager-session-current session page)))
+              (puthash "delayedReads" (wf-manager-live--integer (length held)) report)
+              (dolist (entry (reverse held))
+                (apply (car entry) (cdr entry)))
+              (setq held nil)
+              (accept-process-output nil 0.2)
+              (let* ((installed (wf-manager-session-overview session))
+                     (overwrote
+                      (not (and (eq (wf-manager-session-current session page) newer)
+                                (wf-manager-overview-p installed)
+                                (cl-every (lambda (item)
+                                            (equal (wf-manager-reference-endpoint
+                                                    (wf-manager-overview-item-reference item))
+                                                   (wf-manager-session-identity session)))
+                                          (wf-manager-overview-items installed))))))
+                (puthash "delayedOverwrote" (if overwrote t :false) report)
+                (should (wf-manager-reply-p newer))
+                (should-not overwrote)))))
+      (advice-remove 'wf-manager--session-complete hold))
+    (puthash "earlierRefusal"
+             (vector (wf-manager-live--condition
+                      (lambda () (wf-manager-session-watch session earlier)))
+                     (wf-manager-live--condition
+                      (lambda () (wf-manager-session-current session earlier))))
+             report)
+    (should (wf-manager-live--wait
+             (lambda () (eq (wf-manager-session-delivery session) 'poll))))
+    (puthash "switchDelivery" (symbol-name (wf-manager-session-delivery session)) report)
+    (should (equal (gethash "earlierRefusal" report)
+                   ["wf-manager-wrong-endpoint" "wf-manager-wrong-endpoint"]))
+    (should (eql resolved total))
+    directory))
 
 (defun wf-manager-live--write (file value)
   "Write to FILE the JSON VALUE."
@@ -453,17 +662,26 @@ session.  The record goes to REPORT."
     (write-region (wf-manager-json-encode value) nil file nil 'silent)))
 
 (ert-deftest wf-manager-live-session ()
-  "Run the eight steps of one live session against the manager."
+  "Run the ten steps of one live session against the manager."
   (let* ((profile (wf-manager-profile-load
                    (wf-manager-live--variable "WF_MANAGER_PROFILE")))
+         (second (wf-manager-profile-load
+                  (wf-manager-live--variable "WF_MANAGER_SECOND_PROFILE")))
+         (unreachable (wf-manager-profile-load
+                       (wf-manager-live--variable "WF_MANAGER_UNREACHABLE_PROFILE")))
          (report-file (wf-manager-live--variable "WF_MANAGER_REPORT"))
          (run-file (wf-manager-live--variable "WF_MANAGER_RUN"))
          (revoke-file (wf-manager-live--variable "WF_MANAGER_REVOKE"))
          (report (wf-manager-json-object
                   "harnessVersion"
                   (wf-manager-live--integer wf-manager-live-harness-version)))
-         (processes (process-list))
-         (buffers (buffer-list))
+         (state (progn
+                  ;; The one setup of url.el adds the global timer that
+                  ;; saves its cookies.  It runs before the state is
+                  ;; taken, so that a timer after the close is a timer of
+                  ;; the session.
+                  (url-do-setup)
+                  (list (process-list) (buffer-list) (copy-sequence timer-list))))
          (steps nil))
     (setq wf-manager-live--prompts 0)
     (dolist (function wf-manager-live--prompt-functions)
@@ -482,10 +700,19 @@ session.  The record goes to REPORT."
             (push "overview" steps)
             (wf-manager-live--follow session connection run-file report)
             (push "follow" steps)
-            (wf-manager-live--revoke session connection revoke-file report)
-            (push "revoke" steps)
-            (wf-manager-live--close session processes buffers report)
-            (push "close" steps)))
+            (wf-manager-live--unreachable session unreachable report)
+            (push "unreachable" steps)
+            (let ((earlier (wf-manager-live--switch session second report)))
+              (push "switch" steps)
+              (wf-manager-live--revoke session (wf-manager-session-connection session)
+                                       revoke-file report)
+              (push "revoke" steps)
+              (wf-manager-live--close
+               session state
+               (list earlier (wf-manager-transport-directory
+                              (wf-manager-session-transport session)))
+               report)
+              (push "close" steps))))
       (dolist (function wf-manager-live--prompt-functions)
         (advice-remove function #'wf-manager-live--prompted))
       (puthash "prompts" (wf-manager-live--integer wf-manager-live--prompts) report)

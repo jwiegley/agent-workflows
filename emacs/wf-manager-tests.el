@@ -35,7 +35,11 @@
 ;; view-expired page and the bound of those restarts, the resnapshot
 ;; after a 410 cursor refusal, a read of the earlier generation that
 ;; installs nothing, and one later read for the invalidations during one
-;; read.  The capability checks follow
+;; read, the endpoint switch and its failures, and the close of a
+;; session with a switch in flight.  For a server certificate that the
+;; CA file of the profile does not verify, a request, a connect and a
+;; switch contact a TLS server on 127.0.0.1 that a python3 process from
+;; PATH runs.  The capability checks follow
 ;; checkCapabilities of `ext-pi/src/manager/session.ts' over the canned
 ;; capabilities document of the ext-pi tests.  No other host is
 ;; contacted.
@@ -1753,10 +1757,139 @@ certificate itself.  Another process keeps the settings of the user."
                 (network-security-level 'medium))
             (wf-manager--nsm-verify verify process "host" 443)
             (should (equal seen (list nil nsm-settings-file 'medium)))
+            ;; A connection that opens inside `url-retrieve' has no
+            ;; property yet, and the transport names its file.
+            (let ((wf-manager--opening "/tmp/opening/nsm.data"))
+              (wf-manager--nsm-verify verify process "host" 443))
+            (should (equal seen '(t "/tmp/opening/nsm.data" low)))
             (process-put process 'wf-manager-nsm-settings-file "/tmp/session/nsm.data")
             (wf-manager--nsm-verify verify process "host" 443)
             (should (equal seen '(t "/tmp/session/nsm.data" low)))))
       (delete-process process))))
+
+(defconst wf-manager-tests--other-key
+  "-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg79eaz2RWMzJoT2aV
+ErBfcZrQ7xGbdMks6dR6qHDrTA6hRANCAAReQucnj88Ya26oI9HslAcNskB3fxmT
+QizU6hjQHJnY8SXRlolu2smKZ/cOYD7zPErCqvDR9rpyld1cs4+B7A5e
+-----END PRIVATE KEY-----
+"
+  "The private key of `wf-manager-tests--other-certificate'.")
+
+(defconst wf-manager-tests--other-certificate
+  "-----BEGIN CERTIFICATE-----
+MIIBqjCCAVCgAwIBAgIUFUNzzOfZ8HKtW8Gu++mDV4so9p8wCgYIKoZIzj0EAwIw
+ITEfMB0GA1UEAwwWd2YtbWFuYWdlci10ZXN0cy1vdGhlcjAgFw0yNjEwMDIwOTE2
+MzdaGA8yMTI2MDkwODA5MTYzN1owITEfMB0GA1UEAwwWd2YtbWFuYWdlci10ZXN0
+cy1vdGhlcjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABF5C5yePzxhrbqgj0eyU
+Bw2yQHd/GZNCLNTqGNAcmdjxJdGWiW7ayYpn9w5gPvM8SsKq8NH2unKV3Vyzj4Hs
+Dl6jZDBiMB0GA1UdDgQWBBTlrqQ80ANdL8PbE1m+TrIqdcRPzDAfBgNVHSMEGDAW
+gBTlrqQ80ANdL8PbE1m+TrIqdcRPzDAPBgNVHRMBAf8EBTADAQH/MA8GA1UdEQQI
+MAaHBH8AAAEwCgYIKoZIzj0EAwIDSAAwRQIhALR6lerMOj/rVJ2f7hE8ja+EFMaf
+CFJFWH18iVxWGl7zAiBh3B8G0OXb1mSUjjpGSOdrsACCo9CGNAU4raunGNrP0g==
+-----END CERTIFICATE-----
+"
+  "A self-signed certificate for 127.0.0.1 that the fixture CA does not sign.")
+
+(defconst wf-manager-tests--tls-server
+  "import socket, ssl, sys
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+context.load_cert_chain(sys.argv[1], sys.argv[2])
+server = socket.socket()
+server.bind(('127.0.0.1', 0))
+server.listen(8)
+print(server.getsockname()[1], flush=True)
+while True:
+    connection, _ = server.accept()
+    try:
+        context.wrap_socket(connection, server_side=True).close()
+    except (ssl.SSLError, OSError):
+        connection.close()
+"
+  "A Python TLS server that prints its port and completes no request.
+The first argument is the certificate file and the second argument is
+the key file.")
+
+(defun wf-manager-tests--call-tls (function)
+  "Call FUNCTION with the port of a local TLS server of another CA.
+The server presents `wf-manager-tests--other-certificate', so the
+verification of a profile with the fixture CA fails.  The server is a
+python3 process from PATH.  It stops after FUNCTION returns or signals."
+  (let* ((dir (make-temp-file "wf-manager-tests-tls" t))
+         (certificate (wf-manager-tests--write
+                       (expand-file-name "other.crt" dir)
+                       wf-manager-tests--other-certificate #o644))
+         (key (wf-manager-tests--write (expand-file-name "other.key" dir)
+                                       wf-manager-tests--other-key #o600))
+         (output "")
+         (server (make-process
+                  :name "wf-manager-tests-tls" :buffer nil :noquery t
+                  :connection-type 'pipe :coding 'utf-8
+                  :command (list "python3" "-B" "-c" wf-manager-tests--tls-server
+                                 certificate key)
+                  :filter (lambda (_process text) (setq output (concat output text)))
+                  :sentinel #'ignore)))
+    (unwind-protect
+        (progn
+          (should (wf-manager-tests--wait
+                   (lambda () (string-match-p "\\`[0-9]+\n" output))))
+          (funcall function (string-to-number output)))
+      (delete-process server)
+      (delete-directory dir t))))
+
+(defun wf-manager-tests--profile-at (profile port)
+  "Return a loaded copy of PROFILE whose endpoint is 127.0.0.1 at PORT.
+The profile file is removed after the load."
+  (let ((file (make-temp-file "wf-manager-tests-profile" nil ".json")))
+    (unwind-protect
+        (progn
+          (wf-manager-tests--write
+           file
+           (json-serialize
+            `((version . 1)
+              (endpoint . ,(format "https://127.0.0.1:%d/v1" port))
+              (credentialFile . ,(wf-manager-profile-credential-file profile))
+              (caFile . ,(wf-manager-profile-ca-file profile))))
+           #o600)
+          (wf-manager-profile-load file))
+      (delete-file file))))
+
+(ert-deftest wf-manager-transport-ca-mismatch ()
+  "End a request to a server of another CA with one typed failure.
+The connection and its TLS handshake open inside `url-retrieve', and
+the verification against the CA file of the profile fails there.  The
+request and the connect each call back exactly one time, after the
+call returns, with `wf-manager-transport-unavailable'.  No process,
+buffer or exchange of the transport remains."
+  (wf-manager-tests--call
+   (lambda (dir)
+     (wf-manager-tests--call-tls
+      (lambda (port)
+        (let* ((profile (wf-manager-tests--profile-at
+                         (wf-manager-profile-load (wf-manager-tests--profile dir))
+                         port))
+               (processes (process-list))
+               (buffers (buffer-list))
+               (transport (wf-manager-transport-open profile)))
+          (dolist (start (list (lambda (callback)
+                                 (wf-manager-get transport "/v1/snapshot" callback))
+                               (lambda (callback)
+                                 (wf-manager-connect profile callback))))
+            (let* ((returned nil)
+                   (early nil)
+                   (outcome (wf-manager-tests--outcome
+                             (lambda (callback)
+                               (funcall start (lambda (outcome)
+                                                (unless returned (setq early t))
+                                                (funcall callback outcome)))
+                               (setq returned t)))))
+              (should-not early)
+              (should (eq (car outcome) 'wf-manager-transport-unavailable))
+              (should (equal (nth 1 outcome) "connection"))))
+          (should (null (wf-manager-transport-exchanges transport)))
+          (should (null (cl-set-difference (process-list) processes)))
+          (should (null (cl-set-difference (buffer-list) buffers)))
+          (wf-manager-transport-close transport)))))))
 
 ;;;; Capabilities
 
@@ -2204,6 +2337,250 @@ The read of the earlier generation completes last and installs nothing."
                             session (wf-manager-reference-make :endpoint "other" :uri resource))
                            :type 'wf-manager-wrong-endpoint))
          (wf-manager-session-close session))))))
+
+(defun wf-manager-tests--profile-of (connection)
+  "Return the loaded profile of the transport of CONNECTION."
+  (wf-manager-transport-profile (wf-manager-connection-transport connection)))
+
+(defun wf-manager-tests--unreachable-profile (profile)
+  "Return a loaded copy of PROFILE whose endpoint has no listener.
+The port of the endpoint belonged to a listener that is deleted before
+the profile loads."
+  (let* ((closed (make-network-process
+                  :name "wf-manager-tests-closed" :server t :host "127.0.0.1"
+                  :service t :family 'ipv4 :noquery t))
+         (port (process-contact closed :service)))
+    (delete-process closed)
+    (wf-manager-tests--profile-at profile port)))
+
+(defun wf-manager-tests--posts (listener)
+  "Return the number of the POST requests of LISTENER."
+  (cl-count-if (lambda (request) (string-prefix-p "POST " request))
+               (wf-manager-tests--listener-requests listener)))
+
+(defun wf-manager-tests--problem (status code)
+  "Return a problem response with STATUS and CODE."
+  (wf-manager-tests--json
+   status (format "{\"version\":1,\"status\":%d,\"code\":\"%s\",\"title\":\"Problem\"}"
+                  status code)))
+
+(ert-deftest wf-manager-session-switch-commits-after-overview ()
+  "Commit a switch only after its overview, and never retarget a reference.
+The read and the polling batch of the earlier binding are in flight
+at the commit, and they install nothing."
+  (wf-manager-tests--call-session
+   (wf-manager-tests--routes
+    "/v1/snapshot"
+    (list (wf-manager-tests--overview-page "s.1" '("req_a") 0 1 nil)
+          (wf-manager-tests--overview-page "s.7" '("req_a" "req_b") 0 2 nil))
+    "/v1/events?after=s.1" (list 'hold)
+    "/v1/events?after=s.7" (list (wf-manager-tests--batch "s.7"))
+    "/v1/requests/req_a"
+    (list 'hold (wf-manager-tests--json 200 (wf-manager-tests--draft-json "req_a" "request_rev_2"))))
+   (lambda (listener connection)
+     (let* ((session nil)
+            (overview (wf-manager-tests--outcome
+                       (lambda (callback)
+                         (setq session (wf-manager-session-start connection callback)))))
+            (resource "/v1/requests/req_a")
+            (earlier (wf-manager-session-reference session resource))
+            (earlier-transport (wf-manager-connection-transport connection)))
+       (unwind-protect
+           (progn
+             (should (wf-manager-overview-p overview))
+             (wf-manager-session-watch session earlier)
+             (should (wf-manager-tests--wait
+                      (lambda () (and (assoc resource wf-manager-tests--held)
+                                      (assoc "/v1/events?after=s.1" wf-manager-tests--held)))))
+             (let ((switched (wf-manager-tests--outcome
+                              (lambda (callback)
+                                (wf-manager-session-switch
+                                 session (wf-manager-tests--profile-of connection) callback)))))
+               (should (wf-manager-overview-p switched))
+               (should (eq (wf-manager-session-overview session) switched))
+               (should (equal (wf-manager-overview-cursor switched) "s.7"))
+               (should-not (eq (wf-manager-session-connection session) connection))
+               (should-not (equal (wf-manager-session-identity session)
+                                  (wf-manager-connection-identity connection)))
+               (should (= (wf-manager-session-generation session) 1))
+               (should (equal (wf-manager-session-watched session)
+                              (list wf-manager-overview-resource)))
+               ;; Every member reference of the new overview carries the
+               ;; new endpoint identity.
+               (should (equal (mapcar (lambda (item)
+                                        (wf-manager-reference-endpoint
+                                         (wf-manager-overview-item-reference item)))
+                                      (wf-manager-overview-items switched))
+                              (make-list 2 (wf-manager-session-identity session))))
+               ;; The earlier transport is closed, and its read in flight
+               ;; installed nothing.
+               (should (wf-manager-transport-closed earlier-transport))
+               (should-not (file-exists-p (wf-manager-transport-directory earlier-transport)))
+               (should (null (gethash resource (wf-manager-session-installed session))))
+               ;; A reference of the earlier binding is refused and never
+               ;; sent to the new binding.
+               (should-error (wf-manager-session-watch session earlier)
+                             :type 'wf-manager-wrong-endpoint)
+               (should (eq (car (wf-manager-session-current session earlier))
+                           'wf-manager-wrong-endpoint))
+               (should (= (wf-manager-tests--targets listener resource) 1))
+               ;; The follow loop continues from the new cursor.
+               (should (wf-manager-tests--wait
+                        (lambda () (>= (wf-manager-tests--targets listener "/v1/events?after=s.7") 1))))
+               (should (wf-manager-tests--wait
+                        (lambda () (eq (wf-manager-session-delivery session) 'poll))))
+               (should (null (wf-manager-session-follow-end session)))
+               ;; The reference of the new overview resolves.
+               (wf-manager-session-watch
+                session (wf-manager-overview-item-reference
+                         (car (wf-manager-overview-items switched))))
+               (should (wf-manager-tests--wait
+                        (lambda () (equal (wf-manager-tests--draft-revision session resource)
+                                          "request_rev_2"))))
+               (should (= (wf-manager-tests--targets listener "/v1/capabilities") 2))
+               (should (= (wf-manager-tests--posts listener) 0))))
+         (wf-manager-session-close session))))))
+
+(ert-deftest wf-manager-session-switch-keeps-binding ()
+  "Keep the earlier binding after a switch that fails before its commit.
+One switch names an endpoint with no listener.  One switch names a TLS
+server whose certificate the CA of the profile does not sign.  The
+transport of one switch cannot make its directory, so the connect
+signals before it sends a request.  The overview read of another switch
+fails.  Each switch calls back one time, after the call returns, with
+its failure.  The earlier binding keeps its identity, its watched
+resource, its installed read and its follow loop."
+  (wf-manager-tests--call-session
+   (wf-manager-tests--routes
+    "/v1/snapshot"
+    (list (wf-manager-tests--overview-page "s.1" '("req_a") 0 1 nil)
+          (wf-manager-tests--problem 503 "storage-unavailable"))
+    "/v1/events?after=s.1" (list (wf-manager-tests--batch "s.1"))
+    "/v1/requests/req_a"
+    (list (wf-manager-tests--json 200 (wf-manager-tests--draft-json "req_a" "request_rev_1"))))
+   (lambda (listener connection)
+     (wf-manager-tests--call-tls
+      (lambda (tls-port)
+        (let* ((processes (process-list))
+               (session nil)
+               (overview (wf-manager-tests--outcome
+                          (lambda (callback)
+                            (setq session (wf-manager-session-start connection callback)))))
+               (resource "/v1/requests/req_a")
+               (reference (wf-manager-session-reference session resource))
+               (profile (wf-manager-tests--profile-of connection))
+               (missing (expand-file-name "missing" (wf-manager-transport-directory
+                                                     (wf-manager-connection-transport
+                                                      connection)))))
+          (unwind-protect
+              (progn
+                (should (wf-manager-overview-p overview))
+                (wf-manager-session-watch session reference)
+                (should (wf-manager-tests--wait
+                         (lambda () (wf-manager-reply-p (wf-manager-session-current session reference)))))
+                (let ((read (wf-manager-session-current session reference)))
+                  ;; Each case is the profile, the expected condition, the
+                  ;; scheme of the connect and the temporary directory.
+                  (dolist (case (list (list (wf-manager-tests--unreachable-profile profile)
+                                            'wf-manager-transport-unavailable
+                                            wf-manager--scheme temporary-file-directory)
+                                      (list (wf-manager-tests--profile-at profile tls-port)
+                                            'wf-manager-transport-unavailable
+                                            "https" temporary-file-directory)
+                                      (list profile 'wf-manager-file-unavailable
+                                            wf-manager--scheme missing)
+                                      (list profile 'wf-manager-refused
+                                            wf-manager--scheme temporary-file-directory)))
+                    (let* ((polls (wf-manager-session-polls session))
+                           (returned nil)
+                           (early nil)
+                           (outcome (wf-manager-tests--outcome
+                                     (lambda (callback)
+                                       (let ((wf-manager--scheme (nth 2 case))
+                                             (temporary-file-directory (nth 3 case)))
+                                         (wf-manager-session-switch
+                                          session (car case)
+                                          (lambda (outcome)
+                                            (unless returned (setq early t))
+                                            (funcall callback outcome))))
+                                       (setq returned t)))))
+                      (should-not early)
+                      (should (eq (car outcome) (nth 1 case)))
+                      (should (eq (wf-manager-session-connection session) connection))
+                      (should (eq (wf-manager-session-overview session) overview))
+                      (should (eq (wf-manager-session-current session reference) read))
+                      (should (= (wf-manager-session-generation session) 0))
+                      (should (null (wf-manager-session-switches session)))
+                      (should (member resource (wf-manager-session-watched session)))
+                      ;; The follow loop of the earlier binding continues.
+                      (should (wf-manager-tests--wait
+                               (lambda () (>= (wf-manager-session-polls session) (+ polls 2)))))
+                      (should (eq (wf-manager-session-delivery session) 'poll))
+                      (should (null (wf-manager-session-follow-end session))))))
+                (should (equal (wf-manager-tests--refusal-of
+                                #'wf-manager-session-watch session reference)
+                               'accepted))
+                (should (= (wf-manager-tests--targets listener "/v1/capabilities") 2))
+                (should (= (wf-manager-tests--posts listener) 0)))
+            (wf-manager-session-close session))
+          (should (null (wf-manager-tests--new-processes listener processes)))))))))
+
+(defvar-local wf-manager-tests--held-reference nil
+  "The session and the reference that a test buffer holds.")
+
+(ert-deftest wf-manager-session-close-ends-switch ()
+  "End a switch in flight, every request and every timer on close.
+The close sends no command.  The client has no hook on the kill of a
+buffer, so the check that the kill of a buffer that holds a session
+reference sends nothing guards against a future hook that would."
+  (wf-manager-tests--call-session
+   (wf-manager-tests--routes
+    "/v1/snapshot"
+    (list (wf-manager-tests--overview-page "s.1" '("req_a") 0 1 nil) 'hold)
+    "/v1/events?after=s.1" (list (wf-manager-tests--batch "s.1")))
+   (lambda (listener connection)
+     (let* ((processes (process-list))
+            (buffers (buffer-list))
+            (session nil)
+            (overview (wf-manager-tests--outcome
+                       (lambda (callback)
+                         (setq session (wf-manager-session-start connection callback)))))
+            (outcomes nil))
+       (should (wf-manager-overview-p overview))
+       (with-current-buffer (get-buffer-create " wf-manager-tests-reference")
+         (setq wf-manager-tests--held-reference
+               (list session (wf-manager-overview-item-reference
+                              (car (wf-manager-overview-items overview)))))
+         (kill-buffer))
+       ;; The session continues after the kill, and nothing was posted.
+       (let ((polls (wf-manager-session-polls session)))
+         (should (wf-manager-tests--wait
+                  (lambda () (>= (wf-manager-session-polls session) (+ polls 2))))))
+       (should (null (wf-manager-session-follow-end session)))
+       (should (= (wf-manager-tests--posts listener) 0))
+       (wf-manager-session-switch session (wf-manager-tests--profile-of connection)
+                                  (lambda (outcome) (push outcome outcomes)))
+       (should (wf-manager-tests--wait
+                (lambda () (assoc "/v1/snapshot" wf-manager-tests--held))))
+       (should (= (length (wf-manager-session-switches session)) 1))
+       (let ((switch (car (wf-manager-session-switches session))))
+         (wf-manager-session-close session)
+         (should (wf-manager-transport-closed switch))
+         (should-not (file-exists-p (wf-manager-transport-directory switch))))
+       (should (= (length outcomes) 1))
+       (should (eq (car (car outcomes)) 'wf-manager-closed))
+       (should (null (wf-manager-session-switches session)))
+       (should (null (wf-manager-session-timers session)))
+       (should (equal (wf-manager-session-follow-end session) '(closed nil)))
+       (let ((polls (wf-manager-session-polls session))
+             (requests (length (wf-manager-tests--listener-requests listener))))
+         (accept-process-output nil 0.3)
+         (should (= (wf-manager-session-polls session) polls))
+         (should (= (length (wf-manager-tests--listener-requests listener)) requests)))
+       (should (eq (wf-manager-session-connection session) connection))
+       (should (null (wf-manager-tests--new-processes listener processes)))
+       (should (null (cl-set-difference (buffer-list) buffers)))
+       (should (= (wf-manager-tests--posts listener) 0))))))
 
 (provide 'wf-manager-tests)
 

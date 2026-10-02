@@ -486,8 +486,9 @@ The gate also compiles and checks `emacs/wf-manager-live.el`, and it does not
 run it. That file is the live check of the transport against a running
 agent-cat workflow manager. The `emacs-client` mode of
 `manager/test/service_http.py` in agent-cat starts the manager with its mixed
-fixture, issues a client credential with the scopes `observe`, `submit`,
-`control` and `export` and its client profile, and runs the file in a batch
+fixture, issues two client credentials with the scopes `observe`, `submit`,
+`control` and `export` and their client profiles, writes a third profile whose
+endpoint has no listener, and runs the file in a batch
 `Emacs -Q` with an isolated home directory. The mode needs `EMACS` and
 `WF_EMACS_DIR`, the `emacs` directory of this repository. From the root of
 agent-cat:
@@ -507,11 +508,20 @@ starts a session, which assembles the overview over all its pages, and asks
 the harness to create and approve a run with the credential of the harness.
 The run must appear in the overview of the session through an event poll,
 with no other read by the check, and the delivery state must be `poll`. The
-check then reads after the harness revokes the credential and closes the
-session. It requires 201 and the same draft for the repeated creation, the
-typed refusals 412 `stale-revision` and 401 `unauthenticated`, the end of the
-follow loop with `refused` after the revocation, no prompt, and no process,
-url.el buffer or session directory after the close.
+check then switches the session to a profile whose endpoint has no listener,
+which must fail and keep the binding and its follow loop. It then switches the
+session to the profile of a second credential of the same manager while the
+delivery of a read of the first binding is delayed. The switch must commit
+with a new endpoint identity, every member reference of the new overview must
+read 200, the delayed read must change nothing, and a reference of the first
+binding must give `wf-manager-wrong-endpoint`. The check then reads after the
+harness revokes the second credential, kills a buffer that holds a reference of
+the session, and closes the session. It requires 201 and the same draft for
+the repeated creation, the typed refusals 412 `stale-revision` and 401
+`unauthenticated`, the end of the follow loop with `refused` after the
+revocation, no prompt, and no process, url.el buffer, timer or transport
+directory after the close. The harness then reads that the run has not ended
+and that the check sent no command after the run handshake.
 It writes a report whose `harnessVersion` field is
 `wf-manager-live-harness-version`. The mode refuses a report of another
 version with one sentence, so a mismatched pair of the two repositories fails
@@ -787,12 +797,26 @@ receipt location, the receipt still decides.
 #### HTTP transport
 
 The transport sends each request with `url-retrieve` over the GnuTLS of Emacs.
-A request does not block editing: the response arrives through a process filter
-and a callback, and timers run while the request waits.
+The wait for a response does not block editing: the response arrives through a
+process filter and a callback, and timers run while the request waits. The
+connection of a request and its TLS handshake open before `url-retrieve`
+returns. A connection of Emacs 30 on macOS that opens without waiting starts
+its TLS handshake at once, and when the peer refuses the connection at once,
+that handshake writes to the refused socket and the signal SIGPIPE ends the
+Emacs process. A connection that opens before the call returns gives such a
+refusal as the failure `wf-manager-transport-unavailable` instead.
+
+The TCP connect and the TLS handshake of each request therefore block Emacs
+until they end. On 127.0.0.1 this takes milliseconds. A host that drops
+packets without a reply blocks Emacs until the connect timeout of the
+operating system, before the 15-second response timer starts. A refused
+connection, a failed handshake and a server certificate that the CA file of
+the profile does not verify each end the request with one callback after the
+call returns, with the failure `wf-manager-transport-unavailable`.
 
 | Function | Behavior |
 | --- | --- |
-| `wf-manager-transport-open` | The transport of a loaded profile. Its optional argument is an existing session directory. Without one, the transport makes a private temporary directory and removes it on close. The directory holds the settings file of the network security manager and an empty url.el cache directory. |
+| `wf-manager-transport-open` | The transport of a loaded profile. Its optional argument is an existing session directory. Without one, the transport makes a private temporary directory and removes it on close. A temporary directory that cannot be made gives `wf-manager-file-unavailable`. The directory holds the settings file of the network security manager and an empty url.el cache directory. |
 | `wf-manager-get` | One GET of a resource below `/v1/` with the Accept value `application/json`. |
 | `wf-manager-post` | One POST of a JSON command of at most 2097152 bytes with its idempotency key and an optional `If-Match` entity tag. The transport sends it one time and never sends it again. |
 | `wf-manager-poll-events` | One polling batch of `/v1/events` after a cursor, with the Accept value `application/json` and the cursor in the query parameter `after`. The result is a `wf-manager-event-batch`. |
@@ -827,20 +851,19 @@ it refuses a request that is multibyte text. The transport therefore sends
 each header name and value as unibyte text, so a command body with non-ASCII
 text goes out as its exact UTF-8 bytes.
 
-url-http writes the request and parses the response in its own buffer, and a
-connection that opens without waiting does so after `url-retrieve` returns. The
-transport therefore gives each url.el buffer the same settings as buffer-local
-values. The settings are: no redirect (`url-max-redirections` 0), no keepalive,
+url-http parses the response in its own buffer after `url-retrieve` returns.
+The transport therefore gives each url.el buffer the same settings as
+buffer-local values. The settings are: no redirect (`url-max-redirections` 0), no keepalive,
 no cache, no cookie, no history, no proxy and no connection of another caller.
 `gnutls-trustfiles` holds only the CA file of the profile, and
 `gnutls-verify-error` is t. `url-request-noninteractive` and
 `nsm-noninteractive` are t, and `nsm-settings-file` is a file in the session
-directory. The security check of a TLS connection that opens without waiting
-runs after the handshake, outside the call. Advice on `nsm-verify-connection`
-binds these two variables again for each process of a transport, so no prompt
-occurs. The advice also binds `network-security-level` to `low` for each
-process of a transport, so the network security manager adds no check of its
-own. The GnuTLS verification of the handshake against the CA file of the
+directory. Advice on `nsm-verify-connection` binds these two variables again
+for each process of a transport, both for the security check of a connection
+while it opens inside `url-retrieve` and for each later check of that process,
+so no prompt occurs. The advice also binds `network-security-level` to `low`
+for each process of a transport, so the network security manager adds no
+check of its own. The GnuTLS verification of the handshake against the CA file of the
 profile is the trust decision. The network security manager would refuse a
 self-signed server certificate even when the CA file holds that certificate,
 which is the certificate that a local manager generates.
@@ -878,9 +901,9 @@ mode, which the client names `poll`, and not as server-sent events.
 
 A session follows `ManagerSession` of `ext-pi/src/manager/session.ts` in
 agent-cat, with the `poll` delivery of this client. It is bound to one
-`wf-manager-connection` and to the endpoint identity of that connection. A
-`wf-manager-reference` is a resource path below `/v1/` together with that
-endpoint identity.
+`wf-manager-connection` at a time and to the endpoint identity of that
+connection. A `wf-manager-reference` is a resource path below `/v1/` together
+with that endpoint identity.
 
 | Function | Behavior |
 | --- | --- |
@@ -889,7 +912,8 @@ endpoint identity.
 | `wf-manager-session-load-overview` | The overview page set of `/v1/snapshot` as a `wf-manager-overview`: its cursor, its oldest cursor, its number of pages and its members. The metadata has exactly `version` 1, `snapshotVersion` 1, `cursor` and `oldestCursor`. Each member has its decoded value, its revision and the reference of its detail resource, such as `/v1/requests/{id}`, with the endpoint identity of the session. This read installs nothing. |
 | `wf-manager-session-watch` | Watch a resource of the session. The session reads it now and again after each invalidation that concerns it. A reference of another endpoint signals `wf-manager-wrong-endpoint`. |
 | `wf-manager-session-current` | The last installed read of a watched resource: a `wf-manager-reply`, a failure, or nil before the first read. |
-| `wf-manager-session-close` | Cancel the timers of the session and close its transport. No read installs after the close. |
+| `wf-manager-session-switch` | Bind the session to the endpoint of another loaded profile, as `switchEndpoint` of ext-pi does. The new binding reads its capabilities, receives a new endpoint identity and assembles its complete overview through its own transport, with every member reference bound to the new identity. Only then does the switch commit: the generation advances, the watched resources become the overview alone, the installed reads are cleared, the new overview is installed, the earlier transport is closed and the follow loop starts again from the cursor of the new overview. The callback then receives the new overview. A failed connection, a transport that cannot open, a failed overview read, a close and the commit of another switch before the commit each close the new transport and keep the earlier binding, its watched resources, its installed reads and its follow loop, and the callback receives the failure one time, after the call returns. |
+| `wf-manager-session-close` | Cancel the timers of the session and close its transports, the transport of a switch in flight included. Each pending request ends, and no read installs after the close. The close sends no command. |
 
 The follow loop sends one polling batch each second (`wf-manager-poll-seconds`)
 on a timer, and the next batch at once while the manager has more events. A
@@ -908,6 +932,15 @@ generation installs nothing. A 401 refusal ends the follow loop with
 `refused`. An installed read that the manager refused with 429
 `storage-quota` or 503 `storage-unavailable` is read again after 0.1 seconds.
 No read and no polling batch is a command, and a session sends no command.
+
+After a switch, a read or a polling batch of the earlier binding that is still
+in flight installs nothing, because the generation has advanced and the earlier
+transport is closed. A reference of the earlier binding gives
+`wf-manager-wrong-endpoint`, both for a watch and for the current read, and it
+is never sent to the new endpoint. A switch also restarts a follow loop that
+ended before it, for example with `refused` after the revocation of the
+earlier credential. A buffer that holds a session or a reference owns nothing,
+and killing that buffer sends no request and no command.
 
 ## What replaces what
 

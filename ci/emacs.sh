@@ -38,8 +38,11 @@
 #      the response bound, cancellation, cleanup and the capability binding.
 #      The session tests use the same listener for the overview page set, its
 #      restart after 410 view-expired, the follow loop, the resnapshot after a
-#      410 cursor refusal and the coalescing of invalidations during a read.
-#      They contact no other host.
+#      410 cursor refusal, the coalescing of invalidations during a read, the
+#      endpoint switch and its failures, and the close of a session with a
+#      switch in flight. The tests of a server certificate that the CA file
+#      of the profile does not verify start a TLS server on 127.0.0.1 with
+#      the python3 of PATH. They contact no other host.
 #
 # Passes 1 and 2 also cover `emacs/wf-manager-live.el', the live check of
 # the transport against a running agent-cat workflow manager. This gate does
@@ -204,8 +207,9 @@ fi
 # 4. The transport tests
 # ---------------------------------------------------------------------------
 #
-# ERT over temporary files, the client vectors and a plain HTTP listener on
-# 127.0.0.1 inside the test Emacs. No other host is contacted, and this pass
+# ERT over temporary files, the client vectors, a plain HTTP listener on
+# 127.0.0.1 inside the test Emacs and a python3 TLS server on 127.0.0.1. No
+# other host is contacted, and this pass
 # needs neither the wf binary nor the control fixture. It needs the vector
 # file.
 

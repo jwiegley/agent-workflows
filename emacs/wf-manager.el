@@ -96,7 +96,9 @@
 ;; and an uncertain command keeps its exact bytes, key and precondition.
 ;;
 ;; The HTTP transport sends each request with `url-retrieve' over the
-;; GnuTLS of Emacs, so a request does not block editing.
+;; GnuTLS of Emacs, so the wait for a response does not block editing.
+;; The connection and its TLS handshake open before `url-retrieve'
+;; returns, as `wf-manager--retrieve' explains.
 ;; `wf-manager-transport-open' makes the transport of a profile.
 ;; `wf-manager-get', `wf-manager-post' and `wf-manager-poll-events'
 ;; return a cancellable `wf-manager-exchange' and call their callback one
@@ -128,7 +130,12 @@
 ;; that it concerns, and the refresh coordinator reads each of them
 ;; again.  A 410 refusal of a batch advances the generation, reads the
 ;; overview again and reads every watched resource again.  A read of an
-;; earlier generation installs nothing.
+;; earlier generation installs nothing.  `wf-manager-session-switch'
+;; binds the session to the endpoint of another profile, as
+;; switchEndpoint of ext-pi does, and commits only after the complete
+;; overview of the new binding has loaded.  A switch that fails keeps the
+;; earlier binding.  `wf-manager-session-close' ends every request and
+;; timer of the session and sends no command.
 ;;
 ;; Each refusal signals a condition below `wf-manager-error'.  The data of
 ;; the condition is (FIELD REASON).  For a profile, FIELD is the JSON name
@@ -3356,9 +3363,10 @@ carries a send."
 ;;;; HTTP transport
 
 ;; The transport sends each request with `url-retrieve' over the GnuTLS
-;; of Emacs, so a request does not block editing.  The response arrives
-;; through a process filter and a callback, and timers run while a
-;; request waits.  At each call, the transport binds the url.el, GnuTLS
+;; of Emacs, so the wait for a response does not block editing.  The
+;; response arrives through a process filter and a callback, and timers
+;; run while a request waits.  The connection and its TLS handshake open
+;; before `url-retrieve' returns.  At each call, the transport binds the url.el, GnuTLS
 ;; and network security manager variables that `wf-manager--retrieve'
 ;; names.  The CA file of the profile is the only trust file, and
 ;; certificate verification failures are errors.  No proxy, redirect,
@@ -3373,11 +3381,10 @@ carries a send."
 ;; the extra headers, so `url-http-handle-authentication' consults no
 ;; authentication source on a 401 and the response comes back as a
 ;; typed refusal.  `url-request-noninteractive' and `nsm-noninteractive'
-;; are t, so no request prompts.  A TLS connection that url.el opens
-;; without waiting has its security check after the handshake, outside
-;; the dynamic extent of the call.  `wf-manager--nsm-verify' therefore
-;; binds `nsm-noninteractive' and `nsm-settings-file' again for each
-;; process of a transport.  It also binds `network-security-level' to
+;; are t, so no request prompts.  `wf-manager--nsm-verify' binds
+;; `nsm-noninteractive' and `nsm-settings-file' again for each process
+;; of a transport, both while its connection opens inside `url-retrieve'
+;; and for each later security check of that process.  It also binds `network-security-level' to
 ;; `low', so the network security manager adds no check of its own.  The
 ;; GnuTLS verification of the handshake against the CA file of the
 ;; profile, with `gnutls-verify-error' t, is the trust decision.  The
@@ -3488,16 +3495,23 @@ A failure is a list (CONDITION . DATA) whose CONDITION is below
        (memq 'wf-manager-error (get (car value) 'error-conditions))
        t))
 
+(defvar wf-manager--opening nil
+  "The settings file of the transport whose connection opens now, or nil.
+`wf-manager--retrieve' binds it while `url-retrieve' opens the
+connection of a request and verifies its TLS handshake.")
+
 (defun wf-manager--nsm-verify (verify process &rest arguments)
   "Call VERIFY with PROCESS and ARGUMENTS, without a prompt for a transport.
 This function is :around advice of `nsm-verify-connection'.  When
 PROCESS belongs to a transport, it carries the settings file of that
-transport, and VERIFY runs with `nsm-noninteractive' bound to t,
+transport, or it opens while `wf-manager--opening' names that file.
+VERIFY then runs with `nsm-noninteractive' bound to t,
 `nsm-settings-file' bound to that file and `network-security-level'
 bound to `low'.  The handshake of the process has already verified the
 server certificate against the CA file of the profile."
-  (let ((file (and (processp process)
-                   (process-get process 'wf-manager-nsm-settings-file))))
+  (let ((file (or (and (processp process)
+                       (process-get process 'wf-manager-nsm-settings-file))
+                  wf-manager--opening)))
     (if file
         (let ((nsm-noninteractive t)
               (nsm-settings-file file)
@@ -3510,7 +3524,8 @@ server certificate against the CA file of the profile."
 DIRECTORY is the absolute name of an existing directory of the session.
 When DIRECTORY is nil, the transport makes a private temporary
 directory and removes it on close.  A DIRECTORY that is not an
-existing absolute directory signals `wf-manager-file-unavailable'."
+existing absolute directory and a temporary directory that cannot be
+made each signal `wf-manager-file-unavailable'."
   (unless (wf-manager-profile-p profile)
     (signal 'wrong-type-argument (list 'wf-manager-profile-p profile)))
   (when (and directory
@@ -3519,12 +3534,19 @@ existing absolute directory signals `wf-manager-file-unavailable'."
                        (file-directory-p directory))))
     (wf-manager--fail 'wf-manager-file-unavailable "directory"
                       "%s is not an absolute directory" directory))
-  (advice-add 'nsm-verify-connection :around #'wf-manager--nsm-verify)
-  (wf-manager--transport-make
-   :profile profile
-   :directory (file-name-as-directory
-               (or directory (make-temp-file "wf-manager-session" t)))
-   :owned (null directory)))
+  (let ((made
+         (or directory
+             (condition-case failure
+                 (make-temp-file "wf-manager-session" t)
+               (file-error
+                (wf-manager--fail 'wf-manager-file-unavailable "directory"
+                                  "the temporary directory cannot be made: %s"
+                                  (error-message-string failure)))))))
+    (advice-add 'nsm-verify-connection :around #'wf-manager--nsm-verify)
+    (wf-manager--transport-make
+     :profile profile
+     :directory (file-name-as-directory made)
+     :owned (null directory))))
 
 (defun wf-manager-transport-close (transport)
   "Close TRANSPORT and end each of its pending requests.
@@ -3621,8 +3643,8 @@ request with a `wf-manager-response-too-large' failure."
   "Return the url.el settings of one request of TRANSPORT with ACCEPT.
 The value is an alist from a variable to its value.  url-http reads
 these variables when it writes the request and when it parses the
-response, and for a connection that opens without waiting it does so
-in the url.el buffer after `url-retrieve' returns.  The settings make
+response, which it does in the url.el buffer after `url-retrieve'
+returns.  The settings make
 url.el send ACCEPT as the one Accept value and no other negotiation,
 agent, extension or cache header, follow no redirect, keep no
 connection alive, store nothing in a cache, and never prompt."
@@ -3650,7 +3672,16 @@ is the callback of `url-retrieve'.  The call binds the settings of
 proxy, no connection of another caller, no cookie, no history, the CA
 file of the profile as the only trust file, and verification failures
 as errors.  It then gives the url.el buffer the same settings as
-buffer-local values."
+buffer-local values.
+
+The connection and its TLS handshake open before `url-retrieve'
+returns, because `url-asynchronous' is nil.  A connection of Emacs
+30 on macOS that opens without waiting starts its TLS handshake at
+once, and when the peer refuses the connection at once, that handshake
+writes to the refused socket and the signal SIGPIPE ends the Emacs
+process.  A connection that opens before the call returns gives such a
+refusal as a `file-error' instead.  The wait for the response still
+does not block."
   ;; The setup of url.el reads proxy settings from the environment one
   ;; time.  It runs here, before the bindings, so that it cannot change
   ;; them.
@@ -3666,7 +3697,10 @@ buffer-local values."
                         (url-proxy-services nil)
                         (url-http-open-connections (make-hash-table :test #'equal))
                         (url-history-track nil)
-                        (url-asynchronous t)
+                        (url-asynchronous nil)
+                        (wf-manager--opening
+                         (expand-file-name "network-security.data"
+                                           (wf-manager-transport-directory transport)))
                         (gnutls-trustfiles
                          (list (wf-manager-profile-ca-file
                                 (wf-manager-transport-profile transport))))
@@ -3743,12 +3777,31 @@ returns, with the result or a failure (CONDITION . DATA)."
                                (list 'wf-manager-transport-unavailable "response"
                                      (format "no complete response within %d seconds"
                                              wf-manager-response-seconds)))))
-        (file-error
-         (setf (wf-manager-exchange-timer exchange)
-               (run-at-time 0 nil #'wf-manager--conclude exchange
-                            (list 'wf-manager-transport-unavailable "connection"
-                                  (error-message-string failure))))))
+        ;; The connection and its TLS handshake open inside
+        ;; `url-retrieve'.  A refused or failed connection signals a
+        ;; `file-error'.  A failed handshake signals `gnutls-error'.  A
+        ;; certificate that the CA file does not verify signals a plain
+        ;; `error' of GnuTLS, and url-http signals a plain `error' when
+        ;; it has no connection.  Each one ends the request after this
+        ;; function returns.  An error of another condition is a defect
+        ;; of this client and is signaled again.
+        ((file-error gnutls-error)
+         (wf-manager--unopened exchange failure))
+        (error
+         (unless (eq (car failure) 'error)
+           (signal (car failure) (cdr failure)))
+         (wf-manager--unopened exchange failure)))
       exchange)))
+
+(defun wf-manager--unopened (exchange failure)
+  "End EXCHANGE, whose connection did not open, from a timer.
+FAILURE is the error of the connection.  The timer runs after the
+caller has returned, and it concludes EXCHANGE with a
+`wf-manager-transport-unavailable' failure."
+  (setf (wf-manager-exchange-timer exchange)
+        (run-at-time 0 nil #'wf-manager--conclude exchange
+                     (list 'wf-manager-transport-unavailable "connection"
+                           (error-message-string failure)))))
 
 (defun wf-manager--received (exchange status)
   "Conclude EXCHANGE with the response in the current url.el buffer.
@@ -4121,7 +4174,9 @@ Return the exchange of that request.  CALLBACK runs one time with a
 the checked capabilities, or with a failure.  A status other than 200
 and capabilities that `wf-manager-check-capabilities' refuses are
 failures.  After a failure, the transport is closed.  DIRECTORY is the
-optional session directory of `wf-manager-transport-open'."
+optional session directory of `wf-manager-transport-open'.  A transport
+that cannot open signals `wf-manager-file-unavailable', and no request
+starts."
   (let ((transport (wf-manager-transport-open profile directory)))
     (wf-manager--send
      transport (list "GET" "/v1/capabilities" nil nil "application/json")
@@ -4159,8 +4214,9 @@ one connection have the same nonce."
 
 ;; A session follows `ManagerSession' of `ext-pi/src/manager/session.ts'
 ;; in agent-cat, with the poll delivery of this client.  It is bound to
-;; one `wf-manager-connection' and to the endpoint identity of that
-;; connection.  `wf-manager-session-start' assembles the complete
+;; one `wf-manager-connection' at a time and to the endpoint identity of
+;; that connection.  `wf-manager-session-switch' replaces the connection
+;; after the complete overview of the new connection has loaded.  `wf-manager-session-start' assembles the complete
 ;; overview page set of /v1/snapshot and installs it, and then follows
 ;; /v1/events from the cursor of that overview with JSON polling
 ;; batches on timers.  An invalidation marks each watched resource that
@@ -4252,8 +4308,10 @@ its page set."
 (cl-defstruct (wf-manager-session
                (:constructor wf-manager--session-make)
                (:copier nil))
-  "One manager session, bound to one `wf-manager-connection'.
-CONNECTION is the connection.  INTERVAL is the wait between two polling
+  "One manager session, bound to one `wf-manager-connection' at a time.
+CONNECTION is the current connection, which
+`wf-manager-session-switch' replaces.  SWITCHES is the list of the
+transports of the endpoint switches in flight.  INTERVAL is the wait between two polling
 batches, in seconds.  ON-CHANGE is nil or a function of the session that
 runs after each install, each change of the delivery state, the end of
 the follow loop and the close.  REFRESH is the `wf-manager-refresh'
@@ -4270,7 +4328,8 @@ the follow loop runs, and then (KIND FAILURE), where KIND is `refused',
 `resnapshot' or `closed'.  POLLS is the number of completed polling
 batches.  TIMERS is the list of the pending timers.  CLOSED is non-nil
 after `wf-manager-session-close'."
-  (connection nil :read-only t)
+  (connection nil)
+  (switches nil)
   (interval nil :read-only t)
   (on-change nil :read-only t)
   (refresh (wf-manager-refresh-new))
@@ -4337,8 +4396,8 @@ cancels it."
                  (apply function arguments)))))
       (push timer (wf-manager-session-timers session)))))
 
-(defun wf-manager--session-get (session uri callback)
-  "On the transport of SESSION, send one GET of URI.
+(defun wf-manager--session-get (connection uri callback)
+  "On the transport of CONNECTION, send one GET of URI.
 CALLBACK runs one time with the `wf-manager-reply' or a failure.  A
 reply whose status is not 200 is `wf-manager-invalid-response'.  A send
 that signals gives its failure to CALLBACK from a timer."
@@ -4351,7 +4410,7 @@ that signals gives its failure to CALLBACK from a timer."
                               "the status of the read is not 200")
                       outcome)))))
     (condition-case failure
-        (wf-manager-get (wf-manager-session-transport session) uri received)
+        (wf-manager-get (wf-manager-connection-transport connection) uri received)
       (wf-manager-error (run-at-time 0 nil received failure) nil))))
 
 ;;;;; Page sets
@@ -4421,31 +4480,37 @@ of the first page.  Any other page gives `wf-manager-invalid-response'.
 A page that the manager refuses with 410 view-expired restarts the
 assembly at the first page, at most `wf-manager-page-set-restarts'
 times."
-  (wf-manager--page-set session first wf-manager-page-set-restarts callback))
+  (let ((identity (wf-manager-reference-endpoint first)))
+    (wf-manager--page-set (wf-manager-session-connection session)
+                          (lambda () (wf-manager--session-refusal session identity))
+                          first wf-manager-page-set-restarts callback)))
 
-(defun wf-manager--page-set (session first restarts callback)
-  "Assemble the page set of SESSION from FIRST with RESTARTS restarts left.
-CALLBACK receives the set or a failure, as for
+(defun wf-manager--page-set (connection refusal first restarts callback)
+  "Assemble a page set on CONNECTION with REFUSAL from FIRST.
+RESTARTS is the number of restarts left.  REFUSAL is a function
+without arguments.  It returns nil while the
+reads of CONNECTION belong to their session, and otherwise the failure
+that ends the assembly.  It runs before each page is sent and after
+each page arrives.  CALLBACK receives the set or a failure, as for
 `wf-manager-session-page-set'."
-  (let* ((identity (wf-manager-reference-endpoint first))
-         (scope (wf-manager--page-scope (wf-manager-reference-uri first)))
+  (let* ((scope (wf-manager--page-scope (wf-manager-reference-uri first)))
          (items nil) (count 0) (stamp nil) (metadata nil) (used 0) (index 0))
     (cl-labels
         ((invalid ()
            (funcall callback (list 'wf-manager-invalid-response "page set"
                                    "the page set breaks a rule of this client")))
          (fetch-page (location)
-           (let ((refusal (wf-manager--session-refusal session identity)))
-             (cond (refusal (funcall callback refusal))
+           (let ((refused (funcall refusal)))
+             (cond (refused (funcall callback refused))
                    ((not (equal (wf-manager--page-scope location) scope)) (invalid))
-                   (t (wf-manager--session-get session location #'received)))))
+                   (t (wf-manager--session-get connection location #'received)))))
          (received (outcome)
-           (let ((refusal (wf-manager--session-refusal session identity)))
+           (let ((refused (funcall refusal)))
              (cond
-              (refusal (funcall callback refusal))
+              (refused (funcall callback refused))
               ((and (equal outcome '(wf-manager-refused 410 "view-expired"))
                     (> restarts 0))
-               (wf-manager--page-set session first (1- restarts) callback))
+               (wf-manager--page-set connection refusal first (1- restarts) callback))
               ((wf-manager-failure-p outcome) (funcall callback outcome))
               (t (page outcome)))))
          (page (reply)
@@ -4550,9 +4615,22 @@ exists, and a 410 view-expired restarts it at the first page.  Every
 member reference carries the endpoint identity of the binding of
 SESSION.  This read installs nothing."
   (let ((identity (wf-manager-session-identity session)))
-    (wf-manager-session-page-set
-     session
+    (wf-manager--overview-load (wf-manager-session-connection session)
+                               (lambda () (wf-manager--session-refusal session identity))
+                               callback)))
+
+(defun wf-manager--overview-load (connection refusal callback)
+  "Assemble the overview page set of /v1/snapshot on CONNECTION.
+REFUSAL is the refusal function of `wf-manager--page-set'.  CALLBACK
+runs one time with the `wf-manager-overview' or a failure.  Every member
+reference carries the endpoint identity of CONNECTION, so the overview
+that `wf-manager-session-switch' reads before its commit is valid for
+the session after the commit."
+  (let ((identity (wf-manager-connection-identity connection)))
+    (wf-manager--page-set
+     connection refusal
      (wf-manager-reference-make :endpoint identity :uri wf-manager-overview-resource)
+     wf-manager-page-set-restarts
      (lambda (outcome)
        (funcall callback (if (wf-manager-failure-p outcome)
                              outcome
@@ -4607,18 +4685,22 @@ read.  CALLBACK receives the overview or the failure."
        (funcall callback outcome)))))
 
 (defun wf-manager--session-follow (session cursor seconds)
-  "Send the next polling batch of SESSION from CURSOR after SECONDS."
+  "Send the next polling batch of SESSION from CURSOR after SECONDS.
+The batch goes to the current connection of SESSION."
   (setf (wf-manager-session-cursor session) cursor)
-  (wf-manager--session-later session seconds #'wf-manager--session-poll session))
+  (wf-manager--session-later session seconds #'wf-manager--session-poll
+                             session (wf-manager-session-connection session)))
 
-(defun wf-manager--session-poll (session)
-  "Send one polling batch of SESSION from its cursor."
-  (condition-case failure
-      (wf-manager-poll-events (wf-manager-session-transport session)
-                              (wf-manager-session-cursor session)
-                              (lambda (outcome)
-                                (wf-manager--session-polled session outcome)))
-    (wf-manager-error (wf-manager--session-polled session failure))))
+(defun wf-manager--session-poll (session connection)
+  "Send one polling batch of SESSION on CONNECTION from its cursor.
+Nothing is sent when CONNECTION is no longer the connection of SESSION."
+  (when (eq connection (wf-manager-session-connection session))
+    (condition-case failure
+        (wf-manager-poll-events (wf-manager-connection-transport connection)
+                                (wf-manager-session-cursor session)
+                                (lambda (outcome)
+                                  (wf-manager--session-polled session connection outcome)))
+      (wf-manager-error (wf-manager--session-polled session connection failure)))))
 
 (defun wf-manager--session-delivery (session state)
   "Set the delivery state of SESSION to STATE."
@@ -4631,9 +4713,12 @@ read.  CALLBACK receives the overview or the failure."
   (setf (wf-manager-session-follow-end session) (list kind failure))
   (wf-manager--session-changed session))
 
-(defun wf-manager--session-polled (session outcome)
-  "For SESSION, handle OUTCOME, the result of one polling batch."
-  (unless (wf-manager-session-closed session)
+(defun wf-manager--session-polled (session connection outcome)
+  "For SESSION and CONNECTION, handle OUTCOME, the result of one batch.
+A batch of a connection that an endpoint switch has replaced changes
+nothing."
+  (when (and (not (wf-manager-session-closed session))
+             (eq connection (wf-manager-session-connection session)))
     (cl-incf (wf-manager-session-polls session))
     (if (wf-manager-event-batch-p outcome)
         (progn
@@ -4671,18 +4756,28 @@ read again and the follow loop continues from the new cursor.  When
 the overview read fails, the follow loop ends with `resnapshot'."
   (setf (wf-manager-session-refresh session)
         (wf-manager-refresh-advance (wf-manager-session-refresh session)))
-  (wf-manager--session-bootstrap
-   session
-   (lambda (outcome)
-     (cond
-      ((wf-manager-session-closed session))
-      ((wf-manager-failure-p outcome)
-       (wf-manager--session-end session 'resnapshot failure))
-      (t
-       (dolist (key (reverse (wf-manager-session-watched session)))
-         (unless (equal key wf-manager-overview-resource)
-           (wf-manager--session-invalidate session key)))
-       (wf-manager--session-follow session (wf-manager-overview-cursor outcome) 0))))))
+  (let ((connection (wf-manager-session-connection session)))
+    (wf-manager--session-bootstrap
+     session
+     (lambda (outcome)
+       (wf-manager--session-resnapshotted session connection failure outcome)))))
+
+(defun wf-manager--session-resnapshotted (session connection failure outcome)
+  "Continue SESSION on CONNECTION after a resnapshot.
+FAILURE is the 410 refusal that started the resnapshot, and OUTCOME
+is the overview read of the resnapshot.  An endpoint
+switch that replaced CONNECTION during the read has started a follow
+loop of its own, so the outcome then changes nothing."
+  (cond
+   ((or (wf-manager-session-closed session)
+        (not (eq connection (wf-manager-session-connection session)))))
+   ((wf-manager-failure-p outcome)
+    (wf-manager--session-end session 'resnapshot failure))
+   (t
+    (dolist (key (reverse (wf-manager-session-watched session)))
+      (unless (equal key wf-manager-overview-resource)
+        (wf-manager--session-invalidate session key)))
+    (wf-manager--session-follow session (wf-manager-overview-cursor outcome) 0))))
 
 (defun wf-manager--member-resource-p (resource)
   "Return non-nil when RESOURCE is an overview member or lies below one."
@@ -4738,7 +4833,7 @@ overview."
           session key generation outcome
           (lambda () (setf (wf-manager-session-overview session) outcome)))))
     (wf-manager--session-get
-     session key
+     (wf-manager-session-connection session) key
      (lambda (outcome)
        (wf-manager--session-complete
         session key generation outcome
@@ -4797,15 +4892,114 @@ read.  A REFERENCE of another endpoint gives the failure
     (list 'wf-manager-wrong-endpoint "reference"
           "the reference names another endpoint")))
 
+(defun wf-manager-session-switch (session profile callback)
+  "Bind SESSION to the endpoint of the loaded PROFILE, and return nil.
+This is `switchEndpoint' of `ext-pi/src/manager/session.ts'.  The new
+binding reads its capabilities with `wf-manager-connect', receives a new
+endpoint identity, and assembles its complete overview through its own
+transport, with every member reference bound to the new identity.  Only
+then does the switch commit: the generation advances, so each read in
+flight installs nothing and each reference of the earlier binding gives
+`wf-manager-wrong-endpoint'.  The watched resources become the overview
+alone, the installed reads are cleared, the new overview is installed,
+the earlier transport is closed, and the follow loop starts again from
+the cursor of the new overview.  CALLBACK then runs one time with the
+new overview.
+
+A refused or failed connection, a transport that cannot open, a failed
+overview read, a close and a commit of another switch before the
+commit each close the new transport and keep the earlier binding, its
+watched resources, its installed reads and its follow loop.  CALLBACK
+then runs one time, after this function returns, with the failure: the
+failure of the connection, of the transport or of the read, the failure
+`wf-manager-closed' after a close, or the failure
+`wf-manager-wrong-endpoint' after the commit of another switch.  A
+switch sends no command."
+  (if (wf-manager-session-closed session)
+      (progn (run-at-time 0 nil callback
+                          (list 'wf-manager-closed "session" "the session was closed"))
+             nil)
+    (let* ((earlier (wf-manager-session-connection session))
+           (transport nil)
+           (refusal
+            (lambda ()
+              (cond ((wf-manager-session-closed session)
+                     (list 'wf-manager-closed "session" "the session was closed"))
+                    ((not (eq earlier (wf-manager-session-connection session)))
+                     (list 'wf-manager-wrong-endpoint "switch"
+                           "another binding replaced the binding of the switch")))))
+           (finish
+            (lambda (outcome)
+              (setf (wf-manager-session-switches session)
+                    (delq transport (wf-manager-session-switches session)))
+              (funcall callback outcome))))
+      (condition-case failure
+          (setq transport
+                (wf-manager-exchange-transport
+                 (wf-manager-connect
+                  profile
+                  (lambda (connection)
+                    (if (wf-manager-failure-p connection)
+                        (funcall finish connection)
+                      (wf-manager--overview-load
+                       connection refusal
+                       (lambda (overview)
+                         (let ((refused (funcall refusal)))
+                           (cond
+                            ((or refused (wf-manager-failure-p overview))
+                             (wf-manager-transport-close
+                              (wf-manager-connection-transport connection))
+                             (funcall finish
+                                      (if (and (wf-manager-failure-p overview)
+                                               (not (wf-manager-session-closed session)))
+                                          overview
+                                        refused)))
+                            (t
+                             (wf-manager--session-commit session connection overview)
+                             (funcall finish overview)))))))))))
+        ;; The connect signals before it sends a request when the
+        ;; transport cannot open.  The switch then ends after this
+        ;; function returns, and it keeps the earlier binding.
+        (wf-manager-error
+         (run-at-time 0 nil finish failure)))
+      (when transport
+        (push transport (wf-manager-session-switches session)))
+      nil)))
+
+(defun wf-manager--session-commit (session connection overview)
+  "Commit the endpoint switch of SESSION to CONNECTION with OVERVIEW.
+The earlier connection and its pending timers end, and the follow loop
+starts on CONNECTION from the cursor of OVERVIEW."
+  (let ((earlier (wf-manager-session-connection session)))
+    (setf (wf-manager-session-connection session) connection)
+    (mapc #'cancel-timer (wf-manager-session-timers session))
+    (setf (wf-manager-session-timers session) nil
+          (wf-manager-session-refresh session)
+          (wf-manager-refresh-advance (wf-manager-session-refresh session))
+          (wf-manager-session-watched session) (list wf-manager-overview-resource)
+          (wf-manager-session-installed session) (make-hash-table :test #'equal)
+          (wf-manager-session-overview session) overview
+          (wf-manager-session-delivery session) 'connecting
+          (wf-manager-session-backoff session) wf-manager-initial-backoff
+          (wf-manager-session-follow-end session) nil)
+    (wf-manager-transport-close (wf-manager-connection-transport earlier))
+    (wf-manager--session-follow session (wf-manager-overview-cursor overview) 0)
+    (wf-manager--session-changed session)))
+
 (defun wf-manager-session-close (session)
-  "Close SESSION: cancel its timers and close its transport.
-Each pending request ends, and no read installs after the close.  The
-follow loop ends with `closed' when it has not ended before."
+  "Close SESSION: cancel its timers and close its transports.
+Each pending request of the session ends, the requests of an endpoint
+switch in flight included, and no read installs after the close.  The
+follow loop ends with `closed' when it has not ended before.  The close
+sends no command, and the runs and requests of the manager do not
+change."
   (unless (wf-manager-session-closed session)
     (setf (wf-manager-session-closed session) t)
     (mapc #'cancel-timer (wf-manager-session-timers session))
     (setf (wf-manager-session-timers session) nil)
     (wf-manager-transport-close (wf-manager-session-transport session))
+    (mapc #'wf-manager-transport-close
+          (copy-sequence (wf-manager-session-switches session)))
     (unless (wf-manager-session-follow-end session)
       (setf (wf-manager-session-follow-end session) (list 'closed nil)))
     (wf-manager--session-changed session)))

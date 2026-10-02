@@ -100,9 +100,12 @@ emacs/wf-smoke.el       batch contracts, run by ci/emacs.sh
 emacs/wf-manager.el     service-mode transport: client profile, credential,
                         exact JSON codec, decoders, sessions, commands and
                         verified downloads
-emacs/wf-manager-tests.el  ERT tests of the transport, run by ci/emacs.sh
-emacs/wf-manager-live.el   live check of the transport, run by the emacs-client
-                           mode of agent-cat
+emacs/wf-service.el     service mode of wf.el: profile selection, catalogue and
+                        the dispatch table of the commands
+emacs/wf-manager-tests.el  ERT tests of the transport and of the dispatch table,
+                           run by ci/emacs.sh
+emacs/wf-manager-live.el   live check of the transport and of service mode, run
+                           by the emacs-client mode of agent-cat
 ci/emacs-ui.py          isolated Emacs PTY, resize and window acceptance
 ci/emacs-tramp.py       loopback SSH/TRAMP, typed controls and lineage acceptance
 ```
@@ -367,9 +370,12 @@ Without `use-package`, add `emacs/` to `load-path` and autoload the commands:
 | `wf-refresh` | Clear descriptor discovery caches. A prefix argument also refreshes discovery for the inspection and run commands. |
 | `wf-restart`, `wf-resume`, `wf-fork` | Prepare a separately owned lineage child and require fresh approval. |
 | `wf-lineage-compare` | Display authoritative parent and child records and snapshots. |
+| `wf-diagnostics` | Display the diagnostics of the current run view. |
+| `wf-service`, `wf-local` | Select service mode with a client profile, or return to local mode (see [Service mode](#service-mode)). |
 
 Configuration uses `wf-program`, `wf-agent-deck-program`,
-`wf-confirm-function`, and `wf-state-directory`. Confirmation defaults to
+`wf-confirm-function`, `wf-state-directory`, and, for service mode,
+`wf-manager-profiles`. Confirmation defaults to
 `yes-or-no-p`. The state directory defaults to
 `~/.local/state/agent-workflows` on the workflow's machine.
 
@@ -476,7 +482,11 @@ connection the listener closes after the request, so that the send is
 uncertain. They require exactly one send for each answer and a
 reconciliation with one read that gives `effect-observed` or stays uncertain.
 The download tests require the exact bytes for the stated size and digest and
-a refusal for a wrong digest, a wrong size and an inline disposition. The human/control fixture and
+a refusal for a wrong digest, a wrong size and an inline disposition. The
+service-mode tests require that `wf-service-commands` states each public
+command of `wf.el` once, that local mode is the default, and that each
+pending and local-only command refuses with its message in service mode and
+starts no process and sends no request. The human/control fixture and
 the vector file are explicit dependencies, not developer-specific paths or
 skipped tests. The pinned agent-cat source of the development shell does not
 have the vector file, so `WF_MANAGER_VECTORS` names it.
@@ -535,7 +545,18 @@ and reads the receipt at the Location of the 202 reply until it reaches
 the artifact of the export with the verified download, and the harness
 requires the same bytes as its own download. A download with a wrong digest
 and a download with a wrong size must each give
-`wf-manager-invalid-response`. The check writes a report whose `harnessVersion` field is
+`wf-manager-invalid-response`. The last step drives service mode with
+keyboard macros through `execute-kbd-macro`, with the first profile as the
+one item of `wf-manager-profiles`. `M-x wf-service` connects, and `M-x wf-run`
+lists the ready profiles and then the catalogue in `*Completions*`, which the
+check keeps with a key of its own. The harness requires exactly the ready
+profiles and the workflow names that it reads, and the refusal of `wf-run`
+after the selection. `M-x wf-help` must show the help text of the catalogue.
+Each local-only command must refuse with its message and start no process and
+send no request, and the command receipts of the manager must end with the
+export command. `M-x wf-diagnostics` must show the endpoint, the scopes and
+the delivery state `poll`, and `M-x wf-local` must close the session. The
+check writes a report whose `harnessVersion` field is
 `wf-manager-live-harness-version`. The mode refuses a report of another
 version with one sentence, so a mismatched pair of the two repositories fails
 at once. The mode then checks the report against the reads of the manager.
@@ -574,6 +595,46 @@ WF_CONTROL_RUNNER=/path/to/routing-fixed-point-probe \
   nix develop path:. -c python3 ci/emacs-tramp.py --artifacts /path/to/new/artifacts
 ```
 
+### Service mode
+
+`emacs/wf-service.el` connects the commands of `wf.el` to an agent-cat
+workflow manager. The mode is explicit, and local mode is the default.
+
+```elisp
+(require 'wf-service)
+(setq wf-manager-profiles '("/Users/me/.config/agent-cat/client-profile.json"))
+```
+
+`wf-manager-profiles` is a list of client profile files (see
+[Service-mode transport](#service-mode-transport)). The list alone does not
+select service mode. `M-x wf-service` reads one profile of the list, binds a
+connection to its manager by `GET /v1/capabilities`, and starts a session. The
+session installs the complete overview and follows the events of the manager
+in the `poll` delivery. A failure leaves local mode in place and names its
+cause. When service mode already has a session, `wf-service` switches that
+session to the endpoint of the selected profile, and a switch that fails keeps
+the earlier binding. `M-x wf-local` closes the session and returns every
+command to local mode. The close sends no command, so the runs and requests of
+the manager continue.
+
+In service mode, `wf.el` never starts the `wf` binary or a local frontend
+worker and never reads a file system path of the manager. Each public command
+of `wf.el` then runs the behavior that the table `wf-service-commands` states
+for it:
+
+| Command | Behavior in service mode |
+| --- | --- |
+| `wf-run` | Read the ready profiles of `/v1/profiles` and ask for one, with its workspace and target labels. Then read the catalogue of `/v1/workflows?profileId=` for that profile and ask for one workflow through the completion of `wf--read-row`, with its price and blurb. Each read is fresh, so the prefix argument changes nothing. The command then refuses with the message "Service mode does not yet create a request of WORKFLOW in PROFILE". |
+| `wf-help` | Read a profile and a workflow as `wf-run` does, and show the help text of the catalogue item in the buffer `*wf help: PROFILE/WORKFLOW*`. |
+| `wf-diagnostics` | Show the buffer `*wf service diagnostics*`: the profile file, the endpoint, the endpoint identity, the authority epoch, the scopes, the profiles of the credential, the delivery state, the generation, the number of polling batches, the state of the follow loop and the last problem. |
+| `wf-runs`, `wf-answer`, `wf-control`, `wf-result`, `wf-kill`, `wf-history`, `wf-history-refresh`, `wf-history-open`, `wf-restart`, `wf-resume`, `wf-fork`, `wf-fork-submit`, `wf-rerun`, `wf-refresh` | Refuse with the message "COMMAND is not yet available in service mode". |
+| `wf-plan`, `wf-cost` | Refuse with the message "COMMAND works only in local mode.  In service mode, use the review of `wf-run` instead". |
+| `wf-lineage-compare`, `wf-observer-result`, `wf-observer-refresh` | Refuse with the message "COMMAND works only in local mode.  Service mode has no equivalent". |
+
+No refusal starts a process or sends a request. The dispatch is global: in
+service mode, a command acts on the manager also in the view of a local run.
+`wf-local` gives such a view its local commands again.
+
 ### Service-mode transport
 
 `emacs/wf-manager.el` is the transport of the service mode, in which `wf.el`
@@ -588,8 +649,9 @@ mode. A session on a connection installs the complete overview and follows
 the events of the manager with polling batches. A session also sends the
 commands of its caller one time each, reads their receipts, reconciles an
 uncertain command with one read, and gives the bytes of an artifact only
-after their size and SHA-256 digest agree with the stated values. The connection of the `wf.el` commands to manager resources is not yet in
-place.
+after their size and SHA-256 digest agree with the stated values.
+`emacs/wf-service.el` connects the commands of `wf.el` to this transport (see
+[Service mode](#service-mode)).
 
 A client profile is a JSON file of version 1. It has exactly these four
 fields:

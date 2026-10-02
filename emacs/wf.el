@@ -42,6 +42,12 @@
 ;; Observed records never grant control.  Restart, resume and fork prepare
 ;; on one worker and require explicit approval before that worker starts.
 ;;
+;; The mode is explicit.  Local mode is the default.  `wf-service' of
+;; `wf-service.el' selects a client profile of an agent-cat workflow
+;; manager, and each command of this file then runs the service behavior
+;; that `wf-service-commands' states for it, through `wf--service'.
+;; `wf-local' returns the commands to local mode.
+;;
 ;; Discovery preserves TRAMP connection conventions.  Native processes use
 ;; call-local direct-async pipe settings and separate stderr buffers.
 ;; SSH is tested through an isolated loopback server on Emacs 30.2.
@@ -86,6 +92,24 @@ non-nil for yes."
                  (const :tag "One key" y-or-n-p)
                  (function :tag "Other"))
   :group 'wf)
+
+
+;;; Mode selection
+
+(defvar wf--service-dispatch nil
+  "The function that runs the commands of this file in service mode, or nil.
+Local mode is the default, and this variable is nil there.  The
+command `wf-service' of `wf-service.el' sets it and `wf-local' clears
+it.  The function receives the command symbol and the arguments of the
+command, and it runs the service behavior of that command.")
+
+(defun wf--service (command &rest arguments)
+  "In service mode, run COMMAND with ARGUMENTS there and return non-nil.
+In local mode, do nothing and return nil, so the caller runs its local
+behavior."
+  (when wf--service-dispatch
+    (apply wf--service-dispatch command arguments)
+    t))
 
 
 ;;; Talking to the binary
@@ -186,8 +210,9 @@ REFRESH fetches it again.  This is the only place the row set is read."
 (defun wf-refresh ()
   "Forget every cached row listing, so the next command fetches it again."
   (interactive)
-  (setq wf--rows-cache nil)
-  (message "wf: row listing forgotten"))
+  (unless (wf--service 'wf-refresh)
+    (setq wf--rows-cache nil)
+    (message "wf: row listing forgotten")))
 
 (defun wf--bound (n)
   "Render N, a ceiling on consultations, the way the CLI renders it.
@@ -204,11 +229,14 @@ showing a reader of prices the word \"nil\"."
           (alist-get 'paths row)
           (if (eql 1 (alist-get 'paths row)) "" "s")))
 
-(defun wf--read-row (prompt &optional refresh)
+(defun wf--read-row (prompt &optional refresh rows)
   "Read one row with PROMPT and return it.
 Each candidate is annotated with its price and its blurb.  REFRESH is
-passed to `wf--rows'."
-  (let* ((rows (wf--rows refresh))
+passed to `wf--rows'.  ROWS, when non-nil, are the candidate rows in
+place of the rows of `wf--rows', and REFRESH is then unused.  The
+service mode of `wf-service.el' gives the catalogue of a manager
+profile as ROWS."
+  (let* ((rows (or rows (wf--rows refresh)))
          (alist (mapcar (lambda (row) (cons (alist-get 'name row) row)) rows))
          (width (apply #'max 0 (mapcar (lambda (c) (length (car c))) alist)))
          (annotate
@@ -1446,11 +1474,12 @@ TRAMP may use the buffer during connection negotiation."
 (defun wf-runs ()
   "Reopen an in-memory native session by its independent run identity."
   (interactive)
-  (let ((choices (mapcar (lambda (session)
-                           (cons (format "%s — %s" (alist-get 'runId (wf--session-prepared session))
-                                         (wf--session-directory session)) session))
-                         wf--sessions)))
-    (wf--view (cdr (assoc (completing-read "Run: " choices nil t) choices)))))
+  (unless (wf--service 'wf-runs)
+    (let ((choices (mapcar (lambda (session)
+                             (cons (format "%s — %s" (alist-get 'runId (wf--session-prepared session))
+                                           (wf--session-directory session)) session))
+                           wf--sessions)))
+      (wf--view (cdr (assoc (completing-read "Run: " choices nil t) choices))))))
 
 (defun wf--current (&optional live)
   "Return the current session; require a live nonterminal run when LIVE."
@@ -1522,34 +1551,36 @@ TRAMP may use the buffer during connection negotiation."
 (defun wf-kill ()
   "Request whole-run cancellation through the native control pipe."
   (interactive)
-  (wf--control-send (wf--current t) '((type . "cancelRun")) nil))
+  (unless (wf--service 'wf-kill)
+    (wf--control-send (wf--current t) '((type . "cancelRun")) nil)))
 
 (defun wf-control ()
   "Send a native live control, with explicit occurrence context.
 JSON objects use the runtime schema; the server is final authority."
   (interactive)
-  (let* ((session (wf--current t))
-         (type (completing-read "Control: " '("steerOccurrence" "retryOccurrence"
-                                               "failoverOccurrence" "abandonOccurrence"
-                                               "redirectOccurrence") nil t))
-         (ids (mapcar #'car (cl-remove-if (lambda (entry) (plist-get (cdr entry) :terminal))
-                                        (wf--session-occurrences session))))
-         (id (completing-read "Occurrence: " ids nil t nil nil (car (wf--session-pending session))))
-         (context (copy-tree (cdr (assoc id (wf--session-occurrences session)))))
-         (command (append `((type . ,type))
-                          (pcase type
-                            ("steerOccurrence" `((timing . ,(completing-read "Timing: " '("interrupt-now" "next-boundary") nil t))
-                                                  (text . ,(read-string "Steering: "))))
-                            ("redirectOccurrence"
-                             `((target . ,(completing-read
-                                          "Runtime target: "
-                                          (append (plist-get (cdr (assoc id (wf--session-occurrences session))) :targets) nil)
-                                          nil t))))))))
-    (let ((current (cdr (assoc id (wf--session-occurrences session)))))
-      (unless (cl-every (lambda (key) (equal (plist-get context key) (plist-get current key)))
-                        '(:attempt :pending :targets :terminal))
-        (user-error "Control context changed while editing; select it again")))
-    (wf--control-send session command id)))
+  (unless (wf--service 'wf-control)
+    (let* ((session (wf--current t))
+           (type (completing-read "Control: " '("steerOccurrence" "retryOccurrence"
+                                                "failoverOccurrence" "abandonOccurrence"
+                                                "redirectOccurrence") nil t))
+           (ids (mapcar #'car (cl-remove-if (lambda (entry) (plist-get (cdr entry) :terminal))
+                                            (wf--session-occurrences session))))
+           (id (completing-read "Occurrence: " ids nil t nil nil (car (wf--session-pending session))))
+           (context (copy-tree (cdr (assoc id (wf--session-occurrences session)))))
+           (command (append `((type . ,type))
+                            (pcase type
+                              ("steerOccurrence" `((timing . ,(completing-read "Timing: " '("interrupt-now" "next-boundary") nil t))
+                                                   (text . ,(read-string "Steering: "))))
+                              ("redirectOccurrence"
+                               `((target . ,(completing-read
+                                             "Runtime target: "
+                                             (append (plist-get (cdr (assoc id (wf--session-occurrences session))) :targets) nil)
+                                             nil t))))))))
+      (let ((current (cdr (assoc id (wf--session-occurrences session)))))
+        (unless (cl-every (lambda (key) (equal (plist-get context key) (plist-get current key)))
+                          '(:attempt :pending :targets :terminal))
+          (user-error "Control context changed while editing; select it again")))
+      (wf--control-send session command id))))
 
 (defun wf--notice (name text directory)
   "Display native detail buffer NAME containing TEXT in DIRECTORY."
@@ -1665,28 +1696,29 @@ ID and CODE identify a question.  Lisp never reads private store files."
   "Verify and display the oldest human question, then edit a JSON answer.
 Boolean false is :false internally, never JSON null."
   (interactive)
-  (let* ((session (wf--current t))
-         (id (car (wf--session-pending session)))
-         (occ (cdr (assoc id (wf--session-occurrences session))))
-         (pending (plist-get occ :pending)))
-    (unless (equal (alist-get 'type pending) "occurrence.person-answer-pending")
-      (user-error "Oldest pending decision is not a human question"))
-    (when (wf--decision-inflight-p session id)
-      (user-error "Answer already sent; wait for acknowledgement"))
-    (wf--artifact
-     session "read-question" (alist-get 'question pending)
-     (lambda (value)
-       (unless (and (eq (wf--session-phase session) 'running)
-                    (equal id (car (wf--session-pending session)))
-                    (not (wf--decision-inflight-p session id))
-                    (equal pending (plist-get (cdr (assoc id (wf--session-occurrences session))) :pending)))
-         (user-error "Question context changed during verification; select it again"))
-       (wf--notice (generate-new-buffer-name "*wf verified question*")
-                 (concat (or (alist-get 'prompt (alist-get 'question value)) "")
-                         "\n\nVerified question details:\n" (wf--pretty value))
-                 (wf--session-directory session))
-       (wf--answer-editor session id value))
-     id (alist-get 'code (plist-get occ :event)))))
+  (unless (wf--service 'wf-answer)
+    (let* ((session (wf--current t))
+           (id (car (wf--session-pending session)))
+           (occ (cdr (assoc id (wf--session-occurrences session))))
+           (pending (plist-get occ :pending)))
+      (unless (equal (alist-get 'type pending) "occurrence.person-answer-pending")
+        (user-error "Oldest pending decision is not a human question"))
+      (when (wf--decision-inflight-p session id)
+        (user-error "Answer already sent; wait for acknowledgement"))
+      (wf--artifact
+       session "read-question" (alist-get 'question pending)
+       (lambda (value)
+         (unless (and (eq (wf--session-phase session) 'running)
+                      (equal id (car (wf--session-pending session)))
+                      (not (wf--decision-inflight-p session id))
+                      (equal pending (plist-get (cdr (assoc id (wf--session-occurrences session))) :pending)))
+           (user-error "Question context changed during verification; select it again"))
+         (wf--notice (generate-new-buffer-name "*wf verified question*")
+                     (concat (or (alist-get 'prompt (alist-get 'question value)) "")
+                             "\n\nVerified question details:\n" (wf--pretty value))
+                     (wf--session-directory session))
+         (wf--answer-editor session id value))
+       id (alist-get 'code (plist-get occ :event))))))
 
 (defun wf--answer-editor (session id question)
   "Open a multiline JSON answer editor for SESSION, ID and verified QUESTION."
@@ -1709,31 +1741,33 @@ Boolean false is :false internally, never JSON null."
 (defun wf-result ()
   "Read the available result through the runner's read-only verifier."
   (interactive)
-  (let* ((session (wf--current)) (reference (wf--session-result session)))
-    (unless reference (user-error "No result reference available"))
-    (wf--artifact session "read-result" reference
-                  (lambda (value)
-                    (wf--notice (generate-new-buffer-name "*wf verified result*")
-                              (concat "Verified content only; not ownership or whole-store health.\n\n"
-                                      (wf--display-value (alist-get 'value value)))
-                              (wf--session-directory session))))))
+  (unless (wf--service 'wf-result)
+    (let* ((session (wf--current)) (reference (wf--session-result session)))
+      (unless reference (user-error "No result reference available"))
+      (wf--artifact session "read-result" reference
+                    (lambda (value)
+                      (wf--notice (generate-new-buffer-name "*wf verified result*")
+                                  (concat "Verified content only; not ownership or whole-store health.\n\n"
+                                          (wf--display-value (alist-get 'value value)))
+                                  (wf--session-directory session)))))))
 
 (defun wf-diagnostics ()
   "Show all captured native stderr and validated protocol envelopes."
   (interactive)
-  (let ((session (wf--current)))
-    (wf--notice (generate-new-buffer-name "*wf diagnostics*")
-              (concat (when (processp (wf--session-process session))
-                        (format "Process: %s; exit status: %s\n"
-                                (process-status (wf--session-process session))
-                                (process-exit-status (wf--session-process session))))
-                      "stderr (untrusted text):\n"
-                      (decode-coding-string (or (wf--session-diagnostics session) "") 'utf-8)
-                      "\nRejected/truncated protocol (untrusted text):\n"
-                      (decode-coding-string (or (wf--session-rejected session) (wf--session-wire session)) 'utf-8)
-                      "\nProtocol:\n"
-                      (mapconcat #'wf--pretty (reverse (wf--session-events session)) "\n"))
-              (wf--session-directory session))))
+  (unless (wf--service 'wf-diagnostics)
+    (let ((session (wf--current)))
+      (wf--notice (generate-new-buffer-name "*wf diagnostics*")
+                  (concat (when (processp (wf--session-process session))
+                            (format "Process: %s; exit status: %s\n"
+                                    (process-status (wf--session-process session))
+                                    (process-exit-status (wf--session-process session))))
+                          "stderr (untrusted text):\n"
+                          (decode-coding-string (or (wf--session-diagnostics session) "") 'utf-8)
+                          "\nRejected/truncated protocol (untrusted text):\n"
+                          (decode-coding-string (or (wf--session-rejected session) (wf--session-wire session)) 'utf-8)
+                          "\nProtocol:\n"
+                          (mapconcat #'wf--pretty (reverse (wf--session-events session)) "\n"))
+                  (wf--session-directory session)))))
 
 (defun wf--review (session)
   "Display SESSION's exact prepared plan and ask explicit start approval."
@@ -1787,27 +1821,28 @@ Boolean false is :false internally, never JSON null."
 (defun wf-history-refresh ()
   "Refresh persistent history; query errors leave the previous table intact."
   (interactive)
-  (unless wf--store (user-error "No history store"))
-  (let ((runs (alist-get 'runs (wf--store-query wf--store "list-runs"))))
-    (unless (vectorp runs) (user-error "Invalid history catalogue"))
-    (setq tabulated-list-entries
-          (mapcar
-           (lambda (row)
-             (let ((snapshot (alist-get 'snapshot row)))
-               (list row
-                     (if (equal (alist-get 'kind row) "corrupt")
-                         (vector (format "%s" (alist-get 'directory row)) "CORRUPT"
-                                 (format "%s" (alist-get 'error row)) "" "" "" "" "")
-                       (vector (format "%s" (alist-get 'runId row))
-                               (or (alist-get 'status snapshot) "not-started")
-                               (format "%s / %s" (alist-get 'runnerId row) (alist-get 'workflow row))
-                               (format "%s/%s" (alist-get 'billFresh snapshot) (alist-get 'billMemo snapshot))
-                               (format "%s ← %s" (alist-get 'lineage row) (or (alist-get 'parentRunId row) "root"))
-                               (or (alist-get 'ownership row) "unknown")
-                               (format "%s / %s" (alist-get 'persona row) (alist-get 'targetKind row))
-                               (or (alist-get 'createdAt row) ""))))))
-           runs))
-    (tabulated-list-print t)))
+  (unless (wf--service 'wf-history-refresh)
+    (unless wf--store (user-error "No history store"))
+    (let ((runs (alist-get 'runs (wf--store-query wf--store "list-runs"))))
+      (unless (vectorp runs) (user-error "Invalid history catalogue"))
+      (setq tabulated-list-entries
+            (mapcar
+             (lambda (row)
+               (let ((snapshot (alist-get 'snapshot row)))
+                 (list row
+                       (if (equal (alist-get 'kind row) "corrupt")
+                           (vector (format "%s" (alist-get 'directory row)) "CORRUPT"
+                                   (format "%s" (alist-get 'error row)) "" "" "" "" "")
+                         (vector (format "%s" (alist-get 'runId row))
+                                 (or (alist-get 'status snapshot) "not-started")
+                                 (format "%s / %s" (alist-get 'runnerId row) (alist-get 'workflow row))
+                                 (format "%s/%s" (alist-get 'billFresh snapshot) (alist-get 'billMemo snapshot))
+                                 (format "%s ← %s" (alist-get 'lineage row) (or (alist-get 'parentRunId row) "root"))
+                                 (or (alist-get 'ownership row) "unknown")
+                                 (format "%s / %s" (alist-get 'persona row) (alist-get 'targetKind row))
+                                 (or (alist-get 'createdAt row) ""))))))
+             runs))
+      (tabulated-list-print t))))
 
 (defvar wf-history-mode-map
   (let ((map (make-sparse-keymap)))
@@ -1830,25 +1865,26 @@ Boolean false is :false internally, never JSON null."
   "Open persistent history for this view's store, or the configured connection.
 Store discovery never grants control and never creates a state directory."
   (interactive)
-  (let* ((store
-          (or wf--store
-              (when wf--session
-                (wf--store-create :program (wf--session-program wf--session)
-                                  :directory (wf--session-directory wf--session)
-                                  :path (wf--session-state-path wf--session)
-                                  :root (alist-get 'rootIdentity (wf--session-prepared wf--session))))
-              (let* ((path (wf--state-path))
-                     (root (alist-get 'rootIdentity
-                                      (wf--query wf-program default-directory
-                                                 `((version . 1) (operation . "open-root") (path . ,path))))))
-                (wf--store-create :program wf-program :directory default-directory
-                                  :path path :root root))))
-         (buffer (generate-new-buffer "*wf history*")))
-    (with-current-buffer buffer
-      (wf-history-mode)
-      (setq wf--store store default-directory (wf--store-directory store))
-      (wf-history-refresh))
-    (pop-to-buffer buffer)))
+  (unless (wf--service 'wf-history)
+    (let* ((store
+            (or wf--store
+                (when wf--session
+                  (wf--store-create :program (wf--session-program wf--session)
+                                    :directory (wf--session-directory wf--session)
+                                    :path (wf--session-state-path wf--session)
+                                    :root (alist-get 'rootIdentity (wf--session-prepared wf--session))))
+                (let* ((path (wf--state-path))
+                       (root (alist-get 'rootIdentity
+                                        (wf--query wf-program default-directory
+                                                   `((version . 1) (operation . "open-root") (path . ,path))))))
+                  (wf--store-create :program wf-program :directory default-directory
+                                    :path path :root root))))
+           (buffer (generate-new-buffer "*wf history*")))
+      (with-current-buffer buffer
+        (wf-history-mode)
+        (setq wf--store store default-directory (wf--store-directory store))
+        (wf-history-refresh))
+      (pop-to-buffer buffer))))
 
 (defun wf--owned-session (store record)
   "Find a live local session matching STORE and RECORD, never infer ownership."
@@ -1867,11 +1903,12 @@ Store discovery never grants control and never creates a state directory."
 (defun wf-history-open ()
   "Open the selected healthy run; corrupt records remain visible with errors."
   (interactive)
-  (let ((row (tabulated-list-get-id)))
-    (unless row (user-error "Select a history row"))
-    (when (equal (alist-get 'kind row) "corrupt")
-      (user-error "Corrupt run %s: %s" (alist-get 'directory row) (alist-get 'error row)))
-    (wf--observe wf--store (wf--read-record wf--store (alist-get 'runId row)))))
+  (unless (wf--service 'wf-history-open)
+    (let ((row (tabulated-list-get-id)))
+      (unless row (user-error "Select a history row"))
+      (when (equal (alist-get 'kind row) "corrupt")
+        (user-error "Corrupt run %s: %s" (alist-get 'directory row) (alist-get 'error row)))
+      (wf--observe wf--store (wf--read-record wf--store (alist-get 'runId row))))))
 
 (defvar wf-observer-mode-map
   (let ((map (make-sparse-keymap)))
@@ -1914,24 +1951,26 @@ Store discovery never grants control and never creates a state directory."
 (defun wf-observer-refresh ()
   "Refresh this observer from the shared read-only query, retaining errors."
   (interactive)
-  (unless (and wf--store wf--record) (user-error "No observed run"))
-  (setq wf--record (wf--read-record wf--store (alist-get 'runId wf--record)))
-  (wf--observer-render))
+  (unless (wf--service 'wf-observer-refresh)
+    (unless (and wf--store wf--record) (user-error "No observed run"))
+    (setq wf--record (wf--read-record wf--store (alist-get 'runId wf--record)))
+    (wf--observer-render)))
 
 (defun wf-observer-result ()
   "Verify the observed result reference before displaying content."
   (interactive)
-  (unless (and wf--store wf--record) (user-error "No observed run"))
-  (let* ((store wf--store)
-         (run (alist-get 'runId wf--record))
-         (reference (alist-get 'result (alist-get 'snapshot wf--record))))
-    (unless reference (user-error "No recorded result reference"))
-    (wf--read-artifact
-     (wf--store-program store) (wf--store-directory store) (wf--store-root store)
-     run "read-result" reference
-     (lambda (value)
-       (wf--notice (generate-new-buffer-name (format "*wf verified result %s*" run))
-                   (wf--display-value (alist-get 'value value)) (wf--store-directory store))))))
+  (unless (wf--service 'wf-observer-result)
+    (unless (and wf--store wf--record) (user-error "No observed run"))
+    (let* ((store wf--store)
+           (run (alist-get 'runId wf--record))
+           (reference (alist-get 'result (alist-get 'snapshot wf--record))))
+      (unless reference (user-error "No recorded result reference"))
+      (wf--read-artifact
+       (wf--store-program store) (wf--store-directory store) (wf--store-root store)
+       run "read-result" reference
+       (lambda (value)
+         (wf--notice (generate-new-buffer-name (format "*wf verified result %s*" run))
+                     (wf--display-value (alist-get 'value value)) (wf--store-directory store)))))))
 
 (defun wf--lineage-context ()
   "Return store and freshly queried record from this local or observed view."
@@ -1948,14 +1987,15 @@ Store discovery never grants control and never creates a state directory."
 (defun wf-lineage-compare ()
   "Display authoritative parent and child records, including full snapshots."
   (interactive)
-  (pcase-let* ((`(,store ,child) (wf--lineage-context))
-               (parent (alist-get 'parentRunId (alist-get 'manifest child))))
-    (unless parent (user-error "Root run has no parent"))
-    (wf--notice (generate-new-buffer-name "*wf lineage comparison*")
-                (concat "PARENT (read-only record and snapshot)\n"
-                        (wf--pretty (wf--read-record store parent))
-                        "\nCHILD (read-only record and snapshot)\n" (wf--pretty child))
-                (wf--store-directory store))))
+  (unless (wf--service 'wf-lineage-compare)
+    (pcase-let* ((`(,store ,child) (wf--lineage-context))
+                 (parent (alist-get 'parentRunId (alist-get 'manifest child))))
+      (unless parent (user-error "Root run has no parent"))
+      (wf--notice (generate-new-buffer-name "*wf lineage comparison*")
+                  (concat "PARENT (read-only record and snapshot)\n"
+                          (wf--pretty (wf--read-record store parent))
+                          "\nCHILD (read-only record and snapshot)\n" (wf--pretty child))
+                  (wf--store-directory store)))))
 
 (defun wf--fork-edits-p (edits)
   "Validate fork EDITS shape without interpreting workflow semantics or types."
@@ -1983,12 +2023,14 @@ Store discovery never grants control and never creates a state directory."
 (defun wf-restart ()
   "Prepare semantic restart with parent source bytes; require same-worker approval."
   (interactive)
-  (wf--lineage "restart"))
+  (unless (wf--service 'wf-restart)
+    (wf--lineage "restart")))
 
 (defun wf-resume ()
   "Prepare semantic resume; backend validates checkpoint, effects and ownership."
   (interactive)
-  (wf--lineage "resume"))
+  (unless (wf--service 'wf-resume)
+    (wf--lineage "resume")))
 
 (defvar-local wf--fork-context nil
   "Store and parent record selected for this immutable fork editor.")
@@ -1997,34 +2039,36 @@ Store discovery never grants control and never creates a state directory."
   "Edit immutable fork drop/replacement JSON, with explicit confirmation.
 Replacement answer is a JSON value, including false; backend checks its type."
   (interactive)
-  (let ((context (wf--lineage-context)) (buffer (generate-new-buffer "*wf fork edits*")))
-    (display-buffer
-     (wf--show (generate-new-buffer-name "*wf fork parent*")
-               (concat "IMMUTABLE PARENT — occurrence IDs, codes and answers\n"
-                       (wf--pretty (cadr context))) (wf--store-directory (car context))))
-    (with-current-buffer buffer
-      (fundamental-mode)
-      (setq wf--fork-context context default-directory (wf--store-directory (car context)))
-      (insert "[]\n")
-      (setq header-line-format
-            "JSON edits: drop {operation,occurrenceId}; replace adds answer. C-c C-c review; C-c C-k cancel")
-      (use-local-map (make-sparse-keymap))
-      (local-set-key (kbd "C-c C-c") #'wf-fork-submit)
-      (local-set-key (kbd "C-c C-k") #'kill-current-buffer))
-    (pop-to-buffer buffer)))
+  (unless (wf--service 'wf-fork)
+    (let ((context (wf--lineage-context)) (buffer (generate-new-buffer "*wf fork edits*")))
+      (display-buffer
+       (wf--show (generate-new-buffer-name "*wf fork parent*")
+                 (concat "IMMUTABLE PARENT — occurrence IDs, codes and answers\n"
+                         (wf--pretty (cadr context))) (wf--store-directory (car context))))
+      (with-current-buffer buffer
+        (fundamental-mode)
+        (setq wf--fork-context context default-directory (wf--store-directory (car context)))
+        (insert "[]\n")
+        (setq header-line-format
+              "JSON edits: drop {operation,occurrenceId}; replace adds answer. C-c C-c review; C-c C-k cancel")
+        (use-local-map (make-sparse-keymap))
+        (local-set-key (kbd "C-c C-c") #'wf-fork-submit)
+        (local-set-key (kbd "C-c C-k") #'kill-current-buffer))
+      (pop-to-buffer buffer))))
 
 (defun wf-fork-submit ()
   "Validate fork JSON and explicitly confirm immutable child preparation."
   (interactive)
-  (unless wf--fork-context (user-error "Not a fork editor"))
-  (let ((edits (condition-case err (wf--json (buffer-string))
-                 (error (user-error "Invalid fork JSON: %s" (error-message-string err)))))
-        (wf--store (car wf--fork-context)) (wf--record (cadr wf--fork-context)))
-    (unless (wf--fork-edits-p edits) (user-error "Expected array of drop or typed replace edits"))
-    (when (funcall wf-confirm-function
-                   (format "Prepare immutable fork of %s with %d edits? "
-                           (alist-get 'runId wf--record) (length edits)))
-      (wf--lineage "fork" edits))))
+  (unless (wf--service 'wf-fork-submit)
+    (unless wf--fork-context (user-error "Not a fork editor"))
+    (let ((edits (condition-case err (wf--json (buffer-string))
+                   (error (user-error "Invalid fork JSON: %s" (error-message-string err)))))
+          (wf--store (car wf--fork-context)) (wf--record (cadr wf--fork-context)))
+      (unless (wf--fork-edits-p edits) (user-error "Expected array of drop or typed replace edits"))
+      (when (funcall wf-confirm-function
+                     (format "Prepare immutable fork of %s with %d edits? "
+                             (alist-get 'runId wf--record) (length edits)))
+        (wf--lineage "fork" edits)))))
 
 ;;;###autoload
 (defun wf-run (&optional refresh)
@@ -2032,11 +2076,12 @@ Replacement answer is a JSON value, including false; backend checks its type."
 With REFRESH, refresh descriptor discovery.  Preparation and start share
 one process and frozen program.  Closing a view never cancels execution."
   (interactive "P")
-  (let* ((directory default-directory)
-         (row (wf--read-row "Workflow: " refresh))
-         (inputs (wf--setup-inputs row))
-         (target (wf--read-transport row)))
-    (wf--approve (wf--prepare row inputs target directory))))
+  (unless (wf--service 'wf-run refresh)
+    (let* ((directory default-directory)
+           (row (wf--read-row "Workflow: " refresh))
+           (inputs (wf--setup-inputs row))
+           (target (wf--read-transport row)))
+      (wf--approve (wf--prepare row inputs target directory)))))
 
 (defun wf--approve (session)
   "Review SESSION and start or discard on its original process."
@@ -2071,32 +2116,35 @@ one process and frozen program.  Closing a view never cancels execution."
 (defun wf-rerun ()
   "Open fresh root setup in this session's directory, not resume or fork."
   (interactive)
-  (let* ((session (wf--current))
-         (default-directory (wf--session-directory session))
-         (wf-program (wf--session-program session)))
-    (wf-run)))
+  (unless (wf--service 'wf-rerun)
+    (let* ((session (wf--current))
+           (default-directory (wf--session-directory session))
+           (wf-program (wf--session-program session)))
+      (wf-run))))
 
 ;;;###autoload
 (defun wf-plan (&optional refresh)
   "Pick a workflow and read `wf plan' for it, without running anything.
 A prefix argument, REFRESH, fetches the row listing again."
   (interactive "P")
-  (let ((row (wf--read-row "Plan workflow: " refresh)))
-    (pop-to-buffer
-     (wf--show (wf--buffer-name "wf plan" (alist-get 'name row))
-               (wf--call "plan" (alist-get 'name row))
-               default-directory))))
+  (unless (wf--service 'wf-plan refresh)
+    (let ((row (wf--read-row "Plan workflow: " refresh)))
+      (pop-to-buffer
+       (wf--show (wf--buffer-name "wf plan" (alist-get 'name row))
+                 (wf--call "plan" (alist-get 'name row))
+                 default-directory)))))
 
 ;;;###autoload
 (defun wf-cost (&optional refresh)
   "Pick a workflow and read `wf cost' for it, without running anything.
 A prefix argument, REFRESH, fetches the row listing again."
   (interactive "P")
-  (let ((row (wf--read-row "Cost workflow: " refresh)))
-    (pop-to-buffer
-     (wf--show (wf--buffer-name "wf cost" (alist-get 'name row))
-               (wf--call "cost" (alist-get 'name row))
-               default-directory))))
+  (unless (wf--service 'wf-cost refresh)
+    (let ((row (wf--read-row "Cost workflow: " refresh)))
+      (pop-to-buffer
+       (wf--show (wf--buffer-name "wf cost" (alist-get 'name row))
+                 (wf--call "cost" (alist-get 'name row))
+                 default-directory)))))
 
 ;;;###autoload
 (defun wf-help (&optional refresh)
@@ -2106,13 +2154,17 @@ A prefix argument, REFRESH, fetches the row listing again.
 The page is `wf help' \\='s stdout, shown as the binary printed it.  It is
 prose and has no machine-readable spelling — there is no `help --json' —
 so this displays the text and never parses it, which is the same
-arrangement `wf-plan' and `wf-cost' have with theirs."
+arrangement `wf-plan' and `wf-cost' have with theirs.
+
+In service mode, the command reads the catalogue of the manager and
+shows the help text that the catalogue states for the workflow."
   (interactive "P")
-  (let ((row (wf--read-row "Help on workflow: " refresh)))
-    (pop-to-buffer
-     (wf--show (wf--buffer-name "wf help" (alist-get 'name row))
-               (wf--call "help" (alist-get 'name row))
-               default-directory))))
+  (unless (wf--service 'wf-help refresh)
+    (let ((row (wf--read-row "Help on workflow: " refresh)))
+      (pop-to-buffer
+       (wf--show (wf--buffer-name "wf help" (alist-get 'name row))
+                 (wf--call "help" (alist-get 'name row))
+                 default-directory)))))
 
 (provide 'wf)
 

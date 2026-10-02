@@ -8,8 +8,8 @@
 
 ;;; Commentary:
 
-;; The live check of the transport `wf-manager.el' against a running
-;; agent-cat workflow manager.  The emacs-client mode of
+;; The live check of the transport `wf-manager.el' and of the service
+;; mode of `wf-service.el' against a running agent-cat workflow manager.  The emacs-client mode of
 ;; `manager/test/service_http.py' in agent-cat starts the manager with
 ;; its mixed fixture, issues two client credentials with the scopes
 ;; observe, submit, control and export and writes the version 1 client
@@ -30,7 +30,7 @@
 ;;       -f ert-run-tests-batch-and-exit
 ;;
 ;; `ci/emacs.sh' compiles and checks this file, and it does not run it.
-;; The one test runs these steps in order:
+;; The one test runs these twelve steps in order:
 ;;
 ;;   1. bind: `wf-manager-connect' binds a transport by GET
 ;;      /v1/capabilities over TLS, with the CA file of the profile as the
@@ -100,8 +100,22 @@
 ;;      WF_MANAGER_DOWNLOAD names.  A download with a wrong digest and a
 ;;      download with a wrong size each give
 ;;      `wf-manager-invalid-response'.  The test then closes the session.
+;;  12. service: the test drives the commands of `wf.el' with keyboard
+;;      macros through `execute-kbd-macro', with the profile of
+;;      WF_MANAGER_PROFILE as the one item of `wf-manager-profiles'.
+;;      M-x wf-service selects the profile and connects service mode.
+;;      M-x wf-run lists the ready profiles and then the catalogue of
+;;      the selected profile in *Completions*, and the test keeps each
+;;      listing with a key of its own.  The selection of
+;;      `wf-manager-live-workflow' then gives the refusal of `wf-run'.
+;;      M-x wf-help shows the help text of that workflow.  Each command
+;;      of `wf-manager-live--local-commands' refuses with the message of
+;;      `wf-service-refusal' and starts no process and sends no request.
+;;      M-x wf-diagnostics shows the diagnostics of the session with the
+;;      delivery state `poll', and M-x wf-local closes the session and
+;;      returns to local mode.
 ;;
-;; No step may prompt.  Each prompt function of
+;; No step before the service step may prompt.  Each prompt function of
 ;; `wf-manager-live--prompt-functions' counts a call and signals an
 ;; error.  The test writes the report to the file that
 ;; WF_MANAGER_REPORT names, also when a step fails.  The report is one
@@ -165,6 +179,18 @@
 ;;   downloadSha256    the SHA-256 digest of the downloaded bytes
 ;;   wrongDigestRefusal  the condition of the download with a wrong digest
 ;;   wrongSizeRefusal  the condition of the download with a wrong size
+;;   serviceIdentity   the endpoint identity of the service-mode session
+;;   serviceProfiles   the sorted profile candidates that wf-run listed
+;;   serviceWorkflows  the sorted workflow candidates that wf-run listed
+;;   serviceRunRefusal the refusal of wf-run after the selection
+;;   serviceHelp       the text of the help buffer of wf-help
+;;   serviceRefusals   an object that maps each local-only command to
+;;                     its refusal
+;;   serviceLocalCalls the number of process starts and requests of the
+;;                     local-only commands
+;;   serviceDiagnostics  the text of the diagnostics buffer
+;;   serviceLocal      true when wf-local closed the session and
+;;                     returned to local mode
 ;;
 ;; The harness compares `harnessVersion' with its own constant and
 ;; refuses a report of another version, so that a mismatched pair of the
@@ -176,8 +202,9 @@
 (require 'cl-lib)
 (require 'url)
 (require 'wf-manager)
+(require 'wf-service)
 
-(defconst wf-manager-live-harness-version 4
+(defconst wf-manager-live-harness-version 5
   "The version of the report of this file.
 The emacs-client mode of agent-cat states the same version.")
 
@@ -776,13 +803,154 @@ receipt and the downloads in REPORT."
               (should (equal (gethash "wrongSizeRefusal" report) "wf-manager-invalid-response")))))
       (when session (wf-manager-session-close session)))))
 
+;;;; The service step
+
+(defconst wf-manager-live--local-commands
+  '(wf-plan wf-cost wf-lineage-compare wf-observer-result wf-observer-refresh)
+  "The local-only commands that the service step runs in service mode.")
+
+(defconst wf-manager-live--spawners
+  '(make-process process-file call-process start-file-process url-retrieve
+    wf-manager-post-bytes)
+  "The functions that start a process or send a request.")
+
+(defvar wf-manager-live--captures nil
+  "The completion captures of the service step, the newest first.
+Each capture is (CANDIDATES TEXT): the candidates of the completion
+table of the minibuffer and the text of the *Completions* buffer.")
+
+(defun wf-manager-live--capture ()
+  "Keep the candidates of the minibuffer and the text of *Completions*."
+  (interactive)
+  (let ((buffer (get-buffer "*Completions*")))
+    (push (list (all-completions "" minibuffer-completion-table
+                                 minibuffer-completion-predicate)
+                (and buffer (with-current-buffer buffer
+                              (buffer-substring-no-properties (point-min) (point-max)))))
+          wf-manager-live--captures)))
+
+(defun wf-manager-live--keys (&rest keys)
+  "Run KEYS as one keyboard macro.
+Each item of KEYS is a string of `kbd' syntax or a vector of literal
+events.  Return the message of the `user-error' that ends the macro, or
+nil."
+  (condition-case failure
+      (progn
+        (execute-kbd-macro
+         (apply #'vconcat (mapcar (lambda (key) (if (stringp key) (kbd key) key)) keys)))
+        nil)
+    (user-error (error-message-string failure))))
+
+(defun wf-manager-live--listed (capture)
+  "Return the sorted candidates of CAPTURE.
+Each candidate must appear in the text of the *Completions* buffer."
+  (pcase-let ((`(,candidates ,text) capture))
+    (should (stringp text))
+    (dolist (candidate candidates)
+      (should (string-search candidate text)))
+    (sort (copy-sequence candidates) #'string<)))
+
+(defun wf-manager-live--buffer-text (name)
+  "Return the text of the buffer NAME, which must exist."
+  (let ((buffer (get-buffer name)))
+    (should buffer)
+    (with-current-buffer buffer
+      (buffer-substring-no-properties (point-min) (point-max)))))
+
+(defun wf-manager-live--service (file report)
+  "Drive the commands of `wf.el' in service mode with keys, for FILE.
+FILE is the client profile file.  The keys select FILE with
+`wf-service', list the catalogue through `wf-run', show the help text
+of a workflow, run each local-only command, show the diagnostics and
+return to local mode with `wf-local'.  The step answers its prompts
+with keys, so it lifts the refusal of the prompt functions.  Record
+the listings, the refusals and the diagnostics in REPORT."
+  (dolist (function wf-manager-live--prompt-functions)
+    (advice-remove function #'wf-manager-live--prompted))
+  (setq wf-manager-live--captures nil)
+  (define-key minibuffer-local-must-match-map (kbd "<f9>") #'wf-manager-live--capture)
+  (let ((wf-manager-profiles (list file))
+        (suggest-key-bindings nil)
+        (extended-command-suggest-shorter nil)
+        (calls nil))
+    (unwind-protect
+        (progn
+          (should-not (wf-manager-live--keys "M-x wf-service RET" (vconcat file) "RET"))
+          (should (eq wf--service-dispatch #'wf-service--dispatch))
+          (let ((session (wf-service--state-session wf-service--current)))
+            (should (wf-manager-overview-p (wf-manager-session-overview session)))
+            (puthash "serviceIdentity" (wf-manager-session-identity session) report)
+            ;; The catalogue: the profile prompt, then the workflow prompt
+            ;; of `wf--read-row'.  Each ? lists the candidates in
+            ;; *Completions*, and <f9> keeps them.
+            (let ((refusal (wf-manager-live--keys "M-x wf-run RET ? <f9> RET ? <f9>"
+                                                  (vconcat wf-manager-live-workflow) "RET")))
+              (should (= (length wf-manager-live--captures) 2))
+              (let ((workflows (wf-manager-live--listed (nth 0 wf-manager-live--captures)))
+                    (profiles (wf-manager-live--listed (nth 1 wf-manager-live--captures))))
+                (puthash "serviceProfiles" (vconcat profiles) report)
+                (puthash "serviceWorkflows" (vconcat workflows) report)
+                (puthash "serviceRunRefusal" (or refusal :null) report)
+                (should (member wf-manager-live-workflow workflows))
+                (should (equal refusal (format "Service mode does not yet create a request of %s in %s"
+                                               wf-manager-live-workflow (car profiles))))
+                ;; wf-help shows the help text of the catalogue.
+                (should-not (wf-manager-live--keys "M-x wf-help RET RET"
+                                                   (vconcat wf-manager-live-workflow) "RET"))
+                (puthash "serviceHelp"
+                         (wf-manager-live--buffer-text
+                          (format "*wf help: %s/%s*" (car profiles) wf-manager-live-workflow))
+                         report)))
+            ;; Each local-only command refuses and sends nothing.
+            (let ((refusals (make-hash-table :test #'equal))
+                  (count (lambda (function) (lambda (&rest _) (push function calls)))))
+              (let ((advices (mapcar (lambda (function) (cons function (funcall count function)))
+                                     wf-manager-live--spawners)))
+                (unwind-protect
+                    (progn
+                      (dolist (advice advices)
+                        (advice-add (car advice) :before (cdr advice)))
+                      (dolist (command wf-manager-live--local-commands)
+                        (puthash (symbol-name command)
+                                 (or (wf-manager-live--keys (format "M-x %s RET" command)) :null)
+                                 refusals)))
+                  (dolist (advice advices)
+                    (advice-remove (car advice) (cdr advice)))))
+              (puthash "serviceRefusals" refusals report)
+              (puthash "serviceLocalCalls" (wf-manager-live--integer (length calls)) report)
+              (dolist (command wf-manager-live--local-commands)
+                (should (equal (gethash (symbol-name command) refusals)
+                               (wf-service-refusal command))))
+              (should (null calls)))
+            ;; The diagnostics of the session.
+            (should (wf-manager-live--wait
+                     (lambda () (eq (wf-manager-session-delivery session) 'poll))))
+            (should-not (wf-manager-live--keys "M-x wf-diagnostics RET"))
+            (let ((text (wf-manager-live--buffer-text "*wf service diagnostics*")))
+              (puthash "serviceDiagnostics" text report)
+              (should (string-search "Delivery state: poll\n" text))
+              (should (string-search (format "Endpoint identity: %s\n"
+                                             (wf-manager-session-identity session))
+                                     text)))
+            ;; Local mode again.
+            (should-not (wf-manager-live--keys "M-x wf-local RET"))
+            (puthash "serviceLocal" (if (and (null wf--service-dispatch)
+                                             (wf-manager-session-closed session))
+                                        t :false)
+                     report)
+            (should-not wf--service-dispatch)
+            (should (wf-manager-session-closed session))))
+      (define-key minibuffer-local-must-match-map (kbd "<f9>") nil)
+      (when wf-service--current
+        (wf-local)))))
+
 (defun wf-manager-live--write (file value)
   "Write to FILE the JSON VALUE."
   (let ((coding-system-for-write 'no-conversion))
     (write-region (wf-manager-json-encode value) nil file nil 'silent)))
 
 (ert-deftest wf-manager-live-session ()
-  "Run the eleven steps of one live session against the manager."
+  "Run the twelve steps of one live session against the manager."
   (let* ((profile (wf-manager-profile-load
                    (wf-manager-live--variable "WF_MANAGER_PROFILE")))
          (second (wf-manager-profile-load
@@ -836,7 +1004,10 @@ receipt and the downloads in REPORT."
                report)
               (push "close" steps)
               (wf-manager-live--export profile finish-file download-file report)
-              (push "export" steps))))
+              (push "export" steps)
+              (wf-manager-live--service (wf-manager-live--variable "WF_MANAGER_PROFILE")
+                                        report)
+              (push "service" steps))))
       (dolist (function wf-manager-live--prompt-functions)
         (advice-remove function #'wf-manager-live--prompted))
       (puthash "prompts" (wf-manager-live--integer wf-manager-live--prompts) report)

@@ -47,8 +47,11 @@
 ;; switch contact a TLS server on 127.0.0.1 that a python3 process from
 ;; PATH runs.  The capability checks follow
 ;; checkCapabilities of `ext-pi/src/manager/session.ts' over the canned
-;; capabilities document of the ext-pi tests.  No other host is
-;; contacted.
+;; capabilities document of the ext-pi tests.  The service-mode tests
+;; check that `wf-service-commands' states each public command of
+;; `wf.el' once, that local mode is the default, and that each pending
+;; and local-only command refuses in service mode with its message and
+;; starts no process and sends no request.  No other host is contacted.
 ;;
 ;; Run them by hand, from the repository root:
 ;;
@@ -61,6 +64,7 @@
 (require 'ert)
 (require 'cl-lib)
 (require 'wf-manager)
+(require 'wf-service)
 
 (defconst wf-manager-tests--ca
   "-----BEGIN CERTIFICATE-----
@@ -2859,6 +2863,73 @@ bytes.  An invalid stated digest signals before any request."
                                                   size digest callback))))
                      'wf-manager-invalid-response))
          (wf-manager-transport-close transport))))))
+
+;;;; Service mode of wf.el
+
+(defconst wf-manager-tests--spawners
+  '(make-process process-file call-process start-file-process url-retrieve
+    wf-manager-get wf-manager-post-bytes wf-manager-poll-events)
+  "The functions that start a process or send a request.")
+
+(defun wf-manager-tests--wf-commands ()
+  "Return the sorted public interactive commands of `wf.el'.
+The major modes and the private commands of the local setup form are
+not in the list."
+  (let ((commands nil))
+    (mapatoms
+     (lambda (symbol)
+       (let ((name (symbol-name symbol)))
+         (when (and (commandp symbol)
+                    (string-prefix-p "wf-" name)
+                    (not (string-prefix-p "wf--" name))
+                    (not (string-suffix-p "-mode" name))
+                    (equal (file-name-base (or (symbol-file symbol 'defun) "")) "wf"))
+           (push symbol commands)))))
+    (sort commands #'string<)))
+
+(ert-deftest wf-service-table-states-every-command ()
+  "`wf-service-commands' states each public command of `wf.el' once."
+  (let ((commands (wf-manager-tests--wf-commands))
+        (stated (mapcar #'car wf-service-commands)))
+    (should (memq 'wf-run commands))
+    (should (equal (sort (copy-sequence stated) #'string<) commands))
+    (should (= (length stated) (length (delete-dups (copy-sequence stated)))))))
+
+(ert-deftest wf-service-local-mode-is-the-default ()
+  "Without `wf-service', every command keeps its local behavior."
+  (should-not wf--service-dispatch)
+  (should-not wf-service--current)
+  (should-not (wf--service 'wf-plan)))
+
+(ert-deftest wf-service-refusals-send-nothing ()
+  "In service mode, each pending and local-only command refuses and sends nothing."
+  (let* ((wf--service-dispatch #'wf-service--dispatch)
+         (wf-service--current nil)
+         (calls nil)
+         (count (lambda (function)
+                  (lambda (&rest _) (push function calls)))))
+    (let ((advices (mapcar (lambda (function) (cons function (funcall count function)))
+                           wf-manager-tests--spawners)))
+      (unwind-protect
+          (progn
+            (dolist (advice advices)
+              (advice-add (car advice) :before (cdr advice)))
+            (dolist (entry wf-service-commands)
+              (unless (eq (nth 1 entry) 'service)
+                (let ((refusal (should-error (call-interactively (car entry))
+                                             :type 'user-error)))
+                  (should (equal (cadr refusal) (wf-service-refusal (car entry))))
+                  (should (string-prefix-p (symbol-name (car entry)) (cadr refusal))))))
+            (should (string-match-p "review of .wf-run" (wf-service-refusal 'wf-plan)))
+            (should (string-match-p "review of .wf-run" (wf-service-refusal 'wf-cost)))
+            (should (string-match-p "no equivalent" (wf-service-refusal 'wf-lineage-compare)))
+            (should (string-match-p "not yet available" (wf-service-refusal 'wf-kill)))
+            ;; A service command with no session refuses before any read.
+            (should-error (call-interactively 'wf-diagnostics) :type 'user-error)
+            (should-error (call-interactively 'wf-run) :type 'user-error)
+            (should (null calls)))
+        (dolist (advice advices)
+          (advice-remove (car advice) (cdr advice)))))))
 
 (provide 'wf-manager-tests)
 

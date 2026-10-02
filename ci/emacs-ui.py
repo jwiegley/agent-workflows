@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise native Emacs widgets, windows and real scripted runs in private PTYs."""
+"""Exercise native Emacs widgets, windows, real scripted runs and the service journey in private PTYs."""
 from __future__ import annotations
 
 import argparse
@@ -37,7 +37,13 @@ def tty_host() -> None:
 
 
 class Emacs:
-    def __init__(self, executable: str, source: Path, directory: Path, width: int, height: int, body: str):
+    """One isolated Emacs -Q -nw in a private PTY.
+
+    SOURCE is the Lisp file to load, or a list of them, loaded in order.
+    The state report also holds the value of `wf-ui-extra' under extra
+    when BODY defines that function, and the last lines of *Messages*."""
+
+    def __init__(self, executable: str, source: Path | list[Path], directory: Path, width: int, height: int, body: str):
         self.directory = directory
         directory.mkdir()
         (directory / "home").mkdir()
@@ -56,6 +62,13 @@ class Emacs:
                       (minibuffer . ,(if mini (with-current-buffer (window-buffer mini) (buffer-string)) ""))
                       (width . ,(frame-width)) (height . ,(frame-total-lines))
                       (result . ,wf-ui-result)
+                      (messages . ,(let ((log (get-buffer "*Messages*")))
+                                     (if log
+                                         (with-current-buffer log
+                                           (buffer-substring-no-properties
+                                            (max (point-min) (- (point-max) 6000)) (point-max)))
+                                       "")))
+                      (extra . ,(and (fboundp 'wf-ui-extra) (funcall 'wf-ui-extra)))
                       (sessions . ,(vconcat (mapcar (lambda (session)
                         `((id . ,(alist-get 'runId (wf--session-prepared session)))
                           (phase . ,(symbol-name (wf--session-phase session)))
@@ -83,6 +96,8 @@ class Emacs:
         self.master, self.slave = pty.openpty()
         self.before = terminal_attributes(termios.tcgetattr(self.slave))
         self.exit_path = directory / "exit.json"
+        self.ended: dict = {}
+        sources = source if isinstance(source, list) else [source]
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack("HHHH", height, width, 0, 0))
         environment = {key: value for key, value in os.environ.items() if not key.startswith("AGENT_CAT_")}
         environment.update(HOME=str(directory / "home"), TERM="xterm-256color")
@@ -93,7 +108,7 @@ class Emacs:
 
         self.process = subprocess.Popen(
             [sys.executable, str(Path(__file__).resolve()), "--tty-host", str(self.exit_path),
-             executable, "-Q", "-nw", "-l", str(source), "-l", str(init)],
+             executable, "-Q", "-nw", *[item for path in sources for item in ("-l", str(path))], "-l", str(init)],
             stdin=self.slave, stdout=self.slave, stderr=self.slave,
             env=environment, cwd=directory, preexec_fn=terminal, close_fds=True,
         )
@@ -161,6 +176,7 @@ class Emacs:
         if normal:
             assert self.process.returncode == 0, self.process.returncode
             ended = json.loads(self.exit_path.read_bytes())
+            self.ended = ended
             assert ended["status"] == 0, ended
             assert ended["attributes"] == self.before, (self.before, ended["attributes"])
 
@@ -406,6 +422,221 @@ def multiwindow_case(args, directory: Path) -> None:
         session.close(success)
 
 
+# The literal of the service journey. The service modes of agent-cat
+# manager/test/service_http.py state the same literal.
+SERVICE_LITERAL = "Emacs service λ: Café ✓ 雪 exact literal"
+# The version of the report of the service journey. The service modes of
+# agent-cat require the same version.
+SERVICE_REPORT_VERSION = 1
+SERVICE_SIZES = [(40, 12), (140, 36), (80, 24)]
+
+
+def service_case(args, directory: Path) -> None:
+    """Drive the service journey of wf-service.el by keys at 80x24.
+
+    The keys select the client profile with wf-service, create a
+    mixed-controls request with wf-run, type SERVICE_LITERAL in the setup
+    form, submit it, approve the exact review, open the run view with
+    wf-runs, answer the question with the typed answer, send the offered
+    retry, wait for terminal success and save the verified result. The
+    setup form, the review and the answer editor each pass through
+    40x12, 140x36 and 80x24 with their text kept. The report records the
+    facts of each step and is written again after each step."""
+    profile, report_path = Path(args.service[0]).resolve(), Path(args.service[1]).resolve()
+    answer = args.service_answer
+    emacs_directory = args.source.resolve().parent
+    sources = [emacs_directory / name for name in ("wf.el", "wf-manager.el", "wf-service.el")]
+    saved = directory / "saved-result.bin"
+    report: dict = {"version": SERVICE_REPORT_VERSION, "literal": SERVICE_LITERAL, "answer": answer,
+                    "profile": str(profile), "steps": []}
+
+    def record(step: str, line: str, **facts) -> None:
+        report["steps"].append(step)
+        report.update(facts)
+        report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2))
+        print("PASS emacs-service keys " + step + ": " + line, flush=True)
+
+    body = f"""
+(set-keyboard-coding-system 'utf-8-unix)
+(set-terminal-coding-system 'utf-8-unix)
+(setq wf-manager-profiles (list {string(str(profile))})
+      suggest-key-bindings nil
+      extended-command-suggest-shorter nil
+      default-directory {string(str(directory) + '/')})
+(defun wf-ui-extra ()
+  (let ((reviews nil) (views nil))
+    (dolist (buffer (buffer-list))
+      (let ((review (buffer-local-value 'wf-service--review-state buffer)))
+        (when review
+          (push `((buffer . ,(buffer-name buffer))
+                  (run . ,(wf-service--review-run review))
+                  (preparation . ,(wf-manager-preparation-id (wf-service--review-preparation review)))
+                  (request . ,(wf-manager-preparation-request-id (wf-service--review-preparation review))))
+                reviews))))
+    (maphash
+     (lambda (_key buffer)
+       (when (buffer-live-p buffer)
+         (let ((view (buffer-local-value 'wf-service--view-state buffer)))
+           (when view
+             (let ((head (cl-find-if
+                          (lambda (decision)
+                            (and (= (wf-manager-decision-position decision) 0)
+                                 (equal (wf-manager-decision-state decision) "pending")))
+                          (append (alist-get 'queue (wf-service--view-kept view)) nil))))
+               (push `((buffer . ,(buffer-name buffer))
+                       (run . ,(wf-service--view-run view))
+                       (lines . ,(vconcat (wf-service-view-lines view)))
+                       (head . ,(and head (wf-manager-decision-id head)))
+                       (kind . ,(and head (if (wf-manager-question-p (wf-manager-decision-content head))
+                                              "question" "recovery"))))
+                     views))))))
+     wf-service--views)
+    `((service . ,(if wf-service--current t :false))
+      (problem . ,(and wf-service--current (wf-service--state-problem wf-service--current)))
+      (runs . ,(vconcat (and wf-service--current
+                             (wf-service--service-runs (wf-service--state-session wf-service--current)))))
+      (reviews . ,(vconcat reviews))
+      (views . ,(vconcat views)))))
+"""
+    session = Emacs(args.emacs, sources, directory, 80, 24, body)
+    success = False
+
+    def extra(state: dict) -> dict:
+        return state.get("extra") or {}
+
+    def said(text: str, since: int):
+        """A predicate: the messages after the offset since hold text."""
+        return lambda state: text in state.get("messages", "")[max(0, since - 300):]
+
+    def view_of(state: dict, run: str) -> dict | None:
+        return next((view for view in extra(state).get("views", []) if view["run"] == run), None)
+
+    def resized(label: str, kept) -> list:
+        """Resize through SERVICE_SIZES and give the text that each size kept."""
+        texts = []
+        for width, height in SERVICE_SIZES:
+            session.resize(width, height)
+            texts.append({"size": f"{width}x{height}",
+                          "text": session.wait(kept, f"{label}-{width}x{height}")["text"]})
+        return texts
+
+    def open_view(run: str, label: str) -> dict:
+        # The choices of wf-runs are the open views and the runs of the
+        # installed overview, which the session follows by polling.
+        session.wait(lambda state: run in extra(state).get("runs", []), label + "-run-known", 60)
+        session.command("wf-runs")
+        session.wait(lambda state: "Run:" in state.get("minibuffer", ""), label + "-run-prompt")
+        session.send("service:" + run + "\r")
+        return session.wait(lambda state: state.get("mode") == "wf-service-run-mode" and view_of(state, run) is not None
+                            and state.get("buffer") == view_of(state, run)["buffer"], label + "-view")
+
+    def terminal(view: dict) -> bool:
+        return any(line.startswith("Terminal: ") and not line.startswith("Terminal: not yet") for line in view["lines"])
+
+    try:
+        session.wait(lambda state: state.get("extra") is not None, "service-ready")
+        # The profile.
+        session.command("wf-service")
+        session.wait(lambda state: "Client profile" in state.get("minibuffer", ""), "profile-file-prompt")
+        session.send("\r")
+        session.wait(lambda state: extra(state).get("service") is True
+                     and "wf: service mode, endpoint" in state.get("messages", ""), "service-bound", 60)
+        record("1", "M-x wf-service selected the client profile " + str(profile))
+        # The catalogue and the setup form.
+        session.command("wf-run")
+        session.wait(lambda state: "Profile" in state.get("minibuffer", ""), "manager-profile-prompt", 60)
+        session.send("\r")
+        session.wait(lambda state: "Workflow:" in state.get("minibuffer", ""), "workflow-prompt", 60)
+        session.send("mixed-controls\r")
+        session.wait(lambda state: state.get("mode") == "wf--setup-mode", "setup-form", 60)
+        first, second = SERVICE_LITERAL[:17], SERVICE_LITERAL[17:]
+        session.send(first)
+        session.wait(lambda state: first in state.get("text", ""), "setup-first-half")
+        session.resize(*SERVICE_SIZES[0])
+        session.wait(lambda state: first in state.get("text", ""), "setup-first-half-40x12")
+        session.send(second)
+        setup = resized("setup", lambda state: state.get("mode") == "wf--setup-mode" and SERVICE_LITERAL in state.get("text", ""))
+        record("2", "wf-run chose mixed-controls, and the setup form kept the typed literal at 40x12, 140x36 and 80x24",
+               setupTexts=setup)
+        # The exact review.
+        session.send(b"\x03\x03")
+        review = session.wait(lambda state: state.get("mode") == "wf-service-review-mode" and extra(state).get("reviews"),
+                              "review", 150)
+        text = review["text"]
+        reviewed = resized("review", lambda state: state.get("mode") == "wf-service-review-mode" and state.get("text") == text)
+        record("3", "C-c C-c submitted the form, and the exact review stayed the same at 40x12, 140x36 and 80x24",
+               reviewText=text, reviewTexts=reviewed, reviewPreparation=extra(review)["reviews"][0]["preparation"],
+               reviewRequest=extra(review)["reviews"][0]["request"])
+        session.send("a")
+        prompt = session.wait(lambda state: "Approve preparation" in state.get("minibuffer", ""), "approve-prompt")["minibuffer"]
+        session.send("yes\r")
+        approved = session.wait(lambda state: any(item.get("run") for item in extra(state).get("reviews", [])), "approved", 150)
+        run = next(item["run"] for item in extra(approved)["reviews"] if item.get("run"))
+        record("4", "a and yes approved the review, and the manager started run " + run, approvePrompt=prompt, run=run)
+        # The run view and its heads, in the order that the manager presents them.
+        open_view(run, "first")
+        record("5", "M-x wf-runs opened the view of run " + run)
+        handled: list = []
+        heads: list = []
+        while len(handled) < 2:
+            state = session.wait(lambda state: view_of(state, run) is not None and (
+                view_of(state, run)["kind"] not in (None, *handled) or terminal(view_of(state, run))), f"head-{len(handled)}", 180)
+            view = view_of(state, run)
+            assert view["kind"] not in (None, *handled), ("the run ended before its heads", handled, view["lines"])
+            head, kind = view["head"], view["kind"]
+            if state.get("buffer") != view["buffer"] or state.get("mode") != "wf-service-run-mode":
+                open_view(run, "head-" + head)
+            since = len(session.state.get("messages", ""))
+            if kind == "question":
+                session.send("a")
+                session.wait(lambda state: state.get("buffer", "").startswith("*wf answer JSON"), "answer-editor", 60)
+                session.send(answer[:2])
+                session.wait(lambda state: state.get("text") == answer[:2], "answer-first")
+                session.resize(*SERVICE_SIZES[0])
+                session.wait(lambda state: state.get("text") == answer[:2], "answer-first-40x12")
+                session.send(answer[2:])
+                answered = resized("answer", lambda state: state.get("buffer", "").startswith("*wf answer JSON")
+                                   and state.get("text") == answer)
+                session.send(b"\x03\x03")
+                session.wait(said("reached decision " + head, since), "answered", 90)
+                report.update(answerTexts=answered, question=head)
+                line = "the typed answer " + answer + " reached question " + head
+            else:
+                session.send("c")
+                session.wait(lambda state: "Control of run " + run in state.get("minibuffer", ""), "control-prompt", 60)
+                session.send("retry\r")
+                session.wait(said("retry reached decision " + head, since), "retried", 90)
+                report.update(recovery=head)
+                line = "the offered retry reached recovery decision " + head
+            handled.append(kind)
+            heads.append(head)
+            record("6" + "ab"[len(handled) - 1], line, heads=heads, kinds=handled)
+        # Terminal success and the verified result.
+        final = session.wait(lambda state: view_of(state, run) is not None
+                             and "Terminal: succeeded" in view_of(state, run)["lines"]
+                             and any(line.startswith("Result SHA-256: ") for line in view_of(state, run)["lines"]),
+                             "succeeded", 180)
+        record("7", "the view of run " + run + " showed terminal success and the verified result",
+               finalLines=view_of(final, run)["lines"])
+        state = open_view(run, "result")
+        since = len(state.get("messages", ""))
+        session.send("r")
+        session.wait(lambda state: "Save the verified result of run " + run in state.get("minibuffer", ""), "result-prompt", 60)
+        session.send(b"\x01\x0b" + str(saved).encode())
+        session.wait(lambda state: state.get("minibuffer", "").endswith(str(saved)), "result-path")
+        session.send("\r")
+        session.wait(lambda state: saved.exists() and said("saved the verified", since)(state), "saved", 60)
+        record("8", "r saved the verified result of run " + run + " to " + str(saved), savedPath=str(saved))
+        # Local mode, then the exit of Emacs.
+        session.command("wf-local")
+        session.wait(lambda state: extra(state).get("service") is False, "local")
+        success = True
+    finally:
+        session.close(success)
+    record("9", "M-x wf-local closed the session, and C-x C-c ended Emacs with status 0 and the terminal attributes restored",
+           terminalBefore=session.before, terminalAfter=session.ended["attributes"], exitStatus=session.ended["status"])
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--emacs", default=os.environ.get("EMACS") or shutil.which("emacs"), required=False)
@@ -414,7 +645,19 @@ def main() -> None:
     parser.add_argument("--control-adapters", type=Path, default=os.environ.get("WF_CONTROL_ADAPTERS"))
     parser.add_argument("--source", type=Path, default=Path(__file__).resolve().parents[1] / "emacs/wf.el")
     parser.add_argument("--artifacts", type=Path)
+    parser.add_argument("--service", nargs=2, metavar=("PROFILE", "REPORT"),
+                        help="run only the service journey with the client profile PROFILE and write its report to REPORT")
+    parser.add_argument("--service-answer", default="false", help="the answer that the service journey types")
     args = parser.parse_args()
+    if args.service:
+        if not args.emacs or not os.access(args.emacs, os.X_OK):
+            parser.error("provide an executable emacs")
+        artifacts = args.artifacts or Path(tempfile.mkdtemp(prefix="wf-emacs-service-", dir="/tmp")).resolve()
+        artifacts.mkdir(exist_ok=True)
+        print(artifacts, flush=True)
+        service_case(args, artifacts / "service")
+        print("PASS service journey by keys at 80x24 with resizes to 40x12 and 140x36, and terminal restoration", flush=True)
+        return
     for name in ["emacs", "wf", "control_runner"]:
         if not getattr(args, name) or not os.access(getattr(args, name), os.X_OK):
             parser.error(f"provide an executable {name}")

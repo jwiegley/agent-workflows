@@ -108,7 +108,8 @@ emacs/wf-manager-tests.el  ERT tests of the transport and of the dispatch table,
 emacs/wf-manager-live.el   live checks of the transport and of service mode, run
                            by the emacs-client and emacs-client-controls
                            modes of agent-cat
-ci/emacs-ui.py          isolated Emacs PTY, resize and window acceptance
+ci/emacs-ui.py          isolated Emacs PTY, resize and window acceptance, and
+                        the service journey of the emacs-service modes
 ci/emacs-tramp.py       loopback SSH/TRAMP, typed controls and lineage acceptance
 ```
 
@@ -674,6 +675,43 @@ through the native control menu with real keystrokes. Typed control names
 survive terminal resizing before submission. Captured native window states and
 terminal logs remain with the artifacts. These local checks do not establish
 remote or Linux acceptance.
+
+With `--service PROFILE REPORT`, the script runs only the service journey of
+`wf-service.el` against a running agent-cat workflow manager. PROFILE is a
+client profile file, and REPORT is the file of the JSON report of the journey.
+The `emacs-service` and `emacs-service-broken-answer` modes of
+`manager/test/service_http.py` in agent-cat start the manager with the mixed
+fixture, issue the client credential and its profile, and run this journey.
+These modes need `EMACS`, `WF_EMACS_DIR` and `WF_EMACS_UI`, the path of this
+script. From the root of agent-cat:
+
+```sh
+EMACS=/path/to/emacs WF_EMACS_DIR=/path/to/agent-workflows/emacs \
+WF_EMACS_UI=/path/to/agent-workflows/ci/emacs-ui.py \
+  python3 -B manager/test/service_http.py "$PWD" "$(mktemp -d)" \
+  "$(bash test/cabal.sh list-bin -ftui-tests routing-fixed-point-probe)" 8 emacs-service
+```
+
+The journey starts `Emacs -Q -nw` at 80×24 in a private PTY with its own
+home directory, loads `wf.el`, `wf-manager.el` and `wf-service.el`, and acts
+only by keys. `M-x wf-service` selects the profile. `M-x wf-run` chooses
+`mixed-controls`, the Unicode literal of the script is typed in the setup form,
+and `C-c C-c` submits it. `a` and the answer `yes` approve the exact review,
+and `M-x wf-runs` opens the run view. The journey acts on the decision heads in
+the order that the manager presents them: `a` opens the answer editor of the
+question, where the answer of `--service-answer` (`false` by default) is typed
+and sent, and `c` sends the offered `retry` of the recovery decision. After the
+view shows terminal success and the verified result, `r` saves the result to a
+new file. `M-x wf-local` closes the session, and `C-x C-c` ends Emacs. The setup
+form, the review and the answer editor each pass through 40×12, 140×36 and
+80×24, and each keeps its text. The script prints one PASS line for each step
+and writes the report again after each step. The report holds the literal, the
+texts at each size, the review, the run, the handled heads, the last lines of
+the view, the path of the saved file, and the terminal attributes before the
+start of Emacs and after its exit. The modes check the report against the reads
+of the manager. The `emacs-service-broken-answer` mode passes
+`--service-answer true`, and it must fail with the literal message
+"JOURNEY-ASSERT Emacs answer is JSON false".
 
 The SSH/TRAMP gate starts an unprivileged server bound only to `127.0.0.1`,
 with temporary host and client keys, strict host-key checking, public-key-only

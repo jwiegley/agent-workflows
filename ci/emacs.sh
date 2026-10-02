@@ -28,7 +28,9 @@
 #
 #   4. TRANSPORT TESTS, `emacs/wf-manager-tests.el', the ERT tests of the
 #      service-mode transport `emacs/wf-manager.el'. They load client
-#      profiles from temporary files and contact no host.
+#      profiles from temporary files, check the exact JSON codec, and run the
+#      events vectors of agent-cat test/manager_client_vectors.json, which
+#      WF_MANAGER_VECTORS names. They contact no host.
 #
 # No providers are contacted. The native tests use scripted runs and the
 # deterministic human/control fixture named by WF_CONTROL_RUNNER. The
@@ -55,7 +57,7 @@ bad() {
 }
 
 # ---------------------------------------------------------------------------
-# The two things this gate needs
+# What this gate needs
 # ---------------------------------------------------------------------------
 #
 # $EMACS, then whatever is on PATH. Named rather than searched for because the
@@ -104,6 +106,16 @@ if [ -z "$adapters" ] || ! [ -r "$adapters/retry_adapter.py" ] || ! [ -x "$adapt
   exit 1
 fi
 note "ACP fixtures at $adapters"
+
+# The shared client vectors of agent-cat. The pinned agent-cat source of the
+# development shell predates the file, so the gate names it explicitly and
+# never skips the vector tests.
+vectors="${WF_MANAGER_VECTORS:-}"
+if [ -z "$vectors" ] || ! [ -r "$vectors" ]; then
+  echo 'ci/emacs: set $WF_MANAGER_VECTORS to agent-cat test/manager_client_vectors.json for the transport vector tests.' >&2
+  exit 1
+fi
+note "client vectors at $vectors"
 
 # ---------------------------------------------------------------------------
 # 1. Byte-compilation, where a warning is a failure
@@ -177,10 +189,11 @@ fi
 # 4. The transport tests
 # ---------------------------------------------------------------------------
 #
-# ERT over temporary files. No process starts and no host is contacted, so
-# this pass needs neither the wf binary nor the control fixture.
+# ERT over temporary files and the client vectors. No process starts and no
+# host is contacted, so this pass needs neither the wf binary nor the control
+# fixture. It needs the vector file.
 
-if "$emacs" -Q --batch -L emacs -l emacs/wf-manager-tests.el \
+if WF_MANAGER_VECTORS="$vectors" "$emacs" -Q --batch -L emacs -l emacs/wf-manager-tests.el \
      -f ert-run-tests-batch-and-exit < /dev/null > "$work/manager.out" 2>&1; then
   cat "$work/manager.out"
   note "transport tests: green"

@@ -97,7 +97,8 @@ src/
 bin/Main.hs             `wf`, two lines over Agentic.Cli
 emacs/wf.el             native setup, prepared runs, controls, history and lineage
 emacs/wf-smoke.el       batch contracts, run by ci/emacs.sh
-emacs/wf-manager.el     service-mode transport: client profile and credential
+emacs/wf-manager.el     service-mode transport: client profile, credential,
+                        exact JSON codec and event decoders
 emacs/wf-manager-tests.el  ERT tests of the transport, run by ci/emacs.sh
 ci/emacs-ui.py          isolated Emacs PTY, resize and window acceptance
 ci/emacs-tramp.py       loopback SSH/TRAMP, typed controls and lineage acceptance
@@ -462,12 +463,16 @@ interactive resize. It does not establish a different host OS or Linux acceptanc
 treated as errors, runs strict `checkdoc` on each of them, and executes
 descriptor, setup, native process, control, artifact, history, and lineage
 regressions. A fourth pass runs the ERT tests of the service-mode transport in
-`emacs/wf-manager-tests.el`. The human/control fixture is an explicit
-dependency, not a developer-specific path or a skipped test.
+`emacs/wf-manager-tests.el`, which include the events vectors of
+`test/manager_client_vectors.json` in agent-cat. The human/control fixture and
+the vector file are explicit dependencies, not developer-specific paths or
+skipped tests. The pinned agent-cat source of the development shell does not
+have the vector file, so `WF_MANAGER_VECTORS` names it.
 
 ```sh
 WF=/path/to/compatible/wf \
 WF_CONTROL_RUNNER=/path/to/routing-fixed-point-probe \
+WF_MANAGER_VECTORS=/path/to/agent-cat/test/manager_client_vectors.json \
   nix develop path:. -c bash ci/emacs.sh
 ```
 
@@ -510,8 +515,10 @@ WF_CONTROL_RUNNER=/path/to/routing-fixed-point-probe \
 `emacs/wf-manager.el` is the transport of the service mode, in which `wf.el`
 is a client of an agent-cat workflow manager over HTTPS. The file has no user
 interface and uses only libraries that are part of Emacs. It currently loads a
-client profile and reads its credential. The HTTP requests and the connection
-of the `wf.el` commands to manager resources are not yet in place.
+client profile, reads its credential, decodes and encodes exact JSON, and
+decodes the event records of the manager. The HTTP requests, the server-sent
+event parser and the connection of the `wf.el` commands to manager resources
+are not yet in place.
 
 A client profile is a JSON file of version 1. It has exactly these four
 fields:
@@ -554,6 +561,72 @@ condition is `(FIELD REASON)`, where `FIELD` is the JSON name of the field, or
 | `wf-manager-invalid-endpoint` | The endpoint breaks one of its rules. |
 | `wf-manager-file-unavailable` | A file is missing, too large, not a regular file, writable by a group or other user, or, for a private file, not private. |
 | `wf-manager-credential-unavailable` | The credential bytes are outside the bounds. |
+
+#### Exact JSON
+
+`wf-manager-json-decode` parses JSON text with `json-parse-string` and keeps
+every value exact. The text is a unibyte string of UTF-8 bytes or a multibyte
+string. The decoder checks the byte bound before it parses: text of more than
+1048576 bytes (`wf-manager-response-bytes`), or of more than the optional limit
+argument, signals `wf-manager-response-too-large`. Text that is not UTF-8 or
+not one JSON value signals `wf-manager-invalid-response`.
+
+| JSON | Lisp |
+| --- | --- |
+| object | hash table with the test `equal` and string keys. When a name occurs more than one time, the last member counts. |
+| array | vector |
+| string | string |
+| number | `wf-manager-json-number`, which holds the source text of the number |
+| `true` | `t` |
+| `false` | `:false` |
+| `null` | `:null` |
+
+No JSON value is `nil`, so `gethash` gives `nil` only for an absent member.
+False, null and absent are three distinct things. Because each number keeps its
+source text, `9007199254740993`, `123456789012345678901234567890` and `1e400`
+keep their values.
+
+`wf-manager-json-encode` writes compact JSON as UTF-8 bytes: no white space,
+the members of each object in the order of the UTF-16 code units of their
+names, and each number as its source text. `wf-manager-json-equal` compares
+numbers by exact decimal value, so `1` equals `1.0` and `-0` equals `0`, and it
+compares objects without regard to the order of their members. These rules are
+the rules of `ext-pi/src/manager/json.ts` in agent-cat.
+
+#### Event decoders
+
+The decoders follow `ext-pi/src/manager/events.ts` in agent-cat and pass the
+`invalidations`, `batches`, `routeRecords`, `cursors`, `etags` and `problems`
+vectors of the events section of `test/manager_client_vectors.json`.
+
+| Function | Value |
+| --- | --- |
+| `wf-manager-decode-invalidation` | A version 1 invalidation of exactly `version`, `resource` and `revision`. The resource is a path below `/v1/`, and the revision is a bounded identifier. |
+| `wf-manager-decode-invalidation-event` | One event of exactly `id`, `event` and `data`. The `id` is a cursor, and the `event` is one of the seven event names of `/v1/events`. |
+| `wf-manager-decode-event-batch` | A version 1 polling batch with a cursor, an oldest cursor, at most 256 events and a boolean `hasMore`. |
+| `wf-manager-decode-route-record` | A route record with its header and exactly one of `body`, `claim` and `event`. The record at position P has the identifier of position P+1. An inline body stays an exact JSON value. |
+
+Each decoder returns a record and has an encoder that gives the JSON value
+back. A value that breaks a rule signals `wf-manager-invalid-response`.
+
+A bounded identifier is 1 to 128 ASCII letters, digits, `_` and `-`.
+`wf-manager-valid-cursor-p` accepts a bounded identifier, a dot and a canonical
+unsigned 64-bit decimal. `wf-manager-valid-etag-p` accepts a quoted bounded
+identifier. An entity tag is an opaque token: `wf-manager-etag-equal` compares
+two tags as text only, and a tag has no order and no numeric value.
+
+`wf-manager-problem-failure` maps a problem response to a failure. It returns
+a list for `signal`. A body whose `status` member equals the HTTP status and
+whose `code` member is a bounded identifier gives
+`(wf-manager-refused STATUS CODE)`. Thus a 410 problem with the code
+`view-expired` or `cursor-expired` gives a refusal 410 with that code. Every
+other body gives a `wf-manager-invalid-response` failure.
+
+| Condition | Cause |
+| --- | --- |
+| `wf-manager-invalid-response` | A response is not UTF-8 JSON, or a decoded value breaks a rule. The data is `(KIND REASON)`, where `KIND` names the kind of value, such as `"route record"`. |
+| `wf-manager-response-too-large` | A response has more bytes than the bound. |
+| `wf-manager-refused` | The manager refused with a problem response. The data is `(STATUS CODE)`. |
 
 ## What replaces what
 

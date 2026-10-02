@@ -11,12 +11,19 @@
 ;; The fourth pass of `ci/emacs.sh'.  These tests load client profiles
 ;; from temporary files and check the rules of `wf-manager-profile-load':
 ;; the four fields, the endpoint, the absolute paths, the size bounds, the
-;; private credential file and the typed refusals.  They start no process
-;; and contact no host.
+;; private credential file and the typed refusals.  They check the exact
+;; JSON codec: false, null and absent members, exact numbers, Unicode and
+;; the byte bound.  They also run the invalidations, batches, routeRecords,
+;; cursors, etags and problems vectors of the events section of
+;; `test/manager_client_vectors.json' in agent-cat, which the environment
+;; variable WF_MANAGER_VECTORS names.  A failure lists each vector that
+;; does not give its stated result.  The tests start no process and contact
+;; no host.
 ;;
 ;; Run them by hand, from the repository root:
 ;;
-;;     "$EMACS" -Q --batch -L ./emacs -l ./emacs/wf-manager-tests.el \
+;;     WF_MANAGER_VECTORS=/path/to/agent-cat/test/manager_client_vectors.json \
+;;       "$EMACS" -Q --batch -L ./emacs -l ./emacs/wf-manager-tests.el \
 ;;       -f ert-run-tests-batch-and-exit
 
 ;;; Code:
@@ -294,6 +301,235 @@ Return the symbol `loaded' when the profile loads."
        (delete-file credential)
        (should (equal (wf-manager-tests--refusal profile)
                       '(wf-manager-file-unavailable "credentialFile")))))))
+
+;;;; Exact JSON codec
+
+(defun wf-manager-tests--refusal-of (function &rest arguments)
+  "Return the condition symbol of the refusal of FUNCTION with ARGUMENTS.
+Return the symbol `accepted' when FUNCTION returns."
+  (condition-case failure
+      (progn (apply function arguments) 'accepted)
+    (wf-manager-error (car failure))))
+
+(ert-deftest wf-manager-json-false-null-absent ()
+  "Keep JSON false, JSON null and an absent member distinct, and their bytes."
+  (let* ((text "{\"a\":false,\"b\":null,\"c\":[false,null,true],\"d\":{}}")
+         (value (wf-manager-json-decode text)))
+    (should (eq (gethash "a" value) :false))
+    (should (eq (gethash "b" value) :null))
+    (should (null (gethash "e" value)))
+    (should (equal (gethash "c" value) [:false :null t]))
+    (should (hash-table-p (gethash "d" value)))
+    (should-not (wf-manager-json-equal :false :null))
+    (should-not (wf-manager-json-equal (wf-manager-json-decode "{\"a\":1}")
+                                       (wf-manager-json-decode "{\"a\":1,\"b\":null}")))
+    (should (equal (wf-manager-json-encode value) text))
+    (should (equal (wf-manager-json-encode :false) "false"))
+    (should (equal (wf-manager-json-encode :null) "null"))))
+
+(ert-deftest wf-manager-json-exact-numbers ()
+  "Keep each number exact and compare numbers by decimal value."
+  (let ((text "[9007199254740993,18446744073709551615,1.0,10e-1,-0,1e400,123456789012345678901234567890]"))
+    (should (equal (wf-manager-json-encode (wf-manager-json-decode text)) text)))
+  (should (wf-manager-json-equal (wf-manager-json-decode "[1,0,1e400]")
+                                 (wf-manager-json-decode "[1.0,-0,10e399]")))
+  (should-not (wf-manager-json-equal (wf-manager-json-decode "9007199254740993")
+                                     (wf-manager-json-decode "9007199254740992")))
+  (should (wf-manager-json-equal (wf-manager-json-decode "{\"a\":1,\"b\":[true]}")
+                                 (wf-manager-json-decode "{\"b\":[true],\"a\":1.0}")))
+  (should (equal (wf-manager-json-encode (wf-manager-json-integer 18446744073709551615))
+                 "18446744073709551615"))
+  (should (equal (wf-manager-json-encode (wf-manager-json-decode "{\"b\":1,\"a\":2}"))
+                 "{\"a\":2,\"b\":1}")))
+
+(ert-deftest wf-manager-json-unicode ()
+  "Keep Unicode text from UTF-8 bytes and from multibyte text."
+  (let* ((bytes (encode-coding-string "[\"h\u00e9llo \u2713 \U0001D11E\",\"\\u00e9\"]" 'utf-8))
+         (value (wf-manager-json-decode bytes)))
+    (should (equal (aref value 0) "h\u00e9llo \u2713 \U0001D11E"))
+    (should (equal (aref value 1) "\u00e9"))
+    (should (equal (wf-manager-json-encode value)
+                   (encode-coding-string "[\"h\u00e9llo \u2713 \U0001D11E\",\"\u00e9\"]"
+                                         'utf-8))))
+  (should (equal (wf-manager-json-decode "\"\\ud834\\udd1e\"") "\U0001D11E")))
+
+(ert-deftest wf-manager-json-byte-bound ()
+  "Refuse text over the byte bound before parsing it, and parse text at the bound."
+  (should (eq (wf-manager-tests--refusal-of #'wf-manager-json-decode "[1,2]" 4)
+              'wf-manager-response-too-large))
+  (should (eq (wf-manager-tests--refusal-of #'wf-manager-json-decode "[1,2]" 5) 'accepted))
+  (should (eq (wf-manager-tests--refusal-of #'wf-manager-json-decode "\"\u00e9\"" 3)
+              'wf-manager-response-too-large))
+  (should (eq (wf-manager-tests--refusal-of #'wf-manager-json-decode "\"\u00e9\"" 4) 'accepted))
+  ;; Text that is not JSON shows that the bound comes before the parser.
+  (should (eq (wf-manager-tests--refusal-of #'wf-manager-json-decode "{{{{{" 4)
+              'wf-manager-response-too-large))
+  (should (eq (wf-manager-tests--refusal-of
+               #'wf-manager-json-decode
+               (concat "\"" (make-string (- wf-manager-response-bytes 1) ?x) "\""))
+              'wf-manager-response-too-large))
+  (should (eq (wf-manager-tests--refusal-of
+               #'wf-manager-json-decode
+               (concat "\"" (make-string (- wf-manager-response-bytes 2) ?x) "\""))
+              'accepted)))
+
+(ert-deftest wf-manager-json-refuses-text ()
+  "Refuse text that is not one JSON value in UTF-8."
+  (dolist (text (list "{\"a\":1,}" "1 2" "{1:2}" "\"abc" "\"a\\" "01" "-" "1." "[1e]"
+                      "[.5]" "{\"a\" 1}" "tru" "" "\"\\x\""
+                      (string-to-unibyte "\"\377\"")))
+    (should (equal (list text (wf-manager-tests--refusal-of #'wf-manager-json-decode text))
+                   (list text 'wf-manager-invalid-response)))))
+
+;;;; Event vectors
+
+(defconst wf-manager-tests--vector-counts
+  '(("invalidations" . 16) ("batches" . 13) ("routeRecords" . 17)
+    ("cursors" . 16) ("etags" . 6) ("problems" . 10))
+  "The number of cases of each events subsection of the vector file.
+A change to the vector file changes these counts.")
+
+(defvar wf-manager-tests--vectors nil
+  "The decoded vector file, read once.")
+
+(defun wf-manager-tests--vectors ()
+  "Return the decoded vector file that WF_MANAGER_VECTORS names."
+  (or wf-manager-tests--vectors
+      (let ((file (getenv "WF_MANAGER_VECTORS")))
+        (unless (and file (file-readable-p file))
+          (error "Set $WF_MANAGER_VECTORS to test/manager_client_vectors.json of agent-cat"))
+        (setq wf-manager-tests--vectors
+              (with-temp-buffer
+                (set-buffer-multibyte nil)
+                (insert-file-contents-literally file)
+                (wf-manager-json-decode (buffer-string)))))))
+
+(defun wf-manager-tests--cases (section)
+  "Return the cases of the events SECTION as a list, with their stated count."
+  (let ((cases (append (gethash section (gethash "events" (wf-manager-tests--vectors)))
+                       nil)))
+    (should (equal (cons section (length cases))
+                   (assoc section wf-manager-tests--vector-counts)))
+    cases))
+
+(defun wf-manager-tests--label (section vector)
+  "Return the label for a failure report of SECTION and its VECTOR."
+  (format "%s: %s" section
+          (or (gethash "name" vector) (gethash "cursor" vector)
+              (wf-manager-json-encode vector))))
+
+(defun wf-manager-tests--json-vector-passes (vector decode encode)
+  "Return non-nil when VECTOR gives its stated result with DECODE and ENCODE.
+A valid case decodes and encodes back to an equal value.  An invalid
+case refuses with `wf-manager-invalid-response'."
+  (let* ((value (wf-manager-json-decode (gethash "json" vector)))
+         (valid (eq (gethash "valid" vector) t))
+         (decoded (condition-case nil
+                      (list (funcall decode value))
+                    (wf-manager-invalid-response 'refused))))
+    (if (eq decoded 'refused)
+        (not valid)
+      (and valid (wf-manager-json-equal (funcall encode (car decoded)) value)))))
+
+(defun wf-manager-tests--wrong (section passes)
+  "Return the labels of the cases of SECTION for which PASSES gives nil."
+  (let ((wrong nil))
+    (dolist (vector (wf-manager-tests--cases section))
+      (unless (funcall passes vector)
+        (push (wf-manager-tests--label section vector) wrong)))
+    (nreverse wrong)))
+
+(ert-deftest wf-manager-vectors-invalidations ()
+  "Decode and re-encode every invalidation vector as it states."
+  (should (equal (wf-manager-tests--wrong
+                  "invalidations"
+                  (lambda (vector)
+                    (wf-manager-tests--json-vector-passes
+                     vector #'wf-manager-decode-invalidation
+                     #'wf-manager-encode-invalidation)))
+                 nil)))
+
+(ert-deftest wf-manager-vectors-batches ()
+  "Decode and re-encode every event batch vector as it states."
+  (should (equal (wf-manager-tests--wrong
+                  "batches"
+                  (lambda (vector)
+                    (wf-manager-tests--json-vector-passes
+                     vector #'wf-manager-decode-event-batch
+                     #'wf-manager-encode-event-batch)))
+                 nil)))
+
+(ert-deftest wf-manager-vectors-route-records ()
+  "Decode and re-encode every route record vector as it states."
+  (should (equal (wf-manager-tests--wrong
+                  "routeRecords"
+                  (lambda (vector)
+                    (wf-manager-tests--json-vector-passes
+                     vector #'wf-manager-decode-route-record
+                     #'wf-manager-encode-route-record)))
+                 nil)))
+
+(ert-deftest wf-manager-vectors-route-record-body ()
+  "Keep false, null, large numbers and Unicode of an inline body, and its bytes."
+  (let* ((vector (car (wf-manager-tests--cases "routeRecords")))
+         (value (wf-manager-json-decode (gethash "json" vector)))
+         (record (wf-manager-decode-route-record value))
+         (body (cadr (wf-manager-route-record-payload record))))
+    (should (eq (car (wf-manager-route-record-payload record)) 'body))
+    (should (equal (wf-manager-json-encode (wf-manager-encode-route-record record))
+                   (wf-manager-json-encode value)))
+    (should (equal (gethash "text" body) "h\u00e9llo \u2713 \U0001D11E"))
+    (should (eq (gethash "flag" body) :false))
+    (should (eq (gethash "none" body) :null))
+    (should (equal (wf-manager-json-number-source (gethash "big" body))
+                   "123456789012345678901234567890"))
+    (should (equal (wf-manager-json-number-source (gethash "huge" body)) "1e400"))
+    (should (equal (wf-manager-json-encode (gethash "nested" body))
+                   "{\"list\":[false,null,0]}"))))
+
+(ert-deftest wf-manager-vectors-cursors ()
+  "Check the syntax of every cursor vector."
+  (should (equal (wf-manager-tests--wrong
+                  "cursors"
+                  (lambda (vector)
+                    (eq (and (wf-manager-valid-cursor-p (gethash "cursor" vector)) t)
+                        (eq (gethash "valid" vector) t))))
+                 nil)))
+
+(ert-deftest wf-manager-vectors-etags ()
+  "Check the syntax and the text equality of every entity tag vector."
+  (should (equal (wf-manager-tests--wrong
+                  "etags"
+                  (lambda (vector)
+                    (let ((a (gethash "a" vector))
+                          (b (gethash "b" vector))
+                          (valid (gethash "valid" vector)))
+                      (equal (list (and (wf-manager-valid-etag-p a) t)
+                                   (and (wf-manager-valid-etag-p b) t)
+                                   (and (wf-manager-etag-equal a b) t))
+                             (list (eq (aref valid 0) t) (eq (aref valid 1) t)
+                                   (eq (gethash "equal" vector) t))))))
+                 nil))
+  (should-not (wf-manager-etag-equal "\"10\"" "\"010\"")))
+
+(ert-deftest wf-manager-vectors-problems ()
+  "Map every problem vector to its stated failure."
+  (should (equal (wf-manager-tests--wrong
+                  "problems"
+                  (lambda (vector)
+                    (let* ((status (wf-manager--bounded-integer
+                                    (gethash "status" vector) 100 599))
+                           (stated (gethash "expected" vector))
+                           (failure (wf-manager-problem-failure
+                                     status (gethash "body" vector))))
+                      (if (equal stated "InvalidResponse")
+                          (eq (car failure) 'wf-manager-invalid-response)
+                        (let ((refused (gethash "refused" stated)))
+                          (equal failure
+                                 (list 'wf-manager-refused
+                                       (wf-manager--bounded-integer (aref refused 0) 100 599)
+                                       (aref refused 1))))))))
+                 nil)))
 
 (provide 'wf-manager-tests)
 

@@ -468,9 +468,9 @@ regressions. A fourth pass runs the ERT tests of the service-mode transport in
 `emacs/wf-manager-tests.el`, which include the events vectors, the drafts,
 requests, preparations, receipts, decisions, answers, controls and runs vectors,
 and the refresh sequences, backoff, jitter and reconciliation vectors of
-`test/manager_client_vectors.json` in agent-cat. The HTTP transport tests run
-against a plain HTTP listener on 127.0.0.1 inside the test Emacs and contact no
-other host. The human/control fixture and
+`test/manager_client_vectors.json` in agent-cat. The HTTP transport tests and
+the session tests run against a plain HTTP listener on 127.0.0.1 inside the
+test Emacs and contact no other host. The human/control fixture and
 the vector file are explicit dependencies, not developer-specific paths or
 skipped tests. The pinned agent-cat source of the development shell does not
 have the vector file, so `WF_MANAGER_VECTORS` names it.
@@ -499,12 +499,19 @@ EMACS=/path/to/emacs WF_EMACS_DIR=/path/to/agent-workflows/emacs \
 ```
 
 The live check binds a transport over TLS with the CA file of the profile,
-creates a draft and repeats the creation with the same idempotency key,
+creates a draft and repeats the creation with the same idempotency key, and
 supplies a literal input with a set-input command and repeats the command with
-the earlier entity tag, reads after the harness revokes the credential, and
-closes the transport. It requires 201 and the same draft for the repeated
-creation, the typed refusals 412 `stale-revision` and 401 `unauthenticated`,
-no prompt, and no process, url.el buffer or session directory after the close.
+the earlier entity tag. It then creates three more drafts, each with a literal
+of 600000 characters, so that the overview does not fit on one page. It
+starts a session, which assembles the overview over all its pages, and asks
+the harness to create and approve a run with the credential of the harness.
+The run must appear in the overview of the session through an event poll,
+with no other read by the check, and the delivery state must be `poll`. The
+check then reads after the harness revokes the credential and closes the
+session. It requires 201 and the same draft for the repeated creation, the
+typed refusals 412 `stale-revision` and 401 `unauthenticated`, the end of the
+follow loop with `refused` after the revocation, no prompt, and no process,
+url.el buffer or session directory after the close.
 It writes a report whose `harnessVersion` field is
 `wf-manager-live-harness-version`. The mode refuses a report of another
 version with one sentence, so a mismatched pair of the two repositories fails
@@ -553,8 +560,9 @@ client profile, reads its credential, decodes and encodes exact JSON, decodes
 the event records and the resources of the manager, builds the typed answer of
 a decision, and coordinates refreshes and the reconciliation of an uncertain
 command without I/O. Its asynchronous HTTP transport sends requests, binds a
-session to the capabilities of the manager and reads the event polling mode.
-The connection of the `wf.el` commands to manager resources is not yet in
+connection to the capabilities of the manager and reads the event polling
+mode. A session on a connection installs the complete overview and follows
+the events of the manager with polling batches. The connection of the `wf.el` commands to manager resources is not yet in
 place.
 
 A client profile is a JSON file of version 1. It has exactly these four
@@ -863,7 +871,43 @@ mode, which the client names `poll`, and not as server-sent events.
 | `wf-manager-redirect-refused` | The manager answered with a redirect status. |
 | `wf-manager-unsupported-version` | The capabilities name versions that the client does not support, or a response version is not 1. |
 | `wf-manager-invalid-request` | An argument of a request breaks a rule. The request is not sent. |
-| `wf-manager-closed` | The request was cancelled, or its transport was closed. |
+| `wf-manager-closed` | The request was cancelled, or its transport or its session was closed. |
+| `wf-manager-wrong-endpoint` | A reference names the endpoint identity of another binding. |
+
+#### Sessions
+
+A session follows `ManagerSession` of `ext-pi/src/manager/session.ts` in
+agent-cat, with the `poll` delivery of this client. It is bound to one
+`wf-manager-connection` and to the endpoint identity of that connection. A
+`wf-manager-reference` is a resource path below `/v1/` together with that
+endpoint identity.
+
+| Function | Behavior |
+| --- | --- |
+| `wf-manager-session-start` | A new session on a connection. The session assembles the overview, installs it and then follows `/v1/events` from its cursor. Its callback receives the first overview read. After a failure, the session does not follow. An optional function runs after each install, each change of the delivery state, the end of the follow loop and the close. |
+| `wf-manager-session-page-set` | One complete page set from its first page, as `pageSet` of ext-pi assembles it: every page repeats the set identity, the revision, the expiry, the total and the other members of the first page, the indexes follow each other, each page has at most 256 items, the set holds at most 64 MiB, every page arrives before the expiry, and each `next` token keeps the path and the query of the first page. Any other page gives `wf-manager-invalid-response`, and no partial set is given. A page that the manager refuses with 410 `view-expired` restarts the assembly at the first page, at most three times (`wf-manager-page-set-restarts`). |
+| `wf-manager-session-load-overview` | The overview page set of `/v1/snapshot` as a `wf-manager-overview`: its cursor, its oldest cursor, its number of pages and its members. The metadata has exactly `version` 1, `snapshotVersion` 1, `cursor` and `oldestCursor`. Each member has its decoded value, its revision and the reference of its detail resource, such as `/v1/requests/{id}`, with the endpoint identity of the session. This read installs nothing. |
+| `wf-manager-session-watch` | Watch a resource of the session. The session reads it now and again after each invalidation that concerns it. A reference of another endpoint signals `wf-manager-wrong-endpoint`. |
+| `wf-manager-session-current` | The last installed read of a watched resource: a `wf-manager-reply`, a failure, or nil before the first read. |
+| `wf-manager-session-close` | Cancel the timers of the session and close its transport. No read installs after the close. |
+
+The follow loop sends one polling batch each second (`wf-manager-poll-seconds`)
+on a timer, and the next batch at once while the manager has more events. A
+delivered batch sets the delivery state to `poll` and resets the backoff. A
+failed batch sets the delivery state to `unreachable` and waits for the
+jittered reconnection backoff of `wf-manager-reconnect-delay` before the next
+batch. An invalidation concerns each watched resource that it equals or that
+lies above or below it. An invalidation of a request, preparation, run or
+decision also concerns the overview. The refresh coordinator reads each
+concerned resource, with at most one read in flight for each resource, so any
+number of invalidations during one read give exactly one later read. A 410
+refusal of a batch, `cursor-expired` or `view-expired`, advances the
+generation, reads the overview again, reads every other watched resource
+again and follows from the new cursor. A read that completes for an earlier
+generation installs nothing. A 401 refusal ends the follow loop with
+`refused`. An installed read that the manager refused with 429
+`storage-quota` or 503 `storage-unavailable` is read again after 0.1 seconds.
+No read and no polling batch is a command, and a session sends no command.
 
 ## What replaces what
 

@@ -36,6 +36,9 @@
 #      HTTP transport tests start a plain HTTP listener on 127.0.0.1 inside
 #      the test Emacs and check the exact request bytes, the typed refusals,
 #      the response bound, cancellation, cleanup and the capability binding.
+#      The session tests use the same listener for the overview page set, its
+#      restart after 410 view-expired, the follow loop, the resnapshot after a
+#      410 cursor refusal and the coalescing of invalidations during a read.
 #      They contact no other host.
 #
 # Passes 1 and 2 also cover `emacs/wf-manager-live.el', the live check of

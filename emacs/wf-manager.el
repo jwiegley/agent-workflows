@@ -117,6 +117,19 @@
 ;; arrives.  The client therefore reads /v1/events in the bounded
 ;; polling mode, named `poll', and not as server-sent events.
 ;;
+;; `wf-manager-session-start' starts a session on a connection, as
+;; ManagerSession of `ext-pi/src/manager/session.ts' does.  The session
+;; assembles the complete overview page set of /v1/snapshot by following
+;; its next tokens, restarts the assembly after a 410 view-expired page,
+;; and installs the overview.  Every member reference carries the
+;; endpoint identity of the connection.  The session then follows
+;; /v1/events from the overview cursor with polling batches on timers and
+;; the reconnection backoff.  An invalidation marks the watched resources
+;; that it concerns, and the refresh coordinator reads each of them
+;; again.  A 410 refusal of a batch advances the generation, reads the
+;; overview again and reads every watched resource again.  A read of an
+;; earlier generation installs nothing.
+;;
 ;; Each refusal signals a condition below `wf-manager-error'.  The data of
 ;; the condition is (FIELD REASON).  For a profile, FIELD is the JSON name
 ;; of the profile field that the refusal is about, or "profile" for the
@@ -133,6 +146,7 @@
 (require 'nsm)
 (require 'url)
 (require 'url-cache)
+(require 'parse-time)
 (require 'url-http)
 
 (defconst wf-manager-profile-file-bytes 16384
@@ -184,6 +198,8 @@
               "Invalid manager request" 'wf-manager-error)
 (define-error 'wf-manager-closed
               "Manager client closed" 'wf-manager-error)
+(define-error 'wf-manager-wrong-endpoint
+              "Reference of another endpoint" 'wf-manager-error)
 
 (cl-defstruct (wf-manager-endpoint
                (:constructor wf-manager--endpoint-make)
@@ -4138,6 +4154,661 @@ one connection have the same nonce."
                    (wf-manager--random-bytes wf-manager--nonce-bytes) t)))
     (puthash nonce t nonces)
     (concat (wf-manager-connection-epoch connection) "." nonce)))
+
+;;;; Sessions
+
+;; A session follows `ManagerSession' of `ext-pi/src/manager/session.ts'
+;; in agent-cat, with the poll delivery of this client.  It is bound to
+;; one `wf-manager-connection' and to the endpoint identity of that
+;; connection.  `wf-manager-session-start' assembles the complete
+;; overview page set of /v1/snapshot and installs it, and then follows
+;; /v1/events from the cursor of that overview with JSON polling
+;; batches on timers.  An invalidation marks each watched resource that
+;; it concerns, and the refresh coordinator above reads each marked
+;; resource again.  A 410 refusal of a batch advances the generation,
+;; reads the overview again, invalidates every watched resource and
+;; follows from the new cursor.  A read of an earlier generation
+;; installs nothing.  No read and no poll is a command, and a session
+;; sends no command.
+
+(defconst wf-manager-overview-resource "/v1/snapshot"
+  "The first page of the overview page set, and its refresh key.")
+
+(defconst wf-manager--member-collections
+  '(("request" . "requests") ("preparation" . "preparations")
+    ("run" . "runs") ("decision" . "decisions"))
+  "The collection of the detail resource of each overview member kind.")
+
+(defconst wf-manager--page-fields
+  '("setId" "revision" "expiresAt" "index" "totalItems" "next")
+  "The members of the page object of one page of a page set.")
+
+(defconst wf-manager--page-items 256
+  "The largest number of items of one page.")
+
+(defconst wf-manager--page-set-bytes 67108864
+  "The largest number of body bytes of one page set.")
+
+(defconst wf-manager-page-set-restarts 3
+  "The largest number of restarts of one page set assembly.
+A page that the manager refuses with 410 view-expired restarts the
+assembly at the first page.")
+
+(defvar wf-manager-poll-seconds 1
+  "The interval between two polling batches of a new session, in seconds.
+The offline tests of `wf-manager-tests.el' bind it to a shorter
+interval.")
+
+(defconst wf-manager--reread-seconds 0.1
+  "The wait before a watched resource is read again, in seconds.
+The wait follows an installed read that the manager refused with 429
+storage-quota or 503 storage-unavailable, because no invalidation
+follows such a refusal.")
+
+(cl-defstruct (wf-manager-reference
+               (:constructor wf-manager-reference-make)
+               (:copier nil))
+  "A resource of one binding.
+ENDPOINT is the endpoint identity of the binding.  URI is the resource
+path below /v1/."
+  (endpoint nil :read-only t)
+  (uri nil :read-only t))
+
+(cl-defstruct (wf-manager-page-set
+               (:constructor wf-manager--page-set-make)
+               (:copier nil))
+  "One complete page set.
+METADATA is the JSON object of the members that every page repeats,
+without `page' and `items'.  ITEMS is the list of the items of every
+page, in order.  PAGES is the number of pages."
+  (metadata nil :read-only t)
+  (items nil :read-only t)
+  (pages nil :read-only t))
+
+(cl-defstruct (wf-manager-overview-item
+               (:constructor wf-manager--overview-item-make)
+               (:copier nil))
+  "One member of the overview.
+MEMBER is the `wf-manager-overview-member'.  REFERENCE is the
+`wf-manager-reference' of its detail resource, which is the resource of
+its invalidations.  REVISION is its revision."
+  (member nil :read-only t)
+  (reference nil :read-only t)
+  (revision nil :read-only t))
+
+(cl-defstruct (wf-manager-overview
+               (:constructor wf-manager--overview-make)
+               (:copier nil))
+  "One complete overview.
+CURSOR is the event cursor of its database boundary, and OLDEST-CURSOR
+the oldest resume boundary.  ITEMS is the list of its
+`wf-manager-overview-item' records.  PAGES is the number of pages of
+its page set."
+  (cursor nil :read-only t)
+  (oldest-cursor nil :read-only t)
+  (items nil :read-only t)
+  (pages nil :read-only t))
+
+(cl-defstruct (wf-manager-session
+               (:constructor wf-manager--session-make)
+               (:copier nil))
+  "One manager session, bound to one `wf-manager-connection'.
+CONNECTION is the connection.  INTERVAL is the wait between two polling
+batches, in seconds.  ON-CHANGE is nil or a function of the session that
+runs after each install, each change of the delivery state, the end of
+the follow loop and the close.  REFRESH is the `wf-manager-refresh'
+state.  WATCHED is the list of the watched resource paths, which always
+holds `wf-manager-overview-resource' after the start.  INSTALLED maps
+each watched resource path other than the overview to its last
+installed read, a `wf-manager-reply' or a failure.  OVERVIEW is the
+installed `wf-manager-overview', a failure, or nil before the first
+read.  CURSOR is the cursor of the next polling batch.  DELIVERY is
+`connecting' before the first batch, `poll' after a batch that the
+manager delivered and `unreachable' after a batch that failed.  BACKOFF
+is the next reconnection backoff, in seconds.  FOLLOW-END is nil while
+the follow loop runs, and then (KIND FAILURE), where KIND is `refused',
+`resnapshot' or `closed'.  POLLS is the number of completed polling
+batches.  TIMERS is the list of the pending timers.  CLOSED is non-nil
+after `wf-manager-session-close'."
+  (connection nil :read-only t)
+  (interval nil :read-only t)
+  (on-change nil :read-only t)
+  (refresh (wf-manager-refresh-new))
+  (watched nil)
+  (installed (make-hash-table :test #'equal))
+  (overview nil)
+  (cursor nil)
+  (delivery 'connecting)
+  (backoff wf-manager-initial-backoff)
+  (follow-end nil)
+  (polls 0)
+  (timers nil)
+  (closed nil))
+
+(defun wf-manager-session-transport (session)
+  "Return the `wf-manager-transport' of SESSION."
+  (wf-manager-connection-transport (wf-manager-session-connection session)))
+
+(defun wf-manager-session-identity (session)
+  "Return the endpoint identity of the binding of SESSION."
+  (wf-manager-connection-identity (wf-manager-session-connection session)))
+
+(defun wf-manager-session-generation (session)
+  "Return the current refresh generation of SESSION."
+  (wf-manager-refresh-generation (wf-manager-session-refresh session)))
+
+(defun wf-manager-session-reference (session uri)
+  "For the binding of SESSION, return the `wf-manager-reference' of URI.
+A URI that is not a resource below /v1/ signals
+`wf-manager-invalid-endpoint'."
+  (unless (wf-manager-valid-resource-p uri)
+    (wf-manager--fail 'wf-manager-invalid-endpoint "resource"
+                      "%S is not a resource below /v1/" uri))
+  (wf-manager-reference-make :endpoint (wf-manager-session-identity session)
+                             :uri uri))
+
+(defun wf-manager--session-refusal (session identity)
+  "Return the failure of a read of SESSION for the endpoint IDENTITY, or nil.
+A closed session and an identity of another binding refuse."
+  (cond ((wf-manager-session-closed session)
+         (list 'wf-manager-closed "session" "the session was closed"))
+        ((not (equal identity (wf-manager-session-identity session)))
+         (list 'wf-manager-wrong-endpoint "reference"
+               "the reference names another endpoint"))))
+
+(defun wf-manager--session-changed (session)
+  "Run the change function of SESSION, when it has one."
+  (let ((function (wf-manager-session-on-change session)))
+    (when function (funcall function session))))
+
+(defun wf-manager--session-later (session seconds function &rest arguments)
+  "Unless SESSION is closed, call after SECONDS FUNCTION with ARGUMENTS.
+The timer is pending until it runs, and `wf-manager-session-close'
+cancels it."
+  (unless (wf-manager-session-closed session)
+    (let ((timer nil))
+      (setq timer
+            (run-at-time
+             seconds nil
+             (lambda ()
+               (setf (wf-manager-session-timers session)
+                     (delq timer (wf-manager-session-timers session)))
+               (unless (wf-manager-session-closed session)
+                 (apply function arguments)))))
+      (push timer (wf-manager-session-timers session)))))
+
+(defun wf-manager--session-get (session uri callback)
+  "On the transport of SESSION, send one GET of URI.
+CALLBACK runs one time with the `wf-manager-reply' or a failure.  A
+reply whose status is not 200 is `wf-manager-invalid-response'.  A send
+that signals gives its failure to CALLBACK from a timer."
+  (let ((received
+         (lambda (outcome)
+           (funcall callback
+                    (if (and (wf-manager-reply-p outcome)
+                             (/= (wf-manager-reply-status outcome) 200))
+                        (list 'wf-manager-invalid-response "response"
+                              "the status of the read is not 200")
+                      outcome)))))
+    (condition-case failure
+        (wf-manager-get (wf-manager-session-transport session) uri received)
+      (wf-manager-error (run-at-time 0 nil received failure) nil))))
+
+;;;;; Page sets
+
+(defun wf-manager--page-info (value)
+  "Return the page object VALUE of one page as a plist, or nil.
+The plist has the keys :set-id, :revision, :expires-at, :expiry,
+:index, :total and :next.  :expiry is the Lisp time of :expires-at,
+and :next is a resource path or nil."
+  (let ((fields (wf-manager--closed value wf-manager--page-fields)))
+    (when fields
+      (let* ((set-id (gethash "setId" fields))
+             (revision (gethash "revision" fields))
+             (expires (gethash "expiresAt" fields))
+             (index (wf-manager--bounded-integer (gethash "index" fields) 0 65535))
+             (total (wf-manager--bounded-integer (gethash "totalItems" fields)
+                                                 0 1048576))
+             (next (gethash "next" fields))
+             (expiry (and (stringp expires) (<= (length expires) 40)
+                          (ignore-errors (parse-iso8601-time-string (upcase expires))))))
+        (when (and (wf-manager-valid-id-p set-id) (wf-manager-valid-id-p revision)
+                   expiry index total
+                   (or (eq next :null) (wf-manager-valid-resource-p next)))
+          (list :set-id set-id :revision revision :expires-at expires
+                :expiry expiry :index index :total total
+                :next (and (stringp next) next)))))))
+
+(defun wf-manager--page-scope (uri)
+  "Return the path of URI with its sorted query pairs without pageToken.
+Return nil when a query name occurs two times.  Each page of one page
+set has the scope of its first page."
+  (let* ((mark (string-search "?" uri))
+         (pairs (and mark
+                     (mapcar (lambda (pair)
+                               (let ((equal (string-search "=" pair)))
+                                 (if equal
+                                     (cons (substring pair 0 equal)
+                                           (substring pair (1+ equal)))
+                                   (cons pair ""))))
+                             (split-string (substring uri (1+ mark)) "&" t)))))
+    (when (wf-manager--unique-p (mapcar #'car pairs))
+      (cons (if mark (substring uri 0 mark) uri)
+            (sort (cl-remove "pageToken" pairs :key #'car :test #'equal)
+                  (lambda (a b)
+                    (or (string< (car a) (car b))
+                        (and (string= (car a) (car b))
+                             (string< (cdr a) (cdr b))))))))))
+
+(defun wf-manager--page-repeated (value)
+  "Return a copy of the page VALUE without its members page and items."
+  (let ((copy (copy-hash-table value)))
+    (remhash "page" copy)
+    (remhash "items" copy)
+    copy))
+
+(defun wf-manager-session-page-set (session first callback)
+  "Assemble the page set of SESSION whose first page is FIRST.
+FIRST is a `wf-manager-reference' of the binding of SESSION.  Return
+nil.  CALLBACK runs one time with the complete `wf-manager-page-set'
+or a failure, and no partial set is given.  The rules are the rules of
+`pageSet' in `ext-pi/src/manager/session.ts': every page repeats the
+set identity, the revision, the expiry, the total and the other
+members of the first page, the indexes follow each other, each page
+has at most 256 items, the set holds at most 64 MiB, every page arrives
+before the expiry, and each `next' token keeps the path and the query
+of the first page.  Any other page gives `wf-manager-invalid-response'.
+A page that the manager refuses with 410 view-expired restarts the
+assembly at the first page, at most `wf-manager-page-set-restarts'
+times."
+  (wf-manager--page-set session first wf-manager-page-set-restarts callback))
+
+(defun wf-manager--page-set (session first restarts callback)
+  "Assemble the page set of SESSION from FIRST with RESTARTS restarts left.
+CALLBACK receives the set or a failure, as for
+`wf-manager-session-page-set'."
+  (let* ((identity (wf-manager-reference-endpoint first))
+         (scope (wf-manager--page-scope (wf-manager-reference-uri first)))
+         (items nil) (count 0) (stamp nil) (metadata nil) (used 0) (index 0))
+    (cl-labels
+        ((invalid ()
+           (funcall callback (list 'wf-manager-invalid-response "page set"
+                                   "the page set breaks a rule of this client")))
+         (fetch-page (location)
+           (let ((refusal (wf-manager--session-refusal session identity)))
+             (cond (refusal (funcall callback refusal))
+                   ((not (equal (wf-manager--page-scope location) scope)) (invalid))
+                   (t (wf-manager--session-get session location #'received)))))
+         (received (outcome)
+           (let ((refusal (wf-manager--session-refusal session identity)))
+             (cond
+              (refusal (funcall callback refusal))
+              ((and (equal outcome '(wf-manager-refused 410 "view-expired"))
+                    (> restarts 0))
+               (wf-manager--page-set session first (1- restarts) callback))
+              ((wf-manager-failure-p outcome) (funcall callback outcome))
+              (t (page outcome)))))
+         (page (reply)
+           (let* ((value (wf-manager-reply-value reply))
+                  (info (wf-manager--page-info (gethash "page" value)))
+                  (page-items (gethash "items" value))
+                  (repeated (wf-manager--page-repeated value)))
+             (if (not (and info (vectorp page-items)))
+                 (invalid)
+               (setq used (+ used (wf-manager-reply-size reply))
+                     count (+ count (length page-items)))
+               (dolist (item (append page-items nil)) (push item items))
+               (cond
+                ((or (/= (plist-get info :index) index)
+                     (not (time-less-p nil (plist-get info :expiry)))
+                     (> (length page-items) wf-manager--page-items)
+                     (> count (plist-get info :total))
+                     (> used wf-manager--page-set-bytes)
+                     (and stamp
+                          (not (and (equal (plist-get stamp :set-id) (plist-get info :set-id))
+                                    (equal (plist-get stamp :revision) (plist-get info :revision))
+                                    (equal (plist-get stamp :expires-at)
+                                           (plist-get info :expires-at))
+                                    (eql (plist-get stamp :total) (plist-get info :total)))))
+                     (and metadata (not (wf-manager-json-equal metadata repeated))))
+                 (invalid))
+                ((null (plist-get info :next))
+                 (if (= count (plist-get info :total))
+                     (funcall callback (wf-manager--page-set-make
+                                        :metadata repeated :items (nreverse items)
+                                        :pages (1+ index)))
+                   (invalid)))
+                ((or (zerop (length page-items))
+                     (>= count (plist-get info :total))
+                     (>= index 65535))
+                 (invalid))
+                (t (setq stamp info metadata repeated index (1+ index))
+                   (fetch-page (plist-get info :next))))))))
+      (if scope
+          (fetch-page (wf-manager-reference-uri first))
+        (run-at-time 0 nil #'invalid)))))
+
+;;;;; Overview
+
+(defun wf-manager-member-identity (member)
+  "Return the identifier and the revision of MEMBER as (ID . REVISION).
+MEMBER is a `wf-manager-overview-member'."
+  (let ((value (wf-manager-overview-member-value member)))
+    (pcase (wf-manager-overview-member-kind member)
+      ("request" (cons (wf-manager-draft-id value) (wf-manager-draft-revision value)))
+      ("preparation" (cons (wf-manager-preparation-id value)
+                           (wf-manager-preparation-revision value)))
+      ("run" (cons (wf-manager-run-id value) (wf-manager-run-revision value)))
+      ("decision" (cons (wf-manager-decision-id value)
+                        (wf-manager-decision-revision value))))))
+
+(defun wf-manager--overview-of (identity set)
+  "For the endpoint IDENTITY, return the overview of the page SET.
+Return the `wf-manager-overview' or a failure.  Every member reference
+carries IDENTITY.  The metadata of
+SET has exactly the members `version' 1, `snapshotVersion' 1, `cursor'
+and `oldestCursor', and each item decodes as an overview member."
+  (or (catch 'wf-manager--refusal
+        (let* ((fields (wf-manager--exact (wf-manager-page-set-metadata set)
+                                          '("version" "snapshotVersion" "cursor"
+                                            "oldestCursor")))
+               (cursor (progn
+                         (wf-manager--integer (gethash "version" fields) 1 1)
+                         (wf-manager--integer (gethash "snapshotVersion" fields) 1 1)
+                         (wf-manager--ensure (wf-manager--cursor-field fields "cursor"))))
+               (oldest (wf-manager--ensure
+                        (wf-manager--cursor-field fields "oldestCursor")))
+               (items
+                (mapcar
+                 (lambda (value)
+                   (let* ((member (wf-manager--parse-overview-member value))
+                          (ident (wf-manager-member-identity member))
+                          (uri (concat "/v1/"
+                                       (cdr (assoc (wf-manager-overview-member-kind member)
+                                                   wf-manager--member-collections))
+                                       "/" (car ident))))
+                     (wf-manager--ensure (and (wf-manager-valid-id-p (car ident))
+                                              (wf-manager-valid-id-p (cdr ident))
+                                              (wf-manager-valid-resource-p uri)))
+                     (wf-manager--overview-item-make
+                      :member member
+                      :reference (wf-manager-reference-make :endpoint identity :uri uri)
+                      :revision (cdr ident))))
+                 (wf-manager-page-set-items set))))
+          (wf-manager--overview-make :cursor cursor :oldest-cursor oldest
+                                     :items items
+                                     :pages (wf-manager-page-set-pages set))))
+      (list 'wf-manager-invalid-response "overview"
+            "the overview breaks a rule of this client")))
+
+(defun wf-manager-session-load-overview (session callback)
+  "Assemble the overview page set of /v1/snapshot on SESSION.
+Return nil.  CALLBACK runs one time with the `wf-manager-overview' or a
+failure, as `loadOverview' of `ext-pi/src/manager/session.ts' gives
+it.  The assembly follows every `next' token before the overview
+exists, and a 410 view-expired restarts it at the first page.  Every
+member reference carries the endpoint identity of the binding of
+SESSION.  This read installs nothing."
+  (let ((identity (wf-manager-session-identity session)))
+    (wf-manager-session-page-set
+     session
+     (wf-manager-reference-make :endpoint identity :uri wf-manager-overview-resource)
+     (lambda (outcome)
+       (funcall callback (if (wf-manager-failure-p outcome)
+                             outcome
+                           (wf-manager--overview-of identity outcome)))))))
+
+;;;;; Follow loop and watched resources
+
+(defun wf-manager-session-start (connection callback &optional on-change)
+  "Start a session on CONNECTION and return the `wf-manager-session'.
+The session installs the complete overview and then follows /v1/events
+from its cursor with JSON polling batches, one batch each
+`wf-manager-poll-seconds' or at once while the manager has more.
+CALLBACK runs one time with the first overview read, a
+`wf-manager-overview' or a failure.  After a failure, the session does
+not follow.  ON-CHANGE is nil or a function of the session that runs
+after each install, each change of the delivery state, the end of the
+follow loop and the close.
+
+A delivered batch sets the delivery state to `poll' and resets the
+backoff, and each invalidation of the batch marks the watched
+resources that it concerns.  A failed batch sets the delivery state to
+`unreachable' and waits for the jittered backoff of
+`wf-manager-reconnect-delay' before the next batch.  A 410 refusal
+advances the generation, reads the overview again, invalidates every
+watched resource and follows from the new cursor.  A 401 refusal ends
+the follow loop with `refused'."
+  (let ((session (wf-manager--session-make :connection connection
+                                           :interval wf-manager-poll-seconds
+                                           :on-change on-change)))
+    (wf-manager--session-bootstrap
+     session
+     (lambda (outcome)
+       (unless (wf-manager-failure-p outcome)
+         (wf-manager--session-follow session (wf-manager-overview-cursor outcome) 0))
+       (funcall callback outcome)))
+    session))
+
+(defun wf-manager--session-bootstrap (session callback)
+  "Watch the overview of SESSION, read it, and install it.
+The read installs only when the generation has not changed during the
+read.  CALLBACK receives the overview or the failure."
+  (cl-pushnew wf-manager-overview-resource (wf-manager-session-watched session)
+              :test #'equal)
+  (let ((generation (wf-manager-session-generation session)))
+    (wf-manager-session-load-overview
+     session
+     (lambda (outcome)
+       (when (and (not (wf-manager-session-closed session))
+                  (eql generation (wf-manager-session-generation session)))
+         (setf (wf-manager-session-overview session) outcome)
+         (wf-manager--session-changed session))
+       (funcall callback outcome)))))
+
+(defun wf-manager--session-follow (session cursor seconds)
+  "Send the next polling batch of SESSION from CURSOR after SECONDS."
+  (setf (wf-manager-session-cursor session) cursor)
+  (wf-manager--session-later session seconds #'wf-manager--session-poll session))
+
+(defun wf-manager--session-poll (session)
+  "Send one polling batch of SESSION from its cursor."
+  (condition-case failure
+      (wf-manager-poll-events (wf-manager-session-transport session)
+                              (wf-manager-session-cursor session)
+                              (lambda (outcome)
+                                (wf-manager--session-polled session outcome)))
+    (wf-manager-error (wf-manager--session-polled session failure))))
+
+(defun wf-manager--session-delivery (session state)
+  "Set the delivery state of SESSION to STATE."
+  (unless (eq state (wf-manager-session-delivery session))
+    (setf (wf-manager-session-delivery session) state)
+    (wf-manager--session-changed session)))
+
+(defun wf-manager--session-end (session kind failure)
+  "End the follow loop of SESSION with KIND and FAILURE."
+  (setf (wf-manager-session-follow-end session) (list kind failure))
+  (wf-manager--session-changed session))
+
+(defun wf-manager--session-polled (session outcome)
+  "For SESSION, handle OUTCOME, the result of one polling batch."
+  (unless (wf-manager-session-closed session)
+    (cl-incf (wf-manager-session-polls session))
+    (if (wf-manager-event-batch-p outcome)
+        (progn
+          (setf (wf-manager-session-backoff session) wf-manager-initial-backoff)
+          (wf-manager--session-delivery session 'poll)
+          (dolist (event (wf-manager-event-batch-events outcome))
+            (wf-manager--session-invalidated session event))
+          (wf-manager--session-follow
+           session (wf-manager-event-batch-cursor outcome)
+           (if (wf-manager-event-batch-has-more outcome)
+               0
+             (wf-manager-session-interval session))))
+      (pcase outcome
+        (`(wf-manager-refused 410 ,_)
+         (wf-manager--session-resnapshot session outcome))
+        ((or `(wf-manager-refused 401 ,_) `(wf-manager-credential-unavailable . ,_))
+         (wf-manager--session-end session 'refused outcome))
+        (`(wf-manager-closed . ,_)
+         (wf-manager--session-end session 'closed outcome))
+        (_
+         (wf-manager--session-delivery session 'unreachable)
+         (pcase-let ((`(,delay . ,next)
+                      (wf-manager-reconnect-delay (wf-manager-session-backoff session))))
+           (setf (wf-manager-session-backoff session) next)
+           (wf-manager--session-follow
+            session (wf-manager-session-cursor session)
+            (/ (wf-manager-jittered-microseconds delay (/ (random 1000000) 1e6))
+               1e6))))))))
+
+(defun wf-manager--session-resnapshot (session failure)
+  "Take a new overview of SESSION after the 410 refusal FAILURE.
+The generation advances first, so each read still in flight installs
+nothing.  After the overview installs, every other watched resource is
+read again and the follow loop continues from the new cursor.  When
+the overview read fails, the follow loop ends with `resnapshot'."
+  (setf (wf-manager-session-refresh session)
+        (wf-manager-refresh-advance (wf-manager-session-refresh session)))
+  (wf-manager--session-bootstrap
+   session
+   (lambda (outcome)
+     (cond
+      ((wf-manager-session-closed session))
+      ((wf-manager-failure-p outcome)
+       (wf-manager--session-end session 'resnapshot failure))
+      (t
+       (dolist (key (reverse (wf-manager-session-watched session)))
+         (unless (equal key wf-manager-overview-resource)
+           (wf-manager--session-invalidate session key)))
+       (wf-manager--session-follow session (wf-manager-overview-cursor outcome) 0))))))
+
+(defun wf-manager--member-resource-p (resource)
+  "Return non-nil when RESOURCE is an overview member or lies below one."
+  (let ((parts (split-string resource "/")))
+    (and (>= (length parts) 4)
+         (equal (nth 0 parts) "")
+         (equal (nth 1 parts) "v1")
+         (rassoc (nth 2 parts) wf-manager--member-collections)
+         (not (equal (nth 3 parts) ""))
+         t)))
+
+(defun wf-manager--related-p (one other)
+  "Return non-nil when the resources ONE and OTHER are equal or nested.
+The query of a resource is not part of the comparison."
+  (let ((a (car (split-string one "?")))
+        (b (car (split-string other "?"))))
+    (or (equal a b)
+        (string-prefix-p (concat b "/") a)
+        (string-prefix-p (concat a "/") b))))
+
+(defun wf-manager--session-invalidated (session event)
+  "Mark each watched resource of SESSION that the EVENT concerns.
+An invalidation concerns a resource that it equals or that lies above
+or below it, and an invalidation of a member resource concerns the
+overview."
+  (let ((resource (wf-manager-invalidation-resource
+                   (wf-manager-invalidation-event-data event))))
+    (dolist (key (reverse (wf-manager-session-watched session)))
+      (when (if (equal key wf-manager-overview-resource)
+                (wf-manager--member-resource-p resource)
+              (wf-manager--related-p key resource))
+        (wf-manager--session-invalidate session key)))))
+
+(defun wf-manager--session-invalidate (session key)
+  "For SESSION, apply one invalidation of the resource KEY."
+  (let ((step (wf-manager-refresh-invalidate key (wf-manager-session-refresh session))))
+    (setf (wf-manager-session-refresh session) (wf-manager-refresh-step-state step))
+    (wf-manager--session-perform session (wf-manager-refresh-step-actions step))))
+
+(defun wf-manager--session-perform (session actions)
+  "On SESSION, start the fetch of each `fetch' action of ACTIONS."
+  (dolist (action actions)
+    (when (eq (car action) 'fetch)
+      (wf-manager--session-fetch session (nth 1 action) (nth 2 action)))))
+
+(defun wf-manager--session-fetch (session key generation)
+  "On SESSION, read the resource KEY for GENERATION."
+  (if (equal key wf-manager-overview-resource)
+      (wf-manager-session-load-overview
+       session
+       (lambda (outcome)
+         (wf-manager--session-complete
+          session key generation outcome
+          (lambda () (setf (wf-manager-session-overview session) outcome)))))
+    (wf-manager--session-get
+     session key
+     (lambda (outcome)
+       (wf-manager--session-complete
+        session key generation outcome
+        (lambda () (puthash key outcome (wf-manager-session-installed session))))))))
+
+(defun wf-manager--transient-read-p (outcome)
+  "Return non-nil when OUTCOME is a refusal that a later read can clear."
+  (member outcome '((wf-manager-refused 429 "storage-quota")
+                    (wf-manager-refused 503 "storage-unavailable"))))
+
+(defun wf-manager--session-complete (session key generation outcome install)
+  "On SESSION, complete the read of KEY for GENERATION with OUTCOME.
+INSTALL is a function that installs OUTCOME.  It runs only when the
+refresh coordinator gives the action `install'.  A read of an earlier
+generation installs nothing."
+  (unless (wf-manager-session-closed session)
+    (let ((step (wf-manager-refresh-complete key generation
+                                             (wf-manager-session-refresh session))))
+      (setf (wf-manager-session-refresh session) (wf-manager-refresh-step-state step))
+      (when (assq 'install (wf-manager-refresh-step-actions step))
+        (funcall install)
+        (wf-manager--session-changed session)
+        (when (wf-manager--transient-read-p outcome)
+          (wf-manager--session-later
+           session wf-manager--reread-seconds
+           (lambda ()
+             (when (and (eql generation (wf-manager-session-generation session))
+                        (member key (wf-manager-session-watched session)))
+               (wf-manager--session-invalidate session key))))))
+      (wf-manager--session-perform session (wf-manager-refresh-step-actions step)))))
+
+(defun wf-manager-session-watch (session reference)
+  "On SESSION, watch the resource REFERENCE and return nil.
+The session reads the resource now and again after each invalidation
+that concerns it.  A REFERENCE of another endpoint signals
+`wf-manager-wrong-endpoint', and a closed SESSION signals
+`wf-manager-closed'."
+  (let ((refusal (wf-manager--session-refusal
+                  session (wf-manager-reference-endpoint reference)))
+        (key (wf-manager-reference-uri reference)))
+    (when refusal (signal (car refusal) (cdr refusal)))
+    (unless (member key (wf-manager-session-watched session))
+      (push key (wf-manager-session-watched session))
+      (wf-manager--session-invalidate session key))
+    nil))
+
+(defun wf-manager-session-current (session reference)
+  "On SESSION, return the last installed read of the watched REFERENCE.
+The read is a `wf-manager-reply' or a failure, or nil before the first
+read.  A REFERENCE of another endpoint gives the failure
+`wf-manager-wrong-endpoint'."
+  (if (equal (wf-manager-reference-endpoint reference)
+             (wf-manager-session-identity session))
+      (gethash (wf-manager-reference-uri reference)
+               (wf-manager-session-installed session))
+    (list 'wf-manager-wrong-endpoint "reference"
+          "the reference names another endpoint")))
+
+(defun wf-manager-session-close (session)
+  "Close SESSION: cancel its timers and close its transport.
+Each pending request ends, and no read installs after the close.  The
+follow loop ends with `closed' when it has not ended before."
+  (unless (wf-manager-session-closed session)
+    (setf (wf-manager-session-closed session) t)
+    (mapc #'cancel-timer (wf-manager-session-timers session))
+    (setf (wf-manager-session-timers session) nil)
+    (wf-manager-transport-close (wf-manager-session-transport session))
+    (unless (wf-manager-session-follow-end session)
+      (setf (wf-manager-session-follow-end session) (list 'closed nil)))
+    (wf-manager--session-changed session)))
 
 (provide 'wf-manager)
 

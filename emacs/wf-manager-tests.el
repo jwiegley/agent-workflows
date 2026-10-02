@@ -29,7 +29,13 @@
 ;; problem, a refused redirect, an oversized body cut at its bound,
 ;; cancellation, the cleanup of processes and buffers on cancel and on
 ;; close, a timer that runs while a response is pending, the polling
-;; batch and the capability binding.  The capability checks follow
+;; batch and the capability binding.  The session tests answer by
+;; request target, and they can hold a request open to order two reads.
+;; They check the overview over two pages, its restart after a 410
+;; view-expired page and the bound of those restarts, the resnapshot
+;; after a 410 cursor refusal, a read of the earlier generation that
+;; installs nothing, and one later read for the invalidations during one
+;; read.  The capability checks follow
 ;; checkCapabilities of `ext-pi/src/manager/session.ts' over the canned
 ;; capabilities document of the ext-pi tests.  No other host is
 ;; contacted.
@@ -1894,6 +1900,310 @@ Return the symbol `accepted' when the capabilities pass."
                          (lambda (callback) (wf-manager-connect profile callback))))
                    'wf-manager-unsupported-version))
        (should (null (cl-set-difference (buffer-list) buffers)))))))
+
+;;;; Sessions
+
+;; These tests run a session against the local listener.  A router
+;; answers each request by its request target from a table of canned
+;; responses.  The response `hold' keeps the connection open with no
+;; answer, so that a test controls the order of two reads.
+
+(defvar wf-manager-tests--held nil
+  "The held connections of the router, oldest first, as (TARGET . CONNECTION).")
+
+(defun wf-manager-tests--target (request)
+  "Return the request target of the request line of REQUEST."
+  (nth 1 (split-string (substring request 0 (string-search "\r\n" request)) " ")))
+
+(defun wf-manager-tests--router (routes)
+  "Return a responder that answers each request from ROUTES.
+ROUTES is a hash table from a request target to the list of its
+responses.  Each request takes the first response of its target, and
+the last response stays for each later request.  A response is the
+text of an HTTP response or the symbol `hold'.  A held connection goes
+to `wf-manager-tests--held'.  A target without a route receives 404."
+  (lambda (connection request)
+    (let* ((target (wf-manager-tests--target request))
+           (responses (gethash target routes))
+           (response (car responses)))
+      (when (cdr responses) (puthash target (cdr responses) routes))
+      (cond ((eq response 'hold)
+             (setq wf-manager-tests--held
+                   (append wf-manager-tests--held (list (cons target connection)))))
+            (t (process-send-string
+                connection
+                (or response
+                    (wf-manager-tests--json
+                     404 "{\"version\":1,\"status\":404,\"code\":\"not-found\",\"title\":\"Not found\"}")))
+               (delete-process connection))))))
+
+(defun wf-manager-tests--release (target response)
+  "Answer the oldest held connection of TARGET with RESPONSE."
+  (let ((held (assoc target wf-manager-tests--held)))
+    (should held)
+    (setq wf-manager-tests--held (delq held wf-manager-tests--held))
+    (process-send-string (cdr held) response)
+    (delete-process (cdr held))))
+
+(defun wf-manager-tests--targets (listener target)
+  "Return the number of the requests of LISTENER for TARGET."
+  (cl-count target (wf-manager-tests--listener-requests listener)
+            :key #'wf-manager-tests--target :test #'equal))
+
+(defun wf-manager-tests--draft-json (id revision)
+  "Return the JSON text of a draft request ID with REVISION."
+  (concat "{\"version\":1,\"id\":\"" id "\",\"revision\":\"" revision "\","
+          "\"workflowId\":\"wf_review\",\"descriptorRevision\":\"catalogue_17\","
+          "\"profileId\":\"profile_main\",\"profileRevision\":\"profile_rev_4\","
+          "\"phase\":\"draft\",\"readiness\":{\"declarations\":[{\"name\":\"subject\","
+          "\"source\":\"command-tail\",\"description\":null,\"required\":true,"
+          "\"schema\":{\"type\":\"string\"}}],\"supplied\":[],\"missing\":[\"subject\"],"
+          "\"errors\":[]},\"admission\":{\"state\":\"not-queued\",\"position\":null,"
+          "\"reasons\":[\"missing-inputs\"]},\"preparationId\":null,\"runId\":null,"
+          "\"parentRunId\":null,\"lineage\":null,\"links\":{\"self\":\"/v1/requests/" id "\"}}"))
+
+(defun wf-manager-tests--overview-page (cursor ids index total next)
+  "Return the response of one overview page.
+CURSOR is the event cursor, IDS the identifiers of the draft members of
+the page, INDEX the page index, TOTAL the total item count and NEXT the
+next page or nil."
+  (wf-manager-tests--json
+   200
+   (concat "{\"version\":1,\"snapshotVersion\":1,\"cursor\":\"" cursor "\","
+           "\"oldestCursor\":\"s.0\",\"page\":{\"setId\":\"set_1\",\"revision\":\"rev_1\","
+           "\"expiresAt\":\"2999-01-01T00:00:00Z\",\"index\":" (number-to-string index)
+           ",\"totalItems\":" (number-to-string total) ",\"next\":"
+           (if next (concat "\"" next "\"") "null") "},\"items\":["
+           (mapconcat (lambda (id)
+                        (concat "{\"kind\":\"request\",\"request\":"
+                                (wf-manager-tests--draft-json id "request_rev_1") "}"))
+                      ids ",")
+           "]}")))
+
+(defun wf-manager-tests--batch (cursor &rest resources)
+  "Return the response of a polling batch up to CURSOR.
+The batch has one request.changed invalidation of each of RESOURCES."
+  (wf-manager-tests--json
+   200
+   (concat "{\"version\":1,\"cursor\":\"" cursor "\",\"oldestCursor\":\"s.0\",\"events\":["
+           (let ((number 1))
+             (mapconcat (lambda (resource)
+                          (cl-incf number)
+                          (format (concat "{\"id\":\"s.%d\",\"event\":\"request.changed\","
+                                          "\"data\":{\"version\":1,\"resource\":\"%s\","
+                                          "\"revision\":\"r%d\"}}")
+                                  number resource number))
+                        resources ","))
+           "],\"hasMore\":false}")))
+
+(defun wf-manager-tests--gone (code)
+  "Return a 410 problem response with CODE."
+  (wf-manager-tests--json
+   410 (format "{\"version\":1,\"status\":410,\"code\":\"%s\",\"title\":\"Gone\"}" code)))
+
+(defun wf-manager-tests--call-session (routes function)
+  "With a router of ROUTES, bind a connection and call FUNCTION.
+FUNCTION receives the listener and the `wf-manager-connection'.  The
+router answers /v1/capabilities, and polling batches come every 0.05
+seconds."
+  (puthash "/v1/capabilities"
+           (list (wf-manager-tests--json
+                  200 (wf-manager-json-encode (wf-manager-tests--capabilities))))
+           routes)
+  (setq wf-manager-tests--held nil)
+  (wf-manager-tests--call-transport
+   (wf-manager-tests--router routes)
+   (lambda (listener profile)
+     (let ((wf-manager-poll-seconds 0.05)
+           (connection (wf-manager-tests--outcome
+                        (lambda (callback) (wf-manager-connect profile callback)))))
+       (should (wf-manager-connection-p connection))
+       (funcall function listener connection)))))
+
+(defun wf-manager-tests--routes (&rest pairs)
+  "Return the routes of PAIRS, which alternate targets and response lists."
+  (let ((routes (make-hash-table :test #'equal)))
+    (while pairs (puthash (pop pairs) (pop pairs) routes))
+    routes))
+
+(defun wf-manager-tests--draft-revision (session uri)
+  "For SESSION, return the revision of the installed draft read URI, or nil."
+  (let ((read (wf-manager-session-current
+               session (wf-manager-session-reference session uri))))
+    (and (wf-manager-reply-p read)
+         (wf-manager-draft-revision
+          (wf-manager-decode-draft (wf-manager-reply-value read))))))
+
+(ert-deftest wf-manager-session-overview-view-expired-restarts ()
+  "Assemble the overview over its pages, and restart it after view-expired."
+  (wf-manager-tests--call-session
+   (wf-manager-tests--routes
+    "/v1/snapshot"
+    (list (wf-manager-tests--overview-page "s.1" '("req_a") 0 2 "/v1/snapshot?pageToken=t1"))
+    "/v1/snapshot?pageToken=t1"
+    (list (wf-manager-tests--gone "view-expired")
+          (wf-manager-tests--overview-page "s.1" '("req_b") 1 2 nil))
+    "/v1/events?after=s.1" (list (wf-manager-tests--batch "s.1")))
+   (lambda (listener connection)
+     (let* ((session nil)
+            (overview (wf-manager-tests--outcome
+                       (lambda (callback)
+                         (setq session (wf-manager-session-start connection callback))))))
+       (unwind-protect
+           (progn
+             (should (wf-manager-overview-p overview))
+             (should (eq (wf-manager-session-overview session) overview))
+             (should (= (wf-manager-overview-pages overview) 2))
+             (should (equal (wf-manager-overview-cursor overview) "s.1"))
+             (should (equal (mapcar (lambda (item)
+                                      (let ((reference (wf-manager-overview-item-reference item)))
+                                        (list (wf-manager-overview-member-kind
+                                               (wf-manager-overview-item-member item))
+                                              (wf-manager-reference-uri reference)
+                                              (equal (wf-manager-reference-endpoint reference)
+                                                     (wf-manager-connection-identity connection))
+                                              (wf-manager-overview-item-revision item))))
+                                    (wf-manager-overview-items overview))
+                            '(("request" "/v1/requests/req_a" t "request_rev_1")
+                              ("request" "/v1/requests/req_b" t "request_rev_1"))))
+             ;; The refused continuation restarted the set at its first
+             ;; page, and the polling batches follow these five requests.
+             (should (equal (cl-subseq (reverse (mapcar #'wf-manager-tests--target
+                                                        (wf-manager-tests--listener-requests
+                                                         listener)))
+                                       0 5)
+                            (list "/v1/capabilities" "/v1/snapshot" "/v1/snapshot?pageToken=t1"
+                                  "/v1/snapshot" "/v1/snapshot?pageToken=t1")))
+             ;; The follow loop polls from the overview cursor.
+             (should (wf-manager-tests--wait
+                      (lambda () (>= (wf-manager-session-polls session) 2))))
+             (should (eq (wf-manager-session-delivery session) 'poll))
+             (should (null (wf-manager-session-follow-end session))))
+         (wf-manager-session-close session))
+       (should (equal (wf-manager-session-follow-end session) '(closed nil)))))))
+
+(ert-deftest wf-manager-session-overview-view-expired-bounded ()
+  "Give the 410 view-expired failure after the last restart of the overview."
+  (wf-manager-tests--call-session
+   (wf-manager-tests--routes
+    "/v1/snapshot"
+    (list (wf-manager-tests--overview-page "s.1" '("req_a") 0 2 "/v1/snapshot?pageToken=t1"))
+    "/v1/snapshot?pageToken=t1" (list (wf-manager-tests--gone "view-expired")))
+   (lambda (listener connection)
+     (let* ((session nil)
+            (overview (wf-manager-tests--outcome
+                       (lambda (callback)
+                         (setq session (wf-manager-session-start connection callback))))))
+       (unwind-protect
+           (progn
+             (should (equal overview '(wf-manager-refused 410 "view-expired")))
+             (should (= (wf-manager-tests--targets listener "/v1/snapshot")
+                        (1+ wf-manager-page-set-restarts)))
+             ;; A session without an overview does not follow.
+             (accept-process-output nil 0.2)
+             (should (= (wf-manager-session-polls session) 0)))
+         (wf-manager-session-close session))))))
+
+(ert-deftest wf-manager-session-cursor-refusal-resnapshots ()
+  "Advance the generation, read the overview again and read every watched resource.
+The read of the earlier generation completes last and installs nothing."
+  (wf-manager-tests--call-session
+   (wf-manager-tests--routes
+    "/v1/snapshot"
+    (list (wf-manager-tests--overview-page "s.1" '("req_a") 0 1 nil)
+          (wf-manager-tests--overview-page "s.5" '("req_a" "req_b") 0 2 nil))
+    "/v1/events?after=s.1" (list 'hold)
+    "/v1/events?after=s.5" (list (wf-manager-tests--batch "s.5"))
+    "/v1/requests/req_a"
+    (list 'hold (wf-manager-tests--json 200 (wf-manager-tests--draft-json "req_a" "request_rev_2"))))
+   (lambda (listener connection)
+     (let* ((session nil)
+            (overview (wf-manager-tests--outcome
+                       (lambda (callback)
+                         (setq session (wf-manager-session-start connection callback)))))
+            (resource "/v1/requests/req_a"))
+       (unwind-protect
+           (progn
+             (should (wf-manager-overview-p overview))
+             (should (= (wf-manager-session-generation session) 0))
+             (wf-manager-session-watch session (wf-manager-session-reference session resource))
+             (should (wf-manager-tests--wait
+                      (lambda () (and (assoc resource wf-manager-tests--held)
+                                      (assoc "/v1/events?after=s.1" wf-manager-tests--held)))))
+             (wf-manager-tests--release "/v1/events?after=s.1"
+                                        (wf-manager-tests--gone "cursor-expired"))
+             ;; The new overview, the second read of the watched resource
+             ;; and a batch from the new cursor follow.
+             (should (wf-manager-tests--wait
+                      (lambda ()
+                        (and (equal (wf-manager-tests--draft-revision session resource)
+                                    "request_rev_2")
+                             (>= (wf-manager-tests--targets listener "/v1/events?after=s.5") 1)))))
+             (should (= (wf-manager-session-generation session) 1))
+             (should (= (wf-manager-tests--targets listener "/v1/snapshot") 2))
+             (should (= (wf-manager-tests--targets listener resource) 2))
+             (should (equal (wf-manager-overview-cursor (wf-manager-session-overview session)) "s.5"))
+             (should (= (length (wf-manager-overview-items (wf-manager-session-overview session))) 2))
+             ;; The read of generation zero completes now and installs nothing.
+             (wf-manager-tests--release
+              resource (wf-manager-tests--json
+                        200 (wf-manager-tests--draft-json "req_a" "request_rev_1")))
+             (accept-process-output nil 0.3)
+             (should (equal (wf-manager-tests--draft-revision session resource) "request_rev_2"))
+             (should (= (wf-manager-tests--targets listener resource) 2))
+             (should (eq (wf-manager-session-delivery session) 'poll))
+             (should (null (wf-manager-session-follow-end session))))
+         (wf-manager-session-close session))))))
+
+(ert-deftest wf-manager-session-invalidation-during-read ()
+  "Give exactly one later read for the invalidations during one read."
+  (wf-manager-tests--call-session
+   (wf-manager-tests--routes
+    "/v1/snapshot" (list (wf-manager-tests--overview-page "s.1" '("req_a") 0 1 nil))
+    "/v1/events?after=s.1" (list 'hold)
+    "/v1/events?after=s.3" (list (wf-manager-tests--batch "s.3"))
+    "/v1/requests/req_a"
+    (list 'hold (wf-manager-tests--json 200 (wf-manager-tests--draft-json "req_a" "request_rev_2"))))
+   (lambda (listener connection)
+     (let* ((session nil)
+            (overview (wf-manager-tests--outcome
+                       (lambda (callback)
+                         (setq session (wf-manager-session-start connection callback)))))
+            (resource "/v1/requests/req_a"))
+       (unwind-protect
+           (progn
+             (should (wf-manager-overview-p overview))
+             (wf-manager-session-watch session (wf-manager-session-reference session resource))
+             ;; A second watch of the same resource starts no read.
+             (wf-manager-session-watch session (wf-manager-session-reference session resource))
+             (should (wf-manager-tests--wait
+                      (lambda () (and (assoc resource wf-manager-tests--held)
+                                      (assoc "/v1/events?after=s.1" wf-manager-tests--held)))))
+             ;; Two invalidations of the resource arrive during its read.
+             (wf-manager-tests--release "/v1/events?after=s.1"
+                                        (wf-manager-tests--batch "s.3" resource resource))
+             (should (wf-manager-tests--wait
+                      (lambda () (>= (wf-manager-tests--targets listener "/v1/events?after=s.3") 1))))
+             (should (= (wf-manager-tests--targets listener resource) 1))
+             (wf-manager-tests--release
+              resource (wf-manager-tests--json
+                        200 (wf-manager-tests--draft-json "req_a" "request_rev_1")))
+             (should (wf-manager-tests--wait
+                      (lambda () (equal (wf-manager-tests--draft-revision session resource)
+                                        "request_rev_2"))))
+             ;; Further batches without invalidations start no read.
+             (let ((polls (wf-manager-session-polls session)))
+               (should (wf-manager-tests--wait
+                        (lambda () (>= (wf-manager-session-polls session) (+ polls 3))))))
+             (should (= (wf-manager-tests--targets listener resource) 2))
+             ;; The two member invalidations also gave the overview exactly
+             ;; one read and one later read, after its first read.
+             (should (= (wf-manager-tests--targets listener "/v1/snapshot") 3))
+             ;; A reference of another endpoint refuses.
+             (should-error (wf-manager-session-watch
+                            session (wf-manager-reference-make :endpoint "other" :uri resource))
+                           :type 'wf-manager-wrong-endpoint))
+         (wf-manager-session-close session))))))
 
 (provide 'wf-manager-tests)
 

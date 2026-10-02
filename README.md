@@ -815,23 +815,33 @@ resource in the act of the control. The mode checks each control against the
 command receipts, the coordination database, `events.ndjson` and the run log,
 and it requires that the session sent only these three controls, each once.
 
-With `--service-case witness`, the script is the observer of the cross-client
-witness. The `cross-client` mode of `manager/test/service_http.py` runs it
-against one manager with three client credentials, one for each of the TUI,
-Pi and Emacs. The TUI creates and enqueues a `mixed-controls` request by keys,
-and Pi approves its exact review. When the run waits at its person question,
-the harness names the run and the question through a file in the directory
-of `--service-handshake`. The script starts `Emacs -Q -nw` at 80×24 with the
-client profile of the Emacs credential and acts only by keys:
+With `--service-case witness`, the script is the Emacs client of the
+cross-client witness. The `cross-client` mode of
+`manager/test/service_http.py` runs it against one manager with three client
+credentials, one for each of the TUI, Pi and Emacs. The TUI creates and
+enqueues a `mixed-controls` request by keys, and Pi approves its exact
+review. When the run waits at its person question, the harness names the run
+and the question through a file in the directory of `--service-handshake`.
+The script starts `Emacs -Q -nw` at 80×24 with the client profile of the
+Emacs credential and acts only by keys:
 
 1. `M-x wf-service` selects the profile.
 2. `M-x wf-runs` opens the view of the run, and the view shows the pending
-   question.
-3. `M-x wf-local` closes the session, and `C-x C-c` ends Emacs.
+   question as its head.
+3. `a` opens the answer editor of that head, and the script types `false`.
+   The handshake `open-answer` gives the harness the view lines, the editor
+   text and the commands of the session. The harness answers it after Pi
+   has answered the same head and that answer has reached its effect.
+4. `C-c C-c` sends the open editor once. The manager refuses the answer, and
+   the session records the refusal as its problem and shows it in
+   `*Messages*`. The editor keeps its text, and for three seconds the
+   session sends nothing more.
+5. `M-x wf-local` closes the session, and `C-x C-c` ends Emacs.
 
-The report holds the lines of the view and the commands of the session. The
-mode requires that the session sent no command and that the coordination
-database holds no command of the Emacs credential.
+The report holds the lines of the view, the refusal and the commands of the
+session. The mode requires that the session sent only the one refused
+answer, that the coordination database holds no command of the Emacs
+credential, and that the one answer of the head is the answer of Pi.
 
 The SSH/TRAMP gate starts an unprivileged server bound only to `127.0.0.1`,
 with temporary host and client keys, strict host-key checking, public-key-only

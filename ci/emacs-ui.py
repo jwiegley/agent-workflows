@@ -1293,31 +1293,47 @@ def service_controls_case(args, directory: Path) -> None:
 
 # The version of the report of the cross-client witness. The cross-client
 # mode of agent-cat manager/test/service_http.py requires the same version.
-WITNESS_REPORT_VERSION = 1
+WITNESS_REPORT_VERSION = 2
+# The answer that the witness types in the answer editor of the question.
+WITNESS_ANSWER = "false"
+# The seconds for which the witness watches the session after the refusal
+# of its answer, to show that the session sends nothing more.
+WITNESS_QUIET = 3.0
 
 
 def service_witness_case(args, directory: Path) -> None:
-    """Observe a run that other clients created and approved, by keys at 80x24.
+    """Observe a run that other clients created and approved, and lose an
+    answer race, by keys at 80x24.
 
     M-x wf-service selects the client profile. The harness that runs the
     manager names the run and its pending person question in its answer
     to the handshake witness-ready of service_handshake in the directory
     of --service-handshake. M-x wf-runs opens the view of the run, which
-    must show the pending question. The session sends no command. M-x
-    wf-local then closes the session, and C-x C-c ends Emacs. The report
-    records the lines of the view and the commands of the session, and it
-    is written again after each step."""
+    must show the pending question as its head. a opens the answer editor
+    of that head, and the witness types WITNESS_ANSWER. The handshake
+    open-answer then gives the harness the lines of the view, the text of
+    the editor and the commands of the session, and the harness answers it
+    after another client has answered the same head. C-c C-c then sends
+    the open editor once. The manager refuses that answer, and the session
+    must record the refusal as its problem, show it in *Messages*, keep the
+    editor with its text and send nothing more for WITNESS_QUIET seconds.
+    M-x wf-local then closes the session, and C-x C-c ends Emacs. The
+    report records the lines of the view, the refusal and the commands of
+    the session, and it is written again after each step."""
     profile, report_path = Path(args.service[0]).resolve(), Path(args.service[1]).resolve()
     handshake = args.service_handshake.resolve()
     emacs_directory = args.source.resolve().parent
     sources = [emacs_directory / name for name in ("wf.el", "wf-manager.el", "wf-service.el")]
-    report: dict = {"version": WITNESS_REPORT_VERSION, "profile": str(profile), "steps": []}
+    report: dict = {"version": WITNESS_REPORT_VERSION, "profile": str(profile), "answer": WITNESS_ANSWER, "steps": []}
 
     def record(step: str, line: str, **facts) -> None:
         report["steps"].append(step)
         report.update(facts)
         report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2))
         print("PASS cross-client witness keys " + step + ": " + line, flush=True)
+
+    def editing(state: dict) -> bool:
+        return state.get("buffer", "").startswith("*wf answer JSON")
 
     session = Emacs(args.emacs, sources, directory, 80, 24, service_body(profile, directory))
     success = False
@@ -1333,18 +1349,47 @@ def service_witness_case(args, directory: Path) -> None:
         run, question = ready["run"], ready["question"]
         service_open_view(session, run, "witness")
         viewed = session.wait(lambda state: service_view(state, run) is not None
+                              and service_view(state, run)["head"] == question
                               and any(question + ": pending question" in line for line in service_view(state, run)["lines"]),
                               "witness-question", 120)
         view = service_view(viewed, run)
-        record("2", "M-x wf-runs opened the view of run " + run + ", which showed the pending question " + question,
+        record("2", "M-x wf-runs opened the view of run " + run + ", which showed the pending question " + question + " as its head",
                run=run, question=question, viewLines=view["lines"], head=view["head"], kind=view["kind"])
+
+        # The answer editor of the head, with the typed answer.
+        session.send("a")
+        session.wait(editing, "witness-answer-editor", 60)
+        session.send(WITNESS_ANSWER)
+        typed = session.wait(lambda state: editing(state) and state.get("text") == WITNESS_ANSWER, "witness-answer-typed")
+        sent = service_extra(typed).get("sent", [])
+        record("3", "a opened the answer editor " + typed["buffer"] + " of question " + question + ", and the editor holds "
+               + WITNESS_ANSWER, editorBuffer=typed["buffer"], editorText=typed["text"], sentBefore=sent)
+        service_handshake(session, handshake, "open-answer",
+                          {"run": run, "question": question, "viewLines": view["lines"], "head": view["head"], "kind": view["kind"],
+                           "editorBuffer": typed["buffer"], "editorText": typed["text"], "sent": sent}, 300)
+
+        # The send of the open editor after the other answer took effect.
+        since = len(session.state.get("messages", ""))
+        session.send(b"\x03\x03")
+        refused = session.wait(lambda state: bool(service_extra(state).get("problem"))
+                               and len(service_extra(state).get("sent", [])) == len(sent) + 1
+                               and service_said(service_extra(state)["problem"][:60], since)(state), "witness-refused", 90)
+        problem = service_extra(refused)["problem"]
+        quiet = time.monotonic() + WITNESS_QUIET
+        while time.monotonic() < quiet:
+            session.drain()
+        after = session.state
+        record("4", "C-c C-c sent the open editor once, and the session showed the refusal: " + problem,
+               refusal=problem, sentAfterRefusal=service_extra(refused).get("sent", []), sentQuiet=service_extra(after).get("sent", []),
+               editorKept=editing(after) and after.get("text") == WITNESS_ANSWER,
+               messagesAfter=after.get("messages", "")[max(0, since - 300):])
         report["sent"] = service_extra(session.state).get("sent", [])
         session.command("wf-local")
         session.wait(lambda state: service_extra(state).get("service") is False, "local")
         success = True
     finally:
         session.close(success)
-    record("3", "M-x wf-local closed the session, and C-x C-c ended Emacs with status 0 and the terminal attributes restored",
+    record("5", "M-x wf-local closed the session, and C-x C-c ended Emacs with status 0 and the terminal attributes restored",
            terminalBefore=session.before, terminalAfter=session.ended["attributes"], exitStatus=session.ended["status"])
 
 
@@ -1385,7 +1430,8 @@ def main() -> None:
         if args.service_case == "witness":
             service_witness_case(args, artifacts / "witness")
             print("PASS cross-client witness by keys at 80x24: the view of a run of other clients showed its pending question, "
-                  "the session sent no command, and terminal restoration", flush=True)
+                  "the answer editor of that head sent once after another client answered it, the session showed the refusal "
+                  "and sent nothing more, and terminal restoration", flush=True)
             return
         service_case(args, artifacts / "service")
         print("PASS service journey by keys at 80x24 with resizes to 40x12 and 140x36, and terminal restoration", flush=True)

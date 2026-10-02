@@ -137,6 +137,26 @@
 ;; earlier binding.  `wf-manager-session-close' ends every request and
 ;; timer of the session and sends no command.
 ;;
+;; `wf-manager-session-prepare' makes a command of the current binding
+;; with its exact bytes, a new idempotency key and its precondition, and
+;; `wf-manager-session-send' sends it one time with
+;; `wf-manager-post-bytes'.  The send gives `delivered' with the reply,
+;; its Location and the decoded receipt of a 202 reply, `refused' for a
+;; 412 stale-revision refusal, or `uncertain'.
+;; `wf-manager-session-receipt' reads the receipt at the Location.
+;; `wf-manager-session-reconcile' reconciles an uncertain command with
+;; one read under the rules of `wf-manager-reconcile', and it never
+;; sends the command again.  The manager serves only pending decisions,
+;; so `wf-manager-session-answer-reconciliation' reconciles an answer
+;; from the occurrence of the run snapshot, and from the controls of the
+;; run only when the snapshot cannot show the answer: the run must still
+;; run with a head that names a later decision.
+;; `wf-manager-recovery-reconciliation' reconciles a recovery choice
+;; from the controls.  `wf-manager-download' and
+;; `wf-manager-session-download' download an artifact and give its bytes
+;; only after their size and their SHA-256 digest agree with the stated
+;; size and digest.
+;;
 ;; Each refusal signals a condition below `wf-manager-error'.  The data of
 ;; the condition is (FIELD REASON).  For a profile, FIELD is the JSON name
 ;; of the profile field that the refusal is about, or "profile" for the
@@ -3285,7 +3305,8 @@ COMMAND is the exact pending command, with its bytes, its idempotency
 key and its precondition.  TARGET is the location of the target
 resource.  PRECONDITION is the entity tag of the precondition, or nil.
 RECEIPT is the location of the command receipt when an earlier
-response gave one, or nil."
+response gave one, or nil.  A location is a resource path, or for a
+command of a session a `wf-manager-reference'."
   (command nil :read-only t)
   (target nil :read-only t)
   (precondition nil :read-only t)
@@ -3941,30 +3962,50 @@ A valid key is 1 to 128 visible ASCII characters."
 (defun wf-manager-post (transport resource body key if-match callback)
   "On TRANSPORT, send one POST to RESOURCE of the JSON BODY.
 Return the exchange.  KEY is the idempotency key, and IF-MATCH is a
-strong entity tag or nil.  The request has the headers Authorization,
-Accept, Content-Type, Idempotency-Key and, when IF-MATCH is non-nil,
-If-Match.  The transport sends it one time and never sends it again.
-CALLBACK runs one time with a `wf-manager-reply' or a failure.  A body
-of more than `wf-manager-command-bytes' bytes, an invalid KEY and an
-invalid IF-MATCH signal `wf-manager-invalid-request' before any send."
-  (let ((bytes (wf-manager-json-encode body)))
-    (when (> (length bytes) wf-manager-command-bytes)
-      (wf-manager--fail 'wf-manager-invalid-request "command"
-                        "the command has more than %d bytes"
-                        wf-manager-command-bytes))
-    (unless (wf-manager-valid-key-p key)
-      (wf-manager--fail 'wf-manager-invalid-request "Idempotency-Key"
-                        "the key is not 1 to 128 visible ASCII characters"))
-    (unless (or (null if-match) (wf-manager-valid-etag-p if-match))
-      (wf-manager--fail 'wf-manager-invalid-request "If-Match"
-                        "the precondition is not a strong entity tag"))
-    (wf-manager--send transport
-                      (list "POST" resource
-                            `(("Content-Type" . "application/json")
-                              ,@(and if-match (list (cons "If-Match" if-match)))
-                              ("Idempotency-Key" . ,key))
-                            bytes "application/json")
-                      #'wf-manager--json-reply wf-manager-response-bytes callback)))
+strong entity tag or nil.  The request body is the text of
+`wf-manager-json-encode' for BODY, and the rest of the request is the
+request of `wf-manager-post-bytes'.  CALLBACK runs one time with a
+`wf-manager-reply' or a failure."
+  (wf-manager-post-bytes transport resource (wf-manager-json-encode body)
+                         key if-match callback))
+
+(defun wf-manager--check-command (bytes key if-match)
+  "Signal `wf-manager-invalid-request' unless a command can be sent.
+BYTES are the body, KEY the idempotency key and IF-MATCH the entity
+tag of the precondition or nil."
+  (unless (and (stringp bytes) (not (multibyte-string-p bytes)))
+    (wf-manager--fail 'wf-manager-invalid-request "command"
+                      "the command body is not a unibyte string"))
+  (when (> (length bytes) wf-manager-command-bytes)
+    (wf-manager--fail 'wf-manager-invalid-request "command"
+                      "the command has more than %d bytes"
+                      wf-manager-command-bytes))
+  (unless (wf-manager-valid-key-p key)
+    (wf-manager--fail 'wf-manager-invalid-request "Idempotency-Key"
+                      "the key is not 1 to 128 visible ASCII characters"))
+  (unless (or (null if-match) (wf-manager-valid-etag-p if-match))
+    (wf-manager--fail 'wf-manager-invalid-request "If-Match"
+                      "the precondition is not a strong entity tag")))
+
+(defun wf-manager-post-bytes (transport resource bytes key if-match callback)
+  "On TRANSPORT, send one POST to RESOURCE of the exact JSON BYTES.
+Return the exchange.  BYTES is a unibyte string, the exact body.  KEY
+is the idempotency key, and IF-MATCH is a strong entity tag or nil.
+The request has the headers Authorization, Accept, Content-Type,
+Idempotency-Key and, when IF-MATCH is non-nil, If-Match.  The
+transport sends it one time and never sends it again.  CALLBACK runs
+one time with a `wf-manager-reply' or a failure.  A body that is not a
+unibyte string or has more than `wf-manager-command-bytes' bytes, an
+invalid KEY and an invalid IF-MATCH signal `wf-manager-invalid-request'
+before any send."
+  (wf-manager--check-command bytes key if-match)
+  (wf-manager--send transport
+                    (list "POST" resource
+                          `(("Content-Type" . "application/json")
+                            ,@(and if-match (list (cons "If-Match" if-match)))
+                            ("Idempotency-Key" . ,key))
+                          bytes "application/json")
+                    #'wf-manager--json-reply wf-manager-response-bytes callback))
 
 (defun wf-manager-poll-events (transport cursor callback)
   "On TRANSPORT, read one polling batch of /v1/events after CURSOR.
@@ -3987,6 +4028,62 @@ cursor-expired, requires a new snapshot.  An invalid CURSOR signals
                                             "the batch status is not 200"))
                         (wf-manager-decode-event-batch (wf-manager-reply-value reply))))
                     wf-manager-response-bytes callback))
+
+(defconst wf-manager-artifact-bytes 67108864
+  "The largest artifact download, in bytes.
+This is the `artifactBytes' limit of the capabilities.")
+
+(defun wf-manager--download-reply (size sha256 response)
+  "Return the verified bytes of a download of SIZE bytes, or signal.
+SHA256 is the stated digest of the bytes, and RESPONSE is the response
+\(STATUS HEADERS BODY).  A status other than 200 signals the failure of
+its problem response.  A 200 response has the media type
+application/octet-stream, `Cache-Control: no-store',
+`X-Content-Type-Options: nosniff' and an attachment disposition, and
+its body has exactly SIZE bytes and the SHA-256 digest SHA256, or it
+signals `wf-manager-invalid-response'."
+  (pcase-let ((`(,status ,headers ,body) response))
+    (unless (= status 200)
+      (when (> (length body) wf-manager-response-bytes)
+        (signal (car (wf-manager--too-large "body" wf-manager-response-bytes))
+                (cdr (wf-manager--too-large "body" wf-manager-response-bytes))))
+      (wf-manager--problem status headers body))
+    (unless (and (equal (wf-manager--media-type headers) "application/octet-stream")
+                 (equal (wf-manager--header headers "cache-control") "no-store")
+                 (equal (wf-manager--header headers "x-content-type-options") "nosniff")
+                 (string-prefix-p "attachment"
+                                  (or (wf-manager--header headers "content-disposition") "")))
+      (wf-manager--fail 'wf-manager-invalid-response "download"
+                        "the download is not an attachment of application/octet-stream"))
+    (unless (= (length body) size)
+      (wf-manager--fail 'wf-manager-invalid-response "download"
+                        "the download has %d bytes and not the stated %d"
+                        (length body) size))
+    (unless (equal (secure-hash 'sha256 body) sha256)
+      (wf-manager--fail 'wf-manager-invalid-response "download"
+                        "the SHA-256 digest of the download is not the stated digest"))
+    body))
+
+(defun wf-manager-download (transport resource size sha256 callback)
+  "On TRANSPORT, download the artifact RESOURCE and verify its bytes.
+Return the exchange.  This is `downloadVerified' of
+`ext-pi/src/manager/transport.ts'.  SIZE is the stated number of
+bytes, at most `wf-manager-artifact-bytes', and SHA256 the stated
+digest, 64 lowercase hexadecimal digits.  The request has the Accept
+value application/octet-stream.  CALLBACK runs one time with the
+exact bytes as a unibyte string, only after their size and their
+SHA-256 digest agree with SIZE and SHA256, or with a failure.  The
+digest is the `secure-hash' of the unibyte bytes, which are never
+decoded.  A SIZE or SHA256 that breaks these rules signals
+`wf-manager-invalid-request' before any send."
+  (unless (and (integerp size) (<= 0 size wf-manager-artifact-bytes)
+               (wf-manager--digest-p sha256))
+    (wf-manager--fail 'wf-manager-invalid-request "download"
+                      "the stated size or SHA-256 digest is not valid"))
+  (wf-manager--send transport
+                    (list "GET" resource nil nil "application/octet-stream")
+                    (lambda (response) (wf-manager--download-reply size sha256 response))
+                    wf-manager-artifact-bytes callback))
 
 ;;;; Capabilities
 
@@ -4224,8 +4321,8 @@ one connection have the same nonce."
 ;; resource again.  A 410 refusal of a batch advances the generation,
 ;; reads the overview again, invalidates every watched resource and
 ;; follows from the new cursor.  A read of an earlier generation
-;; installs nothing.  No read and no poll is a command, and a session
-;; sends no command.
+;; installs nothing.  No read and no poll is a command.  A session sends
+;; a command only when its caller calls `wf-manager-session-send'.
 
 (defconst wf-manager-overview-resource "/v1/snapshot"
   "The first page of the overview page set, and its refresh key.")
@@ -5003,6 +5100,384 @@ change."
     (unless (wf-manager-session-follow-end session)
       (setf (wf-manager-session-follow-end session) (list 'closed nil)))
     (wf-manager--session-changed session)))
+
+;;;;; Commands, reconciliation and downloads
+
+;; A session sends a command only when its caller calls
+;; `wf-manager-session-send', and it sends each call one time.  These
+;; functions follow `prepare', `send', `reconcileCommand' and `download'
+;; of ManagerSession in `ext-pi/src/manager/session.ts', and the answer
+;; and recovery reconciliations of `ext-pi/src/manager-ui.ts'.
+
+(cl-defstruct (wf-manager-pending
+               (:constructor wf-manager--pending-make)
+               (:copier nil))
+  "A prepared command of one binding of a session.
+REFERENCE is the `wf-manager-reference' of its target.  BYTES is its
+exact JSON body, a unibyte string.  KEY is its idempotency key, and
+IF-MATCH is the entity tag of its precondition or nil.  Each send of
+one command sends the same bytes under the same key and precondition."
+  (reference nil :read-only t)
+  (bytes nil :read-only t)
+  (key nil :read-only t)
+  (if-match nil :read-only t))
+
+(cl-defstruct (wf-manager-sent
+               (:constructor wf-manager--sent-make)
+               (:copier nil))
+  "The outcome of one send of a `wf-manager-pending'.
+KIND is `delivered', `refused' or `uncertain'.  A delivered command has
+the 2xx `wf-manager-reply' REPLY and LOCATION, the
+`wf-manager-reference' of its Location header.  RECEIPT is the decoded
+`wf-manager-command-receipt' of a 202 reply, or nil.  A refused command
+has the FAILURE that proves that the manager holds no command under
+its key: a 412 stale-revision refusal, or a refusal before any
+request.  An uncertain command has the FAILURE of the send, or nil
+when a 2xx reply does not agree with the command, and UNCERTAIN, the
+`wf-manager-uncertain' that `wf-manager-session-reconcile' takes."
+  (kind nil :read-only t)
+  (reply nil :read-only t)
+  (location nil :read-only t)
+  (receipt nil :read-only t)
+  (failure nil :read-only t)
+  (uncertain nil :read-only t))
+
+(cl-defstruct (wf-manager-reconciliation
+               (:constructor wf-manager-reconciliation-make)
+               (:copier nil))
+  "How `wf-manager-session-reconcile' reconciles one uncertain command.
+VISIBLE is a function of the JSON value of the one read, which returns
+non-nil when that value shows the effect of the command.  SUPPLIED is
+the `wf-manager-reconcile-target' whose LOCATION, a
+`wf-manager-reference', replaces the target of the command, or nil."
+  (visible nil :read-only t)
+  (supplied nil :read-only t))
+
+(defun wf-manager--session-check (session reference)
+  "Signal the refusal of SESSION for REFERENCE, or return nil."
+  (let ((refusal (wf-manager--session-refusal
+                  session (wf-manager-reference-endpoint reference))))
+    (when refusal (signal (car refusal) (cdr refusal)))))
+
+(defun wf-manager-session-prepare (session reference body if-match)
+  "On SESSION, prepare a command for REFERENCE with the JSON BODY.
+Return the `wf-manager-pending'.  REFERENCE is a `wf-manager-reference'
+of the current binding, and IF-MATCH is the entity tag of the
+precondition or nil.  The command keeps the exact bytes of BODY and a
+new idempotency key of `wf-manager-command-key'.  A closed SESSION
+signals `wf-manager-closed', a REFERENCE of another binding signals
+`wf-manager-wrong-endpoint', and a body, key or precondition that
+`wf-manager-post-bytes' refuses signals `wf-manager-invalid-request'."
+  (wf-manager--session-check session reference)
+  (let ((bytes (wf-manager-json-encode body))
+        (key (wf-manager-command-key (wf-manager-session-connection session))))
+    (wf-manager--check-command bytes key if-match)
+    (wf-manager--pending-make :reference reference :bytes bytes :key key
+                              :if-match if-match)))
+
+(defun wf-manager--sent-uncertain (command failure)
+  "Return the uncertain `wf-manager-sent' of COMMAND with FAILURE."
+  (wf-manager--sent-make
+   :kind 'uncertain :failure failure
+   :uncertain (wf-manager-uncertain-make
+               :command command
+               :target (wf-manager-pending-reference command)
+               :precondition (wf-manager-pending-if-match command)
+               :receipt nil)))
+
+(defun wf-manager--sent-of (command outcome)
+  "Return the `wf-manager-sent' of COMMAND for the send OUTCOME.
+OUTCOME is a `wf-manager-reply' or a failure."
+  (cond
+   ((equal outcome '(wf-manager-refused 412 "stale-revision"))
+    (wf-manager--sent-make :kind 'refused :failure outcome))
+   ((wf-manager-failure-p outcome)
+    (wf-manager--sent-uncertain command outcome))
+   ((null (wf-manager-reply-location outcome))
+    (wf-manager--sent-uncertain command nil))
+   (t
+    (let ((location (wf-manager-reference-make
+                     :endpoint (wf-manager-reference-endpoint
+                                (wf-manager-pending-reference command))
+                     :uri (wf-manager-reply-location outcome))))
+      (if (/= (wf-manager-reply-status outcome) 202)
+          (wf-manager--sent-make :kind 'delivered :reply outcome :location location)
+        (let ((receipt (condition-case nil
+                           (wf-manager-decode-command-receipt
+                            (wf-manager-reply-value outcome))
+                         (wf-manager-error nil))))
+          (if (and receipt
+                   (equal (wf-manager-reply-location outcome)
+                          (concat "/v1/commands/"
+                                  (wf-manager-command-receipt-id receipt))))
+              (wf-manager--sent-make :kind 'delivered :reply outcome
+                                     :location location :receipt receipt)
+            (wf-manager--sent-uncertain command nil))))))))
+
+(defun wf-manager-session-send (session command callback)
+  "On SESSION, send the `wf-manager-pending' COMMAND one time.
+Return nil.  CALLBACK runs one time, after this function returns,
+with a `wf-manager-sent'.  The session never sends COMMAND again by
+itself, and an explicit second call sends the same bytes under the
+same key and precondition.  A 412 stale-revision refusal is
+`refused'.  A closed SESSION, a COMMAND of another binding and a send
+that signals before any request are `refused' with their failure,
+because no request left the client.  Every other failure, and a 2xx
+reply without a Location or a 202 reply whose receipt does not agree
+with its Location, is `uncertain'.  A 2xx reply with a Location is
+`delivered', and a 202 reply then carries its decoded receipt."
+  (let ((refusal (wf-manager--session-refusal
+                  session (wf-manager-reference-endpoint
+                           (wf-manager-pending-reference command)))))
+    (if refusal
+        (run-at-time 0 nil callback (wf-manager--sent-make :kind 'refused
+                                                           :failure refusal))
+      (condition-case failure
+          (wf-manager-post-bytes
+           (wf-manager-session-transport session)
+           (wf-manager-reference-uri (wf-manager-pending-reference command))
+           (wf-manager-pending-bytes command)
+           (wf-manager-pending-key command)
+           (wf-manager-pending-if-match command)
+           (lambda (outcome)
+             (funcall callback (wf-manager--sent-of command outcome))))
+        (wf-manager-error
+         (run-at-time 0 nil callback (wf-manager--sent-make :kind 'refused
+                                                            :failure failure))))))
+  nil)
+
+(defun wf-manager--session-read (session reference callback)
+  "On SESSION, send one GET of REFERENCE and return nil.
+CALLBACK runs one time, after this function returns, with the
+`wf-manager-reply' of status 200 or a failure.  A closed SESSION and a
+REFERENCE of another binding give their failure, and nothing is sent."
+  (let ((refusal (wf-manager--session-refusal
+                  session (wf-manager-reference-endpoint reference))))
+    (if refusal
+        (run-at-time 0 nil callback refusal)
+      (wf-manager--session-get (wf-manager-session-connection session)
+                               (wf-manager-reference-uri reference) callback)))
+  nil)
+
+(defun wf-manager-session-receipt (session location callback)
+  "On SESSION, read the command receipt at LOCATION and return nil.
+LOCATION is the `wf-manager-reference' of the Location of a delivered
+command.  CALLBACK runs one time with the decoded
+`wf-manager-command-receipt', or with a failure.  A receipt whose
+identifier does not name LOCATION is `wf-manager-invalid-response'."
+  (wf-manager--session-read
+   session location
+   (lambda (outcome)
+     (funcall
+      callback
+      (if (wf-manager-failure-p outcome)
+          outcome
+        (condition-case failure
+            (let ((receipt (wf-manager-decode-command-receipt
+                            (wf-manager-reply-value outcome))))
+              (if (equal (wf-manager-reference-uri location)
+                         (concat "/v1/commands/" (wf-manager-command-receipt-id receipt)))
+                  receipt
+                (list 'wf-manager-invalid-response "command receipt"
+                      "the receipt does not name its location")))
+          (wf-manager-error failure)))))))
+
+(defun wf-manager-session-reconcile (session uncertain reconciliation callback)
+  "On SESSION, reconcile UNCERTAIN with one read and no send.
+Return nil.  UNCERTAIN is the `wf-manager-uncertain' of an uncertain
+`wf-manager-sent', and RECONCILIATION is a
+`wf-manager-reconciliation'.  The one read is the read of
+`wf-manager-reconcile-read' with the supplied target of
+RECONCILIATION: the receipt when its location is known, otherwise the
+supplied target or the target of the command.  CALLBACK runs one time
+with the report of `wf-manager-reconcile': (effect-observed),
+\(refused), or (uncertain UNCERTAIN) with UNCERTAIN itself, which keeps
+the exact bytes, key and precondition.  A read of the target observes
+the effect only when the VISIBLE function of RECONCILIATION sees it in
+the read value and the entity tag of the read differs from the
+precondition.  A failed read, an undecodable receipt and a read without
+an entity tag stay uncertain."
+  (let* ((supplied (wf-manager-reconciliation-supplied reconciliation))
+         (read (wf-manager-reconcile-read uncertain supplied)))
+    (wf-manager--session-read
+     session (nth 1 read)
+     (lambda (outcome)
+       (let ((observation
+              (cond
+               ((wf-manager-failure-p outcome) (list 'failure outcome))
+               ((eq (car read) 'receipt)
+                (condition-case failure
+                    (list 'receipt (wf-manager-command-receipt-state
+                                    (wf-manager-decode-command-receipt
+                                     (wf-manager-reply-value outcome))))
+                  (wf-manager-error (list 'failure failure))))
+               ((null (wf-manager-reply-etag outcome))
+                (list 'failure (list 'wf-manager-invalid-response "target"
+                                     "the read has no entity tag")))
+               (t (list 'target (wf-manager-reply-etag outcome)
+                        (and (funcall (wf-manager-reconciliation-visible reconciliation)
+                                      (wf-manager-reply-value outcome))
+                             t))))))
+         (funcall callback (wf-manager-reconcile uncertain observation supplied)))))))
+
+(defun wf-manager-session-download (session reference size sha256 callback)
+  "On SESSION, download the artifact REFERENCE and verify its bytes.
+Return nil.  SIZE and SHA256 are the size and the digest that the
+manager states for the artifact.  CALLBACK runs one time with the
+exact unibyte bytes of `wf-manager-download', only after they agree
+with SIZE and SHA256, or with a failure.  A closed SESSION and a
+REFERENCE of another binding give their failure, and a SIZE or a
+SHA256 that `wf-manager-download' refuses gives
+`wf-manager-invalid-request', and nothing is sent."
+  (let ((refusal (wf-manager--session-refusal
+                  session (wf-manager-reference-endpoint reference))))
+    (if refusal
+        (run-at-time 0 nil callback refusal)
+      (condition-case failure
+          (wf-manager-download (wf-manager-session-transport session)
+                               (wf-manager-reference-uri reference)
+                               size sha256 callback)
+        (wf-manager-error (run-at-time 0 nil callback failure)))))
+  nil)
+
+;;;;; Answer and recovery reconciliations
+
+(defconst wf-manager--stored-answer-characters 500
+  "The largest number of characters of an answer that a run snapshot stores.")
+
+(defun wf-manager--stored-whole-p (text)
+  "Return non-nil when TEXT stays unchanged in a run snapshot.
+TEXT has no line feed, no leading or trailing space, tab or carriage
+return, and at most `wf-manager--stored-answer-characters' characters."
+  (and (not (string-search "\n" text))
+       (not (string-match-p "\\`[ \t\r]\\|[ \t\r]\\'" text))
+       (<= (length text) wf-manager--stored-answer-characters)))
+
+(defun wf-manager-stored-answer-text (decision value)
+  "Return the text of an answer in a run snapshot, or nil.
+DECISION is the `wf-manager-decision' of the answer, and VALUE is its
+typed value.  This is
+`storedAnswerText' of `ext-pi/src/manager/resources.ts'.  The runtime
+stores a flag as yes or no, a receipt as done, a text unchanged and a
+verdict as approve, declined or its objections joined with \"; \".  A
+text that the runtime would change or cut, a verdict whose objections
+other objections could also give, a structured answer and a recovery
+decision give nil, because another answer could store the same text."
+  (let* ((content (wf-manager-decision-content decision))
+         (code (and (wf-manager-question-p content) (wf-manager-question-code content))))
+    (pcase code
+      ("flag" (cond ((eq value t) "yes") ((eq value :false) "no")))
+      ("receipt" (and (eq value :null) "done"))
+      ("text" (and (stringp value) (wf-manager--stored-whole-p value) value))
+      ("verdict"
+       (when (hash-table-p value)
+         (let ((tag (gethash "tag" value))
+               (objections (gethash "objections" value)))
+           (cond
+            ((and (= (hash-table-count value) 1) (member tag '("approve" "declined")))
+             tag)
+            ((and (equal tag "object") (= (hash-table-count value) 2)
+                  (vectorp objections) (> (length objections) 0)
+                  (cl-every (lambda (item)
+                              (and (stringp item) (not (string-empty-p item))
+                                   (not (string-search ";" item))
+                                   (wf-manager--stored-whole-p item)))
+                            objections))
+             (let ((joined (mapconcat #'identity objections "; ")))
+               (and (wf-manager--stored-whole-p joined)
+                    (not (member joined '("approve" "declined")))
+                    joined))))))))))
+
+(defun wf-manager--snapshot-occurrence (snapshot decision)
+  "Return the item of the run SNAPSHOT for the occurrence of DECISION, or nil."
+  (let ((items (and (hash-table-p snapshot) (gethash "items" snapshot)))
+        (occurrence (number-to-string (wf-manager-decision-occurrence-id decision))))
+    (and (vectorp items)
+         (cl-find-if (lambda (item)
+                       (and (hash-table-p item)
+                            (equal (gethash "occurrenceId" item) occurrence)))
+                     items))))
+
+(defun wf-manager-answer-observed (snapshot decision stored)
+  "Return non-nil when the run SNAPSHOT is evidence of the answer of DECISION.
+This is `answerObserved' of `ext-pi/src/manager-ui.ts'.  SNAPSHOT is
+the JSON value of one read of the run snapshot.  The occurrence of
+DECISION completed, it no longer waits on DECISION, and it stores
+exactly STORED, the text of `wf-manager-stored-answer-text' for the sent
+value.  An occurrence that stores another answer shows no effect."
+  (let ((occurrence (wf-manager--snapshot-occurrence snapshot decision)))
+    (and occurrence
+         (not (and (eq (gethash "personPending" occurrence) t)
+                   (equal (gethash "decisionId" occurrence)
+                          (wf-manager-decision-id decision))))
+         (equal (gethash "state" occurrence) "completed")
+         (equal (gethash "answer" occurrence) stored)
+         t)))
+
+(defun wf-manager-control-passed (value decision operation)
+  "Return non-nil when the run controls VALUE show a run past DECISION.
+This is `controlPassed' of `ext-pi/src/manager-ui.ts'.  VALUE is the
+JSON value of one read of the controls of the run.  OPERATION is
+`answer' or `recovery'.  An answer requires a run that still runs,
+which the controls state as `cancelAllowed', with a head that names a
+later decision.  A recovery choice requires only a head that no longer
+names DECISION."
+  (let ((control (condition-case nil (wf-manager-decode-control value)
+                   (wf-manager-error nil))))
+    (and control
+         (not (equal (wf-manager-control-decision-head-id control)
+                     (wf-manager-decision-id decision)))
+         (or (eq operation 'recovery)
+             (and (wf-manager-control-cancel-allowed control)
+                  (wf-manager-control-decision-head-id control)
+                  t)))))
+
+(defun wf-manager-session-answer-reconciliation (session decision value control callback)
+  "On SESSION, give the reconciliation of an answer of DECISION.
+Return nil.  Call this before the answer is sent.  DECISION is a
+`wf-manager-decision', VALUE the typed answer, and CONTROL the
+`wf-manager-reconcile-target' of the controls of the run of DECISION,
+with their entity tag as its precondition.  The manager serves only
+pending decisions, so an answered decision reads as 404 and never
+shows the effect.  When `wf-manager-stored-answer-text' names VALUE,
+one read of the run snapshot gives the supplied target and its
+precondition, and the occurrence must store that text.  Otherwise,
+and when that read fails, the controls reconcile the answer, and the
+run must still run with a head that names another decision.  CALLBACK
+runs one time with a `wf-manager-reconciliation'."
+  (let ((stored (wf-manager-stored-answer-text decision value))
+        (fallback (wf-manager-reconciliation-make
+                   :visible (lambda (observed)
+                              (wf-manager-control-passed observed decision 'answer))
+                   :supplied control)))
+    (if (null stored)
+        (run-at-time 0 nil callback fallback)
+      (let ((reference (wf-manager-session-reference
+                        session (concat "/v1/runs/" (wf-manager-decision-run-id decision)
+                                        "/snapshot"))))
+        (wf-manager--session-read
+         session reference
+         (lambda (outcome)
+           (funcall callback
+                    (if (and (wf-manager-reply-p outcome) (wf-manager-reply-etag outcome))
+                        (wf-manager-reconciliation-make
+                         :visible (lambda (observed)
+                                    (wf-manager-answer-observed observed decision stored))
+                         :supplied (wf-manager-reconcile-target-make
+                                    :location reference
+                                    :precondition (wf-manager-reply-etag outcome)))
+                      fallback)))))))
+  nil)
+
+(defun wf-manager-recovery-reconciliation (decision control)
+  "Return the `wf-manager-reconciliation' of a recovery choice of DECISION.
+CONTROL is the `wf-manager-reconcile-target' of the controls of the
+run, with their entity tag as its precondition.  The controls
+reconcile the choice, and the effect shows when the head no longer
+names DECISION."
+  (wf-manager-reconciliation-make
+   :visible (lambda (observed) (wf-manager-control-passed observed decision 'recovery))
+   :supplied control))
 
 (provide 'wf-manager)
 

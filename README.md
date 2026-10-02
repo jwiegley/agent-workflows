@@ -98,7 +98,8 @@ bin/Main.hs             `wf`, two lines over Agentic.Cli
 emacs/wf.el             native setup, prepared runs, controls, history and lineage
 emacs/wf-smoke.el       batch contracts, run by ci/emacs.sh
 emacs/wf-manager.el     service-mode transport: client profile, credential,
-                        exact JSON codec and event decoders
+                        exact JSON codec, decoders, sessions, commands and
+                        verified downloads
 emacs/wf-manager-tests.el  ERT tests of the transport, run by ci/emacs.sh
 emacs/wf-manager-live.el   live check of the transport, run by the emacs-client
                            mode of agent-cat
@@ -470,7 +471,12 @@ requests, preparations, receipts, decisions, answers, controls and runs vectors,
 and the refresh sequences, backoff, jitter and reconciliation vectors of
 `test/manager_client_vectors.json` in agent-cat. The HTTP transport tests and
 the session tests run against a plain HTTP listener on 127.0.0.1 inside the
-test Emacs and contact no other host. The human/control fixture and
+test Emacs and contact no other host. The command tests send an answer whose
+connection the listener closes after the request, so that the send is
+uncertain. They require exactly one send for each answer and a
+reconciliation with one read that gives `effect-observed` or stays uncertain.
+The download tests require the exact bytes for the stated size and digest and
+a refusal for a wrong digest, a wrong size and an inline disposition. The human/control fixture and
 the vector file are explicit dependencies, not developer-specific paths or
 skipped tests. The pinned agent-cat source of the development shell does not
 have the vector file, so `WF_MANAGER_VECTORS` names it.
@@ -521,8 +527,15 @@ the repeated creation, the typed refusals 412 `stale-revision` and 401
 `unauthenticated`, the end of the follow loop with `refused` after the
 revocation, no prompt, and no process, url.el buffer, timer or transport
 directory after the close. The harness then reads that the run has not ended
-and that the check sent no command after the run handshake.
-It writes a report whose `harnessVersion` field is
+and that the check sent no command after the run handshake, and it drives the
+run to its terminal success. A new session of the first credential then sends
+the export command of the run with the entity tag of its export collection
+and reads the receipt at the Location of the 202 reply until it reaches
+`effect-observed`. The harness reads the same receipt. The session downloads
+the artifact of the export with the verified download, and the harness
+requires the same bytes as its own download. A download with a wrong digest
+and a download with a wrong size must each give
+`wf-manager-invalid-response`. The check writes a report whose `harnessVersion` field is
 `wf-manager-live-harness-version`. The mode refuses a report of another
 version with one sentence, so a mismatched pair of the two repositories fails
 at once. The mode then checks the report against the reads of the manager.
@@ -572,7 +585,10 @@ a decision, and coordinates refreshes and the reconciliation of an uncertain
 command without I/O. Its asynchronous HTTP transport sends requests, binds a
 connection to the capabilities of the manager and reads the event polling
 mode. A session on a connection installs the complete overview and follows
-the events of the manager with polling batches. The connection of the `wf.el` commands to manager resources is not yet in
+the events of the manager with polling batches. A session also sends the
+commands of its caller one time each, reads their receipts, reconciles an
+uncertain command with one read, and gives the bytes of an artifact only
+after their size and SHA-256 digest agree with the stated values. The connection of the `wf.el` commands to manager resources is not yet in
 place.
 
 A client profile is a JSON file of version 1. It has exactly these four
@@ -931,7 +947,8 @@ again and follows from the new cursor. A read that completes for an earlier
 generation installs nothing. A 401 refusal ends the follow loop with
 `refused`. An installed read that the manager refused with 429
 `storage-quota` or 503 `storage-unavailable` is read again after 0.1 seconds.
-No read and no polling batch is a command, and a session sends no command.
+No read and no polling batch is a command. A session sends a command only
+when its caller calls `wf-manager-session-send`.
 
 After a switch, a read or a polling batch of the earlier binding that is still
 in flight installs nothing, because the generation has advanced and the earlier
@@ -941,6 +958,32 @@ is never sent to the new endpoint. A switch also restarts a follow loop that
 ended before it, for example with `refused` after the revocation of the
 earlier credential. A buffer that holds a session or a reference owns nothing,
 and killing that buffer sends no request and no command.
+
+##### Commands and downloads
+
+These functions follow `prepare`, `send`, `reconcileCommand` and `download`
+of `ManagerSession` and the answer and recovery reconciliations of
+`ext-pi/src/manager-ui.ts` in agent-cat.
+
+| Function | Behavior |
+| --- | --- |
+| `wf-manager-session-prepare` | A `wf-manager-pending` command for a reference of the current binding: the exact bytes of its JSON body, a new idempotency key and the entity tag of its precondition or nil. A reference of another binding signals `wf-manager-wrong-endpoint`. |
+| `wf-manager-session-send` | One POST of the exact bytes, key and precondition of a command, with `wf-manager-post-bytes`. The callback receives a `wf-manager-sent` of the kind `delivered`, `refused` or `uncertain`. A 2xx reply with a Location is `delivered`, and a 202 reply carries its decoded receipt, whose identifier must name the Location. A 412 `stale-revision` refusal, a closed session, a command of another binding and a refusal before any request are `refused`. Every other failure and every reply that does not agree with the command are `uncertain`. The session never sends a command again by itself. |
+| `wf-manager-session-receipt` | One read of the receipt at the Location of a delivered command. |
+| `wf-manager-session-reconcile` | One read that reconciles an uncertain command under the rules of `wf-manager-reconcile`: its receipt when the location is known, and otherwise the supplied target of the reconciliation or the target of the command. A read of a target observes the effect only when the function of the reconciliation sees it and the entity tag differs from the precondition. The report is `(effect-observed)`, `(refused)` or `(uncertain UNCERTAIN)` with the unchanged uncertain command. Nothing is sent. |
+| `wf-manager-session-answer-reconciliation` | The reconciliation of an answer, made before the send. The manager serves only pending decisions, so an answered decision reads as 404. When `wf-manager-stored-answer-text` names the value, one read of the run snapshot gives the supplied target and its entity tag, and the occurrence must have completed, no longer wait on the decision and store that text. Otherwise, and when that read fails, the controls of the run reconcile the answer, and the run must still run with a head that names a later decision. |
+| `wf-manager-recovery-reconciliation` | The reconciliation of a recovery choice from the controls of the run: the effect shows when the head no longer names the decision. |
+| `wf-manager-session-download` | The verified download of an artifact of the current binding with `wf-manager-download`. |
+
+`wf-manager-download` sends one GET with the Accept value
+`application/octet-stream`. A 200 response must have that media type,
+`Cache-Control: no-store`, `X-Content-Type-Options: nosniff` and an attachment
+disposition, and its exact body must have the stated size and the stated
+SHA-256 digest, which `secure-hash` computes over the unibyte bytes. Only then
+does the callback receive the bytes. Every other 200 response gives
+`wf-manager-invalid-response`. A size above 67108864 bytes
+(`wf-manager-artifact-bytes`) or a digest that is not 64 lowercase
+hexadecimal digits signals `wf-manager-invalid-request` before any request.
 
 ## What replaces what
 

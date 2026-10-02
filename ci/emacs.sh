@@ -39,8 +39,10 @@
 #      The session tests use the same listener for the overview page set, its
 #      restart after 410 view-expired, the follow loop, the resnapshot after a
 #      410 cursor refusal, the coalescing of invalidations during a read, the
-#      endpoint switch and its failures, and the close of a session with a
-#      switch in flight. The tests of a server certificate that the CA file
+#      endpoint switch and its failures, the close of a session with a
+#      switch in flight, the uncertain send of an answer whose connection the
+#      listener closes, with exactly one send and its reconciliation by one
+#      read, and the verified download of an artifact. The tests of a server certificate that the CA file
 #      of the profile does not verify start a TLS server on 127.0.0.1 with
 #      the python3 of PATH. They contact no other host.
 #

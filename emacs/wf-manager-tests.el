@@ -36,7 +36,13 @@
 ;; after a 410 cursor refusal, a read of the earlier generation that
 ;; installs nothing, and one later read for the invalidations during one
 ;; read, the endpoint switch and its failures, and the close of a
-;; session with a switch in flight.  For a server certificate that the
+;; session with a switch in flight.  The command tests send an answer
+;; whose connection the listener closes after the request, so the send is
+;; uncertain, and they check that the listener receives exactly one send
+;; and that one read reconciles it to effect-observed from the run
+;; snapshot, keeps it uncertain, or reconciles it from the controls when
+;; the snapshot read fails.  The download tests check the exact bytes and
+;; the refusal of a wrong digest, a wrong size and an inline disposition.  For a server certificate that the
 ;; CA file of the profile does not verify, a request, a connect and a
 ;; switch contact a TLS server on 127.0.0.1 that a python3 process from
 ;; PATH runs.  The capability checks follow
@@ -2053,8 +2059,10 @@ Return the symbol `accepted' when the capabilities pass."
 ROUTES is a hash table from a request target to the list of its
 responses.  Each request takes the first response of its target, and
 the last response stays for each later request.  A response is the
-text of an HTTP response or the symbol `hold'.  A held connection goes
-to `wf-manager-tests--held'.  A target without a route receives 404."
+text of an HTTP response or the symbol `hold' or `drop'.  A held
+connection goes to `wf-manager-tests--held'.  The response `drop'
+closes the connection with no answer.  A target without a route
+receives 404."
   (lambda (connection request)
     (let* ((target (wf-manager-tests--target request))
            (responses (gethash target routes))
@@ -2063,6 +2071,8 @@ to `wf-manager-tests--held'.  A target without a route receives 404."
       (cond ((eq response 'hold)
              (setq wf-manager-tests--held
                    (append wf-manager-tests--held (list (cons target connection)))))
+            ((eq response 'drop)
+             (delete-process connection))
             (t (process-send-string
                 connection
                 (or response
@@ -2581,6 +2591,274 @@ reference sends nothing guards against a future hook that would."
        (should (null (wf-manager-tests--new-processes listener processes)))
        (should (null (cl-set-difference (buffer-list) buffers)))
        (should (= (wf-manager-tests--posts listener) 0))))))
+
+;;;; Commands, reconciliation and downloads
+
+;; These tests send commands of a session to the local listener.  The
+;; router response `drop' closes the connection of a request with no
+;; answer, so the send is uncertain after the manager may have received
+;; it.
+
+(defconst wf-manager-tests--decision-uri "/v1/decisions/decision_3"
+  "The decision resource of the flag decision of the answers vectors.")
+
+(defconst wf-manager-tests--run-snapshot-uri "/v1/runs/run_21/snapshot"
+  "The run snapshot of the run of that decision.")
+
+(defconst wf-manager-tests--control-uri "/v1/runs/run_21/control"
+  "The controls of the run of that decision.")
+
+(defun wf-manager-tests--run-snapshot (etag state pending answer)
+  "Return a run snapshot response with ETAG and one occurrence 0.
+The occurrence has STATE, waits on decision_3 when PENDING is non-nil,
+and stores ANSWER, a string or nil for JSON null."
+  (wf-manager-tests--json
+   200
+   (concat "{\"version\":1,\"items\":[{\"occurrenceId\":\"0\",\"state\":\"" state "\","
+           "\"personPending\":" (if pending "true" "false") ","
+           "\"decisionId\":" (if pending "\"decision_3\"" "null") ","
+           "\"answer\":" (if answer (concat "\"" answer "\"") "null") "}]}")
+   (list (concat "ETag: \"" etag "\""))))
+
+(defun wf-manager-tests--run-control (etag cancel head)
+  "Return a controls response of run_21 with ETAG.
+CANCEL is non-nil when the run can be cancelled, and HEAD is the
+decision head or nil."
+  (wf-manager-tests--json
+   200
+   (concat "{\"version\":1,\"runId\":\"run_21\",\"revision\":\"controlrev_3\","
+           "\"supervision\":\"owned\",\"cancelAllowed\":" (if cancel "true" "false") ","
+           "\"offers\":[],\"decisionHeadId\":" (if head (concat "\"" head "\"") "null") "}")
+   (list (concat "ETag: \"" etag "\""))))
+
+(defun wf-manager-tests--with-commands (routes function)
+  "Start a session on a router of ROUTES and call FUNCTION.
+ROUTES are the pairs of `wf-manager-tests--routes' without the overview
+and the polling batch, which the router answers with an empty
+overview.  The router closes each POST to the decision of the flag
+answer vector with no answer.  FUNCTION receives the listener, the
+session and that decision."
+  (wf-manager-tests--call-session
+   (apply #'wf-manager-tests--routes
+          "/v1/snapshot" (list (wf-manager-tests--overview-page "s.1" nil 0 0 nil))
+          "/v1/events?after=s.1" (list (wf-manager-tests--batch "s.1"))
+          wf-manager-tests--decision-uri (list 'drop)
+          routes)
+   (lambda (listener connection)
+     (let* ((session nil)
+            (overview (wf-manager-tests--outcome
+                       (lambda (callback)
+                         (setq session (wf-manager-session-start connection callback))))))
+       (unwind-protect
+           (progn
+             (should (wf-manager-overview-p overview))
+             (funcall function listener session
+                      (wf-manager-tests--answer-decision "flag no is false")))
+         (wf-manager-session-close session))))))
+
+(defun wf-manager-tests--send-answer (session decision input)
+  "On SESSION, prepare and send to DECISION the answer INPUT.
+The precondition is the revision of DECISION.  Return (COMMAND . SENT),
+the `wf-manager-pending' and its `wf-manager-sent'."
+  (let* ((value (wf-manager-answer-value decision input))
+         (command (wf-manager-session-prepare
+                   session (wf-manager-session-reference session wf-manager-tests--decision-uri)
+                   (wf-manager-answer-body decision value)
+                   (concat "\"" (wf-manager-decision-revision decision) "\""))))
+    (cons command
+          (wf-manager-tests--outcome
+           (lambda (callback) (wf-manager-session-send session command callback))))))
+
+(defun wf-manager-tests--control-target (session)
+  "Return the reconcile target of the controls of run_21 on SESSION."
+  (wf-manager-reconcile-target-make
+   :location (wf-manager-session-reference session wf-manager-tests--control-uri)
+   :precondition "\"control_1\""))
+
+(defun wf-manager-tests--check-uncertain (listener command sent posts)
+  "Check the uncertain send of LISTENER for COMMAND.
+SENT is the `wf-manager-sent' of COMMAND, and it must be uncertain.
+LISTENER must have received exactly POSTS sends, and its last POST has
+the exact bytes, key and precondition of COMMAND."
+  (let* ((posted (car (cl-remove-if-not (lambda (request) (string-prefix-p "POST " request))
+                                        (wf-manager-tests--listener-requests listener))))
+         (headers (wf-manager-tests--request-headers posted)))
+    (should (eq (wf-manager-sent-kind sent) 'uncertain))
+    (should (eq (car (wf-manager-sent-failure sent)) 'wf-manager-transport-unavailable))
+    (should (eq (wf-manager-uncertain-command (wf-manager-sent-uncertain sent)) command))
+    (should (= (wf-manager-tests--posts listener) posts))
+    (should (equal (substring posted (+ 4 (string-search "\r\n\r\n" posted)))
+                   (wf-manager-pending-bytes command)))
+    (should (equal (cdr (assoc "idempotency-key" headers)) (wf-manager-pending-key command)))
+    (should (equal (cdr (assoc "if-match" headers)) (wf-manager-pending-if-match command)))))
+
+(ert-deftest wf-manager-session-uncertain-answer-observed ()
+  "Reconcile an uncertain answer from the run snapshot to effect-observed.
+The connection closes after the request, so the send is uncertain.  The
+reconciliation reads the run snapshot before the send, and one read
+after it shows the occurrence completed with the stored answer.  The
+listener receives exactly one send, and nobody reads the decision or
+the controls."
+  (wf-manager-tests--with-commands
+   (list wf-manager-tests--run-snapshot-uri
+         (list (wf-manager-tests--run-snapshot "snap_1" "waiting" t nil)
+               (wf-manager-tests--run-snapshot "snap_2" "completed" nil "no")))
+   (lambda (listener session decision)
+     (let* ((reconciliation
+             (wf-manager-tests--outcome
+              (lambda (callback)
+                (wf-manager-session-answer-reconciliation
+                 session decision :false (wf-manager-tests--control-target session) callback))))
+            (supplied (wf-manager-reconciliation-supplied reconciliation)))
+       (should (equal (wf-manager-reference-uri (wf-manager-reconcile-target-location supplied))
+                      wf-manager-tests--run-snapshot-uri))
+       (should (equal (wf-manager-reconcile-target-precondition supplied) "\"snap_1\""))
+       (pcase-let ((`(,command . ,sent) (wf-manager-tests--send-answer session decision "no")))
+         (wf-manager-tests--check-uncertain listener command sent 1)
+         (should (equal (wf-manager-tests--outcome
+                         (lambda (callback)
+                           (wf-manager-session-reconcile
+                            session (wf-manager-sent-uncertain sent) reconciliation callback)))
+                        '(effect-observed)))
+         (accept-process-output nil 0.2)
+         (should (= (wf-manager-tests--posts listener) 1))
+         (should (= (wf-manager-tests--targets listener wf-manager-tests--decision-uri) 1))
+         (should (= (wf-manager-tests--targets listener wf-manager-tests--run-snapshot-uri) 2))
+         (should (= (wf-manager-tests--targets listener wf-manager-tests--control-uri) 0)))))))
+
+(ert-deftest wf-manager-session-uncertain-answer-stays-uncertain ()
+  "Keep an uncertain answer uncertain when the snapshot shows no effect.
+The one read after the send shows a new entity tag, and the occurrence
+still waits on the decision.  The report keeps the uncertain command
+with its exact bytes, key and precondition, and nothing is sent again."
+  (wf-manager-tests--with-commands
+   (list wf-manager-tests--run-snapshot-uri
+         (list (wf-manager-tests--run-snapshot "snap_1" "waiting" t nil)
+               (wf-manager-tests--run-snapshot "snap_2" "waiting" t nil)))
+   (lambda (listener session decision)
+     (let ((reconciliation
+            (wf-manager-tests--outcome
+             (lambda (callback)
+               (wf-manager-session-answer-reconciliation
+                session decision :false (wf-manager-tests--control-target session) callback)))))
+       (pcase-let* ((`(,command . ,sent) (wf-manager-tests--send-answer session decision "no"))
+                    (uncertain (wf-manager-sent-uncertain sent)))
+         (wf-manager-tests--check-uncertain listener command sent 1)
+         (let ((report (wf-manager-tests--outcome
+                        (lambda (callback)
+                          (wf-manager-session-reconcile session uncertain reconciliation
+                                                        callback)))))
+           (should (eq (car report) 'uncertain))
+           (should (eq (nth 1 report) uncertain))
+           (should (eq (wf-manager-uncertain-command (nth 1 report)) command))
+           (should (equal (wf-manager-uncertain-precondition (nth 1 report))
+                          (wf-manager-pending-if-match command))))
+         (accept-process-output nil 0.2)
+         (should (= (wf-manager-tests--posts listener) 1))
+         (should (= (wf-manager-tests--targets listener wf-manager-tests--decision-uri) 1))
+         (should (= (wf-manager-tests--targets listener wf-manager-tests--run-snapshot-uri) 2)))))))
+
+(ert-deftest wf-manager-session-uncertain-answer-control-fallback ()
+  "Reconcile an answer from the controls only when the snapshot fails.
+The run snapshot reads as 404, so the controls reconcile each answer.
+The controls of a run that still runs with a later head show the
+effect.  The controls of a run that no longer runs and has no head
+leave the second answer uncertain.  Each answer has exactly one send."
+  (wf-manager-tests--with-commands
+   (list wf-manager-tests--control-uri
+         (list (wf-manager-tests--run-control "control_2" t "decision_4")
+               (wf-manager-tests--run-control "control_3" nil nil)))
+   (lambda (listener session decision)
+     (let ((reconciliation
+            (wf-manager-tests--outcome
+             (lambda (callback)
+               (wf-manager-session-answer-reconciliation
+                session decision :false (wf-manager-tests--control-target session) callback)))))
+       (should (equal (wf-manager-reference-uri
+                       (wf-manager-reconcile-target-location
+                        (wf-manager-reconciliation-supplied reconciliation)))
+                      wf-manager-tests--control-uri))
+       (pcase-let ((`(,command . ,sent) (wf-manager-tests--send-answer session decision "no")))
+         (wf-manager-tests--check-uncertain listener command sent 1)
+         (should (equal (wf-manager-tests--outcome
+                         (lambda (callback)
+                           (wf-manager-session-reconcile
+                            session (wf-manager-sent-uncertain sent) reconciliation callback)))
+                        '(effect-observed))))
+       (pcase-let ((`(,command . ,sent) (wf-manager-tests--send-answer session decision "no")))
+         (wf-manager-tests--check-uncertain listener command sent 2)
+         (should (eq (car (wf-manager-tests--outcome
+                           (lambda (callback)
+                             (wf-manager-session-reconcile
+                              session (wf-manager-sent-uncertain sent) reconciliation
+                              callback))))
+                     'uncertain)))
+       (accept-process-output nil 0.2)
+       (should (= (wf-manager-tests--posts listener) 2))
+       (should (= (wf-manager-tests--targets listener wf-manager-tests--control-uri) 2))))))
+
+(ert-deftest wf-manager-stored-answer-text-rules ()
+  "Name the stored text of an answer only when no other answer stores it."
+  (let ((flag (wf-manager-tests--answer-decision "flag no is false")))
+    (should (equal (wf-manager-stored-answer-text flag :false) "no"))
+    (should (equal (wf-manager-stored-answer-text flag t) "yes"))
+    (should (null (wf-manager-stored-answer-text flag :null)))))
+
+(defconst wf-manager-tests--artifact (unibyte-string 0 1 127 128 200 255 10 13)
+  "The bytes of the artifact of the download tests.")
+
+(defun wf-manager-tests--artifact-response (&optional headers)
+  "Return the download response of `wf-manager-tests--artifact'.
+HEADERS replace the headers of a verified download."
+  (wf-manager-tests--http
+   200 (or headers '("Content-Type: application/octet-stream" "Cache-Control: no-store"
+                     "X-Content-Type-Options: nosniff" "Content-Disposition: attachment"))
+   wf-manager-tests--artifact))
+
+(ert-deftest wf-manager-download-verifies-bytes ()
+  "Give the exact bytes of a download only when its size and digest agree.
+A wrong digest, a wrong size and an inline disposition each refuse the
+bytes.  An invalid stated digest signals before any request."
+  (let ((digest (secure-hash 'sha256 wf-manager-tests--artifact))
+        (size (length wf-manager-tests--artifact)))
+    (wf-manager-tests--call-transport
+     (wf-manager-tests--answer (wf-manager-tests--artifact-response))
+     (lambda (listener profile)
+       (let* ((transport (wf-manager-transport-open profile))
+              (download (lambda (size digest)
+                          (wf-manager-tests--outcome
+                           (lambda (callback)
+                             (wf-manager-download transport "/v1/artifacts/artifact_1"
+                                                  size digest callback)))))
+              (bytes (funcall download size digest)))
+         (should (equal bytes wf-manager-tests--artifact))
+         (should-not (multibyte-string-p bytes))
+         (should (equal (cdr (assoc "accept" (wf-manager-tests--request-headers
+                                              (car (wf-manager-tests--listener-requests
+                                                    listener)))))
+                        "application/octet-stream"))
+         (should (eq (car (funcall download size (make-string 64 ?0)))
+                     'wf-manager-invalid-response))
+         (should (eq (car (funcall download (1+ size) digest))
+                     'wf-manager-invalid-response))
+         (should-error (wf-manager-download transport "/v1/artifacts/artifact_1"
+                                            size "ABC" #'ignore)
+                       :type 'wf-manager-invalid-request)
+         (should (= (length (wf-manager-tests--listener-requests listener)) 3))
+         (wf-manager-transport-close transport))))
+    (wf-manager-tests--call-transport
+     (wf-manager-tests--answer
+      (wf-manager-tests--artifact-response
+       '("Content-Type: application/octet-stream" "Cache-Control: no-store"
+         "X-Content-Type-Options: nosniff" "Content-Disposition: inline")))
+     (lambda (_listener profile)
+       (let ((transport (wf-manager-transport-open profile)))
+         (should (eq (car (wf-manager-tests--outcome
+                           (lambda (callback)
+                             (wf-manager-download transport "/v1/artifacts/artifact_1"
+                                                  size digest callback))))
+                     'wf-manager-invalid-response))
+         (wf-manager-transport-close transport))))))
 
 (provide 'wf-manager-tests)
 

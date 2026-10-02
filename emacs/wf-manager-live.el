@@ -24,11 +24,13 @@
 ;;     WF_MANAGER_REPORT=/path/to/report.json \
 ;;     WF_MANAGER_RUN=/path/to/run.json \
 ;;     WF_MANAGER_REVOKE=/path/to/revoke.json \
+;;     WF_MANAGER_FINISH=/path/to/finish.json \
+;;     WF_MANAGER_DOWNLOAD=/path/to/download.bin \
 ;;       "$EMACS" -Q --batch -L ./emacs -l wf-manager-live \
 ;;       -f ert-run-tests-batch-and-exit
 ;;
 ;; `ci/emacs.sh' compiles and checks this file, and it does not run it.
-;; The one test runs the steps of one session in order:
+;; The one test runs these steps in order:
 ;;
 ;;   1. bind: `wf-manager-connect' binds a transport by GET
 ;;      /v1/capabilities over TLS, with the CA file of the profile as the
@@ -78,9 +80,26 @@
 ;;  10. close: a buffer that holds the session and a reference of the run
 ;;      is killed, and `wf-manager-session-close' then leaves no network
 ;;      process, no url.el buffer, no timer and no session directory of
-;;      either binding.  The harness then reads that the run of the
+;;      either binding.
+;;  11. export: a new connection binds with the profile of
+;;      WF_MANAGER_PROFILE.  The test writes the file that
+;;      WF_MANAGER_FINISH names and waits for that name with the suffix
+;;      .done.  Before it acts, the harness reads that the run of the
 ;;      harness has not ended and that the check sent no command after
-;;      the run handshake.
+;;      the run handshake.  It then drives the run to its terminal
+;;      success and writes the .done file.  A new session of the
+;;      connection prepares the export command of that run with
+;;      `wf-manager-session-prepare', with the entity tag of the first
+;;      page of its export collection as the precondition, and sends it
+;;      one time with `wf-manager-session-send'.  The reply is a 202
+;;      receipt, and `wf-manager-session-receipt' reads the receipt at
+;;      the Location until it settles with effect-observed.  The test
+;;      reads the export of the effect and downloads its artifact with
+;;      `wf-manager-session-download' against the stated size and
+;;      SHA-256 digest, and it writes the bytes to the file that
+;;      WF_MANAGER_DOWNLOAD names.  A download with a wrong digest and a
+;;      download with a wrong size each give
+;;      `wf-manager-invalid-response'.  The test then closes the session.
 ;;
 ;; No step may prompt.  Each prompt function of
 ;; `wf-manager-live--prompt-functions' counts a call and signals an
@@ -137,6 +156,15 @@
 ;;   timersAfterClose  the number of new timers after close
 ;;   bufferKilled      true after the kill of the reference buffer
 ;;   directoryRemoved  true when the directories of both bindings are gone
+;;   exportSent        the kind of the `wf-manager-sent' of the export
+;;   exportCommand     the Location of the export command
+;;   exportState       the state that its receipt reached
+;;   exportResource    the resource of the effect of the receipt
+;;   exportDownload    the download resource of the export
+;;   downloadBytes     the number of the downloaded bytes
+;;   downloadSha256    the SHA-256 digest of the downloaded bytes
+;;   wrongDigestRefusal  the condition of the download with a wrong digest
+;;   wrongSizeRefusal  the condition of the download with a wrong size
 ;;
 ;; The harness compares `harnessVersion' with its own constant and
 ;; refuses a report of another version, so that a mismatched pair of the
@@ -149,7 +177,7 @@
 (require 'url)
 (require 'wf-manager)
 
-(defconst wf-manager-live-harness-version 3
+(defconst wf-manager-live-harness-version 4
   "The version of the report of this file.
 The emacs-client mode of agent-cat states the same version.")
 
@@ -158,6 +186,9 @@ The emacs-client mode of agent-cat states the same version.")
 
 (defconst wf-manager-live-literal "Emacs \u03bb \u96ea\U0001F600 input."
   "The literal input that the set-input command supplies.")
+
+(defconst wf-manager-live-export-name "emacs-export.json"
+  "The name of the export of the run of the harness.")
 
 (defconst wf-manager-live--seconds 40
   "The longest wait of one step of the live session, in seconds.")
@@ -656,13 +687,102 @@ REPORT."
     (should (eql resolved total))
     directory))
 
+(defun wf-manager-live--receipt (session location)
+  "On SESSION, read the receipt at LOCATION until it settles.
+LOCATION is the `wf-manager-reference' of a command.  Return the
+decoded `wf-manager-command-receipt'.  A failure fails the test."
+  (let ((deadline (+ (float-time) wf-manager-live--seconds))
+        (receipt nil))
+    (while (progn
+             (setq receipt (wf-manager-live--await
+                            (lambda (callback)
+                              (wf-manager-session-receipt session location callback))))
+             (should (wf-manager-command-receipt-p receipt))
+             (and (not (member (wf-manager-command-receipt-state receipt)
+                               '("effect-observed" "refused" "unresolved")))
+                  (< (float-time) deadline)))
+      (accept-process-output nil 0.05))
+    receipt))
+
+(defun wf-manager-live--download (session reference size digest)
+  "On SESSION, download REFERENCE against SIZE and DIGEST, and return it.
+The result is the unibyte bytes or a failure."
+  (wf-manager-live--await
+   (lambda (callback)
+     (wf-manager-session-download session reference size digest callback))))
+
+(defun wf-manager-live--export (profile finish-file download-file report)
+  "Export the run of the harness on a new session of PROFILE, and download it.
+FINISH-FILE is the handshake file after which the run has ended, and
+DOWNLOAD-FILE receives the downloaded bytes.  Record the command, its
+receipt and the downloads in REPORT."
+  (let* ((connection (wf-manager-live--await
+                      (lambda (callback) (wf-manager-connect profile callback))))
+         (run (gethash "followRunId" report))
+         (session nil))
+    (should (wf-manager-connection-p connection))
+    (wf-manager-live--handshake connection finish-file wf-manager-live--run-seconds)
+    (unwind-protect
+        (let* ((overview (wf-manager-live--await
+                          (lambda (callback)
+                            (setq session (wf-manager-session-start connection callback)))))
+               (collection (progn
+                             (should (wf-manager-overview-p overview))
+                             (wf-manager-session-reference
+                              session (concat "/v1/runs/" run "/exports"))))
+               (page (wf-manager-live--get connection (wf-manager-reference-uri collection)))
+               (command (wf-manager-session-prepare
+                         session collection
+                         (wf-manager-json-object "name" wf-manager-live-export-name)
+                         (wf-manager-reply-etag page)))
+               (sent (wf-manager-live--await
+                      (lambda (callback) (wf-manager-session-send session command callback)))))
+          (puthash "exportSent" (symbol-name (wf-manager-sent-kind sent)) report)
+          (should (eq (wf-manager-sent-kind sent) 'delivered))
+          (should (wf-manager-command-receipt-p (wf-manager-sent-receipt sent)))
+          (let* ((location (wf-manager-sent-location sent))
+                 (receipt (wf-manager-live--receipt session location))
+                 (effect (wf-manager-command-receipt-effect receipt))
+                 (resource (and (hash-table-p effect) (gethash "resource" effect))))
+            (puthash "exportCommand" (wf-manager-reference-uri location) report)
+            (puthash "exportState" (wf-manager-command-receipt-state receipt) report)
+            (puthash "exportResource" (or resource :null) report)
+            (should (equal (wf-manager-command-receipt-state receipt) "effect-observed"))
+            (should (stringp resource))
+            (let* ((export (wf-manager-reply-value (wf-manager-live--get connection resource)))
+                   (download (gethash "download" export))
+                   (size (string-to-number (gethash "bytes" export)))
+                   (digest (gethash "sha256" export))
+                   (reference (wf-manager-session-reference session download))
+                   (bytes (wf-manager-live--download session reference size digest))
+                   (wrong (concat (if (eq (aref digest 0) ?0) "1" "0") (substring digest 1))))
+              (puthash "exportDownload" download report)
+              (should (stringp bytes))
+              (should-not (multibyte-string-p bytes))
+              (let ((coding-system-for-write 'no-conversion))
+                (write-region bytes nil download-file nil 'silent))
+              (puthash "downloadBytes" (wf-manager-live--integer (length bytes)) report)
+              (puthash "downloadSha256" (secure-hash 'sha256 bytes) report)
+              (puthash "wrongDigestRefusal"
+                       (wf-manager-live--condition
+                        (lambda () (wf-manager-live--download session reference size wrong)))
+                       report)
+              (puthash "wrongSizeRefusal"
+                       (wf-manager-live--condition
+                        (lambda () (wf-manager-live--download session reference (1+ size) digest)))
+                       report)
+              (should (= (length bytes) size))
+              (should (equal (gethash "wrongDigestRefusal" report) "wf-manager-invalid-response"))
+              (should (equal (gethash "wrongSizeRefusal" report) "wf-manager-invalid-response")))))
+      (when session (wf-manager-session-close session)))))
+
 (defun wf-manager-live--write (file value)
   "Write to FILE the JSON VALUE."
   (let ((coding-system-for-write 'no-conversion))
     (write-region (wf-manager-json-encode value) nil file nil 'silent)))
 
 (ert-deftest wf-manager-live-session ()
-  "Run the ten steps of one live session against the manager."
+  "Run the eleven steps of one live session against the manager."
   (let* ((profile (wf-manager-profile-load
                    (wf-manager-live--variable "WF_MANAGER_PROFILE")))
          (second (wf-manager-profile-load
@@ -672,6 +792,8 @@ REPORT."
          (report-file (wf-manager-live--variable "WF_MANAGER_REPORT"))
          (run-file (wf-manager-live--variable "WF_MANAGER_RUN"))
          (revoke-file (wf-manager-live--variable "WF_MANAGER_REVOKE"))
+         (finish-file (wf-manager-live--variable "WF_MANAGER_FINISH"))
+         (download-file (wf-manager-live--variable "WF_MANAGER_DOWNLOAD"))
          (report (wf-manager-json-object
                   "harnessVersion"
                   (wf-manager-live--integer wf-manager-live-harness-version)))
@@ -712,7 +834,9 @@ REPORT."
                (list earlier (wf-manager-transport-directory
                               (wf-manager-session-transport session)))
                report)
-              (push "close" steps))))
+              (push "close" steps)
+              (wf-manager-live--export profile finish-file download-file report)
+              (push "export" steps))))
       (dolist (function wf-manager-live--prompt-functions)
         (advice-remove function #'wf-manager-live--prompted))
       (puthash "prompts" (wf-manager-live--integer wf-manager-live--prompts) report)

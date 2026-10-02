@@ -29,10 +29,10 @@
 ;;     WF_MANAGER_ANSWER=/path/to/answer.json \
 ;;     WF_MANAGER_DRIVE=/path/to/drive.json \
 ;;       "$EMACS" -Q --batch -L ./emacs -l wf-manager-live \
-;;       -f ert-run-tests-batch-and-exit
+;;       --eval '(ert-run-tests-batch-and-exit "wf-manager-live-session")'
 ;;
 ;; `ci/emacs.sh' compiles and checks this file, and it does not run it.
-;; The one test runs these fourteen steps in order:
+;; The test `wf-manager-live-session' runs these fourteen steps in order:
 ;;
 ;;   1. bind: `wf-manager-connect' binds a transport by GET
 ;;      /v1/capabilities over TLS, with the CA file of the profile as the
@@ -132,7 +132,10 @@
 ;;      nothing, then discarded with \`d' and withdrawn with \`w'.  Advice of
 ;;      `wf-manager-session-send' keeps every command that the step sends.
 ;;      M-x wf-local then closes the session.
-;;  14. views: the keys select the profile of WF_MANAGER_PROFILE again
+;;  14. views: the step starts `wf-manager-live--mutation-window'
+;;      seconds after the end of the pages step, so that the client stays
+;;      within the 30 ordinary mutations of one minute of the manager.
+;;      The keys select the profile of WF_MANAGER_PROFILE again
 ;;      and create, set up and approve one run of `mixed-controls' in
 ;;      profile_1 with `wf-manager-live-answered' and one in profile_2
 ;;      with `wf-manager-live-stale'.  M-x wf-runs opens the service run
@@ -273,6 +276,80 @@
 ;; The harness compares `harnessVersion' with its own constant and
 ;; refuses a report of another version, so that a mismatched pair of the
 ;; two repositories fails with one sentence.
+;;
+;; The test `wf-manager-live-controls' is the live check of the controls
+;; of service mode.  The emacs-client-controls mode of
+;; `manager/test/service_http.py' starts the manager with the control
+;; fixtures, issues the client credential of the Emacs client with the
+;; scopes observe, submit and control, and creates and approves two held
+;; runs with the credential of the harness: a run of profile_steer, whose
+;; attempt holds its turn until a steer, and a run of profile_live, whose
+;; first candidate holds its turn until a redirect.  It then runs this
+;; test in a batch Emacs with an isolated home directory:
+;;
+;;     WF_MANAGER_PROFILE=/path/to/client-profile.json \
+;;     WF_MANAGER_STEER_RUN=RUN WF_MANAGER_REDIRECT_RUN=RUN \
+;;     WF_MANAGER_HELD=/path/to/held.json \
+;;     WF_MANAGER_RETRIED=/path/to/retried.json \
+;;     WF_MANAGER_REPORT=/path/to/report.json \
+;;       "$EMACS" -Q --batch -L ./emacs -l wf-manager-live \
+;;       --eval '(ert-run-tests-batch-and-exit "wf-manager-live-controls")'
+;;
+;; The keys select the profile with M-x wf-service and open the view of
+;; each run with M-x wf-runs.  Each control starts with \`c' in the view
+;; of its run, which runs `wf-control'.  The test lists the choices in
+;; *Completions*, and they must equal the labels of
+;; `wf-service-control-read', which lists only what the controls offer.
+;; Advice of `wf-manager-session-send' keeps each command and the
+;; Location of its reply.  The test runs these four steps in order:
+;;
+;;   1. steer: when the controls of the steer run offer a steer, the
+;;      test chooses its timing interrupt-now and types
+;;      `wf-manager-live-steer-text' in the steer editor, and \`C-c C-c'
+;;      sends it.  The steer must reach its effect, and the editor
+;;      closes.
+;;   2. redirect: when the controls of the redirect run offer the live
+;;      redirect to one target, the spare target, the test chooses it.
+;;      The redirect must reach its effect.  The test then writes the
+;;      facts of both controls to the file that WF_MANAGER_HELD names and
+;;      waits for that name with the suffix .done.  The harness confirms
+;;      both controls, settles both runs, and creates and approves a run
+;;      of profile_1, which it answers until its recovery head, and a
+;;      second held run of profile_steer.  The .done file names them.
+;;   3. retry: in the view of the run of profile_1, the test chooses the
+;;      offered retry of the recovery head.  It writes the retry command
+;;      to the file that WF_MANAGER_RETRIED names and waits for the .done
+;;      file, after which the harness has answered the run to its end.
+;;      The view must then show Terminal: succeeded.
+;;   4. cancel: in the view of the second held run, \`C-c C-k' runs
+;;      `wf-kill', and the answer no to its confirmation sends nothing.
+;;      The test then chooses the offered cancel with `wf-control' and
+;;      answers yes.  The cancel must reach the runtime acknowledgement,
+;;      and the view must then show Terminal: cancelled.
+;;
+;; The report of this test is one JSON object with these fields:
+;;
+;;   harnessVersion    `wf-manager-live-harness-version'
+;;   steps             the names of the completed steps, in order
+;;   steerRunId, steerChoices, steerCommand, steerOccurrenceId,
+;;   steerAttemptId, steerText
+;;                     the run, the listed choices, the Location of the
+;;                     steer command, the occurrence and the attempt of
+;;                     its body and its text
+;;   redirectRunId, redirectChoices, redirectCommand,
+;;   redirectOccurrenceId, redirectAttemptId, redirectTarget
+;;                     the run, the listed choices, the Location of the
+;;                     redirect command, its occurrence, the attempt in
+;;                     flight of the chosen offer and its target
+;;   retryRunId, retryChoices, retryCommand, retryFinalLines
+;;                     the run, the listed choices, the Location of the
+;;                     retry command and the view lines at the end
+;;   cancelRunId, declinedSent, cancelChoices, cancelCommand,
+;;   cancelFinalLines  the run, the resources of the commands after the
+;;                     answer no, the listed choices, the Location of
+;;                     the cancel command and the view lines at the end
+;;   controlCommands   each command of the test in order, in the form of
+;;                     requestCommands
 
 ;;; Code:
 
@@ -282,7 +359,7 @@
 (require 'wf-manager)
 (require 'wf-service)
 
-(defconst wf-manager-live-harness-version 7
+(defconst wf-manager-live-harness-version 8
   "The version of the report of this file.
 The emacs-client mode of agent-cat states the same version.")
 
@@ -1217,6 +1294,16 @@ harness writes when it has acted.  Wait at most SECONDS for it."
       (insert-file-contents-literally done)
       (wf-manager-json-decode (buffer-string)))))
 
+(defconst wf-manager-live--mutation-window 61
+  "The seconds between the end of the pages step and the views step.
+The manager admits at most 30 ordinary mutations of one client in one
+minute.  The pages step, the export step, the requests step and the
+views step together send more, so the views step starts after the
+commands of the pages step have left that minute.")
+
+(defvar wf-manager-live--pages-end nil
+  "The `float-time' at the end of the pages step, or nil.")
+
 (defvar wf-manager-live--harness-command nil
   "The answer command of the harness in the views step.")
 
@@ -1287,6 +1374,9 @@ the answers and the sent commands in REPORT."
         wf-manager-live--answer-file answer-file
         wf-manager-live--harness-command nil)
   (clrhash wf-service--answer-drafts)
+  (should wf-manager-live--pages-end)
+  (while (< (float-time) (+ wf-manager-live--pages-end wf-manager-live--mutation-window))
+    (accept-process-output nil 0.25))
   (let ((wf-manager-profiles (list file))
         (suggest-key-bindings nil)
         (extended-command-suggest-shorter nil))
@@ -1391,6 +1481,209 @@ the answers and the sent commands in REPORT."
       (when wf-service--current
         (wf-local)))))
 
+;;;; The controls check
+
+(defconst wf-manager-live-steer-text "Emacs steer λ: focus on the patch."
+  "The steering text of the controls check.
+EMACS_CONTROLS_STEER_TEXT of `manager/test/service_http.py' states the
+same text.")
+
+(defvar wf-manager-live--locations nil
+  "The commands that the controls check sent, the newest first.
+Each item is (RESOURCE LOCATION): the target of one send and the
+Location of its delivered reply, or nil.")
+
+(defun wf-manager-live--record-location (send session command callback)
+  "Call SEND with SESSION, COMMAND and CALLBACK, and keep its Location.
+The Location of the outcome goes into `wf-manager-live--locations'."
+  (funcall send session command
+           (lambda (sent)
+             (push (list (wf-manager-reference-uri (wf-manager-pending-reference command))
+                         (and (wf-manager-sent-location sent)
+                              (wf-manager-reference-uri (wf-manager-sent-location sent))))
+                   wf-manager-live--locations)
+             (funcall callback sent))))
+
+(defun wf-manager-live--control-of (buffer)
+  "Return the kept controls of the run view BUFFER, or nil."
+  (alist-get 'control (wf-service--view-kept (buffer-local-value 'wf-service--view-state buffer))))
+
+(defun wf-manager-live--choose (session run buffer operation predicate &rest keys)
+  "On SESSION, choose a control of RUN in its run view BUFFER with keys.
+The choice is the first choice of `wf-service-control-read' whose
+operation is OPERATION and whose action plist satisfies PREDICATE, when
+it is non-nil.  The keys run `wf-control' with \\`c', list the choices
+in *Completions*, choose its label and continue with KEYS in the same
+keyboard macro.  The listing must equal the labels that
+`wf-service-control-read' reads just before.  Return (LISTED CHOICE
+REFUSAL) with the listed labels, the choice and the `user-error' of the
+keys, or nil."
+  (let* ((choices (car (wf-service-control-read session run)))
+         (choice (cl-find-if (lambda (choice)
+                               (and (equal (plist-get (cddr choice) :operation) operation)
+                                    (or (null predicate) (funcall predicate (cddr choice)))))
+                             choices)))
+    (should choice)
+    (setq wf-manager-live--captures nil)
+    (pop-to-buffer buffer)
+    (let* ((refusal (apply #'wf-manager-live--keys "c ? <f9>" (vconcat (car choice)) "RET" keys))
+           (listed (wf-manager-live--listed (car wf-manager-live--captures))))
+      (should (equal listed (sort (mapcar #'car choices) #'string<)))
+      (list listed choice refusal))))
+
+(defun wf-manager-live--sent-control (run)
+  "Return (BODY LOCATION) of the last command that the check sent to RUN.
+BODY is the decoded JSON body of the command to the controls of RUN,
+and LOCATION is the Location of its delivered reply."
+  (let* ((resource (concat "/v1/runs/" run "/control"))
+         (sent (cl-find resource wf-manager-live--sent :key #'car :test #'equal))
+         (location (cl-find resource wf-manager-live--locations :key #'car :test #'equal)))
+    (should sent)
+    (should (stringp (nth 1 location)))
+    (list (wf-manager-json-decode (nth 3 sent)) (nth 1 location))))
+
+(defun wf-manager-live--final (buffer line)
+  "Wait until the run view BUFFER has the line LINE, and return its lines."
+  (should (wf-manager-live--wait-long
+           (lambda () (member line (wf-service-view-lines
+                                    (buffer-local-value 'wf-service--view-state buffer))))))
+  (wf-manager-live--view-lines buffer))
+
+(defun wf-manager-live--controls (file steer redirect held retried report)
+  "Send the controls of the controls check with keys, for FILE.
+FILE is the client profile file.  STEER and REDIRECT are the two held
+runs of the harness.  HELD and RETRIED are the handshake files after
+the steer and the redirect and after the retry.  Record the choices,
+the commands and the view lines in REPORT, and return the names of the
+completed steps."
+  (setq wf-manager-live--sent nil
+        wf-manager-live--locations nil)
+  (let ((wf-manager-profiles (list file))
+        (suggest-key-bindings nil)
+        (extended-command-suggest-shorter nil)
+        (steps nil))
+    (define-key minibuffer-local-must-match-map (kbd "<f9>") #'wf-manager-live--capture)
+    (advice-add 'wf-manager-session-send :before #'wf-manager-live--record-send)
+    (advice-add 'wf-manager-session-send :around #'wf-manager-live--record-location)
+    (unwind-protect
+        (progn
+          (should-not (wf-manager-live--keys "M-x wf-service RET" (vconcat file) "RET"))
+          (let* ((session (wf-service--state-session wf-service--current))
+                 (steer-view (wf-manager-live--open-view session steer))
+                 (redirect-view (wf-manager-live--open-view session redirect)))
+            ;; The steer: the editor text with the timing interrupt-now.
+            (should (wf-manager-live--wait-long
+                     (lambda () (let ((control (wf-manager-live--control-of steer-view)))
+                                  (and control (wf-service--offers control "steer"))))))
+            (pcase-let ((`(,listed ,_ ,refusal)
+                         (wf-manager-live--choose
+                          session steer steer-view "steer"
+                          (lambda (action) (equal (plist-get action :timing) "interrupt-now"))
+                          (vconcat wf-manager-live-steer-text) "C-c C-c")))
+              (puthash "steerRunId" steer report)
+              (puthash "steerChoices" (vconcat listed) report)
+              (should-not refusal)
+              (should-not (cl-some (lambda (buffer) (string-prefix-p "*wf steer " (buffer-name buffer)))
+                                   (buffer-list))))
+            (pcase-let ((`(,body ,location) (wf-manager-live--sent-control steer)))
+              (puthash "steerCommand" location report)
+              (puthash "steerOccurrenceId" (gethash "occurrenceId" body) report)
+              (puthash "steerAttemptId" (gethash "attemptId" body) report)
+              (puthash "steerText" (gethash "text" body) report)
+              (should (equal (gethash "operation" body) "steer"))
+              (should (equal (gethash "timing" body) "interrupt-now"))
+              (should (equal (gethash "text" body) wf-manager-live-steer-text)))
+            (push "steer" steps)
+            ;; The live redirect: after the dispatch window, to the spare
+            ;; target only.
+            (should (wf-manager-live--wait-long
+                     (lambda ()
+                       (let* ((control (wf-manager-live--control-of redirect-view))
+                              (offers (and control (wf-service--offers control "redirect"))))
+                         (and (= (length offers) 1)
+                              (= (length (wf-manager-control-offer-targets (car offers))) 1)
+                              (string-suffix-p "@spare" (car (wf-manager-control-offer-targets
+                                                              (car offers)))))))))
+            (pcase-let ((`(,listed ,choice ,refusal)
+                         (wf-manager-live--choose session redirect redirect-view "redirect" nil)))
+              (puthash "redirectRunId" redirect report)
+              (puthash "redirectChoices" (vconcat listed) report)
+              (should-not refusal)
+              (should (string-match "attempt \\([0-9]+\\) in flight\\'" (cadr choice)))
+              (puthash "redirectAttemptId" (match-string 1 (cadr choice)) report))
+            (pcase-let ((`(,body ,location) (wf-manager-live--sent-control redirect)))
+              (puthash "redirectCommand" location report)
+              (puthash "redirectOccurrenceId" (gethash "occurrenceId" body) report)
+              (puthash "redirectTarget" (gethash "target" body) report)
+              (should (equal (gethash "operation" body) "redirect")))
+            (push "redirect" steps)
+            ;; The harness confirms both, settles both runs and starts the
+            ;; run of the retry and the run of the cancel.
+            (let* ((facts (wf-manager-json-object
+                           "steerCommand" (gethash "steerCommand" report)
+                           "steerOccurrenceId" (gethash "steerOccurrenceId" report)
+                           "steerAttemptId" (gethash "steerAttemptId" report)
+                           "steerText" (gethash "steerText" report)
+                           "redirectCommand" (gethash "redirectCommand" report)
+                           "redirectOccurrenceId" (gethash "redirectOccurrenceId" report)
+                           "redirectAttemptId" (gethash "redirectAttemptId" report)
+                           "redirectTarget" (gethash "redirectTarget" report)))
+                   (answer (wf-manager-live--ask held facts (* 3 wf-manager-live--run-seconds)))
+                   (retry (gethash "retryRunId" answer))
+                   (cancel (gethash "cancelRunId" answer))
+                   (retry-view (wf-manager-live--open-view session retry))
+                   (cancel-view (wf-manager-live--open-view session cancel)))
+              (puthash "retryRunId" retry report)
+              (puthash "cancelRunId" cancel report)
+              ;; The retry of the recovery head.
+              (should (wf-manager-live--wait-long
+                       (lambda () (wf-manager-live--head retry-view 'recovery))))
+              (pcase-let ((`(,listed ,_ ,refusal)
+                           (wf-manager-live--choose session retry retry-view "retry" nil)))
+                (puthash "retryChoices" (vconcat listed) report)
+                (should-not refusal))
+              (pcase-let ((`(,body ,location) (wf-manager-live--sent-control retry)))
+                (puthash "retryCommand" location report)
+                (should (equal (gethash "operation" body) "retry")))
+              (wf-manager-live--ask retried
+                                    (wf-manager-json-object "retryCommand"
+                                                            (gethash "retryCommand" report))
+                                    (* 2 wf-manager-live--run-seconds))
+              (puthash "retryFinalLines" (wf-manager-live--final retry-view "Terminal: succeeded")
+                       report)
+              (push "retry" steps)
+              ;; The cancel: a declined confirmation of wf-kill sends
+              ;; nothing, and the cancel of wf-control after a yes.
+              (should (wf-manager-live--wait-long
+                       (lambda () (let ((control (wf-manager-live--control-of cancel-view)))
+                                    (and control (wf-service--cancel-offered-p control))))))
+              (let ((before (length wf-manager-live--sent)))
+                (pop-to-buffer cancel-view)
+                (should-not (wf-manager-live--keys "C-c C-k" (vconcat "no") "RET"))
+                (puthash "declinedSent"
+                         (vconcat (mapcar #'car (butlast wf-manager-live--sent before)))
+                         report)
+                (should (= (length wf-manager-live--sent) before)))
+              (pcase-let ((`(,listed ,_ ,refusal)
+                           (wf-manager-live--choose session cancel cancel-view "cancel" nil
+                                                    (vconcat "yes") "RET")))
+                (puthash "cancelChoices" (vconcat listed) report)
+                (should-not refusal))
+              (pcase-let ((`(,body ,location) (wf-manager-live--sent-control cancel)))
+                (puthash "cancelCommand" location report)
+                (should (equal (gethash "operation" body) "cancel")))
+              (puthash "cancelFinalLines" (wf-manager-live--final cancel-view "Terminal: cancelled")
+                       report)
+              (push "cancel" steps))
+            (puthash "controlCommands" (wf-manager-live--commands-json) report)
+            (should-not (wf-manager-live--keys "M-x wf-local RET"))))
+      (advice-remove 'wf-manager-session-send #'wf-manager-live--record-send)
+      (advice-remove 'wf-manager-session-send #'wf-manager-live--record-location)
+      (define-key minibuffer-local-must-match-map (kbd "<f9>") nil)
+      (when wf-service--current
+        (wf-local))
+      (puthash "steps" (vconcat (reverse steps)) report))))
+
 (defun wf-manager-live--write (file value)
   "Write to FILE the JSON VALUE."
   (let ((coding-system-for-write 'no-conversion))
@@ -1434,6 +1727,7 @@ the answers and the sent commands in REPORT."
             (wf-manager-live--stale connection workflow draft report)
             (push "stale" steps)
             (wf-manager-live--pages connection workflow report)
+            (setq wf-manager-live--pages-end (float-time))
             (push "pages" steps))
           (let ((session (wf-manager-live--overview connection report)))
             (push "overview" steps)
@@ -1469,6 +1763,21 @@ the answers and the sent commands in REPORT."
       (puthash "steps" (vconcat (reverse steps)) report)
       (wf-manager-live--write report-file report))
     (should (= wf-manager-live--prompts 0))))
+
+(ert-deftest wf-manager-live-controls ()
+  "Send the offered run controls with keys against the manager."
+  (let ((report (wf-manager-json-object
+                 "harnessVersion"
+                 (wf-manager-live--integer wf-manager-live-harness-version)))
+        (report-file (wf-manager-live--variable "WF_MANAGER_REPORT")))
+    (unwind-protect
+        (wf-manager-live--controls (wf-manager-live--variable "WF_MANAGER_PROFILE")
+                                   (wf-manager-live--variable "WF_MANAGER_STEER_RUN")
+                                   (wf-manager-live--variable "WF_MANAGER_REDIRECT_RUN")
+                                   (wf-manager-live--variable "WF_MANAGER_HELD")
+                                   (wf-manager-live--variable "WF_MANAGER_RETRIED")
+                                   report)
+      (wf-manager-live--write report-file report))))
 
 (provide 'wf-manager-live)
 

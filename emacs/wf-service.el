@@ -52,7 +52,9 @@
 ;;            form again, `wf-help' shows the help text of a catalogue
 ;;            workflow, `wf-diagnostics' shows the diagnostics of the
 ;;            session, `wf-runs' opens the view of a local or a service
-;;            run, and `wf-answer' answers the head decision of a run.
+;;            run, `wf-answer' answers the head decision of a run,
+;;            `wf-control' sends one control that the controls of a run
+;;            offer, and `wf-kill' cancels a run after a confirmation.
 ;;   pending  The command has no manager behavior yet, and it refuses
 ;;            with a message that says so.
 ;;   local    The command reads the local runner or its store, and it
@@ -104,6 +106,19 @@
 ;; `wf-manager-session-answer-reconciliation', and it is never sent again.
 ;; The kill of a view or of any other buffer sends no command, and the
 ;; function of `kill-emacs-hook' closes only the transport.
+;;
+;; `wf-control' reads the controls of the run of the view, the head
+;; decision that they name and, for a redirect offer, the run snapshot.
+;; It lists only what the controls offer: a cancel when the owned
+;; controls allow it, each timing of each steer offer, each target of
+;; each redirect offer, and the retry, abandon and fail-over choices of
+;; a recovery head.  A cancel asks `wf-confirm-function', and only a yes
+;; sends it.  `wf-kill' reaches the same cancel.  A steer opens an
+;; editor, and its text is sent with the offered timing.  Cancel, steer,
+;; redirect and retry bind the entity tag of the controls as If-Match.
+;; A recovery choice binds the entity tag of its decision.  Each control
+;; is sent one time.  An uncertain send is reconciled one time with
+;; `wf-manager-session-reconcile', and it is never sent again.
 
 ;;; Code:
 
@@ -128,9 +143,9 @@ default until `wf-service' runs."
     (wf-refresh service wf-service--refresh)
     (wf-runs service wf-service--runs)
     (wf-answer service wf-service--answer)
-    (wf-control pending)
+    (wf-control service wf-service--control)
+    (wf-kill service wf-service--kill)
     (wf-result pending)
-    (wf-kill pending)
     (wf-history pending)
     (wf-history-refresh pending)
     (wf-history-open pending)
@@ -502,14 +517,21 @@ command stops with a message, and nothing is sent again."
                                             (concat ": " (wf-service--failure-text failure))
                                           ""))))))))
 
-(defun wf-service--settle (session sent what)
+(defun wf-service--receipt-final-p (receipt)
+  "Return non-nil when the state of RECEIPT is final.
+The final states are effect-observed, refused and unresolved."
+  (member (wf-manager-command-receipt-state receipt)
+          '("effect-observed" "refused" "unresolved")))
+
+(defun wf-service--await-receipt (session sent what settled)
   "On SESSION, read the receipt of the delivered SENT until it settles.
-WHAT names the command in a message.  Return the receipt when it
-reached effect-observed, and refuse otherwise."
+WHAT names the command in a message.  SETTLED is a function of a
+`wf-manager-command-receipt', and the receipt settles when it returns
+non-nil.  Return the settled receipt.  The command is never sent
+again."
   (let ((deadline (+ (float-time) wf-service--wait-seconds))
         (receipt (wf-manager-sent-receipt sent)))
-    (while (not (member (and receipt (wf-manager-command-receipt-state receipt))
-                        '("effect-observed" "refused" "unresolved")))
+    (while (not (and receipt (funcall settled receipt)))
       (when (> (float-time) deadline)
         (user-error "%s" (wf-service--problem
                           (format "The %s command did not settle in %d seconds"
@@ -524,6 +546,14 @@ reached effect-observed, and refuse otherwise."
           (wf-service--refuse (format "The receipt of the %s command cannot be read" what)
                               read))
         (setq receipt read)))
+    receipt))
+
+(defun wf-service--settle (session sent what)
+  "On SESSION, read the receipt of the delivered SENT until it settles.
+WHAT names the command in a message.  Return the receipt when it
+reached effect-observed, and refuse otherwise."
+  (let ((receipt (wf-service--await-receipt session sent what
+                                            #'wf-service--receipt-final-p)))
     (unless (equal (wf-manager-command-receipt-state receipt) "effect-observed")
       (user-error "%s" (wf-service--problem
                         (format "The %s command ended %s%s" what
@@ -1205,7 +1235,7 @@ Terminal and Result lines end the list."
   "Return the text of the buffer of VIEW."
   (let ((lines (wf-service-view-lines view)))
     (concat (car lines) "\n"
-            "a answer the head decision · d diagnostics · q bury (does not cancel)\n"
+            "a answer the head decision · c control · C-c C-k cancel · d diagnostics · q bury (does not cancel)\n"
             "The kill of this buffer sends no command.\n\n"
             (mapconcat (lambda (line) (concat line "\n")) (cdr lines) ""))))
 
@@ -1448,19 +1478,30 @@ the pending decision at position 0 of the decision queue of RUN."
                                 "controls")
             control-reply))))
 
-(defun wf-service--answer-offered-p (control decision)
-  "Return non-nil when the controls CONTROL offer an answer of the head DECISION."
+(defun wf-service--decision-offers (control decision)
+  "Return the items of the controls CONTROL for the head DECISION.
+This is `decisionOffers' of `ext-pi/src/manager-ui.ts'.  The controls
+must be owned and name DECISION as their head, and DECISION must be
+the pending decision at position 0.  An offer of DECISION addresses
+its occurrence with no attempt and its generation."
   (and (equal (wf-manager-control-run-id control) (wf-manager-decision-run-id decision))
        (equal (wf-manager-control-supervision control) "owned")
        (equal (wf-manager-control-decision-head-id control) (wf-manager-decision-id decision))
-       (cl-some (lambda (offer)
-                  (and (equal (wf-manager-control-offer-operation offer) "answer")
-                       (equal (wf-manager-control-offer-occurrence-id offer)
-                              (wf-manager-decision-occurrence-id decision))
-                       (null (wf-manager-control-offer-attempt-id offer))
-                       (equal (wf-manager-control-offer-generation offer)
-                              (wf-manager-decision-generation decision))))
-                (wf-manager-control-offers control))
+       (equal (wf-manager-decision-state decision) "pending")
+       (= (wf-manager-decision-position decision) 0)
+       (cl-remove-if-not
+        (lambda (offer)
+          (and (equal (wf-manager-control-offer-occurrence-id offer)
+                      (wf-manager-decision-occurrence-id decision))
+               (null (wf-manager-control-offer-attempt-id offer))
+               (equal (wf-manager-control-offer-generation offer)
+                      (wf-manager-decision-generation decision))))
+        (wf-manager-control-offers control))))
+
+(defun wf-service--answer-offered-p (control decision)
+  "Return non-nil when the controls CONTROL offer an answer of the head DECISION."
+  (and (cl-some (lambda (offer) (equal (wf-manager-control-offer-operation offer) "answer"))
+                (wf-service--decision-offers control decision))
        t))
 
 (defun wf-service--answer ()
@@ -1589,6 +1630,431 @@ again."
                                   (wf-manager-decision-position current))
                         "the read does not decode")))
                  run)))))))
+
+;;;; Controls
+
+(defconst wf-service--accepting '("accepted" "queued" "delivered")
+  "The acknowledgement states that accept, queue or deliver a control.")
+
+(defconst wf-service--rejecting '("rejected-stale" "unsupported" "failed")
+  "The acknowledgement states that end a control without an effect.")
+
+(defun wf-service--acknowledgement (receipt)
+  "Return (STATE MESSAGE) of the runtime acknowledgement of RECEIPT, or nil."
+  (let ((acknowledgement (wf-manager-command-receipt-acknowledgement receipt)))
+    (and (stringp (wf-service--member acknowledgement "state"))
+         (list (wf-service--member acknowledgement "state")
+               (wf-service--member acknowledgement "message")))))
+
+(defun wf-service-control-settled-p (operation receipt)
+  "Return non-nil when the control OPERATION has a settled RECEIPT.
+This is `controlSettled' of `ext-pi/src/manager-ui.ts'.  Every receipt
+settles at effect-observed, refused or unresolved.  An acknowledgement
+that rejects the control settles it without an effect.  A cancel also
+settles on an acknowledgement that accepts it, because the runtime
+cancellation names no control, so its receipt records no effect."
+  (or (and (wf-service--receipt-final-p receipt) t)
+      (let ((state (car (wf-service--acknowledgement receipt))))
+        (and (equal (wf-manager-command-receipt-state receipt) "acknowledged")
+             state
+             (or (member state wf-service--rejecting)
+                 (and (equal operation "cancel") (member state wf-service--accepting)))
+             t))))
+
+(defun wf-service-acknowledgement-line (receipt)
+  "Return the report of the runtime acknowledgement of RECEIPT.
+The report names the state and the message of the acknowledgement
+verbatim."
+  (pcase (wf-service--acknowledgement receipt)
+    (`(,state ,text) (format "Acknowledgement of command %s: %s: %s"
+                             (wf-manager-command-receipt-id receipt) state (or text "")))
+    (_ (format "Command %s has no runtime acknowledgement (receipt %s)"
+               (wf-manager-command-receipt-id receipt)
+               (wf-manager-command-receipt-state receipt)))))
+
+(defun wf-service--cancel-offered-p (control)
+  "Return non-nil when the owned controls CONTROL allow a cancel."
+  (and (equal (wf-manager-control-supervision control) "owned")
+       (wf-manager-control-cancel-allowed control)
+       t))
+
+(defun wf-service--offers (control operation)
+  "Return the items of the owned controls CONTROL for OPERATION."
+  (and (equal (wf-manager-control-supervision control) "owned")
+       (cl-remove-if-not (lambda (offer)
+                           (equal (wf-manager-control-offer-operation offer) operation))
+                         (wf-manager-control-offers control))))
+
+(defun wf-service-redirect-place (snapshot occurrence)
+  "Return the place in the run SNAPSHOT of the redirect of OCCURRENCE.
+This is `redirectPlace' of `ext-pi/src/manager-ui.ts'.  SNAPSHOT is the
+JSON object of the snapshot, or nil.  The place is the open dispatch
+window of the occurrence, its one attempt in flight, or neither."
+  (let* ((items (wf-service--member snapshot "items"))
+         (item (and (vectorp items)
+                    (cl-find-if (lambda (item)
+                                  (equal (wf-service--member item "occurrenceId")
+                                         (number-to-string occurrence)))
+                                (append items nil))))
+         (attempts (wf-service--member item "attempts"))
+         (running (and (vectorp attempts)
+                       (cl-remove-if-not (lambda (attempt)
+                                           (equal (wf-service--member attempt "state") "running"))
+                                         (append attempts nil)))))
+    (cond ((null item) "place not published")
+          ((eq (wf-service--member (wf-service--member item "dispatch") "open") t)
+           "dispatch window open")
+          ((= (length running) 1)
+           (format "attempt %s in flight"
+                   (wf-service--member (wf-service--member (car running) "address") "attemptId")))
+          (t "place not published"))))
+
+(defun wf-service--recovery-actions (control decision)
+  "Return the recovery actions of CONTROL for the head DECISION.
+This is `recoveryActions' of `ext-pi/src/manager-ui.ts'.  Each action
+is a plist with :operation, :option and :decision, in the order of the
+choices of DECISION.  The choice retry is offered by a retry offer of
+DECISION, and its operation is retry.  Another choice is offered by a
+choose-recovery offer of DECISION with the same choice and target, and
+its operation is choose-recovery.  A choice without an offer is not
+listed, and a question has no recovery action."
+  (let ((content (and decision (wf-manager-decision-content decision))))
+    (when (wf-manager-recovery-p content)
+      (let ((offers (wf-service--decision-offers control decision)))
+        (delq nil
+              (mapcar
+               (lambda (option)
+                 (let ((choice (wf-manager-recovery-option-choice option))
+                       (target (wf-manager-recovery-option-target option)))
+                   (cond
+                    ((and (equal choice "retry")
+                          (cl-some (lambda (offer)
+                                     (equal (wf-manager-control-offer-operation offer) "retry"))
+                                   offers))
+                     (list :operation "retry" :option option :decision decision))
+                    ((cl-some (lambda (offer)
+                                (and (equal (wf-manager-control-offer-operation offer)
+                                            "choose-recovery")
+                                     (cl-some (lambda (item)
+                                                (and (equal (wf-manager-recovery-option-choice item)
+                                                            choice)
+                                                     (equal (wf-manager-recovery-option-target item)
+                                                            target)))
+                                              (wf-manager-control-offer-choices offer))))
+                              offers)
+                     (list :operation "choose-recovery" :option option :decision decision)))))
+               (wf-manager-recovery-choices content)))))))
+
+(defun wf-service-control-choices (run control decision snapshot)
+  "Return the choices of `wf-control' for RUN.
+CONTROL is the `wf-manager-control' of one read of the controls of
+RUN.  DECISION is the `wf-manager-decision' of the head that CONTROL
+names, or nil.  SNAPSHOT is the JSON object of the run snapshot, or
+nil, and it names the place of each redirect.  Each choice is (LABEL
+DESCRIPTION . ACTION).  LABEL has no space, so it can be typed in the
+minibuffer.  ACTION is a plist whose :operation is the operation of
+the command.  The choices are only what CONTROL offers, in this order:
+cancel when the owned controls allow it, one steer:N for each timing of
+each steer offer with an attempt, one redirect:N for each target of
+each redirect offer, and the recovery actions of the head DECISION:
+retry, abandon and one failover:N for each failover choice."
+  (let ((choices nil) (steers 0) (redirects 0) (failovers 0))
+    (when (wf-service--cancel-offered-p control)
+      (push (cons "cancel" (cons (format "cancel run %s after a confirmation" run)
+                                 (list :operation "cancel")))
+            choices))
+    (dolist (offer (wf-service--offers control "steer"))
+      (when (wf-manager-control-offer-attempt-id offer)
+        (dolist (timing (wf-manager-control-offer-timings offer))
+          (push (cons (format "steer:%d" (cl-incf steers))
+                      (cons (format "steer occurrence %d attempt %d, %s"
+                                    (wf-manager-control-offer-occurrence-id offer)
+                                    (wf-manager-control-offer-attempt-id offer) timing)
+                            (list :operation "steer" :offer offer :timing timing)))
+                choices))))
+    (dolist (offer (wf-service--offers control "redirect"))
+      (dolist (target (wf-manager-control-offer-targets offer))
+        (push (cons (format "redirect:%d" (cl-incf redirects))
+                    (cons (format "redirect occurrence %d to %s, %s"
+                                  (wf-manager-control-offer-occurrence-id offer) target
+                                  (wf-service-redirect-place
+                                   snapshot (wf-manager-control-offer-occurrence-id offer)))
+                          (list :operation "redirect" :offer offer :target target)))
+              choices)))
+    (dolist (action (wf-service--recovery-actions control decision))
+      (let* ((option (plist-get action :option))
+             (choice (wf-manager-recovery-option-choice option))
+             (target (wf-manager-recovery-option-target option)))
+        (push (cons (if (equal choice "failover")
+                        (format "failover:%d" (cl-incf failovers))
+                      choice)
+                    (cons (format "%s%s of decision %s, occurrence %d" choice
+                                  (if target (format " to %s" target) "")
+                                  (wf-manager-decision-id decision)
+                                  (wf-manager-decision-occurrence-id decision))
+                          action))
+              choices)))
+    (nreverse choices)))
+
+(defun wf-service--control-run (session)
+  "Return the run whose controls `wf-control' and `wf-kill' use on SESSION.
+In a run view of SESSION, this is the run of the view.  Elsewhere, read
+one run that SESSION knows."
+  (let ((view wf-service--view-state))
+    (if (and view (eq (wf-service--view-session view) session))
+        (wf-service--view-run view)
+      (let ((runs (wf-service--service-runs session)))
+        (unless runs
+          (user-error "No run of the manager is known"))
+        (completing-read "Run to control: " runs nil t)))))
+
+(defun wf-service--controls (session run)
+  "On SESSION, read the controls of RUN one time.
+Return (CONTROL . REPLY): the `wf-manager-control' and the
+`wf-manager-reply' whose entity tag a control binds as If-Match."
+  (let* ((reply (wf-service--read session (concat "/v1/runs/" run "/control")))
+         (control (wf-service--decode #'wf-manager-decode-control
+                                      (wf-manager-reply-value reply) "controls")))
+    (unless (equal (wf-manager-control-run-id control) run)
+      (user-error "The controls of run %s name run %s.  Nothing was sent"
+                  run (wf-manager-control-run-id control)))
+    (unless (wf-manager-reply-etag reply)
+      (user-error "The controls of run %s have no entity tag, so no control can bind them" run))
+    (cons control reply)))
+
+(defun wf-service--read-optional (session uri decode)
+  "On SESSION, return (VALUE . REPLY) of one read of URI, or nil.
+VALUE is DECODE of the JSON value of the read.  A failed read and a
+value that does not decode give nil."
+  (let ((reply (wf-service--await
+                (lambda (callback)
+                  (wf-manager-session-read
+                   session (wf-manager-session-reference session uri) callback)
+                  nil))))
+    (and (wf-manager-reply-p reply)
+         (let ((value (condition-case nil (funcall decode (wf-manager-reply-value reply))
+                        (wf-manager-error nil))))
+           (and value (cons value reply))))))
+
+(defun wf-service--control-command (session run operation uri body if-match reconciliation)
+  "On SESSION, send for RUN the control OPERATION one time and settle it.
+The command sends to URI the BODY with IF-MATCH.  A delivered command
+waits until `wf-service-control-settled-p' holds for its receipt.  A
+cancel must then have an acknowledgement that accepts it, and every
+other control must have reached effect-observed.  A refused command
+refuses.  An uncertain command is reconciled with one read under the
+`wf-manager-reconciliation' RECONCILIATION, and it is never sent again.
+Return the settled receipt, or the symbol `effect-observed' for an
+uncertain command whose effect the read observed."
+  (let* ((command (wf-service--prepare session uri body if-match))
+         (sent (wf-service--await
+                (lambda (callback) (wf-manager-session-send session command callback) nil)))
+         (failure (wf-manager-sent-failure sent)))
+    (pcase (wf-manager-sent-kind sent)
+      ('delivered
+       (let* ((receipt (wf-service--await-receipt
+                        session sent operation
+                        (lambda (receipt) (wf-service-control-settled-p operation receipt))))
+              (accepted (car (wf-service--acknowledgement receipt))))
+         (unless (if (equal operation "cancel")
+                     (and (equal (wf-manager-command-receipt-state receipt) "acknowledged")
+                          (member accepted wf-service--accepting))
+                   (equal (wf-manager-command-receipt-state receipt) "effect-observed"))
+           (user-error "%s" (wf-service--problem
+                             (format "The %s of run %s did not reach its effect: receipt %s%s.  %s.  Nothing was sent again"
+                                     operation run (wf-manager-command-receipt-state receipt)
+                                     (if (wf-manager-command-receipt-refusal receipt)
+                                         (format " (%s)" (wf-manager-command-receipt-refusal receipt))
+                                       "")
+                                     (wf-service-acknowledgement-line receipt)))))
+         receipt))
+      ('refused
+       (wf-service--refuse (format "The manager refused the %s of run %s.  Nothing was sent again"
+                                   operation run)
+                           failure))
+      (_
+       (pcase (wf-service--await
+               (lambda (callback)
+                 (wf-manager-session-reconcile session (wf-manager-sent-uncertain sent)
+                                               reconciliation callback)
+                 nil))
+         ('(effect-observed)
+          (message "wf: the send of the %s of run %s was uncertain, and one read observes its effect.  It was not sent again"
+                   operation run)
+          'effect-observed)
+         ('(refused)
+          (user-error "%s" (wf-service--problem
+                            (format "The send of the %s of run %s was uncertain, and its receipt states refused"
+                                    operation run))))
+         (_ (user-error "%s" (wf-service--problem
+                              (format "The outcome of the %s of run %s is uncertain after one read%s.  Nothing was sent again"
+                                      operation run
+                                      (if failure
+                                          (concat " (" (wf-service--failure-text failure) ")")
+                                        ""))))))))))
+
+(defun wf-service--no-effect ()
+  "Return the reconciliation of a control whose target never states its effect.
+The one read of an uncertain cancel, steer or redirect observes its
+effect only through its receipt, so it otherwise stays uncertain."
+  (wf-manager-reconciliation-make :visible #'ignore))
+
+(defun wf-service--cancel (session run reply)
+  "On SESSION, cancel RUN after a confirmation.
+REPLY is the read of the controls of RUN, whose entity tag the cancel
+binds as If-Match.  `wf-confirm-function' asks, and only a yes sends
+the cancel.  The cancel completes on the runtime acknowledgement."
+  (if (not (funcall wf-confirm-function (format "Cancel run %s of the manager? " run)))
+      (message "wf: no cancel was sent for run %s" run)
+    (let ((receipt (wf-service--control-command
+                    session run "cancel" (concat "/v1/runs/" run "/control")
+                    (wf-manager-json-object "operation" "cancel")
+                    (wf-manager-reply-etag reply) (wf-service--no-effect))))
+      (message "wf: the runtime accepted the cancel of run %s.  %s" run
+               (if (wf-manager-command-receipt-p receipt)
+                   (wf-service-acknowledgement-line receipt)
+                 "The receipt was not read")))))
+
+(defun wf-service--steer-editor (session run offer timing reply)
+  "On SESSION, open for RUN the steer editor of OFFER with TIMING.
+REPLY is the read of the controls of RUN, whose entity tag the steer
+binds as If-Match.  The send key of the editor sends its text one
+time, and empty text sends nothing.  After the send, a second send
+refuses, so nothing is sent again.  The abandon key closes the editor.
+The header line of the editor names both keys."
+  (let ((buffer (generate-new-buffer (format "*wf steer %s*" run)))
+        (sent nil)
+        (occurrence (wf-manager-control-offer-occurrence-id offer))
+        (attempt (wf-manager-control-offer-attempt-id offer)))
+    (with-current-buffer buffer
+      (text-mode)
+      (use-local-map (make-sparse-keymap))
+      (setq-local header-line-format
+                  (format "Steer %s of occurrence %d attempt %d of run %s — C-c C-c sends, C-c C-k abandons"
+                          timing occurrence attempt run))
+      (local-set-key
+       (kbd "C-c C-c")
+       (lambda ()
+         (interactive)
+         (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+           (when sent
+             (user-error "This steer was sent one time.  Nothing was sent again.  M-x wf-control reads the controls again"))
+           (when (string-blank-p text)
+             (user-error "The steering text is empty.  Nothing was sent"))
+           (setq sent t)
+           (wf-service--control-command
+            session run "steer" (concat "/v1/runs/" run "/control")
+            (wf-manager-json-object "operation" "steer"
+                                    "occurrenceId" (number-to-string occurrence)
+                                    "attemptId" (number-to-string attempt)
+                                    "timing" timing "text" text)
+            (wf-manager-reply-etag reply) (wf-service--no-effect))
+           (kill-buffer buffer)
+           (message "wf: steer %s reached occurrence %d attempt %d of run %s"
+                    timing occurrence attempt run))))
+      (local-set-key (kbd "C-c C-k") (lambda () (interactive) (kill-buffer buffer))))
+    (pop-to-buffer buffer '(display-buffer-pop-up-window))))
+
+(defun wf-service--control-act (session run action reply)
+  "On SESSION, act for RUN on the chosen control ACTION.
+ACTION is the plist of a choice of `wf-service-control-choices'.  REPLY
+is the read of the controls of RUN."
+  (let ((control-uri (concat "/v1/runs/" run "/control"))
+        (etag (wf-manager-reply-etag reply))
+        (offer (plist-get action :offer))
+        (decision (plist-get action :decision)))
+    (pcase (plist-get action :operation)
+      ("cancel" (wf-service--cancel session run reply))
+      ("steer" (wf-service--steer-editor session run offer (plist-get action :timing) reply))
+      ("redirect"
+       (wf-service--control-command
+        session run "redirect" control-uri
+        (wf-manager-json-object "operation" "redirect"
+                                "occurrenceId" (number-to-string
+                                                (wf-manager-control-offer-occurrence-id offer))
+                                "target" (plist-get action :target))
+        etag (wf-service--no-effect))
+       (message "wf: redirected occurrence %d of run %s to %s"
+                (wf-manager-control-offer-occurrence-id offer) run (plist-get action :target)))
+      ("retry"
+       (wf-service--control-command
+        session run "retry" control-uri
+        (wf-manager-json-object "operation" "retry"
+                                "occurrenceId" (number-to-string
+                                                (wf-manager-decision-occurrence-id decision))
+                                "generation" (wf-manager-decision-generation decision))
+        etag
+        (wf-manager-reconciliation-make
+         :visible (lambda (observed) (wf-manager-control-passed observed decision 'recovery))))
+       (message "wf: retry reached decision %s of run %s" (wf-manager-decision-id decision) run))
+      ("choose-recovery"
+       (let* ((id (wf-manager-decision-id decision))
+              (read (wf-service--read session (concat "/v1/decisions/" id)))
+              (choice (wf-manager-recovery-option-choice (plist-get action :option))))
+         (unless (wf-manager-reply-etag read)
+           (user-error "Decision %s has no entity tag, so no recovery choice can bind it" id))
+         ;; The manager serves only pending decisions, so the controls of
+         ;; the run reconcile the choice.
+         (wf-service--control-command
+          session run "choose-recovery" (concat "/v1/decisions/" id)
+          (wf-manager-json-object "operation" "choose-recovery"
+                                  "occurrenceId" (number-to-string
+                                                  (wf-manager-decision-occurrence-id decision))
+                                  "generation" (wf-manager-decision-generation decision)
+                                  "choice" choice)
+          (wf-manager-reply-etag read)
+          (wf-manager-recovery-reconciliation
+           decision (wf-manager-reconcile-target-make
+                     :location (wf-manager-session-reference session control-uri)
+                     :precondition etag)))
+         (message "wf: %s reached decision %s of run %s" choice id run))))))
+
+(defun wf-service-control-read (session run)
+  "On SESSION, read the choices of `wf-control' for RUN.
+Read the controls of RUN, the head decision that they name and, for a
+redirect offer, the run snapshot, one time each.  Return (CHOICES .
+REPLY): the choices of `wf-service-control-choices' and the read of the
+controls, whose entity tag a control binds as If-Match."
+  (pcase-let* ((`(,control . ,reply) (wf-service--controls session run))
+               (head (wf-manager-control-decision-head-id control))
+               (decision (and head (car (wf-service--read-optional
+                                         session (concat "/v1/decisions/" head)
+                                         #'wf-manager-decode-decision))))
+               (snapshot (and (wf-service--offers control "redirect")
+                              (car (wf-service--read-optional
+                                    session (concat "/v1/runs/" run "/snapshot")
+                                    #'wf-service--decode-object)))))
+    (cons (wf-service-control-choices run control decision snapshot) reply)))
+
+(defun wf-service--control ()
+  "Send one control of a run of the manager that its controls offer.
+In a run view, the run is the run of the view.  The command lists only
+what the controls offer, as `wf-service-control-read' reads it, and
+acts on the chosen control: a cancel after a confirmation, a steer
+through its editor, or a redirect, a retry or a recovery choice at
+once.  Each control is sent one time, and an uncertain send is
+reconciled with one read and never sent again."
+  (let* ((session (wf-service--session))
+         (run (wf-service--control-run session)))
+    (pcase-let ((`(,choices . ,reply) (wf-service-control-read session run)))
+      (unless choices
+        (user-error "The manager offers no control for run %s.  Nothing was sent" run))
+      (let* ((completion-extra-properties
+              (list :annotation-function
+                    (lambda (label) (concat "  " (cadr (assoc label choices))))))
+             (label (completing-read (format "Control of run %s: " run) choices nil t)))
+        (wf-service--control-act session run (cddr (assoc label choices)) reply)))))
+
+(defun wf-service--kill ()
+  "Cancel a run of the manager after a confirmation.
+In a run view, the run is the run of the view.  The command reads the
+controls of the run, and it refuses when they do not allow a cancel."
+  (let* ((session (wf-service--session))
+         (run (wf-service--control-run session)))
+    (pcase-let ((`(,control . ,reply) (wf-service--controls session run)))
+      (unless (wf-service--cancel-offered-p control)
+        (user-error "The manager offers no cancel for run %s.  Nothing was sent" run))
+      (wf-service--cancel session run reply))))
 
 (defun wf-service--kill-emacs ()
   "Close the transport of service mode when Emacs exits.

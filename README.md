@@ -101,12 +101,13 @@ emacs/wf-manager.el     service-mode transport: client profile, credential,
                         exact JSON codec, decoders, sessions, commands and
                         verified downloads
 emacs/wf-service.el     service mode of wf.el: profile selection, catalogue,
-                        setup, review, run views, answers and the dispatch
-                        table of the commands
+                        setup, review, run views, answers, controls and the
+                        dispatch table of the commands
 emacs/wf-manager-tests.el  ERT tests of the transport and of the dispatch table,
                            run by ci/emacs.sh
-emacs/wf-manager-live.el   live check of the transport and of service mode, run
-                           by the emacs-client mode of agent-cat
+emacs/wf-manager-live.el   live checks of the transport and of service mode, run
+                           by the emacs-client and emacs-client-controls
+                           modes of agent-cat
 ci/emacs-ui.py          isolated Emacs PTY, resize and window acceptance
 ci/emacs-tramp.py       loopback SSH/TRAMP, typed controls and lineage acceptance
 ```
@@ -566,7 +567,9 @@ send no request. `M-x wf-diagnostics` must show the endpoint, the scopes and
 the delivery state `poll`, and `M-x wf-local` must close the session. The
 requests step creates, sets up, reviews and approves or declines three
 requests with keys, and the harness reads that the programs of the two
-approved runs received their literal and captured inputs. The views step
+approved runs received their literal and captured inputs. The manager admits
+at most 30 ordinary mutations of one client in one minute, so the views step
+starts one minute after the pages step. The views step
 starts one `mixed-controls` run of each of the two profiles of the fixture
 and opens the view of each run with `M-x wf-runs`. While the answer editor of
 the second run is open, the harness answers its question first, so the
@@ -584,6 +587,34 @@ check writes a report whose `harnessVersion` field is
 `wf-manager-live-harness-version`. The mode refuses a report of another
 version with one sentence, so a mismatched pair of the two repositories fails
 at once. The mode then checks the report against the reads of the manager.
+
+The `emacs-client-controls` mode runs the second test of the file,
+`wf-manager-live-controls`, in the same way:
+
+```sh
+EMACS=/path/to/emacs WF_EMACS_DIR=/path/to/agent-workflows/emacs \
+  python3 -B manager/test/service_http.py "$PWD" "$(mktemp -d)" \
+  "$(bash test/cabal.sh list-bin -ftui-tests routing-fixed-point-probe)" 8 emacs-client-controls
+```
+
+The mode starts the manager with the deterministic ACP control fixtures and
+issues one client credential with the scopes `observe`, `submit` and
+`control`. The harness creates and approves a run whose attempt holds its turn
+until a steer and a run whose first candidate holds its turn until a redirect.
+The check opens the view of each run with `M-x wf-runs` and starts each control
+with `c` in the view. The choices that `*Completions*` lists must equal the
+labels of `wf-service-control-read`. The check sends the steer through the
+steer editor with the timing `interrupt-now`, and then the live redirect to
+the spare target. The harness confirms both from the command receipts, the
+run log and the run store, and settles both runs. It then starts a run of the
+retry fixture, which it answers to its recovery decision, and a second held
+run. The check sends the offered retry, and that run must end with
+`Terminal: succeeded` in its view. In the view of the held run, `C-c C-k` and
+the answer `no` must send nothing. The check then chooses `cancel` and answers
+`yes`, the runtime acknowledgement must accept the cancel, and the view must
+show `Terminal: cancelled`. The harness requires that the steer, the redirect,
+the retry and the cancel are the only commands of the controls of the four
+runs, each sent once with the entity tag of the controls as `If-Match`.
 
 `EMACS` can select another Emacs executable. Otherwise the gate uses the pinned
 development shell, which also supplies `WF_CONTROL_ADAPTERS` from the pinned
@@ -654,7 +685,9 @@ for it:
 | `wf-runs` | Ask for one local session of this Emacs process, with the label `local:RUN — DIRECTORY`, or one run of the manager, with the label `service:RUN`, and open its view. The service runs are the runs of the open service run views and the runs of the installed overview (see [Service run views and answers](#service-run-views-and-answers)). |
 | `wf-answer` | Answer the head decision of a run of the manager in the answer editor. In a service run view, the run is the run of the view. Elsewhere, the command asks for one run with a pending decision of the installed overview. |
 | `wf-refresh` | In a setup form of service mode, read the request of the form again and draw the form again with every draft. Elsewhere, show a message and send nothing, because service mode keeps no row listing. |
-| `wf-control`, `wf-result`, `wf-kill`, `wf-history`, `wf-history-refresh`, `wf-history-open`, `wf-restart`, `wf-resume`, `wf-fork`, `wf-fork-submit`, `wf-rerun` | Refuse with the message "COMMAND is not yet available in service mode". |
+| `wf-control` | Send one control of a run of the manager that the controls of the run offer (see [Service controls](#service-controls)). In a service run view, the run is the run of the view. Elsewhere, the command asks for one run that the session knows. |
+| `wf-kill` | Cancel a run of the manager after a confirmation, when its controls allow a cancel. The run is chosen as for `wf-control`. |
+| `wf-result`, `wf-history`, `wf-history-refresh`, `wf-history-open`, `wf-restart`, `wf-resume`, `wf-fork`, `wf-fork-submit`, `wf-rerun` | Refuse with the message "COMMAND is not yet available in service mode". |
 | `wf-plan`, `wf-cost` | Refuse with the message "COMMAND works only in local mode.  In service mode, use the review of `wf-run` instead". |
 | `wf-lineage-compare`, `wf-observer-result`, `wf-observer-refresh` | Refuse with the message "COMMAND works only in local mode.  Service mode has no equivalent". |
 
@@ -764,6 +797,42 @@ The kill of a run view stops the watches of its resources and sends no
 command, so the run continues. The kill of any other buffer, the answer editor
 included, sends no command. The function `wf-service--kill-emacs` of
 `kill-emacs-hook` closes the session and its transport and sends no command.
+
+#### Service controls
+
+`c` in a service run view runs `wf-control`, and `C-c C-k` runs `wf-kill`.
+`wf-control` reads the controls of the run with `GET /v1/runs/{id}/control`,
+the head decision that the controls name and, when the controls offer a
+redirect, the run snapshot. It then lists only what the controls offer, as
+`wf-service-control-choices` states. Each choice has a label without a space
+and a description:
+
+| Label | Offered when | Command |
+| --- | --- | --- |
+| `cancel` | The controls are owned and allow a cancel. | `cancel` after a yes to `wf-confirm-function`. A no sends nothing. |
+| `steer:N` | A steer offer names an attempt. One choice exists for each timing of the offer. | `steer` with the occurrence, the attempt, the timing and the text of the steer editor. |
+| `redirect:N` | A redirect offer names targets. One choice exists for each target. The description names the open dispatch window or the attempt in flight. | `redirect` with the occurrence and the target. |
+| `retry` | The head is a recovery decision with the choice `retry`, and a `retry` offer addresses it. | `retry` with the occurrence and the generation of the decision. |
+| `abandon`, `failover:N` | The head is a recovery decision with that choice, and a `choose-recovery` offer of the decision carries the same choice and target. | `choose-recovery` with the occurrence, the generation and the choice, sent to the decision. |
+
+A control that the controls do not offer is not listed, and a run whose
+controls offer nothing refuses with a message and sends nothing. `cancel`,
+`steer`, `redirect` and `retry` go to the controls of the run and bind the
+entity tag of the controls read as `If-Match`. `choose-recovery` goes to the
+decision and binds the entity tag of a read of the decision. The steer editor
+is the buffer `*wf steer RUN*`. `C-c C-c` sends its text one time, and empty
+text sends nothing. After the send, a second `C-c C-c` refuses and sends
+nothing. `C-c C-k` abandons the editor.
+
+Each control is sent one time. A cancel completes on the runtime
+acknowledgement that accepts it, and the message names that acknowledgement.
+Every other control completes when its receipt reaches `effect-observed`. A
+refused control, or one whose acknowledgement rejects it, shows its refusal.
+An uncertain send is reconciled one time with `wf-manager-session-reconcile`,
+and it is never sent again. A retry or a recovery choice shows its effect when
+one read of the controls no longer names the decision as the head. A cancel,
+a steer and a redirect show their effect only in their receipt, so their
+reconciliation without a receipt stays uncertain and reports it.
 
 ### Service-mode transport
 

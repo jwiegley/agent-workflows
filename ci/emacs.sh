@@ -50,7 +50,11 @@
 #      and starts no process and sends no request. They also check that a
 #      refresh of the setup form keeps every draft, that the setup sources
 #      give literal or capture specs, and that the review text states every
-#      approval selector, the entity tag and the admission. The tests of a server certificate that the CA file
+#      approval selector, the entity tag and the admission. The control tests
+#      check that wf-control lists only the controls that the controls of a run
+#      offer, that wf-kill sends one cancel only after a yes to its
+#      confirmation, and that an uncertain steer is reconciled with one read and
+#      not sent again. The tests of a server certificate that the CA file
 #      of the profile does not verify start a TLS server on 127.0.0.1 with
 #      the python3 of PATH. They contact no other host.
 #

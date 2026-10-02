@@ -2923,12 +2923,14 @@ not in the list."
             (should (string-match-p "review of .wf-run" (wf-service-refusal 'wf-plan)))
             (should (string-match-p "review of .wf-run" (wf-service-refusal 'wf-cost)))
             (should (string-match-p "no equivalent" (wf-service-refusal 'wf-lineage-compare)))
-            (should (string-match-p "not yet available" (wf-service-refusal 'wf-kill)))
+            (should (string-match-p "not yet available" (wf-service-refusal 'wf-result)))
             ;; A service command with no session refuses before any read.
             (should-error (call-interactively 'wf-diagnostics) :type 'user-error)
             (should-error (call-interactively 'wf-run) :type 'user-error)
             (should-error (call-interactively 'wf-runs) :type 'user-error)
             (should-error (call-interactively 'wf-answer) :type 'user-error)
+            (should-error (call-interactively 'wf-control) :type 'user-error)
+            (should-error (call-interactively 'wf-kill) :type 'user-error)
             (should (null calls)))
         (dolist (advice advices)
           (advice-remove (car advice) (cdr advice)))))))
@@ -3355,6 +3357,173 @@ closes and the draft is gone."
        (should (= (wf-manager-tests--posts listener) 1))
        (should (= (wf-manager-tests--targets listener wf-manager-tests--run-snapshot-uri) 2))
        (should-not (wf-service-answer-draft (wf-manager-session-identity session) "decision_3"))))))
+
+;;;; Controls
+
+(defconst wf-manager-tests--offers-control
+  "steer, redirect, recovery and retry offers keep maximum addresses and Unicode targets"
+  "The controls vector of run_21 with steer, redirect, recovery and retry offers.")
+
+(defun wf-manager-tests--offered-recovery ()
+  "Return the JSON text of the recovery head of the controls with every offer.
+It is the recovery decisions vector at occurrence 3 and generation_4,
+whose fail-over target is backup, as the offers of that control state."
+  (let ((text (wf-manager-tests--vector-json
+               "resources.decisions" "recovery decision keeps null and named targets")))
+    (dolist (edit '(("{\"occurrenceId\":\"0\"}" . "{\"occurrenceId\":\"3\"}")
+                    ("\"generation_3\"" . "\"generation_4\"")
+                    ("\"scripted-backup\"" . "\"backup\"")))
+      (setq text (string-replace (car edit) (cdr edit) text)))
+    text))
+
+(defun wf-manager-tests--control-view (session)
+  "Return a temporary buffer whose run view of run_21 is on SESSION."
+  (let ((buffer (generate-new-buffer " *wf control test*")))
+    (with-current-buffer buffer
+      (setq-local wf-service--view-state (wf-service--view-make :session session :run "run_21")))
+    buffer))
+
+(ert-deftest wf-service-control-choices-are-the-offers ()
+  "`wf-control' lists only what the controls offer.
+The owned controls allow a cancel, offer two timings of one steer, two
+targets of one redirect, and the retry and the fail-over to backup of
+the recovery head.  The head also names abandon, which no offer
+carries, so it is not listed.  A question head and lost controls give
+no recovery choice and no control."
+  (let* ((control (wf-manager-decode-control
+                   (wf-manager-tests--resource "resources.controls" wf-manager-tests--offers-control)))
+         (decision (wf-manager-decode-decision
+                    (wf-manager-json-decode (wf-manager-tests--offered-recovery))))
+         (snapshot (wf-manager-json-decode
+                    (concat "{\"items\":[{\"occurrenceId\":\"4\",\"dispatch\":{\"open\":false},"
+                            "\"attempts\":[{\"state\":\"running\",\"address\":"
+                            "{\"occurrenceId\":\"4\",\"attemptId\":\"2\"}}]}]}"))))
+    (should (equal (mapcar (lambda (choice)
+                             (list (car choice) (cadr choice) (plist-get (cddr choice) :operation)))
+                           (wf-service-control-choices "run_21" control decision snapshot))
+                   '(("cancel" "cancel run run_21 after a confirmation" "cancel")
+                     ("steer:1" "steer occurrence 18446744073709551615 attempt 4294967295, interrupt-now" "steer")
+                     ("steer:2" "steer occurrence 18446744073709551615 attempt 4294967295, next-boundary" "steer")
+                     ("redirect:1" "redirect occurrence 4 to agent 雪 [model:alt], attempt 2 in flight" "redirect")
+                     ("redirect:2" "redirect occurrence 4 to , attempt 2 in flight" "redirect")
+                     ("retry" "retry of decision decision_3, occurrence 3" "retry")
+                     ("failover:1" "failover to backup of decision decision_3, occurrence 3"
+                      "choose-recovery"))))
+    (should (equal (mapcar #'car (wf-service-control-choices
+                                  "run_21" control
+                                  (wf-manager-decode-decision
+                                   (wf-manager-tests--resource "resources.decisions"
+                                                               wf-manager-tests--flag-decision))
+                                  nil))
+                   '("cancel" "steer:1" "steer:2" "redirect:1" "redirect:2")))
+    (should-not (wf-service-control-choices
+                 "run_21"
+                 (wf-manager-decode-control
+                  (wf-manager-tests--resource "resources.controls"
+                                              "lost controls keep false cancellation and a null head"))
+                 nil nil))))
+
+(ert-deftest wf-service-kill-confirms-before-the-cancel ()
+  "`wf-kill' sends the cancel only after a yes to its confirmation.
+A no sends nothing.  A yes sends one cancel with the entity tag of the
+controls as If-Match, and the cancel completes on the runtime
+acknowledgement that accepts it."
+  (wf-manager-tests--with-view
+   (list wf-manager-tests--control-uri
+         (let ((control (wf-manager-tests--json
+                         200 (wf-manager-tests--vector-json "resources.controls"
+                                                            "owned controls with an answer offer")
+                         '("ETag: \"control_1\""))))
+           (list control control
+                 (wf-manager-tests--json
+                  202 (string-replace
+                       "\"command\":\"steer\",\"occurrenceId\":\"18446744073709551615\",\"attemptId\":\"4294967295\""
+                       "\"command\":\"cancel\",\"occurrenceId\":null,\"attemptId\":null"
+                       (string-replace
+                        "\"state\":\"delivered\"" "\"state\":\"accepted\""
+                        (string-replace
+                         "\"operation\":\"steer\"" "\"operation\":\"cancel\""
+                         (wf-manager-tests--vector-json
+                          "resources.receipts" "acknowledged steer receipt keeps maximum addresses"))))
+                  '("Location: /v1/commands/cmd_11")))))
+   (lambda (listener session)
+     (let ((view (wf-manager-tests--control-view session))
+           (prompts nil))
+       (unwind-protect
+           (with-current-buffer view
+             (let ((wf-confirm-function (lambda (prompt) (push prompt prompts) nil)))
+               (call-interactively #'wf-kill))
+             (should (= (wf-manager-tests--posts listener) 0))
+             (let ((wf-confirm-function (lambda (prompt) (push prompt prompts) t)))
+               (call-interactively #'wf-kill))
+             (should (equal prompts (make-list 2 "Cancel run run_21 of the manager? ")))
+             (should (= (wf-manager-tests--posts listener) 1))
+             (let ((posted (car (cl-remove-if-not (lambda (request) (string-prefix-p "POST " request))
+                                                  (wf-manager-tests--listener-requests listener)))))
+               (should (equal (cdr (assoc "if-match" (wf-manager-tests--request-headers posted)))
+                              "\"control_1\""))
+               (should (equal (substring posted (+ 4 (string-search "\r\n\r\n" posted)))
+                              "{\"operation\":\"cancel\"}"))))
+         (kill-buffer view))))))
+
+(ert-deftest wf-service-control-steer-uncertain-reconciles-once ()
+  "An uncertain steer is reconciled with one read and never sent again.
+`wf-control' lists the offered controls, and the chosen steer opens its
+editor.  The connection of the steer closes with no response, and one
+read of the controls shows no effect, so the steer stays uncertain.  A
+second send key in the editor refuses and sends nothing."
+  (wf-manager-tests--with-view
+   (list wf-manager-tests--control-uri
+         (list (wf-manager-tests--json
+                200 (wf-manager-tests--vector-json "resources.controls" wf-manager-tests--offers-control)
+                '("ETag: \"control_1\""))
+               'drop
+               (wf-manager-tests--json
+                200 (wf-manager-tests--vector-json "resources.controls" wf-manager-tests--offers-control)
+                '("ETag: \"control_2\"")))
+         wf-manager-tests--decision-uri
+         (list (wf-manager-tests--json 200 (wf-manager-tests--offered-recovery)
+                                       '("ETag: \"decision_1\"")))
+         wf-manager-tests--run-snapshot-uri
+         (list (wf-manager-tests--run-snapshot "snap_1" "waiting" nil nil)))
+   (lambda (listener session)
+     (let ((view (wf-manager-tests--control-view session))
+           (listed nil)
+           (editor nil))
+       (unwind-protect
+           (progn
+             (with-current-buffer view
+               (cl-letf (((symbol-function 'completing-read)
+                          (lambda (_prompt collection &rest _)
+                            (setq listed (mapcar #'car collection))
+                            "steer:1")))
+                 (call-interactively #'wf-control)))
+             (should (equal listed '("cancel" "steer:1" "steer:2" "redirect:1" "redirect:2"
+                                     "retry" "failover:1")))
+             (setq editor (get-buffer "*wf steer run_21*"))
+             (should editor)
+             (with-current-buffer editor
+               (should (string-search "Steer interrupt-now of occurrence 18446744073709551615 attempt 4294967295"
+                                      header-line-format))
+               (insert "Focus on the patch."))
+             (should (string-search "The outcome of the steer of run run_21 is uncertain after one read"
+                                    (wf-manager-tests--submit editor)))
+             (accept-process-output nil 0.2)
+             (should (= (wf-manager-tests--posts listener) 1))
+             (let ((posted (car (cl-remove-if-not (lambda (request) (string-prefix-p "POST " request))
+                                                  (wf-manager-tests--listener-requests listener)))))
+               (should (equal (cdr (assoc "if-match" (wf-manager-tests--request-headers posted)))
+                              "\"control_1\""))
+               (should (equal (substring posted (+ 4 (string-search "\r\n\r\n" posted)))
+                              (concat "{\"attemptId\":\"4294967295\",\"occurrenceId\":\"18446744073709551615\","
+                                      "\"operation\":\"steer\",\"text\":\"Focus on the patch.\","
+                                      "\"timing\":\"interrupt-now\"}"))))
+             (should (= (wf-manager-tests--targets listener wf-manager-tests--control-uri) 3))
+             (should (buffer-live-p editor))
+             (should (string-search "sent one time" (wf-manager-tests--submit editor)))
+             (should (= (wf-manager-tests--posts listener) 1)))
+         (kill-buffer view)
+         (when (buffer-live-p editor) (kill-buffer editor)))))))
 
 (provide 'wf-manager-tests)
 

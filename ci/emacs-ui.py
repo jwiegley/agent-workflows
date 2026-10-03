@@ -429,6 +429,10 @@ SERVICE_LITERAL = "Emacs service λ: Café ✓ 雪 exact literal"
 # agent-cat require the same version.
 SERVICE_REPORT_VERSION = 1
 SERVICE_SIZES = [(40, 12), (140, 36), (80, 24)]
+# The seconds that a service case waits for Emacs -Q to load the service
+# sources and write its first state. A busy host can take more than the 20
+# seconds of an ordinary wait.
+SERVICE_READY_SECONDS = 60
 
 
 def service_body(profile: Path, directory: Path) -> str:
@@ -613,7 +617,7 @@ def service_case(args, directory: Path) -> None:
     success = False
 
     try:
-        session.wait(lambda state: state.get("extra") is not None, "service-ready")
+        session.wait(lambda state: state.get("extra") is not None, "service-ready", SERVICE_READY_SECONDS)
         # The profile.
         session.command("wf-service")
         session.wait(lambda state: "Client profile" in state.get("minibuffer", ""), "profile-file-prompt")
@@ -853,11 +857,14 @@ def service_handshake(session: Emacs, directory: Path, name: str, facts: dict, t
 def service_history_open(session: Emacs, run: str, label: str) -> dict:
     """Open the view of run from its row of the selected service history.
 
-    M-x search-forward moves the point to the row of run, and RET opens
-    its view. Return the state once the view is selected."""
-    session.command("search-forward")
-    session.wait(lambda state: "Search:" in state.get("minibuffer", ""), label + "-search-prompt")
-    session.send(run + "\r")
+    M-x re-search-forward with the anchor ^ moves the point to the row
+    that starts with run, and RET opens its view. The row of a fork names
+    its parent in its lineage column, and the order of the history rows
+    is the order of /v1/runs, so a plain search can stop on the row of a
+    fork of run. Return the state once the view is selected."""
+    session.command("re-search-forward")
+    session.wait(lambda state: "RE search:" in state.get("minibuffer", ""), label + "-search-prompt")
+    session.send("^" + run + "\r")
     session.send("\r")
     return session.wait(lambda state: state.get("mode") == "wf-service-run-mode" and service_view(state, run) is not None
                         and state.get("buffer") == service_view(state, run)["buffer"], label + "-opened", 60)
@@ -922,7 +929,7 @@ def service_lifecycle_case(args, directory: Path) -> None:
     session = Emacs(args.emacs, sources, directory, 140, 36, service_body(profile, directory))
     success = False
     try:
-        session.wait(lambda state: state.get("extra") is not None, "service-ready")
+        session.wait(lambda state: state.get("extra") is not None, "service-ready", SERVICE_READY_SECONDS)
         session.command("wf-service")
         session.wait(lambda state: "Client profile" in state.get("minibuffer", ""), "profile-file-prompt")
         session.send("\r")
@@ -1136,7 +1143,7 @@ def service_lifecycle_case(args, directory: Path) -> None:
     later = Emacs(args.emacs, sources, later_directory, 80, 24, service_body(profile, later_directory))
     success = False
     try:
-        later.wait(lambda state: state.get("extra") is not None, "service-ready")
+        later.wait(lambda state: state.get("extra") is not None, "service-ready", SERVICE_READY_SECONDS)
         later.command("wf-service")
         later.wait(lambda state: "Client profile" in state.get("minibuffer", ""), "profile-file-prompt")
         later.send("\r")
@@ -1250,7 +1257,7 @@ def service_controls_case(args, directory: Path) -> None:
     session = Emacs(args.emacs, sources, directory, 80, 24, service_body(profile, directory))
     success = False
     try:
-        session.wait(lambda state: state.get("extra") is not None, "service-ready")
+        session.wait(lambda state: state.get("extra") is not None, "service-ready", SERVICE_READY_SECONDS)
         session.command("wf-service")
         session.wait(lambda state: "Client profile" in state.get("minibuffer", ""), "profile-file-prompt")
         session.send("\r")
@@ -1344,7 +1351,7 @@ def service_witness_case(args, directory: Path) -> None:
     session = Emacs(args.emacs, sources, directory, 80, 24, service_body(profile, directory))
     success = False
     try:
-        session.wait(lambda state: state.get("extra") is not None, "service-ready")
+        session.wait(lambda state: state.get("extra") is not None, "service-ready", SERVICE_READY_SECONDS)
         session.command("wf-service")
         session.wait(lambda state: "Client profile" in state.get("minibuffer", ""), "profile-file-prompt")
         session.send("\r")
@@ -1476,7 +1483,7 @@ def service_witness_lifecycle_case(args, directory: Path) -> None:
         print("PASS cross-client lifecycle keys " + step + ": " + line, flush=True)
 
     def bind(session: Emacs) -> None:
-        session.wait(lambda state: state.get("extra") is not None, "service-ready")
+        session.wait(lambda state: state.get("extra") is not None, "service-ready", SERVICE_READY_SECONDS)
         session.command("wf-service")
         session.wait(lambda state: "Client profile" in state.get("minibuffer", ""), "profile-file-prompt")
         session.send("\r")
@@ -1642,7 +1649,7 @@ def service_witness_lineage_case(args, directory: Path) -> None:
     session = Emacs(args.emacs, sources, directory, 80, 24, service_body(profile, directory))
     success = False
     try:
-        session.wait(lambda state: state.get("extra") is not None, "service-ready")
+        session.wait(lambda state: state.get("extra") is not None, "service-ready", SERVICE_READY_SECONDS)
         session.command("wf-service")
         session.wait(lambda state: "Client profile" in state.get("minibuffer", ""), "profile-file-prompt")
         session.send("\r")

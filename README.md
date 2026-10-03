@@ -1255,6 +1255,45 @@ shows its effect when the collection lists a new child of the operation, and
 an export when the collection lists a published export of the name. It is
 never sent again.
 
+#### Service-mode limits
+
+These limits of service mode stay open:
+
+- An uncertain send of `create`, `set-input`, a capture, `enqueue`,
+  `approve`, `discard` or `withdraw` stops the command with a message that
+  the outcome is uncertain and that nothing was sent again. The command reads
+  nothing to reconcile it. The user reads the request or the
+  review again with `g` in the review buffer or `M-x wf-refresh` in the setup
+  form, and decides from that read. Only an answer, a run control, a lineage
+  request and an export are reconciled with one read.
+- A command of service mode waits in the foreground for a receipt, a
+  review or a run, for at most 120 seconds (`wf-service--wait-seconds`).
+  Emacs accepts no other command during that wait, and only `C-g` ends it.
+  The end of the wait sends nothing, and the manager keeps the command.
+- A service run view reads `/v1/runs/{id}/snapshot` as its first page
+  only, and so does the Pi extension. A snapshot of more than one page
+  leaves an incomplete page set, which holds one of the two page-set places
+  of the client until the set expires. While both places are held, another
+  page set of the client receives 429 `storage-quota`.
+- `wf-service.el` opens the review of a request only when this Emacs
+  process set up that request with `wf-run` or created it with `wf-fork`,
+  `wf-restart`, `wf-resume` or `wf-rerun`. It has no command that opens the
+  review of a request that another client queued, so the approval of such a
+  request needs another client.
+- `wf-lineage-compare` and the observer commands have no service-mode
+  equivalent.
+
+The manager limits each client to two subscriptions across its event and
+route streams, and a third stream receives 429 `storage-quota`. A client
+that connects a stream again at once after a dropped connection can
+receive this refusal while the earlier subscription still counts. The
+refusal is transient, and the rule of the agent-cat protocol document is to
+keep the cursor, poll from it, and connect the stream again after the
+backoff. Service mode always reads `/v1/events` with polling batches, so it
+holds no subscription and never receives this refusal. A read refused with
+429 `storage-quota`, for example by the page-set limit above, is read again
+as [Service mode](#service-mode) and [Sessions](#sessions) state.
+
 ### Service-mode transport
 
 `emacs/wf-manager.el` is the transport of the service mode, in which `wf.el`

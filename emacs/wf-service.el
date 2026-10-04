@@ -945,16 +945,24 @@ The text is the complete exact review of the preparation, as
 `reviewLines' of `ext-pi/src/manager-ui.ts' shows it: every approval
 selector, the entity tag that approve binds as If-Match and every
 consent fact.  Nothing is shortened.  The admission of the request, its
-queue position and its blocking reasons come first."
+queue position and its blocking reasons come first.  After the approval
+starts a run, the first lines name that run."
   (let* ((preparation (wf-service--review-preparation review))
          (facts (wf-manager-preparation-review preparation))
          (draft (wf-service--review-draft review))
-         (lineage (wf-manager-review-lineage facts)))
+         (lineage (wf-manager-review-lineage facts))
+         (run (wf-service--review-run review)))
     (concat
-     "Exact review of the manager — no run has started.\n"
-     "Approval starts the run of THIS review.  An edit needs a new request.\n"
-     "a: approve after confirmation  d: decline (discard the preparation)\n"
-     "w: withdraw the request  g: read again  q: quit (asks whether to discard)\n\n"
+     (if run
+         (concat
+          (format "Exact review of the manager — approved.  Run %s started.\n" run)
+          "The run view shows the run, and M-x wf-runs opens it again.\n"
+          "g: read again  q: quit\n\n")
+       (concat
+        "Exact review of the manager — no run has started.\n"
+        "Approval starts the run of THIS review.  An edit needs a new request.\n"
+        "a: approve after confirmation  d: decline (discard the preparation)\n"
+        "w: withdraw the request  g: read again  q: quit (asks whether to discard)\n\n"))
      "Admission:\n"
      (mapconcat (lambda (line) (concat "  " line "\n")) (wf-service--review-lines review) "")
      (format "Current: %s\n" (wf-service-admission-line draft))
@@ -1075,7 +1083,9 @@ Refuse when the review has sent one of the operations CLOSED."
 (defun wf-service-review-approve ()
   "Approve this exact review after `wf-confirm-function' agrees.
 Only a yes sends approve, with the approval selectors of the
-preparation and its entity tag as If-Match.  A no sends nothing."
+preparation and its entity tag as If-Match.  A no sends nothing.
+After the manager starts the run, the review reads its request again
+and names the run, and the run view opens."
   (interactive)
   (let* ((review (wf-service--review-here "approve" "discard" "withdraw"))
          (session (wf-service--review-session review))
@@ -1101,7 +1111,9 @@ preparation and its entity tag as If-Match.  A no sends nothing."
                                  (format "command %s" (wf-manager-reference-uri
                                                        (wf-manager-sent-location sent))))
         (let ((run (wf-service--await-run session (wf-service--review-request review))))
-          (setf (wf-service--review-run review) run)
+          (setf (wf-service--review-run review) run
+                (wf-service--review-draft review)
+                (car (wf-service--read-draft session (wf-service--review-request review))))
           (wf-service--review-sent review "run"
                                    (format "the manager started run %s for request %s"
                                            run (wf-manager-preparation-request-id preparation)))

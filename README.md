@@ -24,21 +24,30 @@ Service mode connects the Emacs client of this repository to an agent-cat
 workflow manager. The
 [agent-cat getting-started guide](https://github.com/jwiegley/agent-cat/blob/main/doc/getting-started.md),
 `doc/getting-started.md` in an agent-cat checkout, creates the manager with
-`agentic-run --manager init`, starts it and writes its client profile. These
-lines then load the client and name that profile:
+`agentic-run --manager init`, starts it and writes its client profile.
+
+The service client, `emacs/wf-service.el`, is on the branch `emacs-native` of
+this repository. The branch `main` does not have it, and on `main`
+`(require 'wf-service)` fails with `Cannot open load file`. Put the `emacs/`
+directory of a checkout of the branch `emacs-native` on `load-path`. These
+lines use the worktree `~/src/agent-workflows-emacs-native` of that branch,
+load the client and name the client profile:
 
 ```elisp
-(add-to-list 'load-path "~/src/agent-workflows/emacs")
+(add-to-list 'load-path "~/src/agent-workflows-emacs-native/emacs")
 (require 'wf-service)
 (setq wf-manager-profiles '("/path/to/manager-root/client/profile.json"))
 ```
+
+A checkout without that worktree makes it with
+`git -C ~/src/agent-workflows worktree add ~/src/agent-workflows-emacs-native emacs-native`.
 
 1. `M-x wf-service` selects the client profile and connects to the manager.
 2. `M-x wf-run` asks for a profile and a workflow. It opens the setup form
    for the missing inputs and then shows the exact review of the manager.
 3. In the review, `a` asks `Start WORKFLOW in PROFILE (TARGET)?`. A yes
    starts the run and shows its run view, which ends with the Terminal line,
-   for example `Terminal: succeeded`. `d` declines the review and discards
+   for example `Terminal: succeeded`. The review buffer then names the run. `d` declines the review and discards
    its preparation. `q` asks whether to discard the preparation, so that a
    declined review holds no execution reservation of the manager.
 4. `M-x wf-requests` lists the requests of the manager in draft or review

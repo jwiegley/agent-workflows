@@ -3171,6 +3171,18 @@ identifier."
     (should (string-search "Plan summary: none, because the plan is not a JSON object\n"
                            (wf-service-review-text (wf-manager-tests--review nil preparation))))))
 
+(ert-deftest wf-service-review-text-states-the-started-run ()
+  "A review whose approval started a run names that run.
+Before the approval the review states that no run has started.  After
+it the review names the run instead, and offers no approval key."
+  (let* ((review (wf-manager-tests--review nil (wf-manager-tests--preparation))))
+    (should (string-search "no run has started" (wf-service-review-text review)))
+    (setf (wf-service--review-run review) "run_5")
+    (let ((text (wf-service-review-text review)))
+      (should (string-prefix-p "Exact review of the manager — approved.  Run run_5 started.\n" text))
+      (should-not (string-search "no run has started" text))
+      (should-not (string-search "a: approve" text)))))
+
 (ert-deftest wf-service-review-quit-discards-after-a-yes ()
   "\\`q' in a review asks whether to discard the preparation.
 A no sends nothing and leaves the request in review.  A yes sends one

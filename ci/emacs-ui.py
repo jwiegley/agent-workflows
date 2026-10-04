@@ -651,7 +651,7 @@ def service_case(args, directory: Path) -> None:
                reviewText=text, reviewTexts=reviewed, reviewPreparation=service_extra(review)["reviews"][0]["preparation"],
                reviewRequest=service_extra(review)["reviews"][0]["request"])
         session.send("a")
-        prompt = session.wait(lambda state: "Approve preparation" in state.get("minibuffer", ""), "approve-prompt")["minibuffer"]
+        prompt = session.wait(lambda state: state.get("minibuffer", "").startswith("Start "), "approve-prompt")["minibuffer"]
         session.send("yes\r")
         approved = session.wait(lambda state: any(item.get("run") for item in service_extra(state).get("reviews", [])), "approved", 150)
         run = next(item["run"] for item in service_extra(approved)["reviews"] if item.get("run"))
@@ -793,7 +793,7 @@ def service_approve(session: Emacs, label: str, known: set) -> dict:
                           and service_review(state)["request"] not in known, label + "-review", 150)
     request = service_review(review)["request"]
     session.send("a")
-    prompt = session.wait(lambda state: "Approve preparation" in state.get("minibuffer", ""), label + "-approve-prompt")["minibuffer"]
+    prompt = session.wait(lambda state: state.get("minibuffer", "").startswith("Start "), label + "-approve-prompt")["minibuffer"]
     session.send("yes\r")
     approved = session.wait(lambda state: any(item["request"] == request and item.get("run")
                                               for item in service_extra(state).get("reviews", [])), label + "-approved", 150)

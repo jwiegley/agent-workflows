@@ -1094,8 +1094,8 @@ workflow:
    the buffer `*wf review: REQUEST*` of `wf-service-review-mode`.
 
 The review buffer shows the review of the manager, not a plan of this
-client. It shows the admission lines of the wait, the current queue position
-and blocking reasons, every approval selector (`reviewDigest`,
+client. It shows the admission lines of the wait, the current admission,
+the current queue position and blocking reasons, every approval selector (`reviewDigest`,
 `requestRevision`, `profileRevision`, `descriptorRevision` and
 `processGeneration`), the entity tag that `approve` binds as `If-Match`, and
 every consent fact of the review: the program digest, the person answering,
@@ -1105,7 +1105,9 @@ pins, the warnings and the lineage. Nothing is shortened. The workflow line
 names the workflow by the name of its plan, with its identifier. When the
 plan is a JSON object, a plan summary states its workflow, level, size,
 question count, price and observation codes above the raw program, which
-is the exact plan text of the manager. The keys are these:
+is the exact plan text of the manager. After `g` or an approval reads the
+request again, the buffer shows the current admission only and no line of
+the wait. The keys are these:
 
 | Key | Behavior |
 | --- | --- |

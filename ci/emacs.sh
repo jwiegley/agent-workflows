@@ -50,9 +50,10 @@
 #      no process and sends no request. They also check that a refresh of
 #      the setup form keeps every draft, that the setup sources give literal
 #      or capture specs, and that the review text states every approval
-#      selector, the entity tag and the admission. They check that the
-#      catalogue annotation states the price of the decimal catalogue
-#      fields, that the review names the workflow in its approval prompt
+#      selector, the entity tag and the admission, and that after a refresh
+#      or an approval the review shows the current admission only. They
+#      check that the catalogue annotation states the price of the decimal
+#      catalogue fields, that the review names the workflow in its approval prompt
 #      and puts the plan summary above the raw program, that q in a review
 #      sends one discard only after a yes, that wf-requests lists the
 #      requests in draft or review by workflow name, and that wf-runs

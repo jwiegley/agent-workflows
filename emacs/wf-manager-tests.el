@@ -3183,6 +3183,46 @@ it the review names the run instead, and offers no approval key."
       (should-not (string-search "no run has started" text))
       (should-not (string-search "a: approve" text)))))
 
+(ert-deftest wf-service-review-shows-the-current-admission-after-a-change ()
+  "After a refresh or an approval the review shows the current admission only.
+The admission lines of the wait for the review show until the review
+reads its request again.  A refresh and an approval each read it again,
+and the review then shows the current admission line and no line of
+the wait."
+  (let* ((preparation (wf-manager-tests--preparation))
+         (wait-line "Request req_8: queued")
+         (current (lambda (review)
+                    (format "Current: %s\n"
+                            (wf-service-admission-line (wf-service--review-draft review))))))
+    (let ((text (wf-service-review-text (wf-manager-tests--review nil preparation))))
+      (should (string-search (concat "Admission:\n  " wait-line "\n") text)))
+    (dolist (operation '(refresh approve))
+      (with-temp-buffer
+        (wf-service-review-mode)
+        (let ((review (wf-manager-tests--review nil preparation)))
+          (setq wf-service--review-state review)
+          (cl-letf (((symbol-function 'wf-service--read-draft)
+                     (lambda (&rest _) (cons (wf-service--review-draft review) "\"request_rev_2\"")))
+                    ((symbol-function 'wf-service--read-preparation)
+                     (lambda (&rest _) (cons preparation "\"prep_rev\"")))
+                    ((symbol-function 'wf-service--prepare) #'ignore)
+                    ((symbol-function 'wf-service--send)
+                     (lambda (&rest _)
+                       (wf-manager--sent-make
+                        :kind 'delivered
+                        :location (wf-manager-reference-make :uri "/v1/commands/cmd_11")
+                        :receipt (wf-manager-command-receipt-make :state "accepted"))))
+                    ((symbol-function 'wf-service--await-run) (lambda (&rest _) "run_5"))
+                    ((symbol-function 'wf-service-open-view) #'ignore))
+            (if (eq operation 'refresh)
+                (wf-service-review-refresh)
+              (let ((wf-confirm-function (lambda (_prompt) t)))
+                (wf-service-review-approve))))
+          (let ((text (buffer-string)))
+            (should-not (string-search "Admission:" text))
+            (should-not (string-search wait-line text))
+            (should (string-search (funcall current review) text))))))))
+
 (ert-deftest wf-service-review-quit-discards-after-a-yes ()
   "\\`q' in a review asks whether to discard the preparation.
 A no sends nothing and leaves the request in review.  A yes sends one

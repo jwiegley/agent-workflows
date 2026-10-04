@@ -866,7 +866,8 @@ the open phases refuses with its admission line."
   "The state of one review buffer.
 SESSION is the session, and REQUEST the `wf-manager-reference' of the
 request.  DRAFT is the last read of the request, and LINES the
-admission lines of the wait for the review.  PREPARATION is the last
+admission lines of the wait for the review, or nil after a refresh or
+an approval reads the request again.  PREPARATION is the last
 read `wf-manager-preparation', and ETAG its entity tag.  OUTCOMES is the
 list of the commands that the buffer sent, the newest first, each one
 \(OPERATION TEXT).  RUN is the run of the approved request, or nil."
@@ -945,8 +946,10 @@ The text is the complete exact review of the preparation, as
 `reviewLines' of `ext-pi/src/manager-ui.ts' shows it: every approval
 selector, the entity tag that approve binds as If-Match and every
 consent fact.  Nothing is shortened.  The admission of the request, its
-queue position and its blocking reasons come first.  After the approval
-starts a run, the first lines name that run."
+queue position and its blocking reasons come first.  The admission
+lines of the wait for the review show until a refresh or an approval
+reads the request again, and then only the current admission shows.
+After the approval starts a run, the first lines name that run."
   (let* ((preparation (wf-service--review-preparation review))
          (facts (wf-manager-preparation-review preparation))
          (draft (wf-service--review-draft review))
@@ -963,8 +966,11 @@ starts a run, the first lines name that run."
         "Approval starts the run of THIS review.  An edit needs a new request.\n"
         "a: approve after confirmation  d: decline (discard the preparation)\n"
         "w: withdraw the request  g: read again  q: quit (asks whether to discard)\n\n"))
-     "Admission:\n"
-     (mapconcat (lambda (line) (concat "  " line "\n")) (wf-service--review-lines review) "")
+     (if (wf-service--review-lines review)
+         (concat "Admission:\n"
+                 (mapconcat (lambda (line) (concat "  " line "\n"))
+                            (wf-service--review-lines review) ""))
+       "")
      (format "Current: %s\n" (wf-service-admission-line draft))
      (format "Queue position: %s\n" (or (wf-manager-draft-position draft) "none"))
      (format "Blocking reasons: %s\n\n" (if (wf-manager-draft-reasons draft)
@@ -1084,8 +1090,9 @@ Refuse when the review has sent one of the operations CLOSED."
   "Approve this exact review after `wf-confirm-function' agrees.
 Only a yes sends approve, with the approval selectors of the
 preparation and its entity tag as If-Match.  A no sends nothing.
-After the manager starts the run, the review reads its request again
-and names the run, and the run view opens."
+After the manager starts the run, the review reads its request again,
+names the run and shows the current admission only, and the run view
+opens."
   (interactive)
   (let* ((review (wf-service--review-here "approve" "discard" "withdraw"))
          (session (wf-service--review-session review))
@@ -1113,7 +1120,8 @@ and names the run, and the run view opens."
         (let ((run (wf-service--await-run session (wf-service--review-request review))))
           (setf (wf-service--review-run review) run
                 (wf-service--review-draft review)
-                (car (wf-service--read-draft session (wf-service--review-request review))))
+                (car (wf-service--read-draft session (wf-service--review-request review)))
+                (wf-service--review-lines review) nil)
           (wf-service--review-sent review "run"
                                    (format "the manager started run %s for request %s"
                                            run (wf-manager-preparation-request-id preparation)))
@@ -1175,7 +1183,9 @@ A withdrawn request has no run."
                                       (wf-service--review-preparation review))))))
 
 (defun wf-service-review-refresh ()
-  "Read the request and the preparation of this review again."
+  "Read the request and the preparation of this review again.
+The review then shows the current admission of the request and no
+admission line of the wait for the review."
   (interactive)
   (let* ((review (wf-service--review-here))
          (session (wf-service--review-session review))
@@ -1183,6 +1193,7 @@ A withdrawn request has no run."
          (read (wf-service--read-preparation
                 session (wf-manager-preparation-id (wf-service--review-preparation review)))))
     (setf (wf-service--review-draft review) draft
+          (wf-service--review-lines review) nil
           (wf-service--review-preparation review) (car read)
           (wf-service--review-etag review) (cdr read))
     (wf-service--review-render review)

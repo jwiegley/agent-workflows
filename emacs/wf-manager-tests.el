@@ -3090,6 +3090,183 @@ The specs of the form are the specs of its spec function."
                                              "\n")))
              text))))
 
+;; The JSON text of a hello plan, as the review of the manager states it.
+(defconst wf-manager-tests--hello-plan
+  (concat "{\"askNodes\":3,\"codes\":[\"text\",\"text\",\"receipt\"],\"level\":\"pipeline\","
+          "\"maxFold\":3,\"minFold\":3,\"name\":\"hello\",\"paths\":1,"
+          "\"program\":{\"fns\":[]},\"result\":\"receipt\",\"size\":4}")
+  "The plan text of a review of the hello workflow.")
+
+(defun wf-manager-tests--preparation (&optional plan)
+  "Return the live preparation prep_9 of request req_8, with PLAN when given."
+  (let ((value (wf-manager-tests--resource "resources.preparations"
+                                           "live preparation with scripted policy")))
+    (when plan
+      (puthash "plan" plan (gethash "review" value)))
+    (wf-manager-decode-preparation value)))
+
+(defun wf-manager-tests--review (session preparation)
+  "Return a review on SESSION of PREPARATION for the draft request req_8."
+  (wf-service--review-make
+   :session session
+   :draft (wf-manager-decode-draft
+           (wf-manager-json-decode (wf-manager-tests--draft-json "req_8" "request_rev_1")))
+   :lines '("Request req_8: queued") :preparation preparation :etag "\"prep_rev\""))
+
+(ert-deftest wf-service-catalogue-annotation-states-the-price ()
+  "The catalogue annotation states the price of the decimal catalogue fields.
+The path count of /v1/workflows is a string of digits.  A row without
+a path count shows its blurb alone, and no annotation shows nil."
+  (should (= (wf-service--number "43") 43))
+  (should (= (wf-service--number (wf-manager-json-integer 24)) 24))
+  (should-not (wf-service--number :null))
+  (should-not (wf-service--number "4x"))
+  (let* ((item (wf-manager-json-decode
+                (concat "{\"id\":\"wf_stack\",\"profileId\":\"scripted\",\"name\":\"stack-prs\","
+                        "\"blurb\":\"stack the work\",\"level\":\"branch\",\"maxFold\":24,"
+                        "\"paths\":\"43\",\"revision\":\"rev_1\",\"profileRevision\":\"prev_1\","
+                        "\"help\":\"help\"}")))
+         (rows (cl-letf (((symbol-function 'wf-service--collection)
+                          (lambda (&rest _) (list item))))
+                 (wf-service--rows nil "scripted")))
+         (annotations nil))
+    (should (eql (alist-get 'paths (car rows)) 43))
+    (cl-letf (((symbol-function 'completing-read)
+               (lambda (_prompt table &rest _)
+                 (let ((annotate (alist-get 'annotation-function
+                                            (cdr (funcall table "" nil 'metadata)))))
+                   (setq annotations (list (funcall annotate "stack-prs")
+                                           (funcall annotate "bare"))))
+                 "stack-prs")))
+      (wf--read-row "Workflow: " nil
+                    (append rows '(((name . "bare") (blurb . "no price") (level . "batch"))))))
+    (should (string-search "branch · at most 24 over 43 paths  —  stack the work"
+                           (car annotations)))
+    (should (string-match-p "\\` +no price\\'" (cadr annotations)))
+    (dolist (annotation annotations)
+      (should-not (string-search "nil" annotation)))))
+
+(ert-deftest wf-service-review-names-the-workflow-and-summarizes-the-plan ()
+  "The approval prompt names the workflow, the profile and the target.
+The review buffer keeps the selectors, and its plan summary comes
+before the raw program.  A plan that is not JSON names the workflow
+identifier."
+  (let* ((preparation (wf-manager-tests--preparation wf-manager-tests--hello-plan))
+         (text (wf-service-review-text (wf-manager-tests--review nil preparation)))
+         (summary (string-search "Plan summary: workflow hello, level pipeline, size 4, askNodes 3\n"
+                                 text))
+         (program (string-search "Program (the exact plan text of the manager):\n" text)))
+    (should (equal (wf-service-approval-prompt preparation)
+                   "Start hello in profile_main (Deterministic worker)? "))
+    (should (string-search "Workflow: hello (wf_review)\n" text))
+    (should (string-search "  Price: minFold 3, maxFold 3, over 1 path\n" text))
+    (should (string-search "  Codes: text, text, receipt, result receipt\n" text))
+    (should (and summary program (< summary program)))
+    (should (string-search (concat "  " wf-manager-tests--hello-plan "\n") text))
+    (should (string-search "  reviewDigest: " text))
+    (should (string-search "d: decline (discard the preparation)" text)))
+  (let ((preparation (wf-manager-tests--preparation)))
+    (should (equal (wf-service-approval-prompt preparation)
+                   "Start wf_review in profile_main (Deterministic worker)? "))
+    (should (string-search "Plan summary: none, because the plan is not a JSON object\n"
+                           (wf-service-review-text (wf-manager-tests--review nil preparation))))))
+
+(ert-deftest wf-service-review-quit-discards-after-a-yes ()
+  "\\`q' in a review asks whether to discard the preparation.
+A no sends nothing and leaves the request in review.  A yes sends one
+discard with the entity tag of the preparation as If-Match, so the
+declined review holds no execution reservation."
+  (wf-manager-tests--with-view
+   (list "/v1/preparations/prep_9"
+         (list (wf-manager-tests--json
+                202 (wf-manager-tests--vector-json "resources.receipts"
+                                                   "effect-observed discarded receipt")
+                '("Location: /v1/commands/cmd_11"))))
+   (lambda (listener session)
+     (let ((prompts nil)
+           (reviews nil))
+       (unwind-protect
+           (dolist (answer '(nil t))
+             (let ((buffer (generate-new-buffer "*wf review test*")))
+               (push buffer reviews)
+               (switch-to-buffer buffer)
+               (wf-service-review-mode)
+               (setq wf-service--review-state
+                     (wf-manager-tests--review session (wf-manager-tests--preparation)))
+               (should (eq (lookup-key wf-service-review-mode-map "q") #'wf-service-review-decline))
+               (should (eq (lookup-key wf-service-review-mode-map "d") #'wf-service-review-discard))
+               (let ((wf-confirm-function (lambda (prompt) (push prompt prompts) answer)))
+                 (wf-service-review-decline))
+               (should (= (wf-manager-tests--posts listener) (if answer 1 0)))
+               (should (equal (mapcar #'car (wf-service--review-outcomes
+                                             (buffer-local-value 'wf-service--review-state buffer)))
+                              (if answer '("discard") nil)))))
+         (mapc #'kill-buffer reviews))
+       (should (equal prompts (make-list 2 "Discard the preparation of this review, so that it holds no execution reservation? ")))
+       (let ((posted (car (cl-remove-if-not (lambda (request) (string-prefix-p "POST " request))
+                                            (wf-manager-tests--listener-requests listener)))))
+         (should (equal (wf-manager-tests--target posted) "/v1/preparations/prep_9"))
+         (should (equal (cdr (assoc "if-match" (wf-manager-tests--request-headers posted)))
+                        "\"prep_rev\""))
+         (should (equal (substring posted (+ 4 (string-search "\r\n\r\n" posted)))
+                        "{\"operation\":\"discard\"}")))))))
+
+(ert-deftest wf-service-requests-lists-open-requests-and-opens-the-review ()
+  "`wf-requests' lists the requests in draft or review by workflow name.
+The choice of a request in review opens its review, and the command
+sends nothing."
+  (wf-manager-tests--with-view
+   (list "/v1/requests"
+         (list (wf-manager-tests--items-page
+                (wf-manager-tests--draft-json "req_a" "request_rev_1")
+                (string-replace "\"req_8\"" "\"req_r\""
+                                (string-replace "/v1/requests/req_8" "/v1/requests/req_r"
+                                                (wf-manager-tests--vector-json
+                                                 "resources.requests"
+                                                 "request collection item keeps literal Unicode and NUL text")))))
+         "/v1/workflows?profileId=profile_main"
+         (list (wf-manager-tests--items-page
+                "{\"id\":\"wf_review\",\"profileId\":\"profile_main\",\"name\":\"review\"}")))
+   (lambda (listener _session)
+     (let ((labels nil)
+           (annotation nil)
+           (opened nil))
+       (cl-letf (((symbol-function 'completing-read)
+                  (lambda (_prompt choices &rest _)
+                    (setq labels (mapcar #'car choices)
+                          annotation (funcall (plist-get completion-extra-properties
+                                                         :annotation-function)
+                                              "review/req_r"))
+                    "review/req_r"))
+                 ((symbol-function 'wf-service--open-review)
+                  (lambda (_session reference)
+                    (setq opened (wf-manager-reference-uri reference)))))
+         (call-interactively #'wf-requests))
+       (should (equal labels '("review/req_r" "review/req_a")))
+       (should (string-prefix-p "  profile profile_main, review, admission " annotation))
+       (should (equal opened "/v1/requests/req_r"))
+       (should (= (wf-manager-tests--posts listener) 0))))))
+
+(ert-deftest wf-local-history-row-prints-no-nil ()
+  "A local history row of a root run without a persona shows no Lisp nil."
+  (with-temp-buffer
+    (wf-history-mode)
+    (let ((wf--store 'store))
+      (cl-letf (((symbol-function 'wf--store-query)
+                 (lambda (&rest _)
+                   `((runs . [((kind . "run") (runId . "native-1") (runnerId . "agentic-run")
+                               (workflow . "hello") (lineage) (parentRunId) (persona)
+                               (targetKind . "scripted") (ownership . "terminal")
+                               (createdAt . "2026-10-04T00:00:00Z")
+                               (snapshot (status . "succeeded") (billFresh . 3)
+                                         (billMemo . 3)))])))))
+        (wf-history-refresh)))
+    (let ((row (append (cadr (car tabulated-list-entries)) nil)))
+      (should (equal (nth 4 row) "root"))
+      (should (equal (nth 6 row) "none / scripted"))
+      (dolist (column row)
+        (should-not (string-search "nil" column))))))
+
 ;;;; Run views and answers
 
 (defun wf-manager-tests--resource (section name)
@@ -3188,14 +3365,29 @@ offer an answer, and the queue holds the flag question at its head."
                (wf-manager-tests--resource
                 "resources.runs" "managed run with lost supervision keeps a sequence beyond 2^53")))
          (session (wf-manager--session-make
+                   :connection (wf-manager--connection-make :identity "endpoint_1")
                    :overview (wf-manager--overview-make
                               :items (list (wf-manager--overview-item-make
                                             :member (wf-manager-overview-member-make
                                                      :kind "run" :value run))))))
+         (wf-service--known-runs nil)
          (choices (wf-service-runs-choices session)))
     (should (equal (mapcar #'car choices) '("local:local_1 — /tmp/wf-local/" "service:run_21")))
     (should (eq (cddr (nth 0 choices)) local))
-    (should (equal (cdr (nth 1 choices)) '(service . "run_21")))))
+    (should (equal (cdr (nth 1 choices)) '(service . "run_21")))
+    ;; A run whose view this Emacs opened stays a choice after it leaves
+    ;; the overview, and a run of another endpoint is not a choice.
+    (setq wf-service--known-runs '(("endpoint_other" . "run_9") ("endpoint_1" . "run_7")))
+    (should (equal (mapcar #'car (wf-service-runs-choices session))
+                   '("local:local_1 — /tmp/wf-local/" "service:run_7" "service:run_21")))
+    (setq wf--sessions nil
+          wf-service--known-runs nil)
+    (setf (wf-manager-session-overview session) nil)
+    (let ((wf--service-dispatch #'wf-service--dispatch)
+          (wf-service--current (wf-service--state-make :file "profile" :session session)))
+      (should (string-search "M-x wf-history lists every run"
+                             (cadr (should-error (call-interactively #'wf-runs)
+                                                 :type 'user-error)))))))
 
 (defun wf-manager-tests--with-view (routes function)
   "Start service mode on a router of ROUTES and call FUNCTION.
@@ -3441,6 +3633,14 @@ NEXT is the next page or nil, and RUNS are the JSON texts of the items."
                ",\"totalItems\":4,\"next\":" (if next (concat "\"" next "\"") "null")
                "},\"items\":[" (string-join runs ",") "]}")))
 
+(defun wf-manager-tests--items-page (&rest items)
+  "Return the response of a page set of one page with the JSON texts ITEMS."
+  (wf-manager-tests--json
+   200 (concat "{\"version\":1,\"page\":{\"setId\":\"set_i\",\"revision\":\"rev_i\","
+               "\"expiresAt\":\"2999-01-01T00:00:00Z\",\"index\":0,\"totalItems\":"
+               (number-to-string (length items)) ",\"next\":null},\"items\":["
+               (string-join items ",") "]}")))
+
 (defun wf-manager-tests--history-ids (buffer)
   "Return the run identifiers of the rows of the history BUFFER, top first."
   (with-current-buffer buffer
@@ -3476,7 +3676,10 @@ does a refresh of a history of another endpoint."
          (list (wf-manager-tests--json
                 200 (wf-manager-tests--vector-json
                      "resources.runs"
-                     "managed run with lost supervision keeps a sequence beyond 2^53"))))
+                     "managed run with lost supervision keeps a sequence beyond 2^53")))
+         "/v1/workflows?profileId=profile_main"
+         (list (wf-manager-tests--items-page
+                "{\"id\":\"wf_review\",\"profileId\":\"profile_main\",\"name\":\"review\"}")))
    (lambda (listener session)
      (let ((history (progn (call-interactively #'wf-history) (current-buffer)))
            (identity (wf-manager-session-identity session)))
@@ -3490,10 +3693,10 @@ does a refresh of a history of another endpoint."
                (should (= (wf-service-history-observers wf-service--history-state) 1))
                (should (equal (mapcar (lambda (entry) (append (cadr entry) nil))
                                       tabulated-list-entries)
-                              '(("run_21" "wf_review" "profile_main" "running" "lost" "root" "absent")
-                                ("run_legacy" "wf_review" "profile_main" "no runtime evidence"
+                              '(("run_21" "review" "profile_main" "running" "lost" "root" "absent")
+                                ("run_legacy" "review" "profile_main" "no runtime evidence"
                                  "observer (legacy entry, read only)" "root" "verified")
-                                ("run_fork" "wf_review" "profile_main" "succeeded"
+                                ("run_fork" "review" "profile_main" "succeeded"
                                  "cleanup-pending" "fork of run_20" "unavailable")
                                 ("run_unreadable" "" "profile_main"
                                  "unreadable (malformed-manifest)" "" "" ""))))

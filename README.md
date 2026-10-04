@@ -18,6 +18,49 @@ it is an instruction this repository obeys.
 The design of record is [`doc/design.md`](doc/design.md); the inventories and the
 three competing architectures it was judged from are under `doc/research/`.
 
+## Using service mode
+
+Service mode connects the Emacs client of this repository to an agent-cat
+workflow manager. The
+[agent-cat getting-started guide](https://github.com/jwiegley/agent-cat/blob/main/doc/getting-started.md),
+`doc/getting-started.md` in an agent-cat checkout, creates the manager with
+`agentic-run --manager init`, starts it and writes its client profile. These
+lines then load the client and name that profile:
+
+```elisp
+(add-to-list 'load-path "~/src/agent-workflows/emacs")
+(require 'wf-service)
+(setq wf-manager-profiles '("/path/to/manager-root/client/profile.json"))
+```
+
+1. `M-x wf-service` selects the client profile and connects to the manager.
+2. `M-x wf-run` asks for a profile and a workflow. It opens the setup form
+   for the missing inputs and then shows the exact review of the manager.
+3. In the review, `a` asks `Start WORKFLOW in PROFILE (TARGET)?`. A yes
+   starts the run and shows its run view, which ends with the Terminal line,
+   for example `Terminal: succeeded`. `d` declines the review and discards
+   its preparation. `q` asks whether to discard the preparation, so that a
+   declined review holds no execution reservation of the manager.
+4. `M-x wf-requests` lists the requests of the manager in draft or review
+   and opens the review of one. A request that `q` left in review stays
+   reachable with this command.
+5. `M-x wf-runs` opens the view of a run of the manager. It offers each run
+   whose view this Emacs process opened, also after the run ends, and each
+   run of the overview of the manager. `M-x wf-history` lists every run of
+   the manager by workflow name, and `RET` opens the view of a row.
+6. `M-x wf-local` returns to local mode. The runs and requests of the
+   manager continue.
+
+Local mode needs no manager. `wf-program` names the runner, `wf` by default.
+It can also be `agentic-run` of agent-cat, whose catalogue holds the worked
+examples of agent-cat, for example `hello`:
+
+```elisp
+(setq wf-program "agentic-run")
+```
+
+[Service mode](#service-mode) is the complete reference.
+
 ## Where things are
 
 ```
@@ -379,6 +422,7 @@ Without `use-package`, add `emacs/` to `load-path` and autoload the commands:
 | `wf-refresh` | Clear descriptor discovery caches. A prefix argument also refreshes discovery for the inspection and run commands. |
 | `wf-restart`, `wf-resume`, `wf-fork` | Prepare a separately owned lineage child and require fresh approval. |
 | `wf-export` | Export the verified result of a manager run under a new name. Only service mode has this command. |
+| `wf-requests` | List the requests of the manager in draft or review and open the review of one. Only service mode has this command. |
 | `wf-lineage-compare` | Display authoritative parent and child records and snapshots. |
 | `wf-diagnostics` | Display the diagnostics of the current run view. |
 | `wf-service`, `wf-local` | Select service mode with a client profile, or return to local mode (see [Service mode](#service-mode)). |
@@ -982,7 +1026,7 @@ for it:
 | `wf-run` | Read the ready profiles of `/v1/profiles` and ask for one, with its workspace and target labels. Then read the catalogue of `/v1/workflows?profileId=` for that profile and ask for one workflow through the completion of `wf--read-row`, with its price and blurb. Each read is fresh, so the prefix argument changes nothing. The command then creates a request, opens its setup form, enqueues it and shows its exact review (see [Service setup and review](#service-setup-and-review)). |
 | `wf-help` | Read a profile and a workflow as `wf-run` does, and show the help text of the catalogue item in the buffer `*wf help: PROFILE/WORKFLOW*`. |
 | `wf-diagnostics` | Show the buffer `*wf service diagnostics*`: the profile file, the endpoint, the endpoint identity, the authority epoch, the scopes, the profiles of the credential, the delivery state, the generation, the number of polling batches, the state of the follow loop and the last problem. |
-| `wf-runs` | Ask for one local session of this Emacs process, with the label `local:RUN — DIRECTORY`, or one run of the manager, with the label `service:RUN`, and open its view. The service runs are the runs of the open service run views and the runs of the installed overview (see [Service run views and answers](#service-run-views-and-answers)). |
+| `wf-runs` | Ask for one local session of this Emacs process, with the label `local:RUN — DIRECTORY`, or one run of the manager, with the label `service:RUN`, and open its view. The service runs are the runs whose view this Emacs process opened at the endpoint of the session, also after they leave the overview, the runs of the open service run views and the runs of the installed overview (see [Service run views and answers](#service-run-views-and-answers)). When no run is known, the message names `M-x wf-history`, which lists every run of the manager. |
 | `wf-answer` | Answer the head decision of a run of the manager in the answer editor. In a service run view, the run is the run of the view. Elsewhere, the command asks for one run with a pending decision of the installed overview. |
 | `wf-refresh` | In a setup form of service mode, read the request of the form again and draw the form again with every draft. Elsewhere, show a message and send nothing, because service mode keeps no row listing. |
 | `wf-control` | Send one control of a run of the manager that the controls of the run offer (see [Service controls](#service-controls)). In a service run view, the run is the run of the view, and in a service history of the endpoint of the session, it is the run of the row at point. Elsewhere, the command asks for one run that the session knows. |
@@ -1004,7 +1048,10 @@ two active page sets. Such a refusal clears without a change of the
 resource, when another page set of the client completes or expires. A read is never a command, so nothing is
 sent again.
 
-No refusal starts a process or sends a request. `wf-export` of
+No refusal starts a process or sends a request. `wf-requests` of
+`wf-service.el` lists the requests of the manager in draft or review and
+opens the review of one (see [Service setup and review](#service-setup-and-review)).
+Local mode has no requests, so `wf-requests` refuses there. `wf-export` of
 `wf-service.el` exports the verified result of a run of the manager (see
 [Service lineage and exports](#service-lineage-and-exports)). Local mode has no
 export, so `wf-export` refuses there. The dispatch is global: in
@@ -1019,7 +1066,8 @@ workflow:
 1. It creates a request of the workflow with `POST /v1/requests`.
 2. It opens the setup form of local mode, `wf--setup-mode`, with the same
    widgets, keys, sources and histories, for the missing inputs of the
-   request. The header of the form names the request and its admission. The
+   request. The header of the form names the request and its admission, and
+   it states that Submit sends each input to the manager. The
    Literal and Multiline sources send the exact text of the input with
    `set-input`. The File, Buffer and Region sources upload exact UTF-8 bytes
    with `POST /v1/captures?requestId=ID` as `application/octet-stream`, and
@@ -1044,15 +1092,29 @@ and blocking reasons, every approval selector (`reviewDigest`,
 every consent fact of the review: the program digest, the person answering,
 the workflow, the profile, the workspace, the target, the policy, the result
 code, the size and SHA-256 digest of each input, the plan, the run facts, the
-pins, the warnings and the lineage. Nothing is shortened. The keys are these:
+pins, the warnings and the lineage. Nothing is shortened. The workflow line
+names the workflow by the name of its plan, with its identifier. When the
+plan is a JSON object, a plan summary states its workflow, level, size,
+question count, price and observation codes above the raw program, which
+is the exact plan text of the manager. The keys are these:
 
 | Key | Behavior |
 | --- | --- |
-| `a` | Ask `wf-confirm-function`. Only a yes sends `approve` with the five selectors and the entity tag of the preparation as `If-Match`. The buffer then waits for the run of the request and names it. A no sends nothing, and the request stays in review. |
-| `d` | Send `discard` to the preparation and wait for its effect. The request is a draft again. |
+| `a` | Ask `wf-confirm-function` with the prompt `Start WORKFLOW in PROFILE (TARGET)?`. The selectors and the entity tag stay in the buffer. Only a yes sends `approve` with the five selectors and the entity tag of the preparation as `If-Match`. The buffer then waits for the run of the request, names it and shows the service run view of the run in another window. A no sends nothing, and the request stays in review. |
+| `d` | Decline the review: send `discard` to the preparation and wait for its effect. The request is a draft again, and the preparation holds no execution reservation. |
 | `w` | Send `withdraw` to the request and wait for its effect. |
 | `g` | Read the request and the preparation again and draw the review again. |
-| `q` | Decline and quit the window. Nothing is sent. |
+| `q` | Quit the window. When the review sent no `approve`, `discard` or `withdraw`, ask `wf-confirm-function` whether to discard the preparation first. A yes sends the `discard` of `d`. A no sends nothing, and the request stays in review, where `wf-requests` opens it again. |
+
+`M-x wf-requests` reads every page of `/v1/requests` and asks for one
+request in the phase `draft`, `queued`, `preparing` or `review`. The
+requests in review come first, then the preparing and queued requests,
+then the drafts. Each choice has the label `WORKFLOW/REQUEST`, with the
+workflow name of the catalogue of the profile of the request, and an
+annotation with the profile, the phase and the admission. A request in review opens its exact review at once, and a
+queued or preparing request opens it when its preparation exists. A draft
+first opens the setup form for its missing inputs, and the command then
+enqueues it as `wf-run` does. A request in another phase is not listed.
 
 Each command is sent one time. A command whose outcome is uncertain stops
 with a message, and nothing is sent again.
@@ -1062,7 +1124,8 @@ with a message, and nothing is sent again.
 A service run view is the buffer `*wf service run RUN*` of
 `wf-service-run-mode`, a mode derived from `wf-run-mode` with the same keys
 and `E` for `wf-export`.
-`wf-runs` opens it. The view is keyed by the endpoint identity of the session
+`wf-runs` opens it, and so does the approval of a review. The view is keyed
+by the endpoint identity of the session
 and the run identifier, so each window follows its own run, and a second open
 of the same run selects the same view. The session watches four resources of
 the run: `/v1/runs/{id}`, `/v1/runs/{id}/snapshot`, `/v1/runs/{id}/control`
@@ -1142,7 +1205,9 @@ manager.
 run of `/v1/runs` over every page of the collection, in the order of the
 collection, managed runs and legacy entries alike. The columns are the run,
 the workflow, the profile, the runtime status, the supervision, the lineage
-and the verification of the result. A legacy entry has the supervision
+and the verification of the result. The workflow column shows the name of
+the workflow in the catalogue of the profile of the run. A workflow that the
+catalogue does not list shows its identifier. A legacy entry has the supervision
 `observer (legacy entry, read only)`. The keys are these:
 
 | Key | Behavior |
@@ -1275,11 +1340,6 @@ These limits of service mode stay open:
   leaves an incomplete page set, which holds one of the two page-set places
   of the client until the set expires. While both places are held, another
   page set of the client receives 429 `storage-quota`.
-- `wf-service.el` opens the review of a request only when this Emacs
-  process set up that request with `wf-run` or created it with `wf-fork`,
-  `wf-restart`, `wf-resume` or `wf-rerun`. It has no command that opens the
-  review of a request that another client queued, so the approval of such a
-  request needs another client.
 - `wf-lineage-compare` and the observer commands have no service-mode
   equivalent.
 

@@ -83,10 +83,18 @@
 ;;      review of GET /v1/preparations/{id}: the approval selectors, the
 ;;      entity tag that approve binds as If-Match and every consent fact
 ;;      of the review.  It is the review of the manager and not a plan of
-;;      this client.  \`a' asks `wf-confirm-function', and only a yes sends
-;;      approve with the selectors and the entity tag.  A no and \`q'
-;;      decline and send nothing.  \`d' discards the preparation, and \`w'
-;;      withdraws the request.
+;;      this client.  \`a' asks `wf-confirm-function' whether to start the
+;;      workflow in the profile and its target, and only a yes sends
+;;      approve with the selectors and the entity tag.  The run view of
+;;      the started run then opens.  A no sends nothing.  \`d' declines
+;;      the review and discards the preparation, and \`w' withdraws the
+;;      request.  \`q' asks whether to discard the preparation, so that
+;;      a declined review holds no execution reservation, and a no
+;;      leaves the request in review.
+;;
+;; `wf-requests' lists the requests of the manager in draft or review
+;; and opens the review of one, so a request left in review stays
+;; reachable.
 ;;
 ;; No step sends a command again by itself.  A command whose outcome is
 ;; uncertain stops the command with a message, and nothing is sent again.
@@ -442,9 +450,14 @@ WHAT names the collection in the message of a failure."
   (wf-manager-page-set-items (wf-service--page-set session uri what)))
 
 (defun wf-service--number (value)
-  "Return the Lisp number of the JSON number VALUE, or nil for JSON null."
-  (and (wf-manager-json-number-p value)
-       (string-to-number (wf-manager-json-number-source value))))
+  "Return the Lisp number of VALUE, or nil.
+VALUE is a JSON number or a string of decimal digits, which is the form
+of a NaturalDecimal field such as the path count of a catalogue item.
+JSON null and every other value give nil."
+  (cond ((wf-manager-json-number-p value)
+         (string-to-number (wf-manager-json-number-source value)))
+        ((and (stringp value) (string-match-p "\\`[0-9]+\\'" value))
+         (string-to-number value))))
 
 (defun wf-service--read-profile (session)
   "Read one ready profile of the manager of SESSION in the minibuffer.
@@ -490,6 +503,28 @@ item."
          (wf-service--collection session (concat "/v1/workflows?profileId=" profile)
                                  (format "catalogue of %s" profile)))))
 
+(defun wf-service--workflow-names (session profiles)
+  "On SESSION, return the workflow names of the catalogues of PROFILES.
+The value is a hash table from each workflow identifier to its name.
+PROFILES is a list of profile identifiers.  A catalogue that cannot be
+read adds no name, and the caller then shows the identifier."
+  (let ((names (make-hash-table :test #'equal)))
+    (dolist (profile (delete-dups (delq nil (copy-sequence profiles))))
+      (let ((set (wf-service--await-read
+                  (lambda (callback)
+                    (wf-manager-session-page-set
+                     session (wf-manager-session-reference
+                              session (concat "/v1/workflows?profileId=" profile))
+                     callback)
+                    nil))))
+        (unless (wf-manager-failure-p set)
+          (dolist (item (wf-manager-page-set-items set))
+            (when (and (hash-table-p item)
+                       (stringp (gethash "id" item))
+                       (stringp (gethash "name" item)))
+              (puthash (gethash "id" item) (gethash "name" item) names))))))
+    names))
+
 (defun wf-service--read-workflow (prompt)
   "Read a ready profile and one workflow of its catalogue, with PROMPT.
 The workflow completion is `wf--read-row'.  Return the row."
@@ -507,14 +542,21 @@ The steps are the steps of the commentary of this file.  A cancel of
 the setup form leaves the request a draft of the manager."
   (let* ((session (wf-service--session))
          (row (wf-service--read-workflow "Workflow: "))
-         (draft (wf-service--create session row))
-         (reference (wf-manager-session-reference
-                     session (concat "/v1/requests/" (wf-manager-draft-id draft))))
-         (specs (wf-service--setup session row draft reference)))
-    (dolist (spec specs)
-      (wf-service--supply session reference (wf-manager-draft-id draft) spec))
-    (wf-service--enqueue session reference)
-    (wf-service--open-review session reference)))
+         (draft (wf-service--create session row)))
+    (wf-service--complete session row draft
+                          (wf-manager-session-reference
+                           session (concat "/v1/requests/" (wf-manager-draft-id draft))))))
+
+(defun wf-service--complete (session row draft reference)
+  "On SESSION, supply the inputs of a request and show its review.
+ROW is the catalogue row of the request, or an alist with its `name'
+alone.  DRAFT is the request, and REFERENCE is its reference.  The setup form
+edits the missing inputs, each input is sent, the request is enqueued,
+and its exact review opens."
+  (dolist (spec (wf-service--setup session row draft reference))
+    (wf-service--supply session reference (wf-manager-draft-id draft) spec))
+  (wf-service--enqueue session reference)
+  (wf-service--open-review session reference))
 
 (defun wf-service--help (&optional _refresh)
   "Show the help text that the manager catalogue states for a workflow."
@@ -685,11 +727,11 @@ blocking reasons and the missing inputs, as `admissionLine' of
                                 (wf-manager-reply-status reply)))))
     (wf-service--decode #'wf-manager-decode-draft (wf-manager-reply-value reply) "request")))
 
-(defun wf-service--setup-header (draft)
-  "Return the header of the setup form of the request DRAFT."
+(defun wf-service--setup-header (draft name)
+  "Return the header of the setup form of the request DRAFT.
+NAME is the name of the workflow of DRAFT."
   (concat (format "Manager request %s of workflow %s in profile %s.\n"
-                  (wf-manager-draft-id draft) (wf-manager-draft-workflow-id draft)
-                  (wf-manager-draft-profile-id draft))
+                  (wf-manager-draft-id draft) name (wf-manager-draft-profile-id draft))
           (wf-service-admission-line draft) ".\n"
           "Submit sends each input to the manager and enqueues the request.\n"
           "Literal and Multiline send the exact text.  File, Buffer and Region\n"
@@ -734,8 +776,9 @@ without a missing input opens no form."
       (wf--setup-inputs `((name . ,(alist-get 'name row))
                           (inputs . ,(mapcar (lambda (name) `((name . ,name))) missing)))
                         #'wf-service--setup-spec
-                        (wf-service--setup-header draft)
-                        (list :session session :reference reference)))))
+                        (wf-service--setup-header draft (alist-get 'name row))
+                        (list :session session :reference reference
+                              :name (alist-get 'name row))))))
 
 (defun wf-service--setup-reread ()
   "Read the request of this setup form again and draw the form again.
@@ -743,7 +786,7 @@ Every draft of the form stays."
   (let* ((context wf--setup-context)
          (draft (car (wf-service--read-draft (plist-get context :session)
                                              (plist-get context :reference)))))
-    (wf--setup-refresh (wf-service--setup-header draft))
+    (wf--setup-refresh (wf-service--setup-header draft (plist-get context :name)))
     (message "wf: %s" (wf-service-admission-line draft))))
 
 (defun wf-service--refresh ()
@@ -849,6 +892,53 @@ list of the commands that the buffer sent, the newest first, each one
   "Return the JSON text of VALUE as a string."
   (decode-coding-string (wf-manager-json-encode value) 'utf-8))
 
+(defun wf-service--plan-object (facts)
+  "Return the plan of the review FACTS as a JSON object, or nil.
+The plan of a review is the exact plan text of the manager.  A plan
+that is not the text of a JSON object gives nil."
+  (let ((value (condition-case nil
+                   (wf-manager-json-decode (wf-manager-review-plan facts))
+                 (wf-manager-error nil))))
+    (and (hash-table-p value) value)))
+
+(defun wf-service-review-workflow (facts)
+  "Return the workflow name of the review FACTS.
+The name is the name of the plan.  A plan without a name gives the
+workflow identifier."
+  (let ((name (wf-service--member (wf-service--plan-object facts) "name")))
+    (if (and (stringp name) (not (string-empty-p name)))
+        name
+      (wf-manager-review-workflow-id facts))))
+
+(defun wf-service--plan-value (value)
+  "Return the text of the plan member VALUE in a plan summary."
+  (cond ((null value) "none")
+        ((stringp value) value)
+        ((wf-manager-json-number-p value) (wf-manager-json-number-source value))
+        ((vectorp value) (if (= (length value) 0)
+                             "none"
+                           (mapconcat #'wf-service--plan-value value ", ")))
+        (t (wf-service--json-text value))))
+
+(defun wf-service-plan-summary (facts)
+  "Return the lines of the plan summary of the review FACTS.
+The lines name the workflow, its level, its size, its question count,
+its price and its observation codes, as `wf plan' states them.  A plan
+that is not a JSON object gives one line that says so."
+  (let ((plan (wf-service--plan-object facts)))
+    (if (not plan)
+        (list "Plan summary: none, because the plan is not a JSON object")
+      (let ((member (lambda (name) (wf-service--plan-value (wf-service--member plan name)))))
+        (list (format "Plan summary: workflow %s, level %s, size %s, askNodes %s"
+                      (wf-service-review-workflow facts) (funcall member "level")
+                      (funcall member "size") (funcall member "askNodes"))
+              (format "  Price: minFold %s, maxFold %s, over %s path%s"
+                      (funcall member "minFold") (funcall member "maxFold")
+                      (funcall member "paths")
+                      (if (equal (funcall member "paths") "1") "" "s"))
+              (format "  Codes: %s, result %s"
+                      (funcall member "codes") (funcall member "result")))))))
+
 (defun wf-service-review-text (review)
   "Return the text of the review buffer of REVIEW, a `wf-service--review'.
 The text is the complete exact review of the preparation, as
@@ -863,7 +953,8 @@ queue position and its blocking reasons come first."
     (concat
      "Exact review of the manager — no run has started.\n"
      "Approval starts the run of THIS review.  An edit needs a new request.\n"
-     "a: approve after confirmation  d: discard  w: withdraw  g: read again  q: decline\n\n"
+     "a: approve after confirmation  d: decline (discard the preparation)\n"
+     "w: withdraw the request  g: read again  q: quit (asks whether to discard)\n\n"
      "Admission:\n"
      (mapconcat (lambda (line) (concat "  " line "\n")) (wf-service--review-lines review) "")
      (format "Current: %s\n" (wf-service-admission-line draft))
@@ -881,7 +972,8 @@ queue position and its blocking reasons come first."
      (format "  If-Match: %s\n" (wf-service--review-etag review))
      (format "Program SHA-256: %s\n" (wf-manager-review-program-hash facts))
      (format "Person answering: %s\n" (wf-manager-review-person-answering facts))
-     (format "Workflow: %s\n" (wf-manager-review-workflow-id facts))
+     (format "Workflow: %s (%s)\n" (wf-service-review-workflow facts)
+             (wf-manager-review-workflow-id facts))
      (format "Profile: %s\n" (wf-manager-review-profile-id facts))
      (format "Workspace: %s\n" (wf-manager-review-workspace-label facts))
      (format "Target: %s\n" (wf-manager-review-target-label facts))
@@ -893,7 +985,8 @@ queue position and its blocking reasons come first."
                           (wf-manager-review-input-source input) (wf-manager-review-input-bytes input)
                           (wf-manager-review-input-sha256 input)))
                 (wf-manager-review-inputs facts) "")
-     "Plan:\n"
+     (mapconcat (lambda (line) (concat line "\n")) (wf-service-plan-summary facts) "")
+     "Program (the exact plan text of the manager):\n"
      (mapconcat (lambda (line) (concat "  " line "\n"))
                 (split-string (wf-manager-review-plan facts) "\n") "")
      (format "Run facts: %s\n" (if (wf-manager-review-run-facts facts)
@@ -988,11 +1081,7 @@ preparation and its entity tag as If-Match.  A no sends nothing."
          (session (wf-service--review-session review))
          (preparation (wf-service--review-preparation review))
          (etag (wf-service--review-etag review)))
-    (if (not (funcall wf-confirm-function
-                      (format "Approve preparation %s of request %s with review digest %s and If-Match %s? "
-                              (wf-manager-preparation-id preparation)
-                              (wf-manager-preparation-request-id preparation)
-                              (wf-manager-preparation-review-digest preparation) etag)))
+    (if (not (funcall wf-confirm-function (wf-service-approval-prompt preparation)))
         (message "wf: review declined.  No approval was sent, and request %s stays in review"
                  (wf-manager-preparation-request-id preparation))
       (let* ((body (apply #'wf-manager-json-object "operation" "approve"
@@ -1015,7 +1104,17 @@ preparation and its entity tag as If-Match.  A no sends nothing."
           (setf (wf-service--review-run review) run)
           (wf-service--review-sent review "run"
                                    (format "the manager started run %s for request %s"
-                                           run (wf-manager-preparation-request-id preparation))))))))
+                                           run (wf-manager-preparation-request-id preparation)))
+          (wf-service-open-view session run t))))))
+
+(defun wf-service-approval-prompt (preparation)
+  "Return the approval prompt of PREPARATION.
+The prompt names the workflow, the profile and the target of the
+review.  The approval selectors and the entity tag stay in the review
+buffer."
+  (let ((facts (wf-manager-preparation-review preparation)))
+    (format "Start %s in %s (%s)? " (wf-service-review-workflow facts)
+            (wf-manager-review-profile-id facts) (wf-manager-review-target-label facts))))
 
 (defun wf-service--await-run (session reference)
   "On SESSION, return the run of the approved request REFERENCE."
@@ -1078,14 +1177,94 @@ A withdrawn request has no run."
     (message "wf: %s" (wf-service-admission-line draft))))
 
 (defun wf-service-review-decline ()
-  "Decline this review and quit its window.  Nothing is sent.
-A review that sent no command leaves its request in review."
+  "Quit this review, and discard its preparation after a confirmation.
+A review that sent no approve, discard or withdraw asks
+`wf-confirm-function' whether to discard the preparation.  A yes sends
+the discard of `wf-service-review-discard', so the declined review
+holds no execution reservation of the manager.  A no sends nothing, and
+the request stays in review, where `wf-requests' opens it again.  The
+window quits in each case."
   (interactive)
-  (let ((review (wf-service--review-here)))
-    (quit-window)
-    (unless (wf-service--review-outcomes review)
-      (message "wf: review declined.  No approval was sent, and request %s stays in review"
-               (wf-manager-preparation-request-id (wf-service--review-preparation review))))))
+  (let* ((review (wf-service--review-here))
+         (preparation (wf-service--review-preparation review))
+         (request (wf-manager-preparation-request-id preparation))
+         (closed (cl-some (lambda (outcome)
+                            (member (car outcome) '("approve" "discard" "withdraw")))
+                          (wf-service--review-outcomes review))))
+    (cond
+     (closed (quit-window))
+     ((funcall wf-confirm-function
+               "Discard the preparation of this review, so that it holds no execution reservation? ")
+      (wf-service-review-discard)
+      (quit-window))
+     (t
+      (quit-window)
+      (message "wf: nothing was sent, and request %s stays in review.  M-x wf-requests opens it again"
+               request)))))
+
+;;;; Open requests
+
+(defun wf-service-request-choices (drafts names)
+  "Return the choices of `wf-requests' for the requests DRAFTS.
+DRAFTS are `wf-manager-draft' records, and NAMES is a hash table of
+`wf-service--workflow-names'.  Only a request in an open phase of
+`wf-service--open-phases' has a choice.  The requests in review come
+first, then those that the manager prepares or queues, then the
+drafts.  Each choice is (LABEL ANNOTATION . DRAFT).  LABEL is
+WORKFLOW/REQUEST without a space, so a label can be typed in the
+minibuffer, and ANNOTATION names the profile and the admission of the
+request."
+  (let ((order '("review" "preparing" "queued" "draft")))
+    (mapcar
+     (lambda (draft)
+       (let ((id (wf-manager-draft-workflow-id draft)))
+         (cons (format "%s/%s" (or (gethash id names) id) (wf-manager-draft-id draft))
+               (cons (format "profile %s, %s" (wf-manager-draft-profile-id draft)
+                             (string-remove-prefix
+                              (format "Request %s: " (wf-manager-draft-id draft))
+                              (wf-service-admission-line draft)))
+                     draft))))
+     (sort (cl-remove-if-not (lambda (draft)
+                               (member (wf-manager-draft-phase draft) wf-service--open-phases))
+                             drafts)
+           (lambda (a b)
+             (< (length (member (wf-manager-draft-phase b) order))
+                (length (member (wf-manager-draft-phase a) order))))))))
+
+;;;###autoload
+(defun wf-requests ()
+  "Choose a request of the manager in draft or review and open its review.
+The command lists the requests of /v1/requests in the phases of
+`wf-service--open-phases', so a review that \\`q' left in review, or a
+request whose setup was cancelled, stays reachable.  A request in
+review opens its exact review at once, and a queued or preparing
+request opens it when the preparation exists.  A draft first opens the
+setup form for its missing inputs, and the request is then enqueued.
+The review keys are those of `wf-service-review-mode'.  Local mode has
+no requests, so the command refuses there and sends nothing."
+  (interactive)
+  (unless wf--service-dispatch
+    (user-error "The command wf-requests works only in service mode.  Select a profile with `wf-service'"))
+  (let* ((session (wf-service--session))
+         (drafts (mapcar (lambda (item) (wf-service--decode #'wf-manager-decode-draft item "request"))
+                         (wf-service--collection session "/v1/requests" "request collection")))
+         (names (wf-service--workflow-names session (mapcar #'wf-manager-draft-profile-id drafts)))
+         (choices (wf-service-request-choices drafts names)))
+    (unless choices
+      (user-error "The manager has no request in draft or review.  M-x wf-run creates one"))
+    (let* ((completion-extra-properties
+            (list :annotation-function
+                  (lambda (label) (concat "  " (cadr (assoc label choices))))))
+           (label (completing-read (format-prompt "Request" (caar choices))
+                                   choices nil t nil nil (caar choices)))
+           (draft (cddr (assoc label choices)))
+           (reference (wf-manager-session-reference
+                       session (concat "/v1/requests/" (wf-manager-draft-id draft)))))
+      (if (equal (wf-manager-draft-phase draft) "draft")
+          (let ((id (wf-manager-draft-workflow-id draft)))
+            (wf-service--complete session `((name . ,(or (gethash id names) id)))
+                                  draft reference))
+        (wf-service--open-review session reference)))))
 
 
 ;;; Run views
@@ -1438,10 +1617,18 @@ Nothing is sent, so the run continues."
       (dolist (reference (wf-service--view-references view))
         (wf-manager-session-unwatch (wf-service--view-session view) (cdr reference))))))
 
-(defun wf-service-open-view (session run)
-  "On SESSION, open the run view of RUN, select it and return its buffer.
-The view of the endpoint identity of SESSION and RUN is reused when
-it is live.  The session watches the resources of the run."
+(defvar wf-service--known-runs nil
+  "The runs whose view this Emacs process opened, the newest first.
+Each item is (IDENTITY . RUN), with the endpoint identity of the
+binding that opened the view.  `wf-runs' offers these runs also after
+they leave the overview of the manager.")
+
+(defun wf-service-open-view (session run &optional noselect)
+  "On SESSION, open the run view of RUN and return its buffer.
+The view is selected, or only shown when NOSELECT is non-nil.  The
+view of the endpoint identity of SESSION and RUN is reused when it is
+live.  The session watches the resources of the run, and
+`wf-service--known-runs' keeps the run."
   (unless (wf-manager-valid-id-p run)
     (user-error "%S is not a run identifier" run))
   (let* ((identity (wf-manager-session-identity session))
@@ -1466,16 +1653,24 @@ it is live.  The session watches the resources of the run."
         (condition-case failure
             (wf-manager-session-watch session (cdr reference))
           (wf-manager-error (wf-service--refuse "The run cannot be followed" failure)))))
+    (cl-pushnew key wf-service--known-runs :test #'equal)
     (wf-service--view-render view)
-    (pop-to-buffer buffer)
+    (if noselect (display-buffer buffer) (pop-to-buffer buffer))
     buffer))
 
 (defun wf-service--service-runs (session)
-  "Return the run identifiers that SESSION knows, the oldest view first.
-They are the runs of the open views of SESSION and the run members of
-its installed overview."
+  "Return the run identifiers that SESSION knows.
+The runs of `wf-service--known-runs' come first, the newest first.
+They are the runs of the open views of SESSION, the run members of its
+installed overview and the runs of `wf-service--known-runs' at the
+endpoint identity of SESSION."
   (let ((runs nil)
         (overview (wf-manager-session-overview session)))
+    (when wf-service--known-runs
+      (let ((identity (wf-manager-session-identity session)))
+        (dolist (known wf-service--known-runs)
+          (when (equal (car known) identity)
+            (push (cdr known) runs)))))
     (maphash (lambda (_key buffer)
                (let ((view (and (buffer-live-p buffer)
                                 (buffer-local-value 'wf-service--view-state buffer))))
@@ -1512,7 +1707,7 @@ the session of service mode."
   (let* ((session (wf-service--session))
          (choices (wf-service-runs-choices session)))
     (unless choices
-      (user-error "No local session and no run of the manager is known"))
+      (user-error "No local session and no run of the manager is known.  M-x wf-history lists every run of the manager"))
     (pcase (cdr (assoc (completing-read "Run: " choices nil t) choices))
       (`(local . ,local) (wf--view local))
       (`(service . ,run) (wf-service-open-view session run)))))
@@ -2244,12 +2439,14 @@ opened on another endpoint.
         tabulated-list-sort-key nil)
   (tabulated-list-init-header))
 
-(defun wf-service-history-row (run)
+(defun wf-service-history-row (run &optional names)
   "Return the columns of the `wf-manager-run' RUN in a service history.
 The columns are the run, the workflow, the profile, the runtime status,
-the supervision, the lineage and the verification of the result.  A
-legacy entry has the supervision `observer' and is labelled as a
-read-only observer entry."
+the supervision, the lineage and the verification of the result.  The
+workflow is its name in NAMES, a hash table of
+`wf-service--workflow-names', or else its identifier.  A legacy entry
+has the supervision `observer' and is labelled as a read-only observer
+entry."
   (let ((content (wf-manager-run-content run)))
     (if (wf-manager-unreadable-run-p content)
         (vector (wf-manager-run-id run) "" (wf-manager-run-profile-id run)
@@ -2259,7 +2456,8 @@ read-only observer entry."
             (supervision (wf-manager-known-run-supervision content))
             (parent (wf-manager-known-run-parent-run-id content)))
         (vector (wf-manager-run-id run)
-                (wf-manager-known-run-workflow-id content)
+                (let ((id (wf-manager-known-run-workflow-id content)))
+                  (or (and names (gethash id names)) id))
                 (wf-manager-run-profile-id run)
                 (if runtime (wf-manager-run-runtime-status runtime) "no runtime evidence")
                 (if (equal supervision "observer")
@@ -2282,11 +2480,14 @@ read-only observer entry."
 (defun wf-service--history-load (session)
   "Read every page of the run collection on SESSION and draw this history.
 Each row keeps the `wf-manager-reference' of its run on the binding of
-SESSION.  A failure refuses and keeps the earlier rows."
+SESSION.  The workflow column shows the names of the catalogues of the
+profiles of the runs.  A failure of the run collection refuses and
+keeps the earlier rows."
   (let* ((set (wf-service--page-set session "/v1/runs" "run history"))
          (runs (mapcar (lambda (item)
                          (wf-service--decode #'wf-manager-decode-run item "run history"))
                        (wf-manager-page-set-items set)))
+         (names (wf-service--workflow-names session (mapcar #'wf-manager-run-profile-id runs)))
          (history (wf-service--history-make
                    :identity (wf-manager-session-identity session) :runs runs
                    :pages (wf-manager-page-set-pages set))))
@@ -2296,7 +2497,7 @@ SESSION.  A failure refuses and keeps the earlier rows."
                     (list (cons (wf-manager-session-reference
                                  session (concat "/v1/runs/" (wf-manager-run-id run)))
                                 run)
-                          (wf-service-history-row run)))
+                          (wf-service-history-row run names)))
                   runs))
     (tabulated-list-print t)
     (message "wf: history of %d managed runs and %d observer entries over %d pages"
@@ -2350,7 +2551,7 @@ endpoint refuses and reads nothing."
      (t
       (let ((runs (wf-service--service-runs session)))
         (unless runs
-          (user-error "No run of the manager is known.  Open a run with `wf-history' first"))
+          (user-error "No run of the manager is known.  M-x wf-history lists every run of the manager"))
         (completing-read prompt runs nil t))))))
 
 (defun wf-service-history-refresh ()

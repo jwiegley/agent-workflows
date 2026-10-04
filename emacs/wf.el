@@ -231,7 +231,9 @@ showing a reader of prices the word \"nil\"."
 
 (defun wf--read-row (prompt &optional refresh rows)
   "Read one row with PROMPT and return it.
-Each candidate is annotated with its price and its blurb.  REFRESH is
+Each candidate is annotated with its price and its blurb.  A row
+without a path count has no price, so its annotation is the blurb
+alone.  REFRESH is
 passed to `wf--rows'.  ROWS, when non-nil, are the candidate rows in
 place of the rows of `wf--rows', and REFRESH is then unused.  The
 service mode of `wf-service.el' gives the catalogue of a manager
@@ -243,10 +245,11 @@ profile as ROWS."
           (lambda (cand)
             (let ((row (cdr (assoc cand alist))))
               (when row
-                (format "%s  %s  —  %s"
-                        (make-string (max 1 (- width (length cand))) ?\s)
-                        (wf--price row)
-                        (alist-get 'blurb row))))))
+                (concat (make-string (max 1 (- width (length cand))) ?\s)
+                        (if (alist-get 'paths row)
+                            (format "  %s  —  " (wf--price row))
+                          "  ")
+                        (or (alist-get 'blurb row) ""))))))
          (table
           (lambda (string pred action)
             (if (eq action 'metadata)
@@ -401,8 +404,10 @@ Call `wf--setup-save' before redrawing an existing form."
     (erase-buffer)
     (remove-overlays)
     (setq widget-field-list nil widget-field-new nil)
-    (widget-insert "Initial inputs — Submit returns sources; it does not run.\n"
-                   "TAB/backtab: navigate  M-TAB: file completion\n"
+    ;; A service form states what Submit does in its own header.
+    (unless wf--setup-header
+      (widget-insert "Initial inputs — Submit returns sources; it does not run.\n"))
+    (widget-insert "TAB/backtab: navigate  M-TAB: file completion\n"
                    "C-c C-c: Submit  C-c C-k / C-g: Cancel\n"
                    "Multiline: RET inserts newline; C-q TAB / C-q C-m preserve tabs / CR.\n"
                    "Buffer captures use accessible text; Region uses point to mark.\n\n")
@@ -1925,9 +1930,13 @@ after the send returns.  A send that signals keeps the editor and its text.
                                  (or (alist-get 'status snapshot) "not-started")
                                  (format "%s / %s" (alist-get 'runnerId row) (alist-get 'workflow row))
                                  (format "%s/%s" (alist-get 'billFresh snapshot) (alist-get 'billMemo snapshot))
-                                 (format "%s ← %s" (alist-get 'lineage row) (or (alist-get 'parentRunId row) "root"))
+                                 (if (alist-get 'lineage row)
+                                     (format "%s ← %s" (alist-get 'lineage row)
+                                             (or (alist-get 'parentRunId row) "root"))
+                                   "root")
                                  (or (alist-get 'ownership row) "unknown")
-                                 (format "%s / %s" (alist-get 'persona row) (alist-get 'targetKind row))
+                                 (format "%s / %s" (or (alist-get 'persona row) "none")
+                                         (or (alist-get 'targetKind row) "none"))
                                  (or (alist-get 'createdAt row) ""))))))
              runs))
       (tabulated-list-print t))))

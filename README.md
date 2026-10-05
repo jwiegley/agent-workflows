@@ -404,9 +404,8 @@ An older runner is refused rather than falling back to an unreviewed launch.
 agent-cat `main` provides both, so the `agentic-run` of agent-cat `main` serves
 local mode, and so does a `wf` that Cabal builds through `cabal.project` while
 `../agent-cat` is on agent-cat `main`. The agent-cat revision that `flake.lock`
-pins, `94573276`, predates both. The `wf` of the Nix package of this repository
-answers `no verb 'frontend'`, and local mode cannot prepare a run with it until
-that pin moves.
+pins also provides both, so the `wf` of the Nix package of this repository
+serves local mode.
 
 ```elisp
 (use-package wf
@@ -575,8 +574,10 @@ an uncertain export that one read of its collection reconciles and that is
 not sent again. The
 human/control fixture and
 the vector file are explicit dependencies, not developer-specific paths or
-skipped tests. The pinned agent-cat source of the development shell does not
-have the vector file, so `WF_MANAGER_VECTORS` names it.
+skipped tests. The pinned agent-cat source, whose `engine/acp/test` directory
+the development shell supplies as `WF_CONTROL_ADAPTERS`, has the vector file at
+`test/manager_client_vectors.json`. The development shell does not set
+`WF_MANAGER_VECTORS`, so the command below sets it.
 
 ```sh
 WF=/path/to/compatible/wf \

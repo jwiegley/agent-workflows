@@ -2,15 +2,17 @@
 #+SEQ_TODO: TODO DOING DRAFT WAIT DEFER NOTE | DONE CANCELED
 #+ISSUE_PREFIX: awork
 
-* TODO [#C] Pin wf to an agent-cat release that has the native frontend
+* DONE [#C] Pin wf to an agent-cat release that has the native frontend
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17
 :ID:       awork-2a4
 :LABELS:   []
 :ISSUE_TYPE: chore
 :CREATED:  [2026-10-05 Mon 13:44]
-:MODIFIED: [2026-10-05 Mon 13:45]
+:MODIFIED: [2026-10-05 Mon 15:45]
 :CREATED_BY: johnw
+:FINISHED: [2026-10-05 Mon 15:45]
+:CLOSE_REASON: agent-cat input moved to 21c948162e3236d792985071478db1576f90285e. The wf of the Nix package answers wf frontend --capabilities at exit 0 with the version 1 capabilities document (session operations prepare, prepare-lineage, start and discard, frontend-io versions 1 and 2), wf frontend-io opens a private root and lists its runs, and wf list reports 75 workflows. cabal build all, ci/cookbook.sh and ci/workflows.sh pass. With the Nix-built wf and the routing-fixed-point-probe, ACP fixtures and client vectors of the pinned source, ci/emacs.sh passes (38 ERT tests, 32 smoke facts and 104 transport tests), the eight local cases of ci/emacs-ui.py pass, and ci/workflows.sh passes (75 workflows, 0 failed). ci/taskmaster.sh was not run, because it enters nix develop itself. README.md and ci/emacs.sh now state that the pinned source provides both verbs and test/manager_client_vectors.json.
 :SOURCE_REPO: agent-workflows
 :SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
 :ORIGINAL_SIZE: 0

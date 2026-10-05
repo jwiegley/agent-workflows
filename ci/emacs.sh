@@ -154,9 +154,9 @@ if [ -z "$adapters" ] || ! [ -r "$adapters/retry_adapter.py" ] || ! [ -x "$adapt
 fi
 note "ACP fixtures at $adapters"
 
-# The shared client vectors of agent-cat. The pinned agent-cat source of the
-# development shell predates the file, so the gate names it explicitly and
-# never skips the vector tests.
+# The shared client vectors of agent-cat. The pinned agent-cat source has the
+# file at test/manager_client_vectors.json, and the development shell does not
+# name it, so WF_MANAGER_VECTORS must. The gate never skips the vector tests.
 vectors="${WF_MANAGER_VECTORS:-}"
 if [ -z "$vectors" ] || ! [ -r "$vectors" ]; then
   echo 'ci/emacs: set $WF_MANAGER_VECTORS to agent-cat test/manager_client_vectors.json for the transport vector tests.' >&2

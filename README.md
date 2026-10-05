@@ -26,21 +26,15 @@ workflow manager. The
 `doc/getting-started.md` in an agent-cat checkout, creates the manager with
 `agentic-run --manager init`, starts it and writes its client profile.
 
-The service client, `emacs/wf-service.el`, is on the branch `emacs-native` of
-this repository. The branch `main` does not have it, and on `main`
-`(require 'wf-service)` fails with `Cannot open load file`. Put the `emacs/`
-directory of a checkout of the branch `emacs-native` on `load-path`. These
-lines use the worktree `~/src/agent-workflows-emacs-native` of that branch,
-load the client and name the client profile:
+The service client is `emacs/wf-service.el`. Put the `emacs/` directory of a
+checkout of this repository on `load-path`. These lines use the checkout
+`~/src/agent-workflows`, load the client and name the client profile:
 
 ```elisp
-(add-to-list 'load-path "~/src/agent-workflows-emacs-native/emacs")
+(add-to-list 'load-path "~/src/agent-workflows/emacs")
 (require 'wf-service)
 (setq wf-manager-profiles '("/path/to/manager-root/client/profile.json"))
 ```
-
-A checkout without that worktree makes it with
-`git -C ~/src/agent-workflows worktree add ~/src/agent-workflows-emacs-native emacs-native`.
 
 1. `M-x wf-service` selects the client profile and connects to the manager.
 2. `M-x wf-run` asks for a profile and a workflow. It opens the setup form
@@ -407,6 +401,12 @@ Emacs of the development shell. No check runs another version. The configured
 runner must provide the
 shared `frontend` preparation service and read-only `frontend-io` queries.
 An older runner is refused rather than falling back to an unreviewed launch.
+agent-cat `main` provides both, so the `agentic-run` of agent-cat `main` serves
+local mode, and so does a `wf` that Cabal builds through `cabal.project` while
+`../agent-cat` is on agent-cat `main`. The agent-cat revision that `flake.lock`
+pins, `94573276`, predates both. The `wf` of the Nix package of this repository
+answers `no verb 'frontend'`, and local mode cannot prepare a run with it until
+that pin moves.
 
 ```elisp
 (use-package wf

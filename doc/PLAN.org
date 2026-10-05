@@ -2,6 +2,40 @@
 #+SEQ_TODO: TODO DOING DRAFT WAIT DEFER NOTE | DONE CANCELED
 #+ISSUE_PREFIX: awork
 
+* TODO [#C] Pin wf to an agent-cat release that has the native frontend
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-2a4
+:LABELS:   []
+:ISSUE_TYPE: chore
+:CREATED:  [2026-10-05 Mon 13:44]
+:MODIFIED: [2026-10-05 Mon 13:45]
+:CREATED_BY: johnw
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+flake.lock pins agent-cat 94573276, which predates the `frontend` and `frontend-io` verbs that agent-cat added in 8ad17a9. The Emacs client that 706dba4 merged needs both verbs in local mode. The `wf` of the Nix package at that pin answers `wf: no verb 'frontend'`, so local mode cannot prepare a run with it, while a `wf` that Cabal builds against agent-cat main serves it. The development shell also takes WF_CONTROL_ADAPTERS from the pinned source, whose stub and steer adapters are older than those of agent-cat main, and the pinned source has no test/manager_client_vectors.json.
+
+After agent-cat publishes, move the agent-cat input to that release. Run ci/workflows.sh, ci/cookbook.sh, ci/emacs.sh and ci/taskmaster.sh against the new pin, and confirm that `wf frontend --capabilities` of the Nix package exits 0. Then correct the sentence of the README section "The Emacs interface" that names 94573276, and the statements of README.md and ci/emacs.sh that the pinned agent-cat source has no client vector file.
+
+** Dependencies
+
+#+begin_src json
+[
+  {
+    "issue_id": "awork-2a4",
+    "depends_on_id": "awork-hit",
+    "type": "discovered-from",
+    "created_at": "2026-10-05T20:44:46.129868Z",
+    "created_by": "johnw",
+    "metadata": "{}",
+    "thread_id": ""
+  }
+]
+#+end_src
+
 * DONE [#C] Pin wf to the act-ordered, act-scoped reuse release
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17
@@ -294,15 +328,17 @@ While validating refocus, a Wiggum-duet test-stub invocation inherited the opera
 ]
 #+end_src
 
-* WAIT [#C] Merge emacs-native after the native frontend reaches agent-cat main
+* DONE [#C] Merge emacs-native after the native frontend reaches agent-cat main
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17
 :ID:       awork-hit
 :LABELS:   []
 :ISSUE_TYPE: chore
 :CREATED:  [2026-09-24 Thu 16:32]
-:MODIFIED: [2026-09-24 Thu 16:32]
+:MODIFIED: [2026-10-05 Mon 13:44]
 :CREATED_BY: johnw
+:FINISHED: [2026-10-05 Mon 13:44]
+:CLOSE_REASON: Merged emacs-native 0ff309b into main as 706dba4. agent-cat main has had the frontend and frontend-io verbs since 8ad17a9, so the client no longer waits on agent-cat's frontend. With wf built by Cabal against agent-cat 30c96c2 and the routing-fixed-point-probe, ACP fixtures and client vectors of that tree, ci/emacs.sh passed (38 ERT tests, 32 smoke facts and 104 transport tests), ci/emacs-ui.py passed its eight local cases and ci/emacs-tramp.py passed. ci/workflows.sh, ci/cookbook.sh and ci/taskmaster.sh pass on the merge. The flake still pins agent-cat 94573276, which lacks both verbs, and awork-2a4 records the re-pin.
 :SOURCE_REPO: .
 :ORIGINAL_SIZE: 0
 :END:

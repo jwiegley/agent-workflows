@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 #
-# The Emacs gate — `emacs/wf.el' and its smoke, in three passes.
+# The Emacs gate — every `emacs/*.el' file, in four passes.
 #
 #     ./ci/emacs.sh              # from the repository root
 #
-# `emacs/wf.el' is a front end over `wf --json' and nothing else, which is the
-# whole reason it can be gated at all: the plan text is displayed and never
-# scraped, so the only contract between the two is the JSON, and a gate that
-# reads the JSON reads everything that could break.
+# `emacs/wf.el' uses the runner's descriptor, native frontend, and read-only
+# frontend-io JSON contracts. It displays plan text without scraping it.
+# This gate checks Lisp compilation, docstrings, and local runner behavior.
+# Interactive terminal and SSH/TRAMP checks live in ci/emacs-ui.py and
+# ci/emacs-tramp.py.
 #
-# Three passes, in the order that a failure is cheapest to read:
+# Four passes, in the order that a failure is cheapest to read:
 #
 #   1. BYTE-COMPILE, with `byte-compile-error-on-warn'. Not a warning count —
 #      a warning is the failure. A free variable or a wrong arity in a branch
@@ -21,20 +22,71 @@
 #      decisions, so they are load-bearing text and not decoration; checkdoc
 #      exits 0 whatever it finds, so its output is what fails this pass.
 #
-#   3. THE SMOKE, `emacs/wf-smoke.el', against the REAL `wf' binary. Pass 1
-#      and 2 run none of this code; this one loads it, fetches the row listing
-#      and asserts the facts the package rests on — the price gate's wording,
-#      the two agent-deck streams, the per-input history keys. See that file's
-#      commentary for the list, including what it deliberately does not cover.
+#   3. RUNNER TESTS, `emacs/wf-smoke.el', against the real wf binary and
+#      deterministic control fixture. These exercise native session behavior
+#      and descriptor-driven discovery, completion, and input histories.
 #
-# No network and no agent: the smoke asks the binary for `list' and `plan',
-# both of which are answered before anything is asked of anybody, and its
-# stand-in for agent-deck is a shell script it writes itself.
+#   4. TRANSPORT TESTS, `emacs/wf-manager-tests.el', the ERT tests of the
+#      service-mode transport `emacs/wf-manager.el'. They load client
+#      profiles from temporary files, check the exact JSON codec, and run the
+#      events vectors, the drafts, requests, preparations, receipts,
+#      decisions, answers, controls and runs vectors, and the refresh
+#      sequences, backoff, jitter and reconciliation vectors of agent-cat
+#      test/manager_client_vectors.json, which WF_MANAGER_VECTORS names. The
+#      HTTP transport tests start a plain HTTP listener on 127.0.0.1 inside
+#      the test Emacs and check the exact request bytes, the typed refusals,
+#      the response bound, cancellation, cleanup and the capability binding.
+#      The session tests use the same listener for the overview page set, its
+#      restart after 410 view-expired, the follow loop, the resnapshot after a
+#      410 cursor refusal, the coalescing of invalidations during a read, the
+#      endpoint switch and its failures, the close of a session with a
+#      switch in flight, the uncertain send of an answer whose connection the
+#      listener closes, with exactly one send and its reconciliation by one
+#      read, the capture of exact bytes with its media type and receipt, and
+#      the verified download of an artifact. The service-mode tests
+#      check that wf-service-commands of emacs/wf-service.el states each
+#      public command of emacs/wf.el once, that local mode is the default,
+#      and that each local-only command refuses in service mode and starts
+#      no process and sends no request. They also check that a refresh of
+#      the setup form keeps every draft, that the setup sources give literal
+#      or capture specs, and that the review text states every approval
+#      selector, the entity tag and the admission, and that after a refresh
+#      or an approval the review shows the current admission only. They
+#      check that the catalogue annotation states the price of the decimal
+#      catalogue fields, that the review names the workflow in its approval prompt
+#      and puts the plan summary above the raw program, that q in a review
+#      sends one discard only after a yes, that wf-requests lists the
+#      requests in draft or review by workflow name, and that wf-runs
+#      offers the runs whose view this Emacs opened. The lineage and export
+#      tests check the lineage and export decoders, that a fork sends the
+#      typed edits of the snapshot targets with one lineage request and then
+#      enqueues the child, that an operation that is not eligible sends
+#      nothing, that a lineage read refused with 429 storage-quota is read
+#      again, that an export shows its receipt and its verified
+#      download, and that an uncertain export is reconciled with one read
+#      of its collection and not sent again. The control tests
+#      check that wf-control lists only the controls that the controls of a run
+#      offer, that wf-kill sends one cancel only after a yes to its
+#      confirmation, and that an uncertain steer is reconciled with one read and
+#      not sent again. The tests of a server certificate that the CA file
+#      of the profile does not verify start a TLS server on 127.0.0.1 with
+#      the python3 of PATH. They contact no other host.
 #
-# Exits 0 only if all three passed.
+# Passes 1 and 2 also cover `emacs/wf-manager-live.el', the live check of
+# the transport and of service mode against a running agent-cat workflow
+# manager. This gate does
+# not run it: the emacs-client mode of agent-cat
+# `manager/test/service_http.py' runs it against a manager that the mode
+# starts.
+#
+# No providers are contacted. The native tests use scripted runs and the
+# deterministic human/control fixture named by WF_CONTROL_RUNNER. The
+# agent-deck listing is supplied by a temporary deterministic shell fixture.
+#
+# Exits 0 only if all four passed.
 set -uo pipefail
 # `|| exit` and not `set -e`: this gate counts failures rather than stopping at
-# the first one, so that one afternoon sees all three. Everything below is
+# the first one, so that one afternoon sees all four. Everything below is
 # relative to the repository root, which is also the package root.
 cd "$(dirname "$0")/.." || exit 1
 
@@ -52,7 +104,7 @@ bad() {
 }
 
 # ---------------------------------------------------------------------------
-# The two things this gate needs
+# What this gate needs
 # ---------------------------------------------------------------------------
 #
 # $EMACS, then whatever is on PATH. Named rather than searched for because the
@@ -84,17 +136,46 @@ fi
 wf="$(cd "$(dirname "$wf")" && pwd)/$(basename "$wf")"
 note "wf at $wf"
 
+control="${WF_CONTROL_RUNNER:-}"
+if [ -z "$control" ]; then
+  control="$(command -v routing-fixed-point-probe 2>/dev/null)"
+fi
+if [ -z "$control" ] || ! [ -x "$control" ]; then
+  echo 'ci/emacs: set $WF_CONTROL_RUNNER to a compatible routing-fixed-point-probe for required human/control tests.' >&2
+  exit 1
+fi
+control="$(cd "$(dirname "$control")" && pwd)/$(basename "$control")"
+note "control fixture at $control"
+
+adapters="${WF_CONTROL_ADAPTERS:-}"
+if [ -z "$adapters" ] || ! [ -r "$adapters/retry_adapter.py" ] || ! [ -x "$adapters/stub_adapter.py" ]; then
+  echo 'ci/emacs: use the Nix development shell or set $WF_CONTROL_ADAPTERS to agent-cat engine/acp/test.' >&2
+  exit 1
+fi
+note "ACP fixtures at $adapters"
+
+# The shared client vectors of agent-cat. The pinned agent-cat source of the
+# development shell predates the file, so the gate names it explicitly and
+# never skips the vector tests.
+vectors="${WF_MANAGER_VECTORS:-}"
+if [ -z "$vectors" ] || ! [ -r "$vectors" ]; then
+  echo 'ci/emacs: set $WF_MANAGER_VECTORS to agent-cat test/manager_client_vectors.json for the transport vector tests.' >&2
+  exit 1
+fi
+note "client vectors at $vectors"
+
 # ---------------------------------------------------------------------------
 # 1. Byte-compilation, where a warning is a failure
 # ---------------------------------------------------------------------------
 #
-# Both files, the smoke included: a test script that byte-compiles clean is a
+# Every file, the tests included: a test script that byte-compiles clean is a
 # script whose every free variable is a real one. The `.elc' this leaves beside
 # each source is deleted before and after, because a stale one is the single
 # way this package can be loaded and not be the file somebody is reading.
 
-rm -f emacs/wf.elc emacs/wf-smoke.elc
-for f in emacs/wf.el emacs/wf-smoke.el; do
+lisp=(emacs/*.el)
+rm -f emacs/*.elc
+for f in "${lisp[@]}"; do
   if "$emacs" -Q --batch -L emacs \
        --eval '(setq byte-compile-error-on-warn t)' \
        -f batch-byte-compile "$f" > "$work/compile.out" 2>&1; then
@@ -104,7 +185,7 @@ for f in emacs/wf.el emacs/wf-smoke.el; do
     cat "$work/compile.out" >&2
   fi
 done
-rm -f emacs/wf.elc emacs/wf-smoke.elc
+rm -f emacs/*.elc
 
 # ---------------------------------------------------------------------------
 # 2. Checkdoc, strictly
@@ -116,7 +197,7 @@ rm -f emacs/wf.elc emacs/wf-smoke.elc
 # signature the function does not have, and a keyword outside the standard set
 # is a package that will not be found by the word it is about.
 
-for f in emacs/wf.el emacs/wf-smoke.el; do
+for f in "${lisp[@]}"; do
   "$emacs" -Q --batch --eval "(progn
       (require 'checkdoc)
       (setq checkdoc-arguments-in-order-flag t
@@ -142,7 +223,7 @@ done
 # price gate with `wf-confirm-function' bound to a function of its own. A hang
 # here would mean one of them got through, which is worth failing over.
 
-if WF="$wf" "$emacs" -Q --batch -l emacs/wf-smoke.el \
+if WF="$wf" WF_CONTROL_RUNNER="$control" "$emacs" -Q --batch -l emacs/wf-smoke.el \
      < /dev/null > "$work/smoke.out" 2>&1; then
   cat "$work/smoke.out"
   note "smoke: green"
@@ -152,9 +233,28 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 4. The transport tests
+# ---------------------------------------------------------------------------
+#
+# ERT over temporary files, the client vectors, a plain HTTP listener on
+# 127.0.0.1 inside the test Emacs and a python3 TLS server on 127.0.0.1. No
+# other host is contacted, and this pass
+# needs neither the wf binary nor the control fixture. It needs the vector
+# file.
+
+if WF_MANAGER_VECTORS="$vectors" "$emacs" -Q --batch -L emacs -l emacs/wf-manager-tests.el \
+     -f ert-run-tests-batch-and-exit < /dev/null > "$work/manager.out" 2>&1; then
+  cat "$work/manager.out"
+  note "transport tests: green"
+else
+  bad "transport tests" "every ERT test to pass" "exit $?"
+  cat "$work/manager.out" >&2
+fi
+
+# ---------------------------------------------------------------------------
 
 if [ "$failures" = 0 ]; then
-  echo "ci/emacs: 3 pass(es) over 2 file(s), 0 failed"
+  echo "ci/emacs: 4 pass(es) over ${#lisp[@]} file(s), 0 failed"
 else
   echo "ci/emacs: $failures check(s) failed" >&2
 fi

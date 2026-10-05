@@ -84,9 +84,13 @@
           ];
           nativeBuildInputs = [
             pkgs.cabal-install
+            pkgs.emacs
+            pkgs.python3
+            pkgs.openssh
             pkgs.haskell-language-server
             pkgs.pkg-config
           ];
+          WF_CONTROL_ADAPTERS = "${agent-cat}/engine/acp/test";
           buildInputs = [ pkgs.zlib ];
         };
       }

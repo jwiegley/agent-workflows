@@ -18,6 +18,58 @@ it is an instruction this repository obeys.
 The design of record is [`doc/design.md`](doc/design.md); the inventories and the
 three competing architectures it was judged from are under `doc/research/`.
 
+## Using service mode
+
+Service mode connects the Emacs client of this repository to an agent-cat
+workflow manager. The
+[agent-cat getting-started guide](https://github.com/jwiegley/agent-cat/blob/main/doc/getting-started.md),
+`doc/getting-started.md` in an agent-cat checkout, creates the manager with
+`agentic-run --manager init`, starts it and writes its client profile.
+
+The service client, `emacs/wf-service.el`, is on the branch `emacs-native` of
+this repository. The branch `main` does not have it, and on `main`
+`(require 'wf-service)` fails with `Cannot open load file`. Put the `emacs/`
+directory of a checkout of the branch `emacs-native` on `load-path`. These
+lines use the worktree `~/src/agent-workflows-emacs-native` of that branch,
+load the client and name the client profile:
+
+```elisp
+(add-to-list 'load-path "~/src/agent-workflows-emacs-native/emacs")
+(require 'wf-service)
+(setq wf-manager-profiles '("/path/to/manager-root/client/profile.json"))
+```
+
+A checkout without that worktree makes it with
+`git -C ~/src/agent-workflows worktree add ~/src/agent-workflows-emacs-native emacs-native`.
+
+1. `M-x wf-service` selects the client profile and connects to the manager.
+2. `M-x wf-run` asks for a profile and a workflow. It opens the setup form
+   for the missing inputs and then shows the exact review of the manager.
+3. In the review, `a` asks `Start WORKFLOW in PROFILE (TARGET)?`. A yes
+   starts the run and shows its run view, which ends with the Terminal line,
+   for example `Terminal: succeeded`. The review buffer then names the run. `d` declines the review and discards
+   its preparation. `q` asks whether to discard the preparation, so that a
+   declined review holds no execution reservation of the manager.
+4. `M-x wf-requests` lists the requests of the manager in draft or review
+   and opens the review of one. A request that `q` left in review stays
+   reachable with this command.
+5. `M-x wf-runs` opens the view of a run of the manager. It offers each run
+   whose view this Emacs process opened, also after the run ends, and each
+   run of the overview of the manager. `M-x wf-history` lists every run of
+   the manager by workflow name, and `RET` opens the view of a row.
+6. `M-x wf-local` returns to local mode. The runs and requests of the
+   manager continue.
+
+Local mode needs no manager. `wf-program` names the runner, `wf` by default.
+It can also be `agentic-run` of agent-cat, whose catalogue holds the worked
+examples of agent-cat, for example `hello`:
+
+```elisp
+(setq wf-program "agentic-run")
+```
+
+[Service mode](#service-mode) is the complete reference.
+
 ## Where things are
 
 ```
@@ -95,8 +147,24 @@ src/
     HelloWorld.hs       the beginner example  (hello-world)
     Registry.hs         the index: name -> program, blurb, canned table
 bin/Main.hs             `wf`, two lines over Agentic.Cli
-emacs/wf.el             the Emacs interface, over `--json` and nothing else
-emacs/wf-smoke.el       …and its batch smoke, run by ci/emacs.sh
+emacs/wf.el             native setup, prepared runs, controls, history and lineage
+emacs/wf-smoke.el       batch contracts, run by ci/emacs.sh
+emacs/wf-manager.el     service-mode transport: client profile, credential,
+                        exact JSON codec, decoders, sessions, commands and
+                        verified downloads
+emacs/wf-service.el     service mode of wf.el: profile selection, catalogue,
+                        setup, review, run views, answers, controls and the
+                        dispatch table of the commands
+emacs/wf-manager-tests.el  ERT tests of the transport and of the dispatch table,
+                           run by ci/emacs.sh
+emacs/wf-manager-live.el   live checks of the transport and of service mode, run
+                           by the emacs-client and emacs-client-controls
+                           modes of agent-cat
+ci/emacs-ui.py          isolated Emacs PTY, resize and window acceptance, the
+                        service journey of the emacs-service modes, the
+                        service lifecycle of the emacs-service-lifecycle mode
+                        and the Emacs client of the three cross-client modes
+ci/emacs-tramp.py       loopback SSH/TRAMP, typed controls and lineage acceptance
 ```
 
 Workflow-definition modules with one canonical source follow that source's name
@@ -330,156 +398,1402 @@ it.
 
 ## The Emacs interface
 
-`emacs/wf.el` is the same verbs with a minibuffer in front of them: pick a
-row, give it its inputs, pick a transport, **read the price and say yes**, and
-watch the run in a buffer of its own. No external packages — Emacs 29.1 and what
-ships with it.
+`emacs/wf.el` is a native workflow client using built-in Emacs buffers, widgets,
+completion, keymaps, and process support. The `Package-Requires` header of
+`wf.el`, `wf-manager.el` and `wf-service.el` keeps `((emacs "29.1"))` as the
+declared minimum, and no check runs Emacs 29.1. Every check of this repository,
+local mode, TRAMP and service mode alike, runs GNU Emacs 30.2 on macOS, the
+Emacs of the development shell. No check runs another version. The configured
+runner must provide the
+shared `frontend` preparation service and read-only `frontend-io` queries.
+An older runner is refused rather than falling back to an unreviewed launch.
 
 ```elisp
 (use-package wf
   :load-path "~/src/agent-workflows/emacs"
-  :commands (wf-run wf-plan wf-cost wf-help wf-refresh))
+  :commands (wf-run wf-runs wf-history wf-plan wf-cost wf-help wf-refresh))
 ```
 
-Or, without `use-package`:
+Without `use-package`, add `emacs/` to `load-path` and autoload the commands:
 
 ```elisp
 (add-to-list 'load-path "~/src/agent-workflows/emacs")
 (autoload 'wf-run "wf" nil t)
-(autoload 'wf-plan "wf" nil t)
-(autoload 'wf-cost "wf" nil t)
-(autoload 'wf-help "wf" nil t)
+(autoload 'wf-history "wf" nil t)
 ```
 
-Five commands to start from, none bound to a key (the run buffer binds two more
-of its own, below):
-
-| command | what it does |
+| Command | Behavior |
 | --- | --- |
-| `M-x wf-run` | pick, price, confirm, run |
-| `M-x wf-plan` | read `wf plan` for a row, run nothing |
-| `M-x wf-cost` | read `wf cost` for a row, run nothing |
-| `M-x wf-help` | read the row's page — inputs, transport, a worked line, a rehearsal |
-| `M-x wf-refresh` | forget the cached listing (`C-u` on the other four does the same) |
+| `wf-run` | Discover a workflow, edit inputs, prepare, review, and explicitly start it. |
+| `wf-runs` | Reopen a session retained by this Emacs process. |
+| `wf-history` | Query persistent history, including corrupt entries and ownership. |
+| `wf-plan`, `wf-cost`, `wf-help` | Display the runner's inspection output without executing a workflow. |
+| `wf-refresh` | Clear descriptor discovery caches. A prefix argument also refreshes discovery for the inspection and run commands. |
+| `wf-restart`, `wf-resume`, `wf-fork` | Prepare a separately owned lineage child and require fresh approval. |
+| `wf-export` | Export the verified result of a manager run under a new name. Only service mode has this command. |
+| `wf-requests` | List the requests of the manager in draft or review and open the review of one. Only service mode has this command. |
+| `wf-lineage-compare` | Display authoritative parent and child records and snapshots. |
+| `wf-diagnostics` | Display the diagnostics of the current run view. |
+| `wf-service`, `wf-local` | Select service mode with a client profile, or return to local mode (see [Service mode](#service-mode)). |
 
-Three options: `wf-program` (default `"wf"`), `wf-agent-deck-program` (default
-`"agent-deck"`) and `wf-confirm-function` (default `yes-or-no-p`).
+Configuration uses `wf-program`, `wf-agent-deck-program`,
+`wf-confirm-function`, `wf-state-directory`, and, for service mode,
+`wf-manager-profiles`. Confirmation defaults to
+`yes-or-no-p`. The state directory defaults to
+`~/.local/state/agent-workflows` on the workflow's machine.
 
-**Picking.** The candidates come from `wf list --json`, cached for the session,
-and each is annotated with its price and its blurb:
+**Discovery and setup.** Descriptors supply workflow names, descriptions, input
+declarations, and capabilities. Completion remains connection-aware, so local
+and TRAMP catalogues are not mixed. The setup buffer displays all initial inputs
+together, with per-input history and explicit Literal, Multiline, File, Buffer,
+and Region sources. A literal beginning with `@` remains literal text.
 
-```
-wiggum                branch · at most 48 over 34 paths  —  wiggum/SKILL.md: two work rounds, …
-wiggum-duet           branch · at most 54 over 34 paths  —  wiggum's loop across two panes: the work …
-review-quick          branch · at most 6 over 3 paths    —  one lens over a frozen snapshot: …
-```
+Use `TAB` and backtab to navigate, `M-TAB` for file completion, and `C-c C-c` to
+submit the sources. `C-c C-k` or `C-g` cancels without execution. Multiline fields
+accept newlines, while `C-q TAB` and `C-q C-m` insert literal tabs and carriage
+returns. Buffer capture reads the explicitly selected buffer's accessible text.
+Region capture reads its point-to-mark range. These captures remain unchanged
+until edited or explicitly recaptured, and each source retains its draft while
+the form is open.
 
-That is `completing-read` with an `annotation-function`, so it reads the same
-under vanilla completion, `icomplete`, or whatever else is installed.
+File sources remain paths for the runner to capture. Lisp does not write managed
+input snapshots, manifests, or leases. Files from another machine are refused.
+The runner captures transport bytes once, applies the declared input decoding,
+and retains the prepared program in memory. Source changes after preparation
+cannot change the approved execution. Literal values and human answers travel
+through private pipes rather than process arguments.
 
-**Inputs.** Every input the row *declares* is asked for, one at a time, in
-order. Each keeps a minibuffer history of its own — `M-p` recalls what *this*
-input was given before, and the last answer is offered as the default, so a
-second run of `wiggum` in an afternoon is four `RET`s rather than four paths
-retyped. Empty is allowed and passes an empty value, where there is no default
-to take instead. An answer beginning with `@` is a file — with file-name
-completion after the `@` — so `@notes.md` becomes `--input-file NAME=notes.md`
-and anything else becomes `--input-arg NAME=VALUE`. The file is named *on the
-machine `wf` will run on*: `@~/notes.md` from a hera buffer is hera's home, and
-naming this machine's file there is refused rather than sent along to fail. The
-four run facts are never asked for; the runner binds those.
+**Target and approval.** Scripted, ACP, Deck, configured routing, and explicit
+opaque target arguments remain available. Configured selection uses sanitized
+offline routing inspection, including an inherited or explicit persona and
+CLI-produced launch arguments. It does not read routing YAML or reconstruct a
+routing fingerprint. Explicit target arguments support choices not represented
+by configured engines, including declared model overrides.
 
-**The price gate.** Asked last — after the inputs *and* after the transport,
-never before — because a ceiling means one thing over `acp` and nothing at all
-under `scripted`, and a question answered first would have priced a run nobody
-had described yet. So the question names the transport it is the price of:
+The review displays the exact prepared plan, consultation bounds, effects,
+input hashes, target arguments, and routing policy. Every non-scripted target
+carries a provider-charge warning. Approval starts the same prepared process,
+not another command assembled from displayed text. Declining discards it.
+Changing the setup requires another preparation and review.
 
-```
-Run wiggum via acp:claude (branch, at most 48 consultations over 34 paths)? (yes or no)
-Run wiggum via agent-deck session 9f3a2b-1747051200 (branch, at most 48 consultations over 34 paths)? (yes or no)
-Run wiggum as a rehearsal (scripted): consults nobody (branch, 34 paths)? (yes or no)
-```
+**Execution and decisions.** Each run has its own durable ID and independent
+session state. Multiple runs of the same workflow can coexist. Killing or
+burying a view does not cancel its process, and `wf-runs` can reopen the view.
+Output following applies only to windows already at the end.
 
-The rehearsal quotes no ceiling, because it would be the one false number in the
-sentence: a `--scripted` run answers from the row's own table and consults
-nobody, whatever its paths could have cost. `g` in the run buffer asks the same
-question again, naming the same transport, before repeating a run.
+A live run buffer provides `a` for the oldest verified human question, `c` for
+available runtime controls, `C-c C-k` for cancellation, `r` for verified result
+content, and `d` for diagnostics. Human and fork answers use native JSON editors.
+The verified question of `a` shows in another window. The answer editor opens
+in a new window, below the run view when the frame has no room for a pop-up
+window. Its close deletes that window and returns to the view.
+`C-c C-c` submits an edited value, while `C-c C-k` abandons the editor. Boolean
+false is preserved separately from JSON null. The runner remains the authority
+for answer types and schemas.
 
-The word is typed out on purpose. The plan is on screen beside the question,
-and `SPC` — the key you reach for to read on — is `act` in `query-replace-map`,
-which `y-or-n-p` remaps to `y`; one thumb-twitch would start 48 consultations.
-Set `wf-confirm-function` to `y-or-n-p` to trade that back for one key.
+Controls retain occurrence, attempt, and acknowledgement correlation. Human
+and recovery decisions preserve FIFO order, and stale or unavailable actions
+are refused. Runtime controls are bounded at 1 MiB before a control ID is
+reserved. Framing, identity, sequence, trace, and stream failures are reported
+rather than treated as successful completion.
 
-The prose in the plan buffer is for reading. The number in the question is read
-from `wf plan NAME --json` under the inputs just given — this package parses the
-JSON contract and nothing else, so no CLI wording is load-bearing here. A
-program with no path through it has no ceiling, and the question says `—` there,
-as the CLI does.
+**History and lineage.** Persistent history is a native table. `RET` opens the
+selected record and `g` refreshes it. Corrupt records remain visible, and a failed
+query does not become empty history. Only a matching live session already owned
+by this Emacs process can reopen as a live view. Other records open explicitly
+as observers, without control commands.
 
-**Driving hera over TRAMP.** Every subprocess is started with `process-file` or
-`start-file-process`, which honour the calling buffer's `default-directory`. So:
+Observer views provide `g` to refresh, `r` for a verified result, `R` for restart,
+`S` for resume, `F` for fork edits, and `=` for parent/child comparison. These
+lineage operations create new runs. They do not adopt the parent's live control
+channel. The backend authenticates and copies parent inputs, validates checkpoint
+and effect restrictions, rechecks ownership and inherited answers across approval,
+and preserves the parent store. Existing exact program and policy refusals remain
+in force. `g` in a live run view still opens fresh root setup rather than claiming
+semantic resume or fork.
 
-```
-C-x C-f /ssh:hera:~/src/my-project/    RET
-M-x wf-run                             RET
-```
+Artifact content is displayed only after the shared verifier accepts its recorded
+reference. A recorded result reference alone is not verified content, and artifact
+verification alone proves neither whole-store health nor control ownership.
 
-and `wf` runs *on hera*, in that repository, listing hera's rows, completing
-hera's file names after an `@`, and offering the agent-deck sessions hera can
-see. There is nothing else to configure — only that `wf` be found on the remote
-PATH, which for TRAMP means `tramp-remote-path` reaching it (`(add-to-list
-'tramp-remote-path 'tramp-own-remote-path)` is the usual answer) — and when it
-is not there, the command says so and names both variables rather than raising
-`file-missing`. This is the intended way to drive remote agent-deck sessions;
-the local case is the same command from a local buffer.
+**Remote execution.** Subprocesses retain TRAMP connection identity and the
+workflow's `default-directory`. Native protocol calls use TRAMP direct-async
+pipes and separate stderr buffers. Settings are scoped to each call rather than
+persistently changing connection profiles or methods. State and input paths are
+checked against the selected connection, and unsupported direct-pipe connections
+are refused rather than using a terminal for protocol data.
 
-**The run buffer.** `*wf: ROW*`, in `wf-run-mode` — read-only, colours applied
-rather than shown, `C-c C-k` to interrupt, `g` to ask the price again and rerun,
-`q` to bury. A run over TRAMP names its host, `*wf: hera:wiggum*`, so the same
-row driven here and on hera gets a buffer each — the listing is cached per
-connection and so are the buffers holding what came back. Scrolling back to
-re-read a consultation holds: a window follows the output only while it is
-already at the end.
+TRAMP refuses a direct-async command that is longer than the remote pipe
+buffer, which is 512 bytes on macOS, and its environment prefix uses most of
+that buffer. On a remote connection, `wf-program` must therefore name a short
+path, such as an installed `~/.local/bin/wf`. The SSH gate runs its runner
+through a short link inside its fixture for the same reason.
 
-**Deck sessions** come from `agent-deck list -json` when that answers, and from
-a lenient parse of its plain table when it does not: the field that is a *whole*
-session id is the id and the rest of the line is the title. Whole, because the
-plain table ellipsizes that column and a truncated id selects nothing — a line
-without one is skipped rather than guessed at. Both calls keep the two streams
-apart, as every other call to a binary here does: with stderr merged into the
-parsed output, one narrated line about a stale profile would make the JSON
-unreadable and cost every session silently. If neither source works the prompt
-degrades to reading an id as a string — and says why in the prompt, quoting
-agent-deck's first line of stderr, or `agent-deck listed no sessions` when it
-said nothing at all. It never raises.
+SSH behavior is verified with Emacs 30.2 against an isolated loopback server on
+macOS. This exercises the real SSH/TRAMP path, including binary file capture,
+typed human answers, verification, history, semantic resume, cancellation, and
+interactive resize. It does not establish a different host OS or Linux acceptance.
 
-**Why no transient.** The interaction is a straight line — row, inputs,
-transport, price, go — with each step's choices decided by the last. A transient
-prefix would be a menu over four questions that have to be asked in order
-anyway, so it does not earn the dependency on a second UI model.
-
-**The gate.** `./ci/emacs.sh`, from the repository root, is three passes over
-`emacs/wf.el` and `emacs/wf-smoke.el`: byte-compilation with
-`byte-compile-error-on-warn` so that a warning *is* the failure, `checkdoc` with
-`arguments-in-order` and `package-keywords` — the two the defaults leave off —
-and then the smoke, which loads the package and asks the real `wf` binary for
-its listing. It finds Emacs at `$EMACS` or on `PATH` and the binary at `$WF` or
-under `dist-newstyle`, and says which sentence to fix when it finds neither.
+**Verification.** The gate compiles every `emacs/*.el` file with warnings
+treated as errors, runs strict `checkdoc` on each of them, and executes
+descriptor, setup, native process, control, artifact, history, and lineage
+regressions. A fourth pass runs the ERT tests of the service-mode transport in
+`emacs/wf-manager-tests.el`, which include the events vectors, the drafts,
+requests, preparations, receipts, decisions, answers, controls and runs vectors,
+and the refresh sequences, backoff, jitter and reconciliation vectors of
+`test/manager_client_vectors.json` in agent-cat. The HTTP transport tests and
+the session tests run against a plain HTTP listener on 127.0.0.1 inside the
+test Emacs and contact no other host. The command tests send an answer whose
+connection the listener closes after the request, so that the send is
+uncertain. They require exactly one send for each answer and a
+reconciliation with one read that gives `effect-observed` or stays uncertain.
+The download tests require the exact bytes for the stated size and digest and
+a refusal for a wrong digest, a wrong size and an inline disposition. The
+service-mode tests require that `wf-service-commands` states each public
+command of `wf.el` once, that local mode is the default, and that each
+local-only command refuses with its message in service mode and starts no
+process and sends no request. The run view tests require the
+separate lines of a run view and its Terminal and Result lines, the choices
+of `wf-runs` for local and service runs, a view that follows a succeeded run
+to the size and digest of its verified download, and a view kill and the
+function of `kill-emacs-hook` that send nothing. The answer tests require
+the answer `no` as JSON `false` with the entity tag of the decision, a 412
+refusal that keeps and reports the draft and sends nothing again, and an
+uncertain answer that one read of the run snapshot reconciles. The result
+and history tests require the exact bytes of a saved result with mode 0600
+and a refusal of a second save to the same file, a history of every page of
+the run collection in its order, and a refusal of a history row of another
+endpoint that sends nothing. The lineage and export tests require the
+decoders of the lineage and export collections and of the export receipt,
+the body of a fork with its edits in occurrence order, the fork edits of the
+completed and reused occurrences of a snapshot with a refused replacement
+read again, one lineage request with the entity tag of its collection
+followed by the enqueue of the child, a refusal that sends nothing when the
+operation is not eligible, and one export with the entity tag of its
+collection, the verified download of the export and the export buffer, and
+an uncertain export that one read of its collection reconciles and that is
+not sent again. The
+human/control fixture and
+the vector file are explicit dependencies, not developer-specific paths or
+skipped tests. The pinned agent-cat source of the development shell does not
+have the vector file, so `WF_MANAGER_VECTORS` names it.
 
 ```sh
-./ci/emacs.sh
-EMACS=/path/to/emacs WF=$PWD/dist-newstyle/…/wf ./ci/emacs.sh
+WF=/path/to/compatible/wf \
+WF_CONTROL_RUNNER=/path/to/routing-fixed-point-probe \
+WF_MANAGER_VECTORS=/path/to/agent-cat/test/manager_client_vectors.json \
+  nix develop path:. -c bash ci/emacs.sh
 ```
 
-The smoke asserts what the JSON contract promises and the wording that spends
-money: the row count and `wiggum`'s declared inputs, the per-connection cache,
-that `@` hands off to file-name completion *after* the `@`, that the agent-deck
-listing keeps its two streams apart so a line of stderr costs no session, that a
-missing agent-deck degrades to nil *and* says why, and both shapes of the price
-gate's question — including that a rehearsal says `consults nobody` instead of
-quoting a ceiling it will not spend. One thing it does not cover: the per-input
-`M-p` history and the last-answer default are verified structurally, since batch
-Emacs records no minibuffer history — exercise those once interactively.
+The gate also compiles and checks `emacs/wf-manager-live.el`, and it does not
+run it. That file is the live check of the transport against a running
+agent-cat workflow manager. The `emacs-client` mode of
+`manager/test/service_http.py` in agent-cat starts the manager with its mixed
+fixture, issues two client credentials with the scopes `observe`, `submit`,
+`control` and `export` and their client profiles, writes a third profile whose
+endpoint has no listener, and runs the file in a batch
+`Emacs -Q` with an isolated home directory. The mode needs `EMACS` and
+`WF_EMACS_DIR`, the `emacs` directory of this repository. From the root of
+agent-cat:
+
+```sh
+EMACS=/path/to/emacs WF_EMACS_DIR=/path/to/agent-workflows/emacs \
+  python3 -B manager/test/service_http.py "$PWD" "$(mktemp -d)" \
+  "$(bash test/cabal.sh list-bin -ftui-tests routing-fixed-point-probe)" 8 emacs-client
+```
+
+The live check binds a transport over TLS with the CA file of the profile,
+creates a draft and repeats the creation with the same idempotency key, and
+supplies a literal input with a set-input command and repeats the command with
+the earlier entity tag. It then creates three more drafts, each with a literal
+of 600000 characters, so that the overview does not fit on one page. It
+starts a session, which assembles the overview over all its pages, and asks
+the harness to create and approve a run with the credential of the harness.
+The run must appear in the overview of the session through an event poll,
+with no other read by the check, and the delivery state must be `poll`. The
+check then switches the session to a profile whose endpoint has no listener,
+which must fail and keep the binding and its follow loop. It then switches the
+session to the profile of a second credential of the same manager while the
+delivery of a read of the first binding is delayed. The switch must commit
+with a new endpoint identity, every member reference of the new overview must
+read 200, the delayed read must change nothing, and a reference of the first
+binding must give `wf-manager-wrong-endpoint`. The check then reads after the
+harness revokes the second credential, kills a buffer that holds a reference of
+the session, and closes the session. It requires 201 and the same draft for
+the repeated creation, the typed refusals 412 `stale-revision` and 401
+`unauthenticated`, the end of the follow loop with `refused` after the
+revocation, no prompt, and no process, url.el buffer, timer or transport
+directory after the close. The harness then reads that the run has not ended
+and that the check sent no command after the run handshake, and it drives the
+run to its terminal success. A new session of the first credential then sends
+the export command of the run with the entity tag of its export collection
+and reads the receipt at the Location of the 202 reply until it reaches
+`effect-observed`. The harness reads the same receipt. The session downloads
+the artifact of the export with the verified download, and the harness
+requires the same bytes as its own download. A download with a wrong digest
+and a download with a wrong size must each give
+`wf-manager-invalid-response`. The service step then drives service mode with
+keyboard macros through `execute-kbd-macro`, with the first profile as the
+one item of `wf-manager-profiles`. `M-x wf-service` connects, and `M-x wf-run`
+lists the ready profiles and then the catalogue in `*Completions*`, which the
+check keeps with a key of its own. The harness requires exactly the ready
+profiles and the workflow names that it reads, and the refusal of `wf-run`
+after the selection. `M-x wf-help` must show the help text of the catalogue.
+Each local-only command must refuse with its message and start no process and
+send no request. `M-x wf-diagnostics` must show the endpoint, the scopes and
+the delivery state `poll`, and `M-x wf-local` must close the session. The
+requests step creates, sets up, reviews and approves or declines three
+requests with keys, and the harness reads that the programs of the two
+approved runs received their literal and captured inputs. The manager admits
+at most 30 ordinary mutations of one client in one minute, so the views step
+starts one minute after the pages step. The views step
+starts one `mixed-controls` run of each of the two profiles of the fixture
+and opens the view of each run with `M-x wf-runs`. While the answer editor of
+the second run is open, the harness answers its question first, so the
+answer of the view must receive 412 `stale-revision`, send nothing again and
+keep the draft. The answer `no` in the view of the first run must reach its
+decision, and the harness reads JSON `false` in the run store. Each view must
+show only its own run. The check then kills the view of the second run while
+that run still waits at its recovery decision. The harness reads that the run
+still runs, that no cancel command exists and that the check sent no command
+after the kill, and it then drives both runs to their terminal success. The
+view of the first run must end with the Terminal line and the Result lines of
+the verified result that the harness downloads, and the function of
+`kill-emacs-hook` must close the transport with no command. The
+mode also fills a local retention root with 300 legacy entries, which the
+manager serves through `--legacy-history`, and issues a third credential. The
+history step lists every run with `M-x wf-history`, and the harness requires
+the run identifiers of every page of `/v1/runs`, over at least two pages and
+in the order of the collection. `RET` on the row of the answered run opens its
+view, and `r` there saves the verified result to a new file. The harness
+requires the bytes, the size and the SHA-256 digest of its own download and
+the mode 0600, and a second save to the same file must refuse. After the
+switch of the session to the profile of the third credential, `RET` on the
+same row must refuse, and no read and no view of the run may follow on the
+new binding. Before the history step, the lineage step creates lineage
+children with keys: `M-x wf-restart` on the history row of the literal run, `S`
+and `g` in the view of the captured run, and `F` in the view of the restart
+child, which replaces the answer of its first completed text occurrence. Each
+child opens its exact review, which shows its lineage, and its run starts only
+after `a` and the answer `yes`. The harness reads the lineage collection of
+each parent, the child request, its consumed preparation with the lineage of
+its review and the succeeded child run, which names its parent and its
+operation. The step then exports the verified result of the answered run with
+`M-x wf-export`, and the harness requires the published export and the bytes
+of its own download. The
+check writes a report whose `harnessVersion` field is
+`wf-manager-live-harness-version`. The mode refuses a report of another
+version with one sentence, so a mismatched pair of the two repositories fails
+at once. The mode then checks the report against the reads of the manager.
+
+The `emacs-client-controls` mode runs the second test of the file,
+`wf-manager-live-controls`, in the same way:
+
+```sh
+EMACS=/path/to/emacs WF_EMACS_DIR=/path/to/agent-workflows/emacs \
+  python3 -B manager/test/service_http.py "$PWD" "$(mktemp -d)" \
+  "$(bash test/cabal.sh list-bin -ftui-tests routing-fixed-point-probe)" 8 emacs-client-controls
+```
+
+The mode starts the manager with the deterministic ACP control fixtures and
+issues one client credential with the scopes `observe`, `submit` and
+`control`. The harness creates and approves a run whose attempt holds its turn
+until a steer and a run whose first candidate holds its turn until a redirect.
+The check opens the view of each run with `M-x wf-runs` and starts each control
+with `c` in the view. The choices that `*Completions*` lists must equal the
+labels of `wf-service-control-read`. The check sends the steer through the
+steer editor with the timing `interrupt-now`, and then the live redirect to
+the spare target. The harness confirms both from the command receipts, the
+run log and the run store, and settles both runs. It then starts a run of the
+retry fixture, which it answers to its recovery decision, and a second held
+run. The check sends the offered retry, and that run must end with
+`Terminal: succeeded` in its view. In the view of the held run, `C-c C-k` and
+the answer `no` must send nothing. The check then chooses `cancel` and answers
+`yes`, the runtime acknowledgement must accept the cancel, and the view must
+show `Terminal: cancelled`. The harness requires that the steer, the redirect,
+the retry and the cancel are the only commands of the controls of the four
+runs, each sent once with the entity tag of the controls as `If-Match`.
+
+`EMACS` can select another Emacs executable. Otherwise the gate uses the pinned
+development shell, which also supplies `WF_CONTROL_ADAPTERS` from the pinned
+agent-cat source. Scripted workflows and deterministic human and ACP fixtures
+exercise the real runner without contacting providers, including retry,
+abandonment, dispatch redirection, and failover through the native controls.
+
+The reproducible local PTY gate is:
+
+```sh
+WF=/path/to/compatible/wf \
+WF_CONTROL_RUNNER=/path/to/routing-fixed-point-probe \
+  nix develop path:. -c python3 ci/emacs-ui.py --artifacts /path/to/new/artifacts
+```
+
+This gate runs isolated `Emacs -Q` sessions. It covers four-input navigation at
+40×12, 80×24, and 140×36, resizing during setup and review, typed human answers,
+verified results, persistent observer/fork navigation, independent multiwindow
+following, and terminal restoration. Recovery cases use a preconfigured
+deterministic ACP target and drive retry, dispatch selection, and failover
+through the native control menu with real keystrokes. Typed control names
+survive terminal resizing before submission. Captured native window states and
+terminal logs remain with the artifacts. These local checks do not establish
+remote or Linux acceptance.
+
+With `--service PROFILE REPORT`, the script runs only the service journey of
+`wf-service.el` against a running agent-cat workflow manager. PROFILE is a
+client profile file, and REPORT is the file of the JSON report of the journey.
+The `emacs-service` and `emacs-service-broken-answer` modes of
+`manager/test/service_http.py` in agent-cat start the manager with the mixed
+fixture, issue the client credential and its profile, and run this journey.
+These modes need `EMACS`, `WF_EMACS_DIR` and `WF_EMACS_UI`, the path of this
+script. From the root of agent-cat:
+
+```sh
+EMACS=/path/to/emacs WF_EMACS_DIR=/path/to/agent-workflows/emacs \
+WF_EMACS_UI=/path/to/agent-workflows/ci/emacs-ui.py \
+  python3 -B manager/test/service_http.py "$PWD" "$(mktemp -d)" \
+  "$(bash test/cabal.sh list-bin -ftui-tests routing-fixed-point-probe)" 8 emacs-service
+```
+
+The journey starts `Emacs -Q -nw` at 80×24 in a private PTY with its own
+home directory, loads `wf.el`, `wf-manager.el` and `wf-service.el`, and acts
+only by keys. `M-x wf-service` selects the profile. `M-x wf-run` chooses
+`mixed-controls`, the Unicode literal of the script is typed in the setup form,
+and `C-c C-c` submits it. `a` and the answer `yes` approve the exact review,
+and `M-x wf-runs` opens the run view. The journey acts on the decision heads in
+the order that the manager presents them: `a` opens the answer editor of the
+question, where the answer of `--service-answer` (`false` by default) is typed
+and sent, and `c` sends the offered `retry` of the recovery decision. After the
+view shows terminal success and the verified result, `r` saves the result to a
+new file. `M-x wf-local` closes the session, and `C-x C-c` ends Emacs. The setup
+form, the review and the answer editor each pass through 40×12, 140×36 and
+80×24, and each keeps its text. The script prints one PASS line for each step
+and writes the report again after each step. The report holds the literal, the
+texts at each size, the review, the run, the handled heads, the last lines of
+the view, the path of the saved file, and the terminal attributes before the
+start of Emacs and after its exit. The modes check the report against the reads
+of the manager. The `emacs-service-broken-answer` mode passes
+`--service-answer true`, and it must fail with the literal message
+"JOURNEY-ASSERT Emacs answer is JSON false".
+
+With `--service-case lifecycle`, the script runs the service lifecycle
+instead. The `emacs-service-lifecycle` mode of `manager/test/service_http.py`
+runs it against a manager whose profiles `profile_1` and `profile_2` hold each
+engine turn for some seconds and whose profile `profile_steer` offers a steer.
+The lifecycle starts `Emacs -Q -nw` at 140×36 and acts only by keys:
+
+1. At 140×36, `M-x wf-run` creates and approves a `delayed-person` request of
+   `profile_1` and one of `profile_2`. The person question of this workflow
+   follows the engine answer, so it arrives late. `M-x wf-runs`, `C-x 1` and
+   `C-x 2` show the two run views in two windows. The window of the first run
+   keeps its point at the start, and the window of the second run keeps its
+   point at the end. When the question of the first run arrives, `a` in its
+   window opens the answer editor below it, and `false` is typed and sent.
+   The first run succeeds while the second run runs, and both windows keep
+   their points.
+2. At 80×24, text is typed in the editor buffer `wf-capture`, and `M-x wf-run`
+   creates a `captured-input` request of `profile_steer`. In the setup form,
+   backtab, `RET` and `3` select the Buffer source, which captures that
+   buffer. `C-c C-k` and the confirmation `yes` then cancel the second run,
+   and `c` in the view of the captured run sends the offered steer with the
+   timing `interrupt-now` through the steer editor. The label of the steer
+   choice is typed in the open control prompt, which passes through 40×12,
+   140×36 and 80×24 with the label kept before `RET`. The steer text is typed
+   in the steer editor, which passes through the same sizes with the text
+   kept before `C-c C-c`.
+3. At 40×12, `M-x wf-history` lists the runs over every page, `RET` on the row
+   of the first run opens its view, and `r` saves its verified result to a new
+   file.
+4. At 80×24, `F` in the view of the first run makes a fork child. The edit
+   prompt selects the occurrence of the person question and the action
+   `replace`, `yes` replaces the published answer in the replacement
+   minibuffer, and `send` sends the fork. `a` and `yes` approve the exact
+   review of the child. `R` in the view of the second run makes a restart child
+   in the same way. `M-x wf-history` and `RET` on the row of the fork child
+   open its view, because the fork child can end before the overview names
+   it. When the fork child has succeeded, `E` in its view exports its verified
+   result under a typed name, and the export buffer shows the receipt, the
+   verified download and the export collection.
+5. The view of the restart child waits at its question. The script asks the
+   harness to stop the manager and then to start it again, through files in
+   the directory of `--service-handshake`. With no key, the view reports the
+   delivery `unreachable`, and then it reconnects and shows the supervision
+   `lost` of the restarted manager.
+6. `M-x wf-run` creates and approves a third `delayed-person` run. When its
+   view shows its question, `C-x C-c` quits Emacs. A new `Emacs -Q -nw` with a
+   new home directory selects the same profile, and `M-x wf-runs` opens the
+   view of the waiting run, which shows its question and the supervision
+   `owned`. `C-x k` kills that view, `M-x wf-local` closes the session, and
+   `C-x C-c` ends Emacs.
+
+The report holds the runs, the window points and view lines of step 1, the
+captured request, the cancel and steer facts, the texts of the control prompt
+and the steer editor at each size, the history rows, the path of the
+saved file, the lineage children, the export buffer, the view lines around the
+restart, the waiting run and the terminal attributes of both Emacs processes.
+At each handshake, the harness records the commands of the manager. The mode
+checks each step against the reads of the manager, the command receipts, the
+coordination database and the run logs. It requires that the reconnect sends
+no command again and that the quit of Emacs and the kill of a view send no
+command.
+
+With `--service-case controls`, the script sends three run controls from the
+view of a run instead. The `emacs-service-controls` mode of
+`manager/test/service_http.py` runs it against a manager with three profiles:
+`profile_1`, whose recovery decision offers a retry and an abandon,
+`profile_route`, whose recovery decision also offers the fail-over to the
+spare candidate, and `profile_live`, whose question has two model candidates.
+The harness creates, approves and settles each run, and it names each run
+through a file in the directory of `--service-handshake` when the run is
+ready. The script starts `Emacs -Q -nw` at 80×24 and acts only by keys:
+
+1. `M-x wf-service` selects the profile.
+2. `M-x wf-runs` opens the view of the `profile_route` run at its recovery
+   decision. `c` opens the control prompt, the label `failover:1` is typed,
+   and `RET` sends the fail-over choice. The harness confirms the command and
+   settles the run, and the view shows terminal success.
+3. In the same way, `c`, the label `abandon` and `RET` send the abandon choice
+   in the view of the `profile_1` run, and the view shows the terminal status
+   `failed`.
+4. The harness answers the person question of the `profile_live` run, so that
+   the dispatch window of its model question has no question head before it.
+   `c`, the `redirect:N` label of the second listed target and `RET` send the
+   redirect to that target, and the view shows terminal success.
+5. `M-x wf-local` closes the session, and `C-x C-c` ends Emacs.
+
+The report holds, for each control, the choices of the control prompt, the
+text of the minibuffer when the prompt opened and with the typed label, and
+the last lines of the view. It also holds each command that the session sent,
+with its resource, its body, its If-Match and the entity tag of the read of its
+resource in the act of the control. The mode checks each control against the
+command receipts, the coordination database, `events.ndjson` and the run log,
+and it requires that the session sent only these three controls, each once.
+
+Emacs takes part in the three modes of the cross-client witness of
+`manager/test/service_http.py`: `cross-client`, with its control
+`cross-client-broken-answer`, `cross-client-lifecycle` and
+`cross-client-lineage`. In each mode the TUI, Pi and Emacs act on one
+manager, each with its own credential and client identifier. The witness is
+local single-machine evidence. The manager, the three clients and the harness
+run on one machine, so the witness is not evidence of clients on other
+machines.
+
+With `--service-case witness`, the script is the Emacs client of the
+cross-client witness. The `cross-client` mode of
+`manager/test/service_http.py` runs it against one manager with three client
+credentials, one for each of the TUI, Pi and Emacs. The TUI creates and
+enqueues a `mixed-controls` request by keys, and Pi approves its exact
+review. When the run waits at its person question, the harness names the run
+and the question through a file in the directory of `--service-handshake`.
+The script starts `Emacs -Q -nw` at 80×24 with the client profile of the
+Emacs credential and acts only by keys:
+
+1. `M-x wf-service` selects the profile.
+2. `M-x wf-runs` opens the view of the run, and the view shows the pending
+   question as its head.
+3. `a` opens the answer editor of that head, and the script types `false`.
+   The handshake `open-answer` gives the harness the view lines, the editor
+   text and the commands of the session. The harness answers it after Pi
+   has answered the same head and that answer has reached its effect.
+4. `C-c C-c` sends the open editor once. The manager refuses the answer, and
+   the session records the refusal as its problem and shows it in
+   `*Messages*`. The editor keeps its text, and for three seconds the
+   session sends nothing more.
+5. The handshake `save-result` gives the harness the refusal and the
+   commands of the session. The harness answers it with the path of a new
+   file after the TUI has sent the offered retry and the run has succeeded.
+   `M-x wf-runs` opens the view of the run again, which shows terminal
+   success and the SHA-256 of the verified result, and `r` saves that
+   result to the path.
+6. `M-x wf-local` closes the session, and `C-x C-c` ends Emacs.
+
+The report has version 3. It holds the process identifier of Emacs, the
+lines of the view, the refusal, the commands of the session and the saved
+path. The mode requires that the session sent only the one refused answer,
+that the coordination database holds no command of the Emacs credential,
+that the one answer of the head is the answer of Pi, and that the saved file
+has mode 0600 and holds exactly the bytes of the verified download of the
+harness.
+
+With `--service-case witness-lifecycle`, the script is the Emacs client of
+the `cross-client-lifecycle` mode of `manager/test/service_http.py`. Pi
+creates, enqueues and approves a `mixed-controls` request, and the TUI
+observes the run. The script starts two `Emacs -Q -nw` processes in turn, each
+at 80×24, and acts only by keys:
+
+1. In the first Emacs, `M-x wf-service` selects the client profile of
+   `--service`. The handshake `observe-ready` names the run and its pending
+   person question.
+2. `M-x wf-runs` opens the view of the run, which shows the question as its
+   head under the supervision `owned` with the `cancel` choice.
+3. The handshake `quit` gives the harness the lines and the choices of the
+   view and the commands of the session, and `C-x C-c` quits Emacs while the
+   run waits.
+4. The handshake `quitted` gives the harness the exit status and the
+   terminal state of the first Emacs. The harness rotates the Emacs
+   credential, restarts the manager with the termination signal, and
+   answers with the client profile of the rotated credential. In the second
+   Emacs, `M-x wf-service` selects that profile.
+5. `M-x wf-runs` opens the view of the run again, which shows the supervision
+   `lost`. The handshake `reconnected` gives the harness the lines and the
+   choices of the view, and the harness answers it with a second run and
+   its pending person question.
+6. `M-x wf-runs` opens the view of the second run, which shows the question
+   as its head under the supervision `owned`. The handshake `held` gives the
+   harness the view, and the harness kills the manager with SIGKILL.
+7. With no key, the view reports the delivery `unreachable`. The handshake
+   `unreachable` gives the harness the view, and the harness starts the
+   manager again.
+8. With no key, the view reconnects and shows the supervision `lost` and
+   `Offers: none`. The handshake `quarantined` gives the harness the lines
+   and the choices of the view. The harness releases the quarantined
+   reservation of the second run and answers with a third run and its
+   pending person question.
+9. `M-x wf-runs` opens the view of the third run, `a` opens the answer editor
+   of the head, the script types `false`, and `C-c C-c` sends it once. The
+   handshake `answered` gives the harness the commands of the session, and
+   the harness answers it after the run has succeeded.
+10. `M-x wf-local` closes the session, and `C-x C-c` ends the second Emacs.
+
+The report has version 2. It holds the process identifiers of the two Emacs
+processes, the lines and the choices of each view, the commands of each
+session and the exit status and terminal attributes of each Emacs. The mode
+requires that the first session sent no command, that the views after each
+restart offer no cancel, that the view of the second run sent nothing
+across the manager loss, and that the one answer of the second session is
+from the rotated credential.
+
+With `--service-case witness-lineage`, the script is the Emacs client of the
+`cross-client-lineage` mode of `manager/test/service_http.py`. The harness
+settles two parent runs, the TUI forks the first parent with one
+replacement, and Pi approves the exact review of the fork child. The script
+then starts `Emacs -Q -nw` at 80×24 with the client profile of the Emacs
+credential and acts only by keys:
+
+1. `M-x wf-service` selects the profile. The handshake `lineage-ready` names
+   the parent run and the run of the fork child.
+2. `M-x wf-history` lists every page of the runs.
+3. `RET` on the row of the parent opens its view, which shows `Lineage:
+   root` and terminal success.
+4. `M-x wf-history` again and `RET` on the row of the child open its view,
+   which shows `Lineage: fork of run PARENT`, terminal success and the
+   SHA-256 of the verified result.
+5. `M-x wf-local` closes the session, and `C-x C-c` ends Emacs.
+
+The report has version 1. It holds the process identifier of Emacs, the runs
+and the pages of the history, the lines of the two views, the commands of the
+session and the exit status and terminal attributes of Emacs. The mode
+requires that the history rows equal every page of `/v1/runs` in order, that
+the session sent no command, and that the SHA-256 of the child view is the
+SHA-256 of the verified download of the harness.
+
+The SSH/TRAMP gate starts an unprivileged server bound only to `127.0.0.1`,
+with temporary host and client keys, strict host-key checking, public-key-only
+authentication, and a private shell environment. It changes no account or
+system configuration and removes the server and temporary keys afterward.
+
+```sh
+WF_CONTROL_RUNNER=/path/to/routing-fixed-point-probe \
+  nix develop path:. -c python3 ci/emacs-tramp.py --artifacts /path/to/new/artifacts
+```
+
+### Service mode
+
+`emacs/wf-service.el` connects the commands of `wf.el` to an agent-cat
+workflow manager. The mode is explicit, and local mode is the default.
+
+```elisp
+(require 'wf-service)
+(setq wf-manager-profiles '("/Users/me/.config/agent-cat/client-profile.json"))
+```
+
+`wf-manager-profiles` is a list of client profile files of version 1 (see
+[Service-mode transport](#service-mode-transport) for the format). The list alone does not
+select service mode. `M-x wf-service` reads one profile of the list, binds a
+connection to its manager by `GET /v1/capabilities`, and starts a session. The
+session installs the complete overview and follows the events of the manager
+in the `poll` delivery. A failure leaves local mode in place and names its
+cause. When service mode already has a session, `wf-service` switches that
+session to the endpoint of the selected profile, and a switch that fails keeps
+the earlier binding. `M-x wf-local` closes the session and returns every
+command to local mode. The close sends no command, so the runs and requests of
+the manager continue.
+
+The delivery of service mode is `poll`. url.el gives a response to its caller
+only when the response is complete, so the client reads `/v1/events` in the
+bounded polling mode and never as server-sent events (see
+[HTTP transport](#http-transport)). `wf-diagnostics` and each service run view
+show the delivery state, which is `poll` while the batches arrive and
+`unreachable` while they fail.
+
+In service mode, `wf.el` never starts the `wf` binary or a local frontend
+worker and never reads a file system path of the manager. Each public command
+of `wf.el` then runs the behavior that the table `wf-service-commands` states
+for it:
+
+| Command | Behavior in service mode |
+| --- | --- |
+| `wf-run` | Read the ready profiles of `/v1/profiles` and ask for one, with its workspace and target labels. Then read the catalogue of `/v1/workflows?profileId=` for that profile and ask for one workflow through the completion of `wf--read-row`, with its price and blurb. Each read is fresh, so the prefix argument changes nothing. The command then creates a request, opens its setup form, enqueues it and shows its exact review (see [Service setup and review](#service-setup-and-review)). |
+| `wf-help` | Read a profile and a workflow as `wf-run` does, and show the help text of the catalogue item in the buffer `*wf help: PROFILE/WORKFLOW*`. |
+| `wf-diagnostics` | Show the buffer `*wf service diagnostics*`: the profile file, the endpoint, the endpoint identity, the authority epoch, the scopes, the profiles of the credential, the delivery state, the generation, the number of polling batches, the state of the follow loop and the last problem. |
+| `wf-runs` | Ask for one local session of this Emacs process, with the label `local:RUN — DIRECTORY`, or one run of the manager, with the label `service:RUN`, and open its view. The service runs are the runs whose view this Emacs process opened at the endpoint of the session, also after they leave the overview, the runs of the open service run views and the runs of the installed overview (see [Service run views and answers](#service-run-views-and-answers)). When no run is known, the message names `M-x wf-history`, which lists every run of the manager. |
+| `wf-answer` | Answer the head decision of a run of the manager in the answer editor. In a service run view, the run is the run of the view. Elsewhere, the command asks for one run with a pending decision of the installed overview. |
+| `wf-refresh` | In a setup form of service mode, read the request of the form again and draw the form again with every draft. Elsewhere, show a message and send nothing, because service mode keeps no row listing. |
+| `wf-control` | Send one control of a run of the manager that the controls of the run offer (see [Service controls](#service-controls)). In a service run view, the run is the run of the view, and in a service history of the endpoint of the session, it is the run of the row at point. Elsewhere, the command asks for one run that the session knows. |
+| `wf-kill` | Cancel a run of the manager after a confirmation, when its controls allow a cancel. The run is chosen as for `wf-control`. |
+| `wf-result` | Save the verified result of a run of the manager to a new file (see [Service results and history](#service-results-and-history)). The run is chosen as for `wf-control`. |
+| `wf-history` | List every run of `/v1/runs` over every page in a new buffer `*wf service history*` of `wf-service-history-mode` (see [Service results and history](#service-results-and-history)). |
+| `wf-history-refresh`, `wf-history-open` | In a service history buffer, read the run collection again, or open the run view of the row at point. Elsewhere, refuse with a message. |
+| `wf-restart`, `wf-resume`, `wf-fork` | Create a restart, resume or fork child request of a run of the manager and show its exact review (see [Service lineage and exports](#service-lineage-and-exports)). |
+| `wf-rerun` | Create a restart child request of a run of the manager, as `wf-restart` does. |
+| `wf-fork-submit` | Refuse with the message "wf-fork-submit works only in local mode.  In service mode, use `wf-fork` instead". |
+| `wf-plan`, `wf-cost` | Refuse with the message "COMMAND works only in local mode.  In service mode, use the review of `wf-run` instead". |
+| `wf-lineage-compare`, `wf-observer-result`, `wf-observer-refresh` | Refuse with the message "COMMAND works only in local mode.  Service mode has no equivalent". |
+
+A command of service mode reads each resource that it needs when it runs. A
+read that the manager refuses with 429 `storage-quota` or 503
+`storage-unavailable` is read again after 0.2 seconds, for at most 50 reads in
+all. The manager gives 429 `storage-quota` to a client that already holds
+two active page sets. Such a refusal clears without a change of the
+resource, when another page set of the client completes or expires. A read is never a command, so nothing is
+sent again.
+
+No refusal starts a process or sends a request. `wf-requests` of
+`wf-service.el` lists the requests of the manager in draft or review and
+opens the review of one (see [Service setup and review](#service-setup-and-review)).
+Local mode has no requests, so `wf-requests` refuses there. `wf-export` of
+`wf-service.el` exports the verified result of a run of the manager (see
+[Service lineage and exports](#service-lineage-and-exports)). Local mode has no
+export, so `wf-export` refuses there. The dispatch is global: in
+service mode, a command acts on the manager also in the view of a local run.
+`wf-local` gives such a view its local commands again.
+
+#### Service setup and review
+
+In service mode, `wf-run` follows these steps after the selection of a
+workflow:
+
+1. It creates a request of the workflow with `POST /v1/requests`.
+2. It opens the setup form of local mode, `wf--setup-mode`, with the same
+   widgets, keys, sources and histories, for the missing inputs of the
+   request. The header of the form names the request and its admission, and
+   it states that Submit sends each input to the manager. The
+   Literal and Multiline sources send the exact text of the input with
+   `set-input`. The File, Buffer and Region sources upload exact UTF-8 bytes
+   with `POST /v1/captures?requestId=ID` as `application/octet-stream`, and
+   `set-input` then binds the identifier of the capture. The File source
+   reads the bytes of a file of `default-directory`. The manager receives the
+   bytes and never a file name. Each `set-input` binds the entity tag of a
+   read of the request. `M-x wf-refresh` in the open form reads the request
+   again and draws the form again, and every draft of every source and the
+   position of point stay. A cancel of the form leaves the request a draft of
+   the manager.
+3. It enqueues the request and reads it until its preparation exists. Each
+   change of the admission shows as a message with the phase, the admission
+   state, the queue position and the blocking reasons.
+4. It reads the preparation with `GET /v1/preparations/{id}` and shows it in
+   the buffer `*wf review: REQUEST*` of `wf-service-review-mode`.
+
+The review buffer shows the review of the manager, not a plan of this
+client. It shows the admission lines of the wait, the current admission,
+the current queue position and blocking reasons, every approval selector (`reviewDigest`,
+`requestRevision`, `profileRevision`, `descriptorRevision` and
+`processGeneration`), the entity tag that `approve` binds as `If-Match`, and
+every consent fact of the review: the program digest, the person answering,
+the workflow, the profile, the workspace, the target, the policy, the result
+code, the size and SHA-256 digest of each input, the plan, the run facts, the
+pins, the warnings and the lineage. Nothing is shortened. The workflow line
+names the workflow by the name of its plan, with its identifier. When the
+plan is a JSON object, a plan summary states its workflow, level, size,
+question count, price and observation codes above the raw program, which
+is the exact plan text of the manager. After `g` or an approval reads the
+request again, the buffer shows the current admission only and no line of
+the wait. The keys are these:
+
+| Key | Behavior |
+| --- | --- |
+| `a` | Ask `wf-confirm-function` with the prompt `Start WORKFLOW in PROFILE (TARGET)?`. The selectors and the entity tag stay in the buffer. Only a yes sends `approve` with the five selectors and the entity tag of the preparation as `If-Match`. The buffer then waits for the run of the request, names it and shows the service run view of the run in another window. A no sends nothing, and the request stays in review. |
+| `d` | Decline the review: send `discard` to the preparation and wait for its effect. The request is a draft again, and the preparation holds no execution reservation. |
+| `w` | Send `withdraw` to the request and wait for its effect. |
+| `g` | Read the request and the preparation again and draw the review again. |
+| `q` | Quit the window. When the review sent no `approve`, `discard` or `withdraw`, ask `wf-confirm-function` whether to discard the preparation first. A yes sends the `discard` of `d`. A no sends nothing, and the request stays in review, where `wf-requests` opens it again. |
+
+`M-x wf-requests` reads every page of `/v1/requests` and asks for one
+request in the phase `draft`, `queued`, `preparing` or `review`. The
+requests in review come first, then the preparing and queued requests,
+then the drafts. Each choice has the label `WORKFLOW/REQUEST`, with the
+workflow name of the catalogue of the profile of the request, and an
+annotation with the profile, the phase and the admission. A request in review opens its exact review at once, and a
+queued or preparing request opens it when its preparation exists. A draft
+first opens the setup form for its missing inputs, and the command then
+enqueues it as `wf-run` does. A request in another phase is not listed.
+
+Each command is sent one time. A command whose outcome is uncertain stops
+with a message, and nothing is sent again.
+
+#### Service run views and answers
+
+A service run view is the buffer `*wf service run RUN*` of
+`wf-service-run-mode`, a mode derived from `wf-run-mode` with the same keys
+and `E` for `wf-export`.
+`wf-runs` opens it, and so does the approval of a review. The view is keyed
+by the endpoint identity of the session
+and the run identifier, so each window follows its own run, and a second open
+of the same run selects the same view. The session watches four resources of
+the run: `/v1/runs/{id}`, `/v1/runs/{id}/snapshot`, `/v1/runs/{id}/control`
+and the decision queue `/v1/decisions?runId={id}`. Each read that the session
+installs draws the view again. A read that fails keeps the last complete
+observation in view, and the observation line names the failure. Each draw
+keeps the point of each window of the view: a window at the end follows the
+new end, and every other window keeps its position. So two windows can follow
+two runs, each with its own point. The answer editor and the steer editor
+open in a new window, below the selected window when the frame has no room for
+a pop-up window. The close of an editor deletes that window, so an editor
+never takes the window of another view.
+
+The view shows these lines in order:
+
+1. The run and its workflow.
+2. The lineage of the run. A lineage child shows `Lineage: OPERATION of run
+   PARENT`, for example `Lineage: fork of run run_20`, and a root run shows
+   `Lineage: root`.
+3. The endpoint identity, the delivery state and the freshness of the
+   observation.
+4. The runtime status of the snapshot, the supervision and the verification
+   of the run, each on its own line.
+5. The pending decisions of the queue, with the head first. A question line
+   names its code and its prompt, and a recovery line names its gap, its
+   message and its choices.
+6. The offered controls, with `cancel` when the controls allow a cancel.
+7. The Terminal line and the Result lines. A run that has not ended shows
+   `Terminal: not yet` and no result. A succeeded run whose snapshot names a
+   referenced or verified result reads the outputs of the run, downloads the
+   verified result once with the verified download of the session, and shows
+   its size and SHA-256 digest. The view keeps only the size and the digest.
+
+`a` in the view runs `wf-answer`. The command reads the decision queue of the
+run, the head decision and the controls of the run. It refuses a recovery
+head and a head for which the controls offer no answer, and it sends nothing
+then. It then opens `wf--answer-editor`, the answer editor of local mode,
+with the kept draft of the decision, or empty. The header line names the
+decision, its code and its prompt. `C-c C-c` sends the typed text:
+
+- `wf-manager-answer-value` gives the typed JSON value, so the answer `no` to
+  a flag question is JSON `false`. Text that the code does not accept is
+  refused before any send, and the editor keeps the text.
+- The answer binds the entity tag of the decision read as `If-Match`. Before
+  the send, the command reads the controls and, for an answer that the run
+  snapshot stores, the snapshot, as `wf-manager-session-answer-reconciliation`
+  states.
+- A 412 `stale-revision` refusal keeps the draft and reports it with one
+  read of the decision: the decision is still the pending head, and
+  `wf-answer` opens the editor again with the draft, or it is no longer the
+  head, and the draft is not sent. The editor stays with its text, and a
+  second `C-c C-c` in it refuses and sends nothing.
+- An uncertain send is reconciled one time with `wf-manager-session-reconcile`,
+  and it is never sent again. Only an observed effect closes the editor and
+  forgets the draft.
+
+The kill of a run view stops the watches of its resources and sends no
+command, so the run continues. The kill of any other buffer, the answer editor
+included, sends no command. The function `wf-service--kill-emacs` of
+`kill-emacs-hook` closes the session and its transport and sends no command.
+
+#### Service results and history
+
+`r` in a service run view runs `wf-result`. The command reads the outputs of
+the run with `GET /v1/runs/{id}/outputs` and selects the result whose
+verification is `verified` and names its artifact. It downloads that artifact
+with the verified download of the session, which requires the stated size and
+SHA-256 digest. It then asks for the name of a new file and saves the exact
+bytes there, with no coding conversion and with mode 0600. The creation is
+exclusive: when the file exists, a directory included, the save refuses and
+the file stays as it is, so a second save to the same file refuses. A run
+with no verified result refuses. The command sends no command to the
+manager.
+
+`M-x wf-history`, and `H` in a service run view, open a new buffer
+`*wf service history*` of `wf-service-history-mode`. The buffer lists every
+run of `/v1/runs` over every page of the collection, in the order of the
+collection, managed runs and legacy entries alike. The columns are the run,
+the workflow, the profile, the runtime status, the supervision, the lineage
+and the verification of the result. The workflow column shows the name of
+the workflow in the catalogue of the profile of the run. A workflow that the
+catalogue does not list shows its identifier. A legacy entry has the supervision
+`observer (legacy entry, read only)`. The keys are these:
+
+| Key | Behavior |
+| --- | --- |
+| `RET` | Read the run of the row with the reference that the row keeps, and open the service run view of the run. |
+| `g` | Read every page of `/v1/runs` again and draw the rows again. |
+
+Each row keeps the reference of its run on the binding that listed it. After
+a switch of service mode to another endpoint, `RET` on such a row refuses
+with `wf-manager-wrong-endpoint` and sends nothing, and `g` refuses and reads
+nothing. A row is never opened on another endpoint. In local mode,
+`wf-history` and the observer read the local stores as before.
+
+#### Service controls
+
+`c` in a service run view runs `wf-control`, and `C-c C-k` runs `wf-kill`.
+`wf-control` reads the controls of the run with `GET /v1/runs/{id}/control`,
+the head decision that the controls name and, when the controls offer a
+redirect, the run snapshot. It then lists only what the controls offer, as
+`wf-service-control-choices` states. Each choice has a label without a space
+and a description:
+
+| Label | Offered when | Command |
+| --- | --- | --- |
+| `cancel` | The controls are owned and allow a cancel. | `cancel` after a yes to `wf-confirm-function`. A no sends nothing. |
+| `steer:N` | A steer offer names an attempt. One choice exists for each timing of the offer. | `steer` with the occurrence, the attempt, the timing and the text of the steer editor. |
+| `redirect:N` | A redirect offer names targets. One choice exists for each target. The description names the open dispatch window or the attempt in flight. | `redirect` with the occurrence and the target. |
+| `retry` | The head is a recovery decision with the choice `retry`, and a `retry` offer addresses it. | `retry` with the occurrence and the generation of the decision. |
+| `abandon`, `failover:N` | The head is a recovery decision with that choice, and a `choose-recovery` offer of the decision carries the same choice and target. | `choose-recovery` with the occurrence, the generation and the choice, sent to the decision. |
+
+A control that the controls do not offer is not listed, and a run whose
+controls offer nothing refuses with a message and sends nothing. `cancel`,
+`steer`, `redirect` and `retry` go to the controls of the run and bind the
+entity tag of the controls read as `If-Match`. `choose-recovery` goes to the
+decision and binds the entity tag of a read of the decision. The steer editor
+is the buffer `*wf steer RUN*`. `C-c C-c` sends its text one time, and empty
+text sends nothing. After the send, a second `C-c C-c` refuses and sends
+nothing. `C-c C-k` abandons the editor.
+
+Each control is sent one time. A cancel completes on the runtime
+acknowledgement that accepts it, and the message names that acknowledgement.
+Every other control completes when its receipt reaches `effect-observed`. A
+refused control, or one whose acknowledgement rejects it, shows its refusal.
+An uncertain send is reconciled one time with `wf-manager-session-reconcile`,
+and it is never sent again. A retry or a recovery choice shows its effect when
+one read of the controls no longer names the decision as the head. A cancel,
+a steer and a redirect show their effect only in their receipt, so their
+reconciliation without a receipt stays uncertain and reports it.
+
+#### Service lineage and exports
+
+`wf-restart`, `wf-resume` and `wf-fork` create a child request of a run of the
+manager with `POST /v1/runs/{id}/lineage-requests`, and `wf-rerun` creates a
+restart child in the same way. In a service run view, `R`, `S`, `F` and `g`
+run these four commands. The run is chosen as for `wf-control`: the run of the
+view, the run of the history row at point, or a run that the session knows.
+A history of another endpoint refuses and sends nothing. Each command follows
+these steps:
+
+1. It reads the first page of the lineage collection of the run. The page must
+   name the run, and its entity tag must be the strong tag of its revision.
+   When the page does not list the operation as eligible, the command refuses
+   with the eligible operations or the refusal code of the page, and it sends
+   nothing.
+2. A fork reads the run snapshot and lists its fork targets, the occurrences
+   that the runtime completed or reused, in occurrence order, as
+   `wf-service-fork-targets` states. Each target has the label `occurrence:N`
+   and a description with its code, its current edit and its intent. The
+   choice `keep`, `drop` or `replace` edits the answer of the target. A
+   replacement is read in the minibuffer, which starts with the published
+   answer of the occurrence or the earlier replacement.
+   `wf-manager-fork-replacement-value` types the text by the code of the
+   occurrence: text as given, a flag from yes, no, true or false, an
+   acknowledgement from empty text, and a verdict or a structured answer from
+   JSON text. A refused text is read again with the text. The label `send`
+   sends the fork with its edits, and `stop` ends the command with nothing
+   sent.
+3. It sends the lineage request one time, with the body of
+   `wf-manager-lineage-body` and the entity tag of the page as `If-Match`. A
+   restart and a resume name only the operation. A fork carries its edits in
+   occurrence order.
+4. After the effect `lineage-created`, the child request takes its inputs from
+   the parent run. The command enqueues it without `set-input` and shows its
+   exact review in the review buffer of `wf-run`. The lineage lines of the
+   review name the parent run, the operation and each edit, and a replacement
+   shows the SHA-256 digest of its answer, not the answer. Only `a` and a yes
+   start the child run.
+
+`E` in a service run view runs `wf-export`, which exports the verified result
+of a run under a new name. The run is chosen as for `wf-control`. The name is
+one ASCII component of 1 to 128 letters, digits, dots, underscores and
+hyphens that starts with a letter or a digit. Another name refuses before any
+read. The command reads the first page of the export collection of the run
+and sends `POST /v1/runs/{id}/exports` one time, with the body `{"name":
+NAME}` and the entity tag of the page as `If-Match`. After the effect
+`exported`, it reads the export receipt `/v1/exports/export_{commandId}`,
+which must be published with the name, the run and the command. It downloads
+the exported bytes with the verified download of the session, which requires
+the size and the SHA-256 digest of the receipt. The buffer
+`*wf export RUN/NAME*` then shows the receipt, the verified size and digest
+and each receipt of the export collection of the run.
+
+A lineage request and an export are each sent one time. A refused command
+shows its refusal, and nothing is sent again. The retrieval of the verified
+result of a run changes the revision of the run, so a lineage request sent
+while a run view retrieves that result can receive 412 `stale-revision`. A
+second run of the command then reads the collection again. An uncertain send
+is reconciled one time with one read of its collection: a lineage request
+shows its effect when the collection lists a new child of the operation, and
+an export when the collection lists a published export of the name. It is
+never sent again.
+
+#### Service-mode limits
+
+These limits of service mode stay open:
+
+- An uncertain send of `create`, `set-input`, a capture, `enqueue`,
+  `approve`, `discard` or `withdraw` stops the command with a message that
+  the outcome is uncertain and that nothing was sent again. The command reads
+  nothing to reconcile it. The user reads the request or the
+  review again with `g` in the review buffer or `M-x wf-refresh` in the setup
+  form, and decides from that read. Only an answer, a run control, a lineage
+  request and an export are reconciled with one read.
+- A command of service mode waits in the foreground for a receipt, a
+  review or a run, for at most 120 seconds (`wf-service--wait-seconds`).
+  Emacs accepts no other command during that wait, and only `C-g` ends it.
+  The end of the wait sends nothing, and the manager keeps the command.
+- A service run view reads `/v1/runs/{id}/snapshot` as its first page
+  only, and so does the Pi extension. A snapshot of more than one page
+  leaves an incomplete page set, which holds one of the two page-set places
+  of the client until the set expires. While both places are held, another
+  page set of the client receives 429 `storage-quota`.
+- `wf-lineage-compare` and the observer commands have no service-mode
+  equivalent.
+
+The manager limits each client to two subscriptions across its event and
+route streams, and a third stream receives 429 `storage-quota`. A client
+that connects a stream again at once after a dropped connection can
+receive this refusal while the earlier subscription still counts. The
+refusal is transient, and the rule of the agent-cat protocol document is to
+keep the cursor, poll from it, and connect the stream again after the
+backoff. Service mode always reads `/v1/events` with polling batches, so it
+holds no subscription and never receives this refusal. A read refused with
+429 `storage-quota`, for example by the page-set limit above, is read again
+as [Service mode](#service-mode) and [Sessions](#sessions) state.
+
+### Service-mode transport
+
+`emacs/wf-manager.el` is the transport of the service mode, in which `wf.el`
+is a client of an agent-cat workflow manager over HTTPS. The file has no user
+interface and uses only libraries that are part of Emacs. It currently loads a
+client profile, reads its credential, decodes and encodes exact JSON, decodes
+the event records and the resources of the manager, builds the typed answer of
+a decision, and coordinates refreshes and the reconciliation of an uncertain
+command without I/O. Its asynchronous HTTP transport sends requests, binds a
+connection to the capabilities of the manager and reads the event polling
+mode. A session on a connection installs the complete overview and follows
+the events of the manager with polling batches. A session also sends the
+commands of its caller one time each, reads their receipts, reconciles an
+uncertain command with one read, and gives the bytes of an artifact only
+after their size and SHA-256 digest agree with the stated values.
+`emacs/wf-service.el` connects the commands of `wf.el` to this transport (see
+[Service mode](#service-mode)).
+
+A client profile is a JSON file of version 1. It has exactly these four
+fields:
+
+```json
+{
+  "version": 1,
+  "endpoint": "https://127.0.0.1:8443/v1",
+  "credentialFile": "/Users/me/.config/agent-cat/client.credential",
+  "caFile": "/Users/me/.config/agent-cat/manager-ca.pem"
+}
+```
+
+`wf-manager-profile-load` applies the client profile rules of agent-cat
+(`doc/api/README.md` and `ext-pi/src/manager/profile.ts`):
+
+| Item | Rule |
+| --- | --- |
+| Profile file | An absolute path. A private file of at most 16384 bytes, in UTF-8, that holds one JSON object. |
+| `version` | The integer 1. |
+| `endpoint` | An `https` URL of at most 8192 characters whose path is `/v1` or `/v1/`. It has no user information, query or fragment, and no space or control character. The port, when present, is from 1 to 65535. |
+| `credentialFile` | An absolute path of at most 4096 UTF-8 bytes, with no NUL, line feed or carriage return. The file is private and holds 32 to 512 visible ASCII bytes other than the comma, with no final newline. |
+| `caFile` | An absolute path with the same limits. The file is a regular file of at most 1048576 bytes that no group or other user can write. It holds at least one PEM certificate. |
+
+A private file is a regular file, not a symbolic link, that belongs to the user,
+has no group or other permission bits (mode 0600 or 0400) and has one link.
+
+The loader reads the credential file one time, when the profile loads. The
+profile record keeps the bearer in its `credential` slot. Only
+`wf-manager-authorization` reads that slot, to build the one `Authorization`
+header of a request.
+
+Each refusal signals a condition below `wf-manager-error`. The data of the
+condition is `(FIELD REASON)`, where `FIELD` is the JSON name of the field, or
+`"profile"` for the profile file itself.
+
+| Condition | Cause |
+| --- | --- |
+| `wf-manager-invalid-profile` | The profile is not UTF-8 JSON, has a missing, extra or repeated field, has a field of the wrong type, has a relative path, or names a CA file without a certificate. |
+| `wf-manager-invalid-endpoint` | The endpoint breaks one of its rules. |
+| `wf-manager-file-unavailable` | A file is missing, too large, not a regular file, writable by a group or other user, or, for a private file, not private. |
+| `wf-manager-credential-unavailable` | The credential bytes are outside the bounds. |
+
+#### Exact JSON
+
+`wf-manager-json-decode` parses JSON text with `json-parse-string` and keeps
+every value exact. The text is a unibyte string of UTF-8 bytes or a multibyte
+string. The decoder checks the byte bound before it parses: text of more than
+1048576 bytes (`wf-manager-response-bytes`), or of more than the optional limit
+argument, signals `wf-manager-response-too-large`. Text that is not UTF-8 or
+not one JSON value signals `wf-manager-invalid-response`.
+
+| JSON | Lisp |
+| --- | --- |
+| object | hash table with the test `equal` and string keys. When a name occurs more than one time, the last member counts. |
+| array | vector |
+| string | string |
+| number | `wf-manager-json-number`, which holds the source text of the number |
+| `true` | `t` |
+| `false` | `:false` |
+| `null` | `:null` |
+
+No JSON value is `nil`, so `gethash` gives `nil` only for an absent member.
+False, null and absent are three distinct things. Because each number keeps its
+source text, `9007199254740993`, `123456789012345678901234567890` and `1e400`
+keep their values.
+
+`wf-manager-json-encode` writes compact JSON as UTF-8 bytes: no white space,
+the members of each object in the order of the UTF-16 code units of their
+names, and each number as its source text. `wf-manager-json-equal` compares
+numbers by exact decimal value, so `1` equals `1.0` and `-0` equals `0`, and it
+compares objects without regard to the order of their members. These rules are
+the rules of `ext-pi/src/manager/json.ts` in agent-cat.
+
+#### Event decoders
+
+The decoders follow `ext-pi/src/manager/events.ts` in agent-cat and pass the
+`invalidations`, `batches`, `routeRecords`, `cursors`, `etags` and `problems`
+vectors of the events section of `test/manager_client_vectors.json`.
+
+| Function | Value |
+| --- | --- |
+| `wf-manager-decode-invalidation` | A version 1 invalidation of exactly `version`, `resource` and `revision`. The resource is a path below `/v1/`, and the revision is a bounded identifier. |
+| `wf-manager-decode-invalidation-event` | One event of exactly `id`, `event` and `data`. The `id` is a cursor, and the `event` is one of the seven event names of `/v1/events`. |
+| `wf-manager-decode-event-batch` | A version 1 polling batch with a cursor, an oldest cursor, at most 256 events and a boolean `hasMore`. |
+| `wf-manager-decode-route-record` | A route record with its header and exactly one of `body`, `claim` and `event`. The record at position P has the identifier of position P+1. An inline body stays an exact JSON value. |
+
+Each decoder returns a record and has an encoder that gives the JSON value
+back. A value that breaks a rule signals `wf-manager-invalid-response`.
+
+A bounded identifier is 1 to 128 ASCII letters, digits, `_` and `-`.
+`wf-manager-valid-cursor-p` accepts a bounded identifier, a dot and a canonical
+unsigned 64-bit decimal. `wf-manager-valid-etag-p` accepts a quoted bounded
+identifier. An entity tag is an opaque token: `wf-manager-etag-equal` compares
+two tags as text only, and a tag has no order and no numeric value.
+
+`wf-manager-problem-failure` maps a problem response to a failure. It returns
+a list for `signal`. A body whose `status` member equals the HTTP status and
+whose `code` member is a bounded identifier gives
+`(wf-manager-refused STATUS CODE)`. Thus a 410 problem with the code
+`view-expired` or `cursor-expired` gives a refusal 410 with that code. Every
+other body gives a `wf-manager-invalid-response` failure.
+
+| Condition | Cause |
+| --- | --- |
+| `wf-manager-invalid-response` | A response is not UTF-8 JSON, or a decoded value breaks a rule. The data is `(KIND REASON)`, where `KIND` names the kind of value, such as `"route record"`. |
+| `wf-manager-response-too-large` | A response has more bytes than the bound. |
+| `wf-manager-refused` | The manager refused with a problem response. The data is `(STATUS CODE)`. |
+| `wf-manager-transport-unavailable` | The manager could not be reached. The data is `(KIND REASON)`. |
+
+#### Resource decoders
+
+The resource decoders follow the draft, preparation, receipt, decision, control
+and run decoders of `ext-pi/src/manager/resources.ts` in agent-cat. They pass
+the `drafts`, `requests`, `preparations`, `receipts`, `decisions`, `controls`
+and `runs` vectors of the resources section of
+`test/manager_client_vectors.json`. Each decoder returns a record. The encoder
+of a record gives its canonical JSON value. `wf-manager-decision-projection`,
+`wf-manager-control-projection` and `wf-manager-run-projection` give the
+projection of the decoded fields of a decision, of the controls of a run and of
+a run. A value that breaks a rule signals `wf-manager-invalid-response`, with
+the kind of value as `KIND`.
+
+| Function | Value |
+| --- | --- |
+| `wf-manager-decode-draft` | A version 1 request resource, or one item of the request collection. The self link names its own identifier. The record keeps the phase, the readiness, the admission state, the queue position from 1 to 100 or nil, at most eight unique blocking reasons, and the preparation, run, parent run and lineage, each one possibly nil. |
+| `wf-manager-decode-readiness` | The declarations, the supplied inputs, the missing names and the input errors, each one at most 256 items. Each supplied input names one declaration one time, and the missing names are the declarations without a supplied input, in declaration order. |
+| `wf-manager-decode-input-declaration` | A declared input with a name, a source of `prompt`, `command-tail` or `stdin`, a null description, a true `required` and the schema `{"type":"string"}`. |
+| `wf-manager-decode-supplied-input` | Literal text of at most 2097152 characters, NUL and empty text included, or a capture with its opaque selector, a bounded identifier. |
+| `wf-manager-decode-input-error` | An input name and one of the codes `unknown-input`, `invalid-input`, `capture-unavailable` and `size-limit`. |
+| `wf-manager-decode-capture-receipt` | A version 1 capture receipt with exactly the members `version`, `id`, `requestId`, `profileId`, `bytes` and `sha256`. The byte count is canonical decimal text of at most 67108864, and the digest is a lowercase SHA-256 digest. The vectors file has no capture receipt, so the ERT tests check this decoder on their own values. |
+| `wf-manager-decode-preparation` | A version 1 preparation with a valid RFC 3339 expiry time, a lowercase SHA-256 review digest, a review and a reason or nil. |
+| `wf-manager-decode-review` | The consent facts of a preparation. The policy and the result code stay exact JSON values after their checks. A review without a lineage is a root review, and a null lineage refuses. |
+| `wf-manager-decode-review-input` | An input name, a source of `literal` or `capture`, the byte count as canonical unsigned 64-bit decimal text and a SHA-256 digest. |
+| `wf-manager-decode-review-lineage` | A parent run, an operation of `restart`, `resume` or `fork`, and at most 2048 edits. Only a fork has edits. |
+| `wf-manager-decode-review-edit` | A drop, or a replacement with the SHA-256 digest of its answer, at an occurrence that is canonical unsigned 64-bit decimal text. |
+| `wf-manager-decode-command-receipt` | A version 1 command receipt. The required scopes are the scopes of the operation (`wf-manager-required-scopes`), the self link names the receipt, and the resource link names its resource. The acknowledgement and the effect stay exact JSON values after their checks. |
+| `wf-manager-decode-decision` | A version 1 question or recovery decision whose queue names the decisions of its run. The occurrence and the observed sequence are canonical unsigned 64-bit decimal text, and the position is from 0 to 2047. A question keeps its observation code, its editor schema or nil, and its prompt. A structured code states the semantic schema of the question. A recovery keeps its gap, its message and at most 16 choices, and only a failover choice names a target. The record keeps the exact JSON value that it decodes. |
+| `wf-manager-decode-control` | The version 1 controls of a run: its supervision state, `cancelAllowed` as JSON true or false, the decision head as a bounded identifier or JSON null, and at most 512 offers. Cancellation is not an offer. An offer is `steer`, `retry`, `choose-recovery`, `redirect` or `answer`. The address of a steer offer is an occurrence and an attempt, and the address of every other offer is an occurrence alone. The occurrence is canonical unsigned 64-bit decimal text and the attempt is canonical unsigned 32-bit decimal text. An offer keeps its generation or nil, at most two distinct timings, at most 16 recovery choices and at most 256 targets. The record keeps the exact JSON value that it decodes. |
+| `wf-manager-decode-run` | One version 1 item of the run collection, or a catalogue entry of the kind `unreadable-manifest` with only its public category. The links of a run name its own identifier. A known run keeps its workflow, its request, parent run and lineage, each one possibly nil, and its manifest version, 2 or 3, or nil for a legacy manifest. It keeps four separate dimensions: the runtime summary or nil (status, last sequence as canonical unsigned 64-bit decimal text, and protocol version 1, 2 or 3), the supervision state, the integrity of the journal and the verification of the result. Its limitations are distinct. A run is display data and grants no supervision, control or signalling authority. |
+| `wf-manager-decode-overview-member` | `{"kind":K,K:MEMBER}`, where `K` is `request`, `preparation`, `run` or `decision`. The encoder gives the projection of a run member and of a decision member. |
+| `wf-manager-decode-export-receipt` | A version 1 export receipt with exactly the members `version`, `id`, `runId`, `commandId`, `name`, `code`, `state`, `sha256`, `bytes` and `download`. The name satisfies `wf-manager-export-name-valid-p`, the code is an observation code, and the state is `published` or `unresolved`. The digest, the size of at most 67108864 bytes as canonical decimal text and the download resource are each JSON null or valid. |
+| `wf-manager-decode-export-collection` | The first page of the export collection of a run: the run, the page with its revision, and at most 256 unique export receipts, each of that run. |
+| `wf-manager-decode-lineage-collection` | The first page of the lineage collection of a parent run: the run, the page with its revision, the unique eligible operations, the refusal code (`incompatible-parent`, `ownership-unavailable`, `quarantined` or `unsupported-operation`) exactly when no operation is eligible, and at most 256 unique child requests, each of which names the run as its parent. The vectors file has no export or lineage collection, so the ERT tests check these decoders on their own values. |
+
+The state of a command receipt must agree with its evidence:
+
+| State | Dispatch attempt | Acknowledgement | Effect | Refusal |
+| --- | --- | --- | --- | --- |
+| `accepted` | none | none | none | none |
+| `dispatch-attempted` | present | none | none | none |
+| `acknowledged` | present | present | none | none |
+| `effect-observed` | any | any | present | none |
+| `refused` | any | any | none | present |
+| `unresolved` | any | any | none | none |
+
+An acknowledgement names an attempt only together with an occurrence, and the
+acknowledgement of an answer names an occurrence and no attempt. Accepted
+intent is not an attempted or acknowledged delivery.
+
+A name, a label or a text bound counts characters, which are Unicode code
+points. `wf-manager-valid-timestamp-p` accepts the times that the protocol
+accepts: a valid Gregorian date with a year other than 0, a time below
+24:00:00 with optional fraction digits, and `Z` or an offset below 24:00.
+
+#### Typed answers
+
+`wf-manager-answer-value` gives the typed JSON answer of the text of a person
+for a decision. It follows `answerValue` of `ext-pi/src/manager/resources.ts`
+in agent-cat and passes the `answers` vectors of the resources section.
+
+| Code of the question | Answer |
+| --- | --- |
+| `flag` | `yes`, `y` or `true` gives `t`, and `no`, `n` or `false` gives `:false`, which is JSON false. Letter case and the white space at the two ends do not count. |
+| `receipt` | Empty text, or white space only, gives `:null`. |
+| `text` | The text itself, empty text included. |
+| `verdict` | JSON text of at most 1048576 UTF-8 bytes, as an exact JSON value. |
+| structured, `{"json":{"schema":S}}` | JSON text that agrees with the editor schema of the decision: the type of each value, the required fields of each object, and no unknown field. |
+
+`wf-manager-answer-body` gives the answer body from that value: the operation
+`answer`, the occurrence as canonical decimal text, the generation of the
+decision and the value. An answer that does not agree with the code, a
+structured question without an editor schema, and any answer to a recovery
+decision signal `wf-manager-invalid-answer` before any body is built. The data
+is `("answer" REASON)`, for example
+`("answer" "answer field ok must be a boolean")`.
+
+`wf-manager-fork-replacement-value` types the replacement answer of a fork
+edit in the same way, by the code of the occurrence in the run snapshot, as
+`forkReplacementValue` of `ext-pi/src/manager/resources.ts` does. The code
+`ack` takes empty text and gives `:null`, the code `structured` takes JSON
+text, and the codes of the table convert as the table states.
+`wf-manager-lineage-body` gives the closed body of a lineage request:
+`{"operation":OPERATION}` for a restart and a resume, and for a fork its
+records of `wf-manager-fork-edit` as edits in occurrence order, each
+occurrence as canonical decimal text. `wf-manager-export-name-valid-p` accepts
+one ASCII component of 1 to 128 letters, digits, dots, underscores and hyphens
+that starts with a letter or a digit.
+
+#### Refresh coordination
+
+The refresh coordinator follows `ext-pi/src/manager/refresh.ts` in agent-cat
+and passes the `sequences`, `backoff`, `jitter` and `reconciliation` vectors of
+the refresh section of `test/manager_client_vectors.json`. It performs no I/O.
+Each function returns the next state and the actions that the caller performs.
+No action and no report is a send.
+
+| Function | Behavior |
+| --- | --- |
+| `wf-manager-refresh-new` | The state of generation zero with every resource idle. |
+| `wf-manager-refresh-invalidate` | An invalidation of a resource. An idle resource gives the action `(fetch KEY GENERATION)` for the current generation. A resource with a fetch in flight only becomes dirty, so any number of invalidations during one fetch give one later fetch. |
+| `wf-manager-refresh-complete` | The completion of a fetch. Only the fetch in flight of the current generation gives `(install KEY GENERATION)`, and a dirty resource then gives exactly one more fetch. Every other completion, in particular one of an earlier generation, gives `(discard KEY GENERATION)` and changes nothing. |
+| `wf-manager-refresh-advance` | A resnapshot, after a 410 refusal or a new overview, or an endpoint switch. The generation advances and every resource becomes idle. |
+| `wf-manager-reconnect-delay` | The delay of a reconnection and the next backoff, as `(DELAY . NEXT)`. The delay doubles from one second (`wf-manager-initial-backoff`) up to 30 seconds (`wf-manager-reconnect-backoff-max-seconds`). A connection that delivered an event resets the backoff to one second. |
+| `wf-manager-jittered-microseconds` | The wait in microseconds for a delay and a fraction from zero to one: from half the delay to the whole delay. A fraction outside that range is clamped, and a value that is not a number counts as zero. |
+| `wf-manager-reconcile-read` | The one read that reconciles a `wf-manager-uncertain` command: `(receipt LOCATION)` when a receipt location is known, and otherwise `(target LOCATION)`. |
+| `wf-manager-reconcile` | The report of that read: `(effect-observed)`, `(refused)` or `(uncertain UNCERTAIN)`. |
+
+A `wf-manager-uncertain` record keeps the exact pending command, with its
+bytes, its idempotency key and its precondition, the target location, the
+precondition entity tag and the receipt location, when one is known. With a
+receipt location, only the receipt decides. The state `effect-observed`
+observes the effect, the state `refused` reports the refusal, and every other
+state stays uncertain. Without a receipt location, the target observes the
+effect only when the caller sees the effect in it and its entity tag differs
+from the precondition. A failed read stays uncertain. An uncertain report
+holds the same record, so that the command stays available for an explicit
+exact resend.
+
+Some targets no longer serve the effect of a command, for example an answered
+decision that reads as 404. For such a command, the caller gives a
+`wf-manager-reconcile-target` with another location and the entity tag of that
+resource from before the send. Without a receipt location, that resource
+replaces the target and its entity tag replaces the precondition. With a
+receipt location, the receipt still decides.
+
+#### HTTP transport
+
+The transport sends each request with `url-retrieve` over the GnuTLS of Emacs.
+The wait for a response does not block editing: the response arrives through a
+process filter and a callback, and timers run while the request waits. The
+connection of a request and its TLS handshake open before `url-retrieve`
+returns. A connection of Emacs 30 on macOS that opens without waiting starts
+its TLS handshake at once, and when the peer refuses the connection at once,
+that handshake writes to the refused socket and the signal SIGPIPE ends the
+Emacs process. A connection that opens before the call returns gives such a
+refusal as the failure `wf-manager-transport-unavailable` instead.
+
+The TCP connect and the TLS handshake of each request therefore block Emacs
+until they end. On 127.0.0.1 this takes milliseconds. A host that drops
+packets without a reply blocks Emacs until the connect timeout of the
+operating system, before the 15-second response timer starts. A refused
+connection, a failed handshake and a server certificate that the CA file of
+the profile does not verify each end the request with one callback after the
+call returns, with the failure `wf-manager-transport-unavailable`.
+
+| Function | Behavior |
+| --- | --- |
+| `wf-manager-transport-open` | The transport of a loaded profile. Its optional argument is an existing session directory. Without one, the transport makes a private temporary directory and removes it on close. A temporary directory that cannot be made gives `wf-manager-file-unavailable`. The directory holds the settings file of the network security manager and an empty url.el cache directory. |
+| `wf-manager-get` | One GET of a resource below `/v1/` with the Accept value `application/json`. |
+| `wf-manager-post` | One POST of a JSON command of at most 2097152 bytes with its idempotency key and an optional `If-Match` entity tag. The transport sends it one time and never sends it again. |
+| `wf-manager-poll-events` | One polling batch of `/v1/events` after a cursor, with the Accept value `application/json` and the cursor in the query parameter `after`. The result is a `wf-manager-event-batch`. |
+| `wf-manager-cancel` | The end of one pending request. |
+| `wf-manager-transport-close` | The end of every pending request. Each url.el process and buffer of the transport is gone when the function returns. A later request signals `wf-manager-closed`. |
+| `wf-manager-connect` | A new transport bound by one GET of `/v1/capabilities`. The result is a `wf-manager-connection` with a fresh random endpoint identity of 32 hexadecimal digits and the checked capabilities. After a failure, the transport is closed. |
+| `wf-manager-check-capabilities` | The rules of `checkCapabilities` in `ext-pi/src/manager/session.ts`: exactly the eight fields, supported versions, the version 1, an authority epoch of at most 105 characters, at most four distinct scopes, at most 256 distinct profile identifiers, the two transports `sse` and `polling`, each fixed limit at its value and each configured limit above zero and at most its largest value. Unsupported versions signal `wf-manager-unsupported-version`, and every other break of a rule signals `wf-manager-invalid-response`. |
+| `wf-manager-command-key` | A new idempotency key of a connection: the authority epoch, a dot and a nonce of 16 random bytes in unpadded base64url, 22 characters. No nonce occurs two times in one connection. |
+
+`wf-manager-get`, `wf-manager-post`, `wf-manager-poll-events` and
+`wf-manager-connect` return a `wf-manager-exchange`, which `wf-manager-cancel`
+takes. Their callback runs exactly one time, after the function returns, with
+the result or a failure `(CONDITION . DATA)`. `wf-manager-failure-p` tells the
+two apart. A successful JSON response is a `wf-manager-reply` with its status,
+its decoded JSON value, its entity tag, its location and its size. An invalid
+argument signals before any send: `wf-manager-invalid-endpoint` for a resource
+that is not a path below `/v1/`, and `wf-manager-invalid-request` for a command
+above its bound, an invalid idempotency key, an invalid `If-Match` value or an
+invalid cursor.
+
+Each request has exactly the headers `Authorization`, built from the
+credential of the profile, `Accept` and, for a command, `Content-Type`,
+`Idempotency-Key` and `If-Match`. url-http adds only `Host`, `Connection:
+close`, `MIME-Version` and, for a command, `Content-Length`. url-http sends the
+Accept value of `url-mime-accept-string`, and the manager refuses a repeated
+Accept header with 400 `malformed-request`. The transport therefore binds that
+variable to the Accept value of the request and never puts Accept in the extra
+headers. It also binds the charset, language and encoding strings, the user
+agent and the extension header to nil, so url.el adds no other negotiation
+header. url-http joins the extra headers and the body without an encoding, and
+it refuses a request that is multibyte text. The transport therefore sends
+each header name and value as unibyte text, so a command body with non-ASCII
+text goes out as its exact UTF-8 bytes.
+
+url-http parses the response in its own buffer after `url-retrieve` returns.
+The transport therefore gives each url.el buffer the same settings as
+buffer-local values. The settings are: no redirect (`url-max-redirections` 0), no keepalive,
+no cache, no cookie, no history, no proxy and no connection of another caller.
+`gnutls-trustfiles` holds only the CA file of the profile, and
+`gnutls-verify-error` is t. `url-request-noninteractive` and
+`nsm-noninteractive` are t, and `nsm-settings-file` is a file in the session
+directory. Advice on `nsm-verify-connection` binds these two variables again
+for each process of a transport, both for the security check of a connection
+while it opens inside `url-retrieve` and for each later check of that process,
+so no prompt occurs. The advice also binds `network-security-level` to `low`
+for each process of a transport, so the network security manager adds no
+check of its own. The GnuTLS verification of the handshake against the CA file of the
+profile is the trust decision. The network security manager would refuse a
+self-signed server certificate even when the CA file holds that certificate,
+which is the certificate that a local manager generates.
+
+A response passes these checks:
+
+| Response | Result |
+| --- | --- |
+| More than 100 header lines or 16384 header bytes | `wf-manager-response-too-large`. |
+| A body above 1048576 bytes, or a declared length above that bound | `wf-manager-response-too-large`. The transport ends the request as soon as the bound is passed. |
+| A repeated framing header, `Transfer-Encoding` together with `Content-Length`, or a `Content-Encoding` | `wf-manager-invalid-response`. |
+| A redirect status | `wf-manager-redirect-refused`. No second request is sent. |
+| A status outside 200 to 299 | The failure of its problem response, as `wf-manager-problem-failure` gives it, when the response is `application/problem+json` with `Cache-Control: no-store`. A 401 gives `(wf-manager-refused 401 CODE)` and a 412 gives `(wf-manager-refused 412 CODE)`. Every other response is `wf-manager-invalid-response`. |
+| A 2xx response | A `wf-manager-reply`, when the response is `application/json` with `Cache-Control: no-store`, the body is a JSON object whose `version` is 1, the entity tag is strong and the location is a resource below `/v1/`. A version other than 1 is `wf-manager-unsupported-version`. |
+| No complete response, a connection failure, or no response within 15 seconds | `wf-manager-transport-unavailable`. |
+
+On a 401, the Authorization header is already present, so
+`url-http-handle-authentication` consults no authentication source and the
+response comes back as a typed refusal with no prompt.
+
+url.el calls its callback one time, after the complete response. It has no
+supported facility that delivers the bytes of an open response to a caller as
+they arrive. The client therefore reads `/v1/events` in the bounded polling
+mode, which the client names `poll`, and not as server-sent events.
+
+| Condition | Cause |
+| --- | --- |
+| `wf-manager-redirect-refused` | The manager answered with a redirect status. |
+| `wf-manager-unsupported-version` | The capabilities name versions that the client does not support, or a response version is not 1. |
+| `wf-manager-invalid-request` | An argument of a request breaks a rule. The request is not sent. |
+| `wf-manager-closed` | The request was cancelled, or its transport or its session was closed. |
+| `wf-manager-wrong-endpoint` | A reference names the endpoint identity of another binding. |
+
+#### Sessions
+
+A session follows `ManagerSession` of `ext-pi/src/manager/session.ts` in
+agent-cat, with the `poll` delivery of this client. It is bound to one
+`wf-manager-connection` at a time and to the endpoint identity of that
+connection. A `wf-manager-reference` is a resource path below `/v1/` together
+with that endpoint identity.
+
+| Function | Behavior |
+| --- | --- |
+| `wf-manager-session-start` | A new session on a connection. The session assembles the overview, installs it and then follows `/v1/events` from its cursor. Its callback receives the first overview read. After a failure, the session does not follow. An optional function runs after each install, each change of the delivery state, the end of the follow loop and the close. |
+| `wf-manager-session-page-set` | One complete page set from its first page, as `pageSet` of ext-pi assembles it: every page repeats the set identity, the revision, the expiry, the total and the other members of the first page, the indexes follow each other, each page has at most 256 items, the set holds at most 64 MiB, every page arrives before the expiry, and each `next` token keeps the path and the query of the first page. Any other page gives `wf-manager-invalid-response`, and no partial set is given. A page that the manager refuses with 410 `view-expired` restarts the assembly at the first page, at most three times (`wf-manager-page-set-restarts`). |
+| `wf-manager-session-load-overview` | The overview page set of `/v1/snapshot` as a `wf-manager-overview`: its cursor, its oldest cursor, its number of pages and its members. The metadata has exactly `version` 1, `snapshotVersion` 1, `cursor` and `oldestCursor`. Each member has its decoded value, its revision and the reference of its detail resource, such as `/v1/requests/{id}`, with the endpoint identity of the session. This read installs nothing. |
+| `wf-manager-session-watch` | Watch a resource of the session. The session reads it now and again after each invalidation that concerns it. A reference of another endpoint signals `wf-manager-wrong-endpoint`. |
+| `wf-manager-session-current` | The last installed read of a watched resource: a `wf-manager-reply`, a failure, or nil before the first read. |
+| `wf-manager-session-switch` | Bind the session to the endpoint of another loaded profile, as `switchEndpoint` of ext-pi does. The new binding reads its capabilities, receives a new endpoint identity and assembles its complete overview through its own transport, with every member reference bound to the new identity. Only then does the switch commit: the generation advances, the watched resources become the overview alone, the installed reads are cleared, the new overview is installed, the earlier transport is closed and the follow loop starts again from the cursor of the new overview. The callback then receives the new overview. A failed connection, a transport that cannot open, a failed overview read, a close and the commit of another switch before the commit each close the new transport and keep the earlier binding, its watched resources, its installed reads and its follow loop, and the callback receives the failure one time, after the call returns. |
+| `wf-manager-session-close` | Cancel the timers of the session and close its transports, the transport of a switch in flight included. Each pending request ends, and no read installs after the close. The close sends no command. |
+
+The follow loop sends one polling batch each second (`wf-manager-poll-seconds`)
+on a timer, and the next batch at once while the manager has more events. A
+delivered batch sets the delivery state to `poll` and resets the backoff. A
+failed batch sets the delivery state to `unreachable` and waits for the
+jittered reconnection backoff of `wf-manager-reconnect-delay` before the next
+batch. An invalidation concerns each watched resource that it equals or that
+lies above or below it. An invalidation of a request, preparation, run or
+decision also concerns the overview. The refresh coordinator reads each
+concerned resource, with at most one read in flight for each resource, so any
+number of invalidations during one read give exactly one later read. A 410
+refusal of a batch, `cursor-expired` or `view-expired`, advances the
+generation, reads the overview again, reads every other watched resource
+again and follows from the new cursor. A read that completes for an earlier
+generation installs nothing. A 401 refusal ends the follow loop with
+`refused`. An installed read that the manager refused with 429
+`storage-quota` or 503 `storage-unavailable` is read again after 0.1 seconds.
+No read and no polling batch is a command. A session sends a command only
+when its caller calls `wf-manager-session-send`.
+
+After a switch, a read or a polling batch of the earlier binding that is still
+in flight installs nothing, because the generation has advanced and the earlier
+transport is closed. A reference of the earlier binding gives
+`wf-manager-wrong-endpoint`, both for a watch and for the current read, and it
+is never sent to the new endpoint. A switch also restarts a follow loop that
+ended before it, for example with `refused` after the revocation of the
+earlier credential. A buffer that holds a session or a reference owns nothing,
+and killing that buffer sends no request and no command.
+
+##### Commands and downloads
+
+These functions follow `prepare`, `send`, `reconcileCommand` and `download`
+of `ManagerSession` and the answer and recovery reconciliations of
+`ext-pi/src/manager-ui.ts` in agent-cat.
+
+| Function | Behavior |
+| --- | --- |
+| `wf-manager-session-prepare` | A `wf-manager-pending` command for a reference of the current binding: the exact bytes of its JSON body, a new idempotency key and the entity tag of its precondition or nil. A reference of another binding signals `wf-manager-wrong-endpoint`. |
+| `wf-manager-session-send` | One POST of the exact bytes, key and precondition of a command, with `wf-manager-post-bytes`. The callback receives a `wf-manager-sent` of the kind `delivered`, `refused` or `uncertain`. A 2xx reply with a Location is `delivered`, and a 202 reply carries its decoded receipt, whose identifier must name the Location. A 412 `stale-revision` refusal, a closed session, a command of another binding and a refusal before any request are `refused`. Every other failure and every reply that does not agree with the command are `uncertain`. The session never sends a command again by itself. |
+| `wf-manager-session-prepare-capture` | A `wf-manager-pending` capture of exact unibyte UTF-8 bytes for a request: a POST of `/v1/captures?requestId=ID` with the media type `application/octet-stream`, a new idempotency key and no `If-Match`. Bytes above 67108864 (`wf-manager-capture-bytes`) signal `wf-manager-response-too-large`, and bytes that are not UTF-8 signal `wf-manager-invalid-response`, as `prepareCapture` of `ManagerSession` refuses them. A capture is `delivered` only as a 202 reply whose body decodes with `wf-manager-decode-capture-receipt` and whose Location names its capture command. The `wf-manager-sent` then carries the capture receipt. |
+| `wf-manager-session-read` | One GET of a reference of the current binding. The callback receives the `wf-manager-reply` of status 200 or a failure. |
+| `wf-manager-session-receipt` | One read of the receipt at the Location of a delivered command. |
+| `wf-manager-session-reconcile` | One read that reconciles an uncertain command under the rules of `wf-manager-reconcile`: its receipt when the location is known, and otherwise the supplied target of the reconciliation or the target of the command. A read of a target observes the effect only when the function of the reconciliation sees it and the entity tag differs from the precondition. The report is `(effect-observed)`, `(refused)` or `(uncertain UNCERTAIN)` with the unchanged uncertain command. Nothing is sent. |
+| `wf-manager-session-answer-reconciliation` | The reconciliation of an answer, made before the send. The manager serves only pending decisions, so an answered decision reads as 404. When `wf-manager-stored-answer-text` names the value, one read of the run snapshot gives the supplied target and its entity tag, and the occurrence must have completed, no longer wait on the decision and store that text. Otherwise, and when that read fails, the controls of the run reconcile the answer, and the run must still run with a head that names a later decision. |
+| `wf-manager-recovery-reconciliation` | The reconciliation of a recovery choice from the controls of the run: the effect shows when the head no longer names the decision. |
+| `wf-manager-session-download` | The verified download of an artifact of the current binding with `wf-manager-download`. |
+
+`wf-manager-download` sends one GET with the Accept value
+`application/octet-stream`. A 200 response must have that media type,
+`Cache-Control: no-store`, `X-Content-Type-Options: nosniff` and an attachment
+disposition, and its exact body must have the stated size and the stated
+SHA-256 digest, which `secure-hash` computes over the unibyte bytes. Only then
+does the callback receive the bytes. Every other 200 response gives
+`wf-manager-invalid-response`. A size above 67108864 bytes
+(`wf-manager-artifact-bytes`) or a digest that is not 64 lowercase
+hexadecimal digits signals `wf-manager-invalid-request` before any request.
 
 ## What replaces what
 
@@ -1061,6 +2375,15 @@ nix build .#default    # the same pinned build, named: agent-cat at the revision
 >
 > ```sh
 > nix build --override-input agent-cat path:../agent-cat
+> ```
+>
+> To build `wf` against another agent-cat working tree, such as a worktree,
+> without editing `cabal.project`, give Cabal a project file of its own whose
+> `packages` are this directory and that tree, and a separate build directory:
+>
+> ```sh
+> cabal build exe:wf --project-file=/path/to/cabal.project \
+>   --builddir=/path/to/dist
 > ```
 
 > **Which is authoritative.** The **flake** is. It pins an agent-cat revision, it

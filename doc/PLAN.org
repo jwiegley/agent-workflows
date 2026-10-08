@@ -75,6 +75,28 @@ Port the refocus skill in spirit: a standalone wf refocus checkpoint reads actua
 
 Implemented in isolated worktree /Users/johnw/Products/wf-refocus/agent-workflows, branch work/refocus-workflow, from f0e76c6. Actual source repository is /Users/johnw/src/agent-workflows; the requested sys path does not exist. Added shared refocus.check function and standalone typed-text row; both Wiggum variants call it before each work round and retain evidenced goal/checkpoint context through work, partner cleanup, and handoffs. Scope rules retain required fixes and prevent elective detours. Clock requests include the actual goal/standing context to avoid memo reuse between the two rounds; identical-context reuse remains a documented DSL limit, and in-turn hourly timing remains the acting-agent obligation. Independent review findings were resolved. Validation PASS: Cabal build; all 75 workflow price/help/scripted and model-isolation checks; structured interpreter trace test of separate clock dispatches, full goal, prior account and checkpoint flow; cookbook 75 regions byte-identical; Emacs 37 facts and all three passes; pinned Nix package /nix/store/mfq19109g54flyh5i1q65fh25qq4d0f2-agent-workflows including refocus-flow test. Prices verified: refocus 2/2 with one path; Wiggum 2/48 and duet 2/54 with 34 paths each. Parent checkout edits were preserved. Operator routing-profile compatibility follow-up is awork-gs6; no routing or installed-runtime change was made.
 
+* DONE [#C] Pin wf to agent-cat 6d93e5df, the revision of nix-config's Pi extension
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-5qc
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-10-08 Thu 07:06]
+:MODIFIED: [2026-10-08 Thu 07:52]
+:CREATED_BY: johnw
+:FINISHED: [2026-10-08 Thu 07:27]
+:CLOSE_REASON: agent-cat input locked at 6d93e5df5637ac6073e60e212f511433b31c14dc with narHash sha256-1pwdVjZf8NTjf5k+J+apX4FyC55m/btw7evwYQNiDcs=, the revision and hash of nix-config's sources/pi.json; the input still follows agent-cat main. nix build passes on Hera (agentic's three suites and refocus-flow), and nix-config's packages.x86_64-linux.agent-workflows with this tree passes the same four suites on andoria-08. Both wf builds answer frontend --capabilities at exit 0 and list 75 workflows. ci/cookbook.sh and ci/workflows.sh pass (75 workflows, 0 failed). With the Nix-built wf and the routing-fixed-point-probe, ACP fixtures and client vectors of the pinned source, ci/emacs.sh passes (38 ERT tests, 32 smoke facts, 104 transport tests) and the eight local cases of ci/emacs-ui.py pass. ci/taskmaster.sh was not run, because it enters nix develop itself.
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+flake.lock pins agent-cat 21c9481. agent-cat 6d93e5df (acat-yu5u) makes runtime/test/ProcessGroupTests.hs pass in the Linux Nix sandbox and on hosts whose hard descriptor limit is 524288. Besides that test file it changes only runtime/README.md and the agent-cat tracker, so the agentic library and the wf binary do not change.
+
+nix-config builds Hera's wf from this flake's agent-cat lock. Its 892b8fab put wf and the Pi extension on one agent-cat revision, and its 3f543f5b then moved sources/pi.json, which pins agent-cat for the Pi extension and the runner packaged with it, to 6d93e5df alone. The two now differ (nix-config nix-byj6).
+
+Lock agent-cat at 6d93e5df with nix flake lock --override-input. The input still follows agent-cat main, so the next nix flake update agent-cat moves it as before. Do not take c90ce63, the later main commit that changes only agent-cat's tracker: it would split wf from the Pi extension again.
+
 * DONE [#C] Add a beginner hello-world translation workflow and README guide
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

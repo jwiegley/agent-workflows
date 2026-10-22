@@ -450,6 +450,24 @@ The installed wf embeds agent-cat 828e8cac. Its ambient deep-thinker routing ove
 
 Migrate the completed Taskmaster evidence-to-design workflow from the agent-cat taskmaster worktree. Keep agent-cat core unchanged; register the workflow under wf with deterministic pinned evidence, bounded schema repair, report rendering, fixture CI, documentation, and retained provenance.
 
+* DONE [#C] Synchronize the workflow runner release pin
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-rn0
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-10-21 Wed 21:39]
+:MODIFIED: [2026-10-21 Wed 22:40]
+:CREATED_BY: johnw
+:FINISHED: [2026-10-21 Wed 22:40]
+:CLOSE_REASON: flake.lock pins agent-cat 0a136ed54715b95d47b2b0368461337ea9f5fe01 with narHash sha256-HmFCAOIEit35T6rOZiT39RTCWxsUPM+mzPzhUsMHp20=. The Nix package builds, frontend capabilities and installed-style scripted hello-world pass outside the checkout. The 75-workflow, cookbook, Taskmaster and four-pass Emacs gates pass. Evidence is under /Users/johnw/Products/agent-cat-release-20261022.
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+Advance the agent-cat source lock to the verified current release, retain the 75-workflow and Emacs contracts, build the package, and publish the pin for the matching Nix consumer update. The Nix ai-lock-coherence check must use the same agent-cat revision and content as the Pi extension.
+
 * DONE [#C] Runner-supplied facts: backend count, engine/session policy, and the independence sentinel as facts prompts can carry
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

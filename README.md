@@ -7,9 +7,10 @@ exit codes rather than a model's claim about one, and whose rubrics are one
 binding each instead of eleven copies.
 
 This repository is a **user of agent-cat**, not part of it. agent-cat is the
-language, its Lean kernel, its frozen corpus and its conformance gates, and it is
-public; this is the toolbox, and it is private, because the corpus it was
-transcribed from is a live personal configuration.
+language, its Lean kernel, its frozen corpus and its conformance gates.
+This repository contains the toolbox transcribed from a live personal
+configuration. Its [GitHub mirror](https://github.com/jwiegley/agent-workflows)
+is public.
 
 The Markdown corpus is **read-only** and was read as **data**. Nothing here
 modifies it, no `running` party points at it, and no prompt text harvested from

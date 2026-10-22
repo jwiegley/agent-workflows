@@ -468,6 +468,24 @@ Migrate the completed Taskmaster evidence-to-design workflow from the agent-cat 
 
 Advance the agent-cat source lock to the verified current release, retain the 75-workflow and Emacs contracts, build the package, and publish the pin for the matching Nix consumer update. The Nix ai-lock-coherence check must use the same agent-cat revision and content as the Pi extension.
 
+* DONE [#D] State the public workflow mirror accurately
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-rp3
+:LABELS:   []
+:ISSUE_TYPE: docs
+:CREATED:  [2026-10-21 Wed 22:50]
+:MODIFIED: [2026-10-21 Wed 22:50]
+:CREATED_BY: johnw
+:FINISHED: [2026-10-21 Wed 22:50]
+:CLOSE_REASON: README now states that the existing GitHub mirror is public. Verified through the unauthenticated https://api.github.com/repos/jwiegley/agent-workflows endpoint on 2026-10-22. No visibility setting changed.
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+README calls the toolbox private, but the existing GitHub mirror reports private=false through the unauthenticated repository API. State its current publication status without changing visibility.
+
 * DONE [#C] Runner-supplied facts: backend count, engine/session policy, and the independence sentinel as facts prompts can carry
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

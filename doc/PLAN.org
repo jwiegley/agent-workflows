@@ -518,6 +518,24 @@ The one mechanism that closes three followups at once, all recorded in doc/follo
 ]
 #+end_src
 
+* DONE [#C] Adopt the searchable Pi workflow picker revision
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-sui
+:LABELS:   []
+:ISSUE_TYPE: chore
+:CREATED:  [2026-10-22 Thu 07:47]
+:MODIFIED: [2026-10-22 Thu 08:02]
+:CREATED_BY: johnw
+:FINISHED: [2026-10-22 Thu 08:02]
+:CLOSE_REASON: Pinned agent-cat 8a300822186a5702abb308f7c3516ff268620e6c with independently fetched NAR hash sha256-IEo2PwAO5T7SoSjLJdpycWm7LC/6spO5zZ2vguZccGA=. The complete deterministic ci/workflows.sh gate passed: 75 workflows, 75 help pages, refocus-flow, and zero failures. The dependency API and workflow sources are unchanged. Evidence: /tmp/wg-wf-picker.fuLyfI/workflows-gate-complete.log.
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/src/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+Keep the agent-cat input aligned with the managed Pi extension for the user-authorized /wf catalogue and type-to-narrow rollout on Hera. Advance only the agent-cat locked source, verify the deterministic workflow gate and package, then publish the signed change to the primary repository and verify its GitHub mirror. No paid workflow runs.
+
 * DONE [#C] Rename workflow modules after source skills and commands
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

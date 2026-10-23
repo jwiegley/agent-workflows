@@ -52,15 +52,20 @@
           (import "${agent-cat}/nix/haskell-overrides.nix") pkgs final prev
           // {
             agentic = final.callCabal2nix "agentic" agent-cat { };
-            agent-workflows = final.callCabal2nix "agent-workflows" src {
+            agent-workflows = pkgs.haskell.lib.overrideCabal (final.callCabal2nix "agent-workflows" src {
               agentic = final.agentic;
-            };
+            }) (old: {
+              testToolDepends = (old.testToolDepends or [ ]) ++ [ pkgs.python3 ];
+            });
           }
         );
 
         workflowExe = hs.agent-workflows;
         taskmasterStage = pkgs.writeShellScriptBin "wf-taskmaster-stage" ''
           exec ${pkgs.python3}/bin/python3 ${src}/tools/wf-taskmaster-stage "$@"
+        '';
+        translationStage = pkgs.writeShellScriptBin "wf-translate-stage" ''
+          exec ${pkgs.python3}/bin/python3 ${src}/tools/wf-translate-stage "$@"
         '';
       in
       {
@@ -69,7 +74,12 @@
           paths = [
             workflowExe
             taskmasterStage
+            translationStage
           ];
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          postBuild = ''
+            wrapProgram "$out/bin/wf" --prefix PATH : "${taskmasterStage}/bin:${translationStage}/bin"
+          '';
         };
         packages.agent-workflows = self.packages.${system}.default;
 

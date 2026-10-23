@@ -130,9 +130,8 @@ inputsFor() {
     prose-proofread) ins=(--input-arg scope=) ;;
     prose-smooth | prose-compress) ins=(--input-arg text=) ;;
     prose-transcript) ins=(--input-arg transcript= --input-arg vocabulary=) ;;
-    # Wave 4, the audits and the specialists. `dead-code` is one of six rows whose
-    # PRICE depends on an input (the others: review-deep, review-sec and
-    # partner-collaborator at `paths=`, translate and translate-en at `text=`):
+    # `dead-code` has an input-dependent price, as do the path-shaped review
+    # and partner rows and the Persian translation's short-source roster.
     # `cap=` empty is `capBound ""`, which is two repair trips, and
     # `--input-arg cap=4` would price four. That is
     # `doc/design.md` §10's third risk showing on purpose, and it is why the
@@ -191,16 +190,10 @@ inputsFor() {
     # `realization=` empty is a design where phase 10 does not exist, both of
     # which are DEFINES rather than members, so WR-1 has nothing to say here.
     denote) ins=(--input-arg subject= --input-arg method= --input-arg prover= --input-arg realization=) ;;
-    # The two directions that carry a review team take three inputs; the one that
-    # does not takes one, because `prompts/spanish.md` names no glossary and no
-    # reference corpus and the row does not pretend to. `text=` empty is the OTHER
-    # roster-shaping input in this wave, and WR-1 again: `shortSource ""` is FALSE,
-    # so the empty invocation is the full six-seat team and never one seat -- an
-    # absent text is unknown, not short, and the price pinned below is the price of
-    # the shape this line runs.
-    translate | translate-en)
-      ins=(--input-arg text= --input-arg glossary= --input-arg references=)
-      ;;
+    # English now implements translate-tool, with file/text source-aware inputs.
+    # The other directions retain their original input contracts.
+    translate) ins=(--input-arg text= --input-arg glossary= --input-arg references=) ;;
+    translate-en) ins=(--input-arg file= --input-arg text=) ;;
     translate-es) ins=(--input-arg text=) ;;
     # The two PRD rows take different inputs, which is what the split bought: one
     # writes a document and needs the goals and the format authority, the other
@@ -670,25 +663,13 @@ pin retest-categorical  branch        5      37
 # 5^10 paths, and the module header records the departure and what it costs.
 pin denote              branch       17      18
 
-# The translation family (`Workflows.Translate`). THREE ROWS, TWO SHAPES, and the
-# table says which is which: `translate` and `translate-en` are IDENTICAL triples
-# -- one body, the languages swapped, which is `nix`'s argument at another
-# family -- and `translate-es` is `pipeline`, 1 path, 2 consultations, in a
-# three-way tie for the smallest row in the whole table with `second-opinion`
-# (its exact structural match: pipeline, 1 path, 2) and `prose-compress`
-# (branch, 2 paths, 2).
-#
-# The 15 paths are `Workflows.Escalation`'s 2n+1 over three report arms again. The
-# 23 is two rounds of a six-seat review plus the terminology brief, the draft and
-# the delivery; the minFold of 9 is the same run settling on the first round, and
-# the gap between those two numbers is the bound `persian/SKILL.md` states without
-# one ("run Phase 3 again on the synthesis, and then come back here to phase 4").
-#
-# `translate-es` at 2 is the row that keeps the family honest: its source file is
-# an instruction block and a task, it names no reviewer, and its price says so
-# rather than borrowing its siblings' apparatus.
+# The Persian and Spanish rows retain their existing shapes. English implements
+# the complete translate-tool procedure: two mandatory six-seat text panels per
+# section, hidden-source back-translations, validated artifacts and a text result.
+# Its 64-section ceiling includes deterministic tool requests. A normal section
+# uses 19 model consultations; the separate native-flow test verifies that count.
 pin translate           branch       15      23
-pin translate-en        branch       15      23
+pin translate-en        branch      129    3205
 pin translate-es        pipeline      1       2
 
 # The requirements pair (`Workflows.PrdArchitect`). TWO ROWS BECAUSE ONE FILE WAS TWO
@@ -904,6 +885,10 @@ if [ "$got" = "$wiggumPins" ]; then
 else
   bad wiggum "ladderPins against the program's pins" "$wiggumPins" "$got"
 fi
+translationPins="translate-en,translate-en-back,translate-en-verify"
+got=$(pinsOf translate-en)
+[ "$got" = "$translationPins" ] \
+  || bad translate-en "dedicated translation profiles" "$translationPins" "$got"
 
 # Every row's one line, because `wf list` is what an operator browses and a blank
 # line is a row nobody can choose.
@@ -1261,10 +1246,15 @@ grep -q '¡Hola, mundo!' "$work/hello-world.run" \
 grep -q '^    answer  *()' "$work/hello-world.run" \
   && bad hello-world "final result" "not unit" "answer ()"
 
-# Capture the interpreter's ordered, typed trace rather than interleaved logs.
-if ! cabal test refocus-flow --test-show-details=direct; then
-  bad refocus "checkpoint data flow" "fresh clock and full context in both loops" "failed"
+# Capture ordered native traces, including real translation tools with fixture models.
+if ! cabal test refocus-flow translate-en-flow --test-show-details=direct; then
+  bad native-flows "checkpoint and translation data flow" "passing interpreter tests" "failed"
 fi
+if ! python3 test/translate_en_stage_test.py; then
+  bad translate-en "document and response integrity" "passing helper tests" "failed"
+fi
+grep -q '^    result  *text$' "$work/translate-en.run" \
+  || bad translate-en "final result" "a text result block" "absent"
 
 note "help: ${#names[@]} page(s) checked — sections, both spellings, no price restated, and both printed command lines run"
 

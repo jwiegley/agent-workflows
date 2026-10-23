@@ -204,13 +204,14 @@ import Workflows.Threads
   )
 import Workflows.TranscribeImage (transcribeDoc, transcribeHelp, transcribeProgram, transcribeScript)
 import Workflows.Translate
-  ( Direction (En, Es, Fa),
+  ( Direction (Es, Fa),
     translateDoc,
     translateHelp,
     translateName,
     translateProgram,
     translateScript,
   )
+import Workflows.TranslateEn (translateEnDoc, translateEnHelp, translateEnProgram, translateEnScript)
 import Workflows.TronDebug (tronDoc, tronHelp, tronProgram, tronScript)
 import Workflows.Wiggum (wiggumDoc, wiggumHelp, wiggumProgram, wiggumScript)
 
@@ -327,7 +328,7 @@ registry =
           retestRow Retest.Categorical,
           ("denote", row (Needs denoteProgram) denoteDoc denoteHelp denoteScript),
           translateRow Fa,
-          translateRow En,
+          ("translate-en", row (Needs translateEnProgram) translateEnDoc translateEnHelp translateEnScript),
           translateRow Es,
           prdRow Draft,
           prdRow Critique,
@@ -465,10 +466,8 @@ registry =
       ( Retest.retestName t,
         row (Needs (Retest.retestProgram t)) (Retest.retestDoc t) (Retest.retestHelp t) (Retest.retestScript t)
       )
-    -- Three rows and two shapes, which is the naming rule doing its job: the two
-    -- directions that carry a review team are one body with the languages
-    -- swapped, and the one that does not is a single call of the same drafting
-    -- function. The three prices say which is which without a word of prose.
+    -- Persian and Spanish retain their original family helpers. The English
+    -- row is registered separately from the authoritative translate-tool procedure.
     translateRow r =
       ( translateName r,
         row (Needs (translateProgram r)) (translateDoc r) (translateHelp r) (translateScript r)

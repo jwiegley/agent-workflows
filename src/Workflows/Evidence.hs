@@ -120,6 +120,9 @@ module Workflows.Evidence
     taskmasterWriteReport,
     taskmasterWriteIncomplete,
 
+    -- * Translation document and response validation
+    translationStage,
+
     -- * The one probe that is about the run itself
     consentFile,
   )
@@ -793,6 +796,12 @@ taskmasterWriteIncomplete :: Text -> Party 'IsTool
 taskmasterWriteIncomplete stage =
   tool ("taskmaster-" <> stage <> "-incomplete")
     `running` ("tee", ["taskmaster-framework-incomplete.json"])
+
+-- | Deterministic translation I/O and validation. The command never calls a model.
+translationStage :: Text -> [Text] -> Party 'IsTool
+translationStage stage arguments =
+  tool ("translate-en-" <> T.intercalate "-" (stage : arguments))
+    `running` ("wf-translate-stage", stage : arguments)
 
 -- ---------------------------------------------------------------------------
 -- The consent file

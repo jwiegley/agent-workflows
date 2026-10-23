@@ -666,3 +666,19 @@ tools/taskmaster-framework.sh analyzes agent-cat HEAD unless TASKMASTER_AGENT_CA
 
 The local ../agent-cat routing-v2 package uses http-client-tls, whose zlib dependency must be available when cabal builds the downstream project in its Nix dev shell.
 
+* DOING [#C] Implement authoritative translate-tool procedure as native translate-en workflow
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       wf-wn0
+:LABELS:   []
+:ISSUE_TYPE: feature
+:CREATED:  [2026-10-22 Thu 15:10]
+:MODIFIED: [2026-10-22 Thu 15:10]
+:CREATED_BY: johnw
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/work/translation/translate-tool/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+Derive behavior from sibling translate-tool: calibrated Arabic/Persian sacred-text drafting, six named reviews in both rounds, independent back-translation, meaning-first synthesis, deterministic input/output validation, safe artifacts, and installed Pi acceptance. Preserve unrelated directions. Source contract: ../docs/agent-cat/translation-contract.md.
+

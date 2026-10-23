@@ -5,3 +5,4 @@ result-*
 *.hi
 *.o
 *.elc
+__pycache__/

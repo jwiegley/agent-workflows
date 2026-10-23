@@ -3,6 +3,10 @@
 -- Description : The translation team — one draft, six lenses in priority order,
 --               and a bound on the loop the corpus leaves open.
 --
+-- The registered English workflow is now 'Workflows.TranslateEn', derived from
+-- translate-tool. 'En' remains a legacy library API and is not selected by the
+-- registry. The family commentary below describes that legacy implementation.
+--
 -- == The map: old Markdown -> new program
 --
 -- +-------------------------------------------+---------------------------------------------------------------+

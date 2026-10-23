@@ -4017,58 +4017,60 @@ wf run translate --scripted --input-arg text= --input-arg glossary= --input-arg 
 
 <!-- wf:begin translate-en -->
 
-`branch · 9 to 23 over 15 paths`
+`branch · 15 to 3205 over 129 paths`
 
-`translate-en` as a program: Persian or Arabic into English in Shoghi
-Effendi's register — the same six seats as `translate`, with the
-directions swapped. One body, two rows, and the two prices are
-identical, which is the claim the pair makes about itself.
+The complete procedure developed in translate-tool, rather than the earlier
+reverse-direction sketch. Every normal section receives preparation, a draft,
+six specialist reviews, synthesis, six further reviews, final synthesis and
+targeted mechanical verification. Both fidelity rounds use a separate
+source-hidden back-translation. A genuine phrase may take the explicitly
+reported direct path, but a complete sentence does not bypass review.
 
 **Inputs.**
 
-* `text` — the source passage, and `--input-file text=source.txt` is the
-  natural spelling. An empty `text` is **not a short source** — it is an
-  unknown one — so the empty invocation is the full six-seat team rather than
-  one seat, which is what makes the numbers above the numbers of a real
-  program.
-* `glossary` — the terminology table, and it is **authoritative**: where the
-  reviewers disagree with it, it wins. `TERMS.csv` is the usual file, and
-  `--input-file glossary=TERMS.csv` the usual spelling.
-* `references` — the reference letters and translations. This is what "the
-  target style and standards" means concretely: a register is learned from a
-  corpus, so the corpus is an input rather than an adjective.
+* `file` — a local UTF-8 TXT/MD or DOCX path. Leave empty for pasted text.
+  Pi binds this input from the unsplit command tail.
+* `text` — multiline Arabic/Persian source text. Leave empty for a file.
+  Pi binds this input from the command body. Supply exactly one source.
 
-**Transport.** Fine anywhere: it reads three texts, runs a review team over a
-draft and delivers. An adapter of the run's own is the usual shape, and the
-six seats are worth more when they are six sessions rather than one pane's six
-turns.
+**Transport.** Use the existing Pi workflow launcher or ACP. The lead and
+reviewers use the dedicated `translate-en` profile, without an authored fallback
+chain. Map it to the calibrated Opus model without changing other workflows.
+`translate-en-back` must use fresh question sessions or a dedicated backend
+that never receives source text. `translate-en-verify` permits a separate
+deterministic sampling profile. Configure supported draft sampling at 0.3 and
+verification at 0.0. Unsupported adapter controls are not simulated by prompts.
+A shared conversation without an isolated back-translator refuses thorough work.
 
 ```sh
-wf run translate-en --engine acp --adapter claude --require-pinned \
-   --input-file text=source.txt --input-file glossary=TERMS.csv \
-   --input-file references=refs.md
+wf run translate-en --engine acp --adapter claude --scratch "$PWD" --require-pinned --input-arg file= --input-arg text='يا أهل العالم اسلكوا سبيل العدل.'
 ```
 
-**Rehearsal.** All three inputs named empty, every question answered from the
-row's own canned table, consulting nobody:
+**Rehearsal.** Fixed responses exercise one complete section and both panels.
+They make no linguistic claim and write no file:
 
 ```sh
-wf run translate-en --scripted --input-arg text= --input-arg glossary= --input-arg references=
+wf run translate-en --scripted --input-arg file= --input-arg text=
 ```
 
 **Caveats.**
 
-* The six reviewers are folded **in the priority order the source file
-  resolves conflicts by**, so a disagreement between two seats has a settled
-  answer rather than a majority. That order is in the program, not in a
-  reader's memory of the file.
-* The revision loop is bounded, and the bound is where the spread above comes
-  from: a draft the team settles on at the first round is the floor, and a
-  second full round is most of the rest. The source file states that bound
-  without a number ("run that phase again, then come back"); here it is one.
-* `glossary` beats the reviewers, so a wrong entry in it is a wrong term
-  everywhere, confidently. It is the input worth checking before the run
-  rather than after.
+* The Nix package supplies `wf-translate-stage` without relying on ambient PATH.
+  A source-tree run adds `tools/` to PATH. File paths are relative to the run's
+  working directory, so absolute paths are recommended in Pi. ACP runs should
+  select a persistent scratch directory when artifacts must remain in the project.
+* Natural-boundary sections target about 2,000 words. The native bound is 64
+  sections, checked before model work. Paragraph identities survive assembly.
+* Final translation, separate quality notes and a manifest are published as a
+  new private bundle beneath `.translate-en/`. Its public directory link appears
+  only after every file is complete. Keep its hidden `.data-*` backing directory,
+  or copy the individual files when exporting. Existing files are never overwritten.
+  Drafts and reviews remain in native run artifacts, not in default delivery.
+* Missing reviews, malformed replies, unresolved critical issues, failed
+  verification and exhausted processing prevent verified final publication.
+  Verification permits only enumerated local pronoun edits. An unresolved glossary
+  or meaning defect requires renewed synthesis, not unreviewed paraphrase.
+  Deterministic checks do not prove linguistic fidelity or devotional quality.
 
 <!-- wf:end translate-en -->
 

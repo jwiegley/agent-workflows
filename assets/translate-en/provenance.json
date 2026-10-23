@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "sourceRepository": "translate-tool",
+  "revision": "bffdb7ba3e5db603ea1390fee555354c1d45d642",
+  "files": {
+    "translate.py": "fb83cbe892c5186550d9f58b608ef335463321388deabf20105f29ae1e110239",
+    "skill/SKILL.md": "f26ff06e43b9d99e96876cbd567a7f6d8585983b0a550b97ef5e672f294790fb",
+    "glossary.csv": "8eab769223267b8b8cded5ba62f7a4250dfcf25d94d35cffd7e360354b3e9523"
+  },
+  "generatorSha256": "77e892d3aeff1ef5314d00ee13613452c0ab2f7e41e9d0d6bb3f2d19353eb0f1",
+  "adaptations": [
+    "Remove incorrect calibration counts and commentary about absent quoted words.",
+    "Make concision subordinate to coverage and defect-driven revision.",
+    "Give the fidelity reviewer a separately produced source-hidden back-translation.",
+    "Use workflow-owned structured response contracts instead of interpolated skill placeholders."
+  ],
+  "assets": {
+    "register.md": "4debcce5f1378e4d58581c07e6d68cb4fe1631f499236cd0b9161f098541196d",
+    "reviewers.json": "ceabb1941ff1def1834a5a3db11aed22f77c64d0e594fd0dfb4381080af5e447",
+    "glossary.csv": "8eab769223267b8b8cded5ba62f7a4250dfcf25d94d35cffd7e360354b3e9523"
+  }
+}

@@ -133,7 +133,8 @@ src/
     TronDebug.hs        the Torch Fx pipeline (tron)
     Retest.hs           the model battery     (retest|retest-categorical)
     DenotationalDesign.hs denotational design (denote)
-    Translate.hs        the translation team  (translate|translate-en|translate-es)
+    Translate.hs        Persian/Spanish family (translate|translate-es), plus legacy En API
+    TranslateEn.hs      complete translate-tool procedure (translate-en)
     PrdArchitect.hs     the requirements pair (prd-draft|prd-critique)
     NodeRed.hs          flows on vulcan       (nodered)
     Taskmaster.hs       pinned evidence to a framework design (taskmaster)
@@ -182,10 +183,16 @@ nix profile install .#default
 nix run . -- list                          # without installing anything
 ```
 
-The Cabal command installs `wf` alone. Every existing row except `taskmaster` needs
-nothing else; a source-tree Taskmaster run puts `tools/` on `PATH` itself. For an
-installed Taskmaster row, use the Nix package, which installs
-`wf-taskmaster-stage` beside `wf`.
+The Cabal command installs `wf` alone. The `taskmaster` and `translate-en` rows
+also need their deterministic helpers. The Nix package installs those helpers
+and wraps `wf` with their PATH without changing the working directory. Source-tree
+runs place `tools/` on PATH.
+
+`translate-en` now implements the full Arabic/Persian sacred-text procedure from
+translate-tool: calibrated drafting, two rounds of six reviews, independent
+back-translation, constrained verification, and saved artifacts. It accepts DOCX,
+UTF-8 files, and multiline Pi input. See [the translation guide](doc/translate-en.md)
+for invocation, routing, artifact handling, limits, and paired-checkout builds.
 
 Then, from whatever repository the work is in:
 
@@ -1805,8 +1812,8 @@ and `taskmaster`, a pinned external-source analysis. Collectively, the corpus-de
 toolbox covers **twelve more files** than the sixty-one-row stage did — ninety-one,
 plus wave 5's nine, plus the two files the last two rows absorb
 (`skills/wiggum` and `commands/run-orchestrator`), plus `skills/refocus` — plus
-one PAL MCP tool that is not a file at all and one external skill (`translate-en`) whose edge is transplanted
-and whose text is not. `wiggum-duet` stands for no new file either: it is the same
+one PAL MCP tool that is not a file at all and the translate-tool procedure
+packaged in `translate-en`. `wiggum-duet` stands for no new file either: it is the same
 two files across two panes, which is the owner's own ruling and not a corpus
 document. Each program module's haddock carries its own map in full, with the reason
 for every cell; this is the index across those modules.
@@ -1889,8 +1896,8 @@ for every cell; this is the index across those modules.
 | `commands/retest-categorical.md` | `retest-categorical` | the same body, nine override rows as nine fields of one table — so **phase numbering ceases to exist** and the off-by-one that file spends a paragraph warning about is unrepresentable. Its fixed eight-model roster is argv, and `wf cost` says **37** before a single FPGA card is opened, which is §7.2 row 57's whole ask |
 | `skills/denotational-design` | `denote` | the admission test as a `confirm` **before** the body; the four meaning phases as a chain; every phase's exit test applied by a party that wrote none of it, bounded; and phases 5–8 reachable **only** through the arm where the meaning settled — which is phase 7's own Gate expressed as reachability. A retrofit's "start over" verdict is a free decider and a **successful** ending |
 | `skills/persian`, `agents/persian-translator.md` | `translate` | the six-seat review team as a panel folded in the **priority order phase 4 resolves conflicts by**, so the conflict list cannot drift from the fan-out; the unbounded "run Phase 3 again" as `revisingOn (atMost 2)`; the 52-term glossary as one define under `TERMS.csv`; and `TeamCreate`/`TeamDelete` dissolved, because a panel is a fan-out and not a resource |
-| `translate-en` *(external)* | `translate-en` | one body, the directions swapped. The edge is transplanted and not the text: what the corpus itself says about this direction is `persian/SKILL.md`'s own last line, plus the one-line register the external skill names |
-| `prompts/spanish.md` | `translate-es` | `call translateFn` and one delivery — `pipeline`, one path, **2**. The family's shared drafting function has three call sites, which is what makes the three rungs provably share a turn |
+| translate-tool code, skill, glossary, and specifications | `translate-en` | the authoritative English procedure: preparation, calibrated draft, two complete six-seat text panels with separate source-hidden back-translations, priority-guided synthesis, deterministic validation, ordered document assembly, and private final artifacts. [Guide and provenance](doc/translate-en.md) |
+| `prompts/spanish.md` | `translate-es` | `call translateFn` and one delivery — `pipeline`, one path, **2**. It retains the drafting helper shared with the Persian row. |
 | `agents/prd-architect.md` | `prd-draft`, `prd-critique` | **the rework is the split.** One file was two agents selected by an unstated condition; §6's own "if one doesn't already exist" is the condition, and a `test -f` decides it — so the two rows are each other's arms. `prd-draft` puts the owner in binding position and reads `[TODO:` for nothing, sending an incomplete draft back to him rather than to a reviewer; `prd-critique` contains no `act` but the report |
 | `skills/node-red` | `nodered` | the three-signature admin boundary **is** the argv — no `curl`, no HTTP client, no flow-file path, no credential read, so six prohibitions become commands that do not exist. The `FLOW_ID` regex is checked in Haskell before the program exists; "zero rows → upstream issue" is a free decider over `psql`'s own footer; "don't fabricate entity IDs" is a `jq` receipt; and the put is the single node with write authority |
 | `skills/refocus/SKILL.md` | `refocus`; `Workflows.Refocus.refocusFn` in both Wiggum rows | one clock receipt and one scope assessment against the frozen plan and current standing; the result identifies the unmet requirement, scope correction and next step, and flows into the round's work and handoff. Hourly checks during long turns and after resume remain the active agent's responsibility |

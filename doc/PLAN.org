@@ -369,6 +369,54 @@ While validating refocus, a Wiggum-duet test-stub invocation inherited the opera
 
 The emacs-native branch (d5d7430, worktree ~/src/agent-workflows-emacs-native) completes awork-emacs-native-j51. Its code merges into main cleanly, and only doc/PLAN.org conflicts. Its client speaks the `wf frontend` protocol, which exists only on agent-cat's tui branch. On a trial merge with main (agent-cat 94573276), ci/emacs.sh fails 20 of 38 ERT tests with "Runner exited without terminal protocol event", and the probe reports "no verb 'frontend'". When the native frontend reaches agent-cat main, re-pin the branch to that release, run ci/emacs.sh with WF_CONTROL_RUNNER and WF_CONTROL_ADAPTERS from that release, then run ci/emacs-ui.py and ci/emacs-tramp.py, and merge. Resolve the PLAN.org conflict with the obr export.
 
+* DONE [#C] Pin packaged translate-en to the published native-routing runtime
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-jfy
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-10-27 Tue 13:35]
+:MODIFIED: [2026-10-27 Tue 14:27]
+:CREATED_BY: johnw
+:FINISHED: [2026-10-27 Tue 14:27]
+:CLOSE_REASON: Reviewed published runtime pinned without deployment override; owning source/package gates and direct fess passed. Native Pi configuration and normal remote-pin build/install documented; ready for task-branch publication.
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/Products/translate-tool-routing-20261023/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+Use reviewed, remotely available agent-cat 8cf54e9808dd8dfc1c28175cddb8d9cdf0dee427 in the committed flake input and lock. Preserve sibling Cabal development, source-derived assets and unrelated workflows. Document actual /wf workflowPersonas approval and normal remote-pin build/install. Verify helper/native/all-row/cookbook/installed-package gates before publishing the task branch and checking the GitHub mirror. wf-wn0 stays open until real Pi acceptance.
+
+** Dependencies
+
+#+begin_src json
+[
+  {
+    "issue_id": "awork-jfy",
+    "depends_on_id": "wf-wn0",
+    "type": "discovered-from",
+    "created_at": "2026-10-27T20:35:20.891694Z",
+    "created_by": "johnw",
+    "metadata": "{}",
+    "thread_id": ""
+  }
+]
+#+end_src
+
+** Comments
+
+#+begin_src json
+[
+  {
+    "id": 7,
+    "issue_id": "awork-jfy",
+    "author": "johnw",
+    "text": "Published signed agent-cat 8cf54e9 was read back before pinning. Input URL and locked/original revision now agree; only agent-cat lock node changed. Warning-free build all, 36 helper tests, full native translation flows, source provenance, all 75 workflow rows, byte-identical cookbook and normal remote-pin Nix package/installed gate passed. Packaged helper, TranslateEn module and four assets match reviewed sources byte for byte. Direct fess found no unresolved package/pin issue. This is not Hera activation or live acceptance; wf-wn0 remains open.",
+    "created_at": "2026-10-27T21:27:34Z"
+  }
+]
+#+end_src
+
 * DONE [#C] Gate compact bare workflow usage
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

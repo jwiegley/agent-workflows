@@ -35,8 +35,26 @@ In Pi, the command tail supplies `file` and the multiline body supplies `text`:
 
 The normal input editor can request the other input. Leave it empty. The command
 tail is not a shell command, so a path containing spaces needs no shell quotation.
-The existing Pi launch and approval mechanism remains in control. Use the
-configured execution target and its normal routing controls.
+The existing project trust and interactive approval requirements remain in force.
+
+For isolated native execution, use the paired agent-cat Pi extension and map this
+workflow to a persona containing the three profiles described below. Merge the
+following `wf` entry into the existing trusted runner configuration rather than
+discarding other runners:
+
+```json
+{"id":"wf","executable":"/absolute/path/to/wf","workflowPersonas":{"translate-en":"sacred-text"}}
+```
+
+`AGENT_CAT_RUNNERS` contains the JSON array of runner entries. Configure it or
+the singular `AGENT_CAT_RUNNER`, not both. The `sacred-text` name identifies the
+configured persona; it does not create profiles or select a model by itself.
+Workflows without a matching `workflowPersonas` entry retain the current Agent
+Deck launch behavior.
+
+`/wf` holds the native preparation while displaying its exact policy, invocation,
+and captured input hashes for approval. Declining sends no model prompt. Invalid
+or unavailable routes fail rather than falling back to the source conversation.
 
 A direct runner invocation can read a text file into the literal input:
 
@@ -179,24 +197,31 @@ which is not a final result. Re-publication to an existing destination is refuse
 
 This workflow requires the agent-cat authoring surface that exports `amendWith`.
 It exposes the existing typed right-hand-side amendment grammar and does not add
-new workflow semantics. For paired development checkouts, use the local agent-cat
-override until the corresponding upstream dependency revision is available:
+new workflow semantics. Build against the committed remote dependency pins:
 
 ```sh
-nix build .#default --override-input agent-cat "git+file:$PWD/../agent-cat" --no-write-lock-file
+nix build .#default --no-write-lock-file
 ./result/bin/wf help translate-en
 ```
 
 The Nix package installs the deterministic helper and its assets. Its `wf` wrapper
 adds the packaged helpers to PATH without changing the working directory. A bare
-Cabal executable needs `tools/` on PATH when run from a source checkout. The local
-Git override excludes ignored build products and caches from dependency snapshots.
+Cabal executable needs `tools/` on PATH when run from a source checkout.
 
-Installation uses the existing package route, with the same dependency override
-when required:
+For paired development only, an explicit local override selects the sibling
+agent-cat checkout without changing the committed dependency relationship:
 
 ```sh
-nix profile install .#default --override-input agent-cat "git+file:$PWD/../agent-cat" --no-write-lock-file
+nix build .#default --override-input agent-cat "git+file:$PWD/../agent-cat" --no-write-lock-file
+```
+
+The local Git override excludes ignored build products and caches. Deployment
+uses the reviewed remote revisions, not this development override.
+
+Installation uses the existing package route and committed dependency pins:
+
+```sh
+nix profile install .#default --no-write-lock-file
 ```
 
 Pi uses the absolute runner paths in its trusted startup configuration. If that

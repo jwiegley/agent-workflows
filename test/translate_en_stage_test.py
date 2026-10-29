@@ -318,6 +318,40 @@ class TranslationStages(unittest.TestCase):
         context = stage.accept_reviews("one", context, review_body(context))
         self.assertIn(stage.PRIORITY, stage.prompt("synthesis-one", context))
 
+    def test_all_consultations_stay_inside_the_native_stage(self):
+        doc = document()
+        context = prepared(doc)
+        prompts = [stage.prompt("brief", stage.section(doc)), stage.prompt("draft", context)]
+        context = draft(context)
+        for round_name in ("one", "two"):
+            prompts.append(stage.prompt("back-" + round_name, context))
+            context = stage.accept("back-" + round_name, context, {
+                "units": [{"id": u["id"], "text": u["source"]} for u in context["units"]],
+            })
+            prompts.extend(stage.review_prompt(round_name, role, context) for role in stage.ROLES)
+            context = stage.accept_reviews(round_name, context, review_body(context))
+            prompts.append(stage.prompt("synthesis-" + round_name, context))
+            context = synthesize(context, round_name)
+        prompts.append(stage.prompt("verify", context))
+        self.assertEqual(len(prompts), 19)
+        for instruction in (
+            "one consultation in an already-running native translation workflow",
+            "Do not load or invoke skills, call tools, delegate, or start another workflow",
+            "Return exactly one JSON object, with no preamble, commentary or code fences",
+        ):
+            self.assertTrue(all(instruction in prompt for prompt in prompts), instruction)
+
+    def test_model_prose_and_code_fences_are_not_json_answers(self):
+        reply = stage.dump({"units": []})
+        self.assertEqual(stage.one_json(reply), {"units": []})
+        for contaminated in (
+            "\n\nI'll start by invoking the relevant skill for this translation task.\n\n\n\n" + reply,
+            "```json\n" + reply + "\n```",
+            reply + "\nHere is the translation.",
+        ):
+            with self.subTest(reply=contaminated), self.assertRaises(ValueError):
+                stage.one_json(contaminated)
+
     def test_conditional_glossary_is_per_source_unit(self):
         doc = document("حضرت باب\n\nالباب مفتوح.")
         context = prepared(doc)

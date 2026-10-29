@@ -191,11 +191,12 @@ translateEnHelp = [wft|
 
   **Transport.** Use the existing Pi workflow launcher or ACP. The lead and
   reviewers use the dedicated `translate-en` profile, without an authored fallback
-  chain. Map it to the calibrated Opus model without changing other workflows.
+  chain. Map it to the explicitly authorized model without changing other workflows.
   `translate-en-back` must use fresh question sessions or a dedicated backend
   that never receives source text. `translate-en-verify` permits a separate
-  deterministic sampling profile. Configure supported draft sampling at 0.3 and
-  verification at 0.0. Unsupported adapter controls are not simulated by prompts.
+  verification profile. Draft sampling at 0.3 and verification at 0.0 are source
+  calibration guidance, not active controls. Report unsupported adapter settings;
+  never simulate them through prompts.
   A shared conversation without an isolated back-translator refuses thorough work.
 
   ```sh

@@ -116,7 +116,10 @@ A symbolic profile name does not itself set a provider, model, temperature, or
 reasoning effort. The selected adapter must support the requested controls.
 Unsupported settings must be reported or refused, not represented by a prose
 instruction claiming deterministic sampling. Record the actual selected model
-and supported settings when assessing translation quality.
+and supported settings when assessing translation quality. Historical calibration
+does not authorize its model for a current run. Current Hera acceptance is limited
+to `omlx-hera/Qwen3.8-27B-oQ4e-fp16-mtp` on all three profiles, low effort, without
+fallback or numeric temperature controls.
 
 Back-translation requests contain only the English candidate and language
 metadata. A shared source conversation is refused unless the existing route
@@ -171,6 +174,19 @@ cancellation prevent verified final publication. Use the runner's normal inspect
 retry, resume, or fork facilities to examine and address the failed occurrence.
 Retrying a deterministic validator with the same invalid answer does not repair
 the upstream model answer.
+
+Every model prompt scopes the recipient to one consultation: no skill invocation,
+tools, delegation, or nested workflow. The native graph already owns the full
+procedure. Replies must be one JSON object without prose or code fences; validators
+reject contaminated answers rather than extracting an object from them.
+
+For the dedicated Claude ACP client used with Hera's Messages API, configure
+`CLAUDE_CODE_SIMPLE=1` on that engine, not globally. This supported bare mode skips
+ambient skills, hooks, plugins, subagents, MCP discovery, memory and CLAUDE.md.
+It requires API-key authentication, already supplied by the Hera provider. Bare
+mode still exposes Bash/read/edit tools: the no-tools prompt is guidance, not an
+OS sandbox or a guarantee of tool exclusion. Strict answer and publication checks
+remain mandatory.
 
 ## Artifacts
 

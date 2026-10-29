@@ -721,7 +721,7 @@ The local ../agent-cat routing-v2 package uses http-client-tls, whose zlib depen
 :LABELS:   []
 :ISSUE_TYPE: feature
 :CREATED:  [2026-10-22 Thu 15:10]
-:MODIFIED: [2026-10-22 Thu 15:10]
+:MODIFIED: [2026-10-29 Thu 09:48]
 :CREATED_BY: johnw
 :SOURCE_REPO: agent-workflows
 :SOURCE_REPO_PATH: /Users/johnw/work/translation/translate-tool/agent-workflows
@@ -729,4 +729,18 @@ The local ../agent-cat routing-v2 package uses http-client-tls, whose zlib depen
 :END:
 
 Derive behavior from sibling translate-tool: calibrated Arabic/Persian sacred-text drafting, six named reviews in both rounds, independent back-translation, meaning-first synthesis, deterministic input/output validation, safe artifacts, and installed Pi acceptance. Preserve unrelated directions. Source contract: ../docs/agent-cat/translation-contract.md.
+
+** Comments
+
+#+begin_src json
+[
+  {
+    "id": 8,
+    "issue_id": "wf-wn0",
+    "author": "johnw",
+    "text": "Approved Qwen-only native run27951 executed16:24-16:27Z, then strict accept-brief failed: model returned valid JSON with Arabic words in term fields instead of integer termCandidates IDs38/40. No skill/tool progress, no draft/reviews/final artifact. Clarified exact language labels and copying integer term IDs without changing validation or schema. Regression rejects observed word-for-ID output;39 helper tests, native translation-flow/source-assets gate, all75 workflow rows and75 cookbook regions pass. Runtime remains8cf; no canonical Nix changes in this work unit. Publish this head for coordinated owner package/Pi1.4 lockstep work; full live DOCX/pasted acceptance remains pending.",
+    "created_at": "2026-10-29T16:48:25Z"
+  }
+]
+#+end_src
 

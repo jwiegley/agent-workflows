@@ -172,6 +172,21 @@ class TranslationStages(unittest.TestCase):
         context = draft(prepared(document("وجود")), "existence")
         self.assertFalse(stage.mechanical_errors(context))
 
+    def test_brief_requests_integer_term_ids_and_rejects_words(self):
+        doc = document("يا ابن الإنسان")
+        context = stage.section(doc)
+        self.assertTrue(context["termCandidates"])
+        brief = prepared(doc)["brief"]
+        prompt = stage.prompt("brief", context)
+        self.assertIn("Copy each integer termCandidates[].term unchanged", prompt)
+        self.assertIn('language exactly "Arabic", "Persian" or "mixed"', prompt)
+        self.assertEqual(stage.accept("brief", copy.deepcopy(context), brief)["brief"], brief)
+        words = copy.deepcopy(brief)
+        for decision, term in zip(words["terminology"], context["termCandidates"]):
+            decision["term"] = term["source"]
+        with self.assertRaisesRegex(stage.Invalid, "classify every detected glossary entry"):
+            stage.accept("brief", context, words)
+
     def test_back_translation_prompt_has_no_source_or_glossary(self):
         context = draft(prepared(document()))
         prompt = stage.prompt("back-one", context)

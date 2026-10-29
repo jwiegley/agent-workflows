@@ -372,11 +372,12 @@ def prompt(stage, context):
     if stage == "brief":
         require_phase(context, "source")
         return prefix + (
-            "Identify Arabic, Persian or mixed language per source unit. Classify every detected glossary entry, in order, using its notes. "
+            'Identify source language per unit; use language exactly "Arabic", "Persian" or "mixed". Classify every detected glossary entry, in order, using its notes. '
             "Only conditional terms may be inapplicable. The complete glossary also guards against missed morphological forms. "
             "Determine whether this is genuinely less than one sentence, not merely short or missing punctuation. A complete sentence is not a fragment. "
             "Classify applicability separately in every matching source unit: a title in one paragraph does not make the same word a title elsewhere. "
-            "Return languages [{id,language}], terminology [{term,applications:[{unitId,applies:boolean,reason}]}], sentenceFragment:boolean, fragmentReason:string.\n"
+            "Copy each integer termCandidates[].term unchanged into terminology[].term, never a source or translated word. "
+            "Return languages [{id,language}], terminology [{term:integer,applications:[{unitId,applies:boolean,reason}]}], sentenceFragment:boolean, fragmentReason:string.\n"
         ) + dump(source)
     if stage == "draft":
         require_phase(context, "brief")

@@ -376,7 +376,7 @@ The emacs-native branch (d5d7430, worktree ~/src/agent-workflows-emacs-native) c
 :LABELS:   []
 :ISSUE_TYPE: task
 :CREATED:  [2026-10-27 Tue 13:35]
-:MODIFIED: [2026-10-30 Fri 14:30]
+:MODIFIED: [2026-10-30 Fri 16:34]
 :CREATED_BY: johnw
 :FINISHED: [2026-10-27 Tue 14:27]
 :CLOSE_REASON: Reviewed published runtime pinned without deployment override; owning source/package gates and direct fess passed. Native Pi configuration and normal remote-pin build/install documented; ready for task-branch publication.
@@ -389,7 +389,9 @@ Use reviewed, remotely available agent-cat 8cf54e9808dd8dfc1c28175cddb8d9cdf0dee
 
 2026-10-30 adoption: advance the normal remote runtime pin from the approved Pi1.4 port ae2576e6 to signed, published 5f0f7ca48e8c8711b9ef3f4cb34dc2550c8f0ba4. Its db20af0 parent adds supported public ACP session metadata; dedicated tools-empty configuration remains in Nix policy, not workflow code. Preserve the owner Pi1.4 change and Linux patchShebangs fix in 0c969f11. Native lock generation/readback changed only agent-cat. John explicitly approved publish/install/acceptance with the unrelated baseline1200s audit timeout documented as an exception, not a passing gate. Owning scoped package/installed checks and full real DOCX/Persian acceptance remain required; do not lower the19-consultation procedure, substitute models, weaken memory safety or reuse cancelled-run consent.
 
-Package follow-up: first normal Nix build exceeded its unchanged2685s work envelope while compiling profiling copies and unrelated development-check executables in the agentic dependency. Scope this dependency with existing overrideCabal buildTarget/buildFlags: retain all four libraries and both enabled test suites, doCheck and Haddock; omit development executables and unused profiling artifacts. Optimization and test assertions are unchanged. This is the production workflow dependency, not a compiler experiment or a waived package test. Failed build log is retained; corrected normal package build must pass before publication/installation.
+Package follow-up: first normal Nix build exceeded its unchanged2685s work envelope while compiling profiling copies and unrelated development-check executables in the agentic dependency. Scope this dependency with existing overrideCabal buildTarget/buildFlags: retain all four libraries and all three configured test suites, doCheck and Haddock; omit development executables and unused profiling artifacts. Optimization and test assertions are unchanged. This is the production workflow dependency, not a compiler experiment or a waived package test. Failed build log is retained; corrected normal package build must pass before publication/installation.
+
+The second build caught an incorrect two-suite assumption: engine-api-test and runtime-contract-test passed, but tui-model-test was configured and not built (Cabal-5678). It failed, not green. The corrected target list includes tui-model-test; checking still runs all suites. Actual Nix configuration, not the isolated audit's tui-tests=false flag, determines enabled tests.
 
 ** Dependencies
 

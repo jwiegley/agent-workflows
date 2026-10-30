@@ -51,7 +51,12 @@
           final: prev:
           (import "${agent-cat}/nix/haskell-overrides.nix") pkgs final prev
           // {
-            agentic = final.callCabal2nix "agentic" agent-cat { };
+            agentic = pkgs.haskell.lib.overrideCabal (final.callCabal2nix "agentic" agent-cat { }) (old: {
+              # A library dependency needs its libraries/tests, not every development checker.
+              buildTarget = "lib:agentic lib:examples lib:bisim-support lib:verification";
+              buildFlags = (old.buildFlags or [ ]) ++ [ "test:engine-api-test" "test:runtime-contract-test" ];
+              enableLibraryProfiling = false;
+            });
             agent-workflows = pkgs.haskell.lib.overrideCabal (final.callCabal2nix "agent-workflows" src {
               agentic = final.agentic;
             }) (old: {

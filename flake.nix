@@ -56,6 +56,13 @@
               agentic = final.agentic;
             }) (old: {
               testToolDepends = (old.testToolDepends or [ ]) ++ [ pkgs.python3 ];
+              # tools/* start with `#!/usr/bin/env python3` or `bash`, and the
+              # Linux build sandbox has no /usr/bin/env, so translate-en-flow
+              # cannot spawn tools/wf-translate-stage (posix_spawnp ENOENT).
+              # Darwin has /usr/bin/env, which is why it passes on Hera.
+              preCheck = (old.preCheck or "") + ''
+                patchShebangs --build tools
+              '';
             });
           }
         );

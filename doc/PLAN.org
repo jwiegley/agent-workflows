@@ -432,6 +432,44 @@ Use reviewed, remotely available agent-cat 8cf54e9808dd8dfc1c28175cddb8d9cdf0dee
 :ORIGINAL_SIZE: 0
 :END:
 
+* DONE [#B] Run translate-en-flow in the Linux build sandbox
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-mq5
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-10-29 Thu 23:23]
+:MODIFIED: [2026-10-29 Thu 23:31]
+:CREATED_BY: johnw
+:FINISHED: [2026-10-29 Thu 23:31]
+:CLOSE_REASON: Fixed by appending `patchShebangs --build tools` to the Haskell package's preCheck. vulcan (aarch64-linux, nixpkgs 5adc5083, the revision vulcan's lock currently gives nix-config-ai): patchShebangs rewrote tools/wf-translate-stage to the store python3; translate-en-flow and refocus-flow PASS (2 of 2); wf --help of the result exits 0. Hera (aarch64-darwin, nixpkgs d3b13ad7 as config/ai pins it): both suites PASS; wf --help exits 0. The aarch64-linux build against d3b13ad7 compiles GHC 9.10.3 from source and is still running on vulcan; it gates vulcan's switch.
+:SOURCE_REPO: aw-fix-20261030
+:SOURCE_REPO_PATH: /private/tmp/aw-fix-20261030
+:ORIGINAL_SIZE: 0
+:END:
+
+The translate-en-flow test suite that 54ca322a added puts tools/ on PATH and spawns tools/wf-translate-stage, whose first line is `#!/usr/bin/env python3`. The Linux Nix build sandbox has no /usr/bin/env, so on aarch64-linux the check phase of the Haskell package stops with `wf-translate-stage: readCreateProcessWithExitCode: posix_spawnp: does not exist (No such file or directory)`, and packages.default does not build. Darwin has /usr/bin/env, so the suite passes on Hera and nothing caught it. Vulcan builds wf from this flake through nix-config, so the failure took its Home Manager generation down; vulcan has carried a local shim with the same preCheck since 2026-10-28.
+
+Add `preCheck = (old.preCheck or "") + "patchShebangs --build tools"` to the overrideCabal of the Haskell package, so that the scripts in the build tree point at the python3 of testToolDepends and the bash of the build PATH. The suites keep running; disabling the check would hide real failures. Verify on aarch64-linux, where the failure occurs: both test suites must pass in the Nix build and `wf --help` of the result must run. Verify on aarch64-darwin that the package still builds and its suites still pass.
+
+This supersedes awork-u9a, which recorded the same change in 5b8b1dff, an unsigned commit pushed to GitHub on 2026-10-28 that the Gitea push mirror then overwrote; it is on no branch.
+
+** Dependencies
+
+#+begin_src json
+[
+  {
+    "issue_id": "awork-mq5",
+    "depends_on_id": "wf-wn0",
+    "type": "discovered-from",
+    "created_at": "2026-10-30T06:23:21.192049Z",
+    "created_by": "johnw",
+    "metadata": "{}",
+    "thread_id": ""
+  }
+]
+#+end_src
+
 * DONE [#C] Update agent-cat package dependency
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

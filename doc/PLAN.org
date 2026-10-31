@@ -767,7 +767,7 @@ The local ../agent-cat routing-v2 package uses http-client-tls, whose zlib depen
 :LABELS:   []
 :ISSUE_TYPE: feature
 :CREATED:  [2026-10-22 Thu 15:10]
-:MODIFIED: [2026-10-29 Thu 09:48]
+:MODIFIED: [2026-10-31 Sat 15:26]
 :CREATED_BY: johnw
 :SOURCE_REPO: agent-workflows
 :SOURCE_REPO_PATH: /Users/johnw/work/translation/translate-tool/agent-workflows
@@ -775,6 +775,8 @@ The local ../agent-cat routing-v2 package uses http-client-tls, whose zlib depen
 :END:
 
 Derive behavior from sibling translate-tool: calibrated Arabic/Persian sacred-text drafting, six named reviews in both rounds, independent back-translation, meaning-first synthesis, deterministic input/output validation, safe artifacts, and installed Pi acceptance. Preserve unrelated directions. Source contract: ../docs/agent-cat/translation-contract.md.
+
+2026-10-31 live acceptance found a contextual-title defect: Persian run21631 correctly classified مقصود as the nightingale's object/purpose, not Bahá'u'lláh's title, but accept-brief incorrectly rejected it as an unwaivable term. Treat glossary title annotations as contextual in the existing shared applicability rule; do not special-case a word or relax JSON, integer IDs, unit alignment, required reasons or mandatory proper names. Regression first fails with the exact live error, then checks applicable title/generic use in separate units, required title rendering and refused proper-name/justice waivers. All40 helper cases and authoritative asset checks pass; unchanged real stored brief replay is accepted by corrected source and rejected by installed old source, with0 model calls and no live-state repair. Owning source/native gate passed22:00:54Z, all75-workflow gate22:24:52Z and75-region byte-identical cookbook gate22:25:32Z, with unchanged functional source throughout. Exact package, signed publication/adoption and real final DOCX/Persian artifacts remain pending. DOCX74369 separately timed out at its first reviewer after3 accepted consultations; prepared native checkpoint retry requires genuine UI selection. Normal19-consultation process, exact Hera Qwen/low/no fallback and memory guard remain unchanged.
 
 ** Comments
 

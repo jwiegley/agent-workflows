@@ -281,7 +281,7 @@ def check_brief(value, context):
         require(type(decision["term"]) is int, "term index must be an integer")
         applications = decision["applications"]
         require(isinstance(applications, list) and len(applications) == len(term["unitIds"]) and [a.get("unitId") for a in applications if isinstance(a, dict)] == term["unitIds"], "terminology applicability must cover every matching source unit in order")
-        conditional = "when " in term["notes"] or "also generic" in term["notes"]
+        conditional = "when " in term["notes"] or "also generic" in term["notes"] or "title" in term["notes"]
         for application in applications:
             exact_keys(application, ("unitId", "applies", "reason"), "terminology application")
             require(type(application["applies"]) is bool, "terminology applicability must be a boolean")

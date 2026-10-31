@@ -172,6 +172,31 @@ class TranslationStages(unittest.TestCase):
         context = draft(prepared(document("وجود")), "existence")
         self.assertFalse(stage.mechanical_errors(context))
 
+    def test_title_applicability_is_per_unit_without_waiving_names(self):
+        doc = document("مقصود\n\nهر بلبلی را مقصود جمال گل است")
+        context = stage.section(doc)
+        brief = prepared(doc)["brief"]
+        brief["languages"] = [{"id": u["id"], "language": "Persian"} for u in context["units"]]
+        self.assertEqual(len(brief["terminology"]), 1)
+        applications = brief["terminology"][0]["applications"]
+        self.assertEqual(len(applications), 2)
+        applications[1].update(applies=False, reason="The nightingale's object, not a divine title.")
+        context = stage.accept("brief", context, brief)
+        context = stage.accept("draft", context, {"units": [
+            {"id": u["id"], "text": text} for u, text in zip(context["units"],
+                ("The Desired One.", "Every nightingale seeks the beauty of the rose."))
+        ]})
+        self.assertEqual(stage.mechanical_errors(context), [])
+        context["candidate"][0]["text"] = "The object."
+        self.assertIn("missing mandatory", stage.mechanical_errors(context)[0])
+        for source in ("بهاءالله", "عدل"):
+            with self.subTest(source=source):
+                doc = document(source)
+                brief = prepared(doc)["brief"]
+                brief["terminology"][0]["applications"][0].update(applies=False, reason="Not applicable.")
+                with self.assertRaisesRegex(stage.Invalid, "mandatory term cannot be waived"):
+                    stage.accept("brief", stage.section(doc), brief)
+
     def test_brief_requests_integer_term_ids_and_rejects_words(self):
         doc = document("يا ابن الإنسان")
         context = stage.section(doc)

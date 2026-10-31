@@ -52,7 +52,7 @@
           (import "${agent-cat}/nix/haskell-overrides.nix") pkgs final prev
           // {
             agentic = pkgs.haskell.lib.overrideCabal (final.callCabal2nix "agentic" agent-cat { }) (old: {
-              # A library dependency needs its libraries/tests, not every development checker.
+              # The workflow executable needs unprofiled libraries/tests, not development checkers.
               buildTarget = "lib:agentic lib:examples lib:bisim-support lib:verification";
               buildFlags = (old.buildFlags or [ ]) ++ [
                 "test:engine-api-test"
@@ -64,6 +64,7 @@
             agent-workflows = pkgs.haskell.lib.overrideCabal (final.callCabal2nix "agent-workflows" src {
               agentic = final.agentic;
             }) (old: {
+              enableLibraryProfiling = false;
               testToolDepends = (old.testToolDepends or [ ]) ++ [ pkgs.python3 ];
               # tools/* start with `#!/usr/bin/env python3` or `bash`, and the
               # Linux build sandbox has no /usr/bin/env, so translate-en-flow

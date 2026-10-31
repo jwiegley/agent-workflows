@@ -376,7 +376,7 @@ The emacs-native branch (d5d7430, worktree ~/src/agent-workflows-emacs-native) c
 :LABELS:   []
 :ISSUE_TYPE: task
 :CREATED:  [2026-10-27 Tue 13:35]
-:MODIFIED: [2026-10-30 Fri 16:34]
+:MODIFIED: [2026-10-30 Fri 17:16]
 :CREATED_BY: johnw
 :FINISHED: [2026-10-27 Tue 14:27]
 :CLOSE_REASON: Reviewed published runtime pinned without deployment override; owning source/package gates and direct fess passed. Native Pi configuration and normal remote-pin build/install documented; ready for task-branch publication.
@@ -392,6 +392,8 @@ Use reviewed, remotely available agent-cat 8cf54e9808dd8dfc1c28175cddb8d9cdf0dee
 Package follow-up: first normal Nix build exceeded its unchanged2685s work envelope while compiling profiling copies and unrelated development-check executables in the agentic dependency. Scope this dependency with existing overrideCabal buildTarget/buildFlags: retain all four libraries and all three configured test suites, doCheck and Haddock; omit development executables and unused profiling artifacts. Optimization and test assertions are unchanged. This is the production workflow dependency, not a compiler experiment or a waived package test. Failed build log is retained; corrected normal package build must pass before publication/installation.
 
 The second build caught an incorrect two-suite assumption: engine-api-test and runtime-contract-test passed, but tui-model-test was configured and not built (Cabal-5678). It failed, not green. The corrected target list includes tui-model-test; checking still runs all suites. Actual Nix configuration, not the isolated audit's tui-tests=false flag, determines enabled tests.
+
+Third build: all three agentic suites passed and all four libraries installed. Workflow's own profiling build then failed because its dependency intentionally lacks profiling artifacts. Match enableLibraryProfiling=false in the workflow consumer too; this does not change optimization or model effort. The original and scoped agentic Haddock phases are byte-identical hook-only defaults, not newly disabled documentation or a claim of generated Haddock. Workflow documentation/checking settings remain unchanged. Corrected full package/installed acceptance is still required.
 
 ** Dependencies
 

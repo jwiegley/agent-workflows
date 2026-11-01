@@ -11,6 +11,13 @@ examples, six reviewer mandates, and 43-entry glossary come from that source.
 The earlier reverse-direction sketch is not the specification for this workflow.
 `translate` and `translate-es` retain their existing behavior.
 
+Recorded adaptations correct the Hidden Words §3 calibration's Arabic source
+against the [published Arabic](https://reference.bahai.org/fa/t/b/AHW/ahw-4.html),
+while preserving [Shoghi Effendi's English](https://reference.bahai.org/en/t/b/HW/hw-4.html).
+A calibration illustrates its quoted source; it does not authorize omitting
+additional content from a supplied variant. Both specialist rounds receive the
+complete register guidance; the two back-translation requests remain source-hidden.
+
 ## Inputs and invocation
 
 Supply exactly one of the two workflow inputs:

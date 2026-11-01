@@ -7,15 +7,17 @@
     "skill/SKILL.md": "f26ff06e43b9d99e96876cbd567a7f6d8585983b0a550b97ef5e672f294790fb",
     "glossary.csv": "8eab769223267b8b8cded5ba62f7a4250dfcf25d94d35cffd7e360354b3e9523"
   },
-  "generatorSha256": "77e892d3aeff1ef5314d00ee13613452c0ab2f7e41e9d0d6bb3f2d19353eb0f1",
+  "generatorSha256": "697dc8a7980c8ddf64036eb03e42526bdbf94e0de1d7c2baacf1d7ff105f66ba",
   "adaptations": [
     "Remove incorrect calibration counts and commentary about absent quoted words.",
+    "Correct the Hidden Words 3 calibration's Arabic source and commentary against the cited published text; preserve the quoted English.",
     "Make concision subordinate to coverage and defect-driven revision.",
+    "Limit calibration examples to their quoted source rather than waiving additional supplied content.",
     "Give the fidelity reviewer a separately produced source-hidden back-translation.",
     "Use workflow-owned structured response contracts instead of interpolated skill placeholders."
   ],
   "assets": {
-    "register.md": "4debcce5f1378e4d58581c07e6d68cb4fe1631f499236cd0b9161f098541196d",
+    "register.md": "d4ca0872b8205f2dff8e7d85c2a619fd504693b15d8d93a8fdba37ae35d13bce",
     "reviewers.json": "ceabb1941ff1def1834a5a3db11aed22f77c64d0e594fd0dfb4381080af5e447",
     "glossary.csv": "8eab769223267b8b8cded5ba62f7a4250dfcf25d94d35cffd7e360354b3e9523"
   }

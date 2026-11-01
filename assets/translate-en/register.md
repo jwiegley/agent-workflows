@@ -35,9 +35,10 @@ Shoghi Effendi's translations are SHORTER than most translations of the same tex
 Study these examples carefully. They show the SAME source rendered at different quality levels.
 
 **PERFECT (Shoghi Effendi's own):**
-Source: يَا ابْنَ الإِنسَانِ كُنْتُ فِي قِدَمِ الذَّاتِ وَأَزَلِيَّةِ الكَيْنُونَةِ فِي مَهْدِ كَيْنُونَتِيَ عَرَفْتُ حُبِّي فِيكَ فَخَلَقْتُكَ وَأَلْقَيْتُ عَلَيْكَ مِثَالِي وَأَظْهَرْتُ لَكَ جَمَالِي
+Source: يَا ابْنَ الإِنْسانِ كُنْتُ فِي قِدَمِ ذاتِي وَأَزَلِيَّةِ كَيْنُونَتِي؛ عَرَفْتُ حُبّي فِيكَ خَلَقْتُكَ، وَأَلْقَيْتُ عَلَيْكَ مِثالِي وَأَظْهَرْتُ لَكَ جَمَالي.
+Reference: [Arabic Hidden Words §3](https://reference.bahai.org/fa/t/b/AHW/ahw-4.html) and [Shoghi Effendi's English](https://reference.bahai.org/en/t/b/HW/hw-4.html).
 Translation: "O SON OF MAN! Veiled in My immemorial being and in the ancient eternity of My essence, I knew My love for thee; therefore I created thee, have engraved on thee Mine image, and revealed to thee My beauty."
-Why it works: Balanced, elevated register. "Veiled in" adds interpretive depth without fabrication. "Immemorial being" is an inspired but faithful rendering of قِدَمِ الذَّاتِ. Densely packed, without padding.
+Why it works: Balanced, elevated register. "Veiled in" adds interpretive depth without fabrication. "Immemorial being" is an inspired but faithful rendering of قِدَمِ ذاتِي. Densely packed, without padding.
 
 **TOO ORNATE (over-expanded):**
 "O THOU CHILD OF MORTAL CLAY! In the primaeval depths of Mine own unfathomable Selfhood, and in the sempiternal antiquity of Mine abiding Substance, I didst perceive the flames of Mine affection kindled for thee; whereupon I fashioned thee from the crucible of creation…"
@@ -45,7 +46,7 @@ Why it fails: The phrasing is over-expanded. "Primaeval" and "sempiternal" are o
 
 **TOO LITERAL (flat):**
 "O son of man. I was in the primordial essence and eternal being. In the cradle of my existence I recognized my love in you, so I created you and cast my image upon you and showed you my beauty."
-Why it fails: No King James register. Flat, declarative sentences. "Cradle of my existence" is literal but misses the meaning. No interpretive layer at all.
+Why it fails: No King James register. Flat, declarative sentences. "Cradle of my existence" is absent from the published source quoted above; a supplied variant that contains that image must still convey it. No interpretive layer at all.
 
 ## Persian vs. Arabic — Adjusting Your Approach
 
@@ -58,3 +59,5 @@ The source text may be in Arabic or Persian. Shoghi Effendi adapted his style to
 Note: The Arabic Hidden Words and the Persian Hidden Words are separate compositions, not translations of each other. Each has its own character.
 
 Concision never licenses an omission. Cross-language word counts are not a fidelity test. Preserve sound initial choices unless a concrete defect requires correction.
+
+Calibration examples apply only to their quoted source. A calibration never licenses omitting additional source content. Interpretive expansion may draw out implicit meaning, but do not dismiss a fidelity finding merely because an exemplar is labelled PERFECT; account for the actual source concept in the English.

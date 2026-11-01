@@ -468,7 +468,7 @@ def review_prompt(round_name, role, context):
     require_phase(context, "back-" + round_name)
     previous = context["history"].get("reviews-one", {}).get(role)
     return (
-        f"TRANSLATE_EN_MODEL review-{round_name}-{role}\n" + CONSULTATION + MANDATES[role] + "\n" + PRIORITY +
+        f"TRANSLATE_EN_MODEL review-{round_name}-{role}\n" + CONSULTATION + REGISTER + "\n" + MANDATES[role] + "\n" + PRIORITY +
         "\nReturn status:'reviewed', issues:[{unitId,current,suggested,reason,severity:'critical'|'major'|'minor'}], "
         "scores:{" + ",".join(f"{score}:1..10" for score in SCORES[role]) + "}, strengths:[string], summary:string. "
         "Quote the exact current English phrase, or use an empty current for an omission. Give a source unit id for each issue. "

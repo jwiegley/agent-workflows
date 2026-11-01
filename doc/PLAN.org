@@ -178,6 +178,52 @@ followups.md M1 + systematic + L: the design promised commitFn four call sites (
 
 Owner approved publication and Hera activation. Pin agent-cat 1858e000 containing d3be3f22, build the exact committed wf package, verify header-free prompts and explicit session precedence with the deterministic deck fixture, and publish the pin without including unrelated Emacs edits.
 
+* DOING [#B] Correct calibration source pairing and reviewer guidance
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-dmq
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-11-01 Sun 12:12]
+:MODIFIED: [2026-11-01 Sun 12:26]
+:CREATED_BY: johnw
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/Products/translate-tool-routing-20261023/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+Native DOCX48200 completed all19 genuine Qwen/low consultations, then correctly failed final verification on a rejected critical fidelity finding. The imported PERFECT example pairs extra source content with canonical English for a shorter published Arabic text; specialist reviews also lack the shared register guidance available to synthesis. Correct and cite the calibration source as an explicit reproducible adaptation, preserve supplied fixtures and original repositories, carry full register guidance to both specialist rounds while keeping both back-translations source-hidden, and retain the critical-publication guard unchanged. Add red/green regressions, run owning gates, publish/install through existing owners, and require fresh file/pasted artifacts and linguistic inspection.
+
+** Dependencies
+
+#+begin_src json
+[
+  {
+    "issue_id": "awork-dmq",
+    "depends_on_id": "wf-wn0",
+    "type": "discovered-from",
+    "created_at": "2026-11-01T20:12:11.333431Z",
+    "created_by": "johnw",
+    "metadata": "{}",
+    "thread_id": ""
+  }
+]
+#+end_src
+
+** Comments
+
+#+begin_src json
+[
+  {
+    "id": 9,
+    "issue_id": "awork-dmq",
+    "author": "johnw",
+    "text": "Source correction passes42/42 helper tests and exact authoritative-asset reproduction. New regressions first failed for the wrong source pairing, absent register guidance and unguarded upstream changes. Both complete reviewer rounds receive register/priority mandates; both blind back-translations exclude source/glossary/register. Owning native/source gate, all75 workflow rows and75 byte-identical cookbook regions passed2026-11-01T20:25:06Z inside unchanged2685+5s envelope with source diff unchanged. Runtime and rejected-critical publication guard remain untouched. Native48200 proves all19 genuine exact-Qwen/low/zero-declared-tools requests but correctly failed final verification; no linguistic acceptance or final artifact is claimed. Signed publication, owner-led deployment and fresh file/pasted acceptance remain pending.",
+    "created_at": "2026-11-01T20:26:31Z"
+  }
+]
+#+end_src
+
 * DONE [#C] Pin wf to the honest-addressee release
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

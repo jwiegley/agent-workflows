@@ -214,12 +214,16 @@ class TranslationStages(unittest.TestCase):
 
     def test_back_translation_prompt_has_no_source_or_glossary(self):
         context = draft(prepared(document()))
-        prompt = stage.prompt("back-one", context)
-        self.assertNotIn(ARABIC, prompt)
-        self.assertNotIn("fullGlossary", prompt)
-        self.assertNotIn("termCandidates", prompt)
-        self.assertIn(ENGLISH, prompt)
-        self.assertIn("Arabic", prompt)
+        for round_name in ("one", "two"):
+            prompt = stage.prompt("back-" + round_name, context)
+            self.assertNotIn(ARABIC, prompt)
+            self.assertNotIn(stage.REGISTER, prompt)
+            self.assertNotIn("fullGlossary", prompt)
+            self.assertNotIn("termCandidates", prompt)
+            self.assertIn(ENGLISH, prompt)
+            self.assertIn("Arabic", prompt)
+            if round_name == "one":
+                context = synthesize(reviewed(context, "one"), "one")
 
     def test_two_rounds_and_prior_feedback_flow(self):
         context = draft(prepared(document()))
@@ -344,19 +348,45 @@ class TranslationStages(unittest.TestCase):
         self.assertEqual(stage.final_text(doc).strip(), " ".join([ENGLISH] * 600))
         self.assertEqual(stage.dispatch("progress", [], stage.dump(doc)), "")
 
+    def test_asset_sync_refuses_a_changed_calibration_source(self):
+        with tempfile.TemporaryDirectory() as name:
+            source = Path(name)
+            (source / "skill").mkdir()
+            (source / "translate.py").write_text('SYSTEM_PROMPT = "Changed source"\n', encoding="utf-8")
+            (source / "skill/SKILL.md").write_text("", encoding="utf-8")
+            (source / "glossary.csv").write_text("", encoding="utf-8")
+            result = subprocess.run([sys.executable, str(ROOT / "tools/sync-translate-en.py"), str(source), "--check"], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("authoritative calibration source changed", result.stderr)
+
+    def test_calibration_source_does_not_waive_variant_content(self):
+        source = next(line for line in stage.REGISTER.splitlines() if line.startswith("Source: "))
+        self.assertEqual(source, "Source: يَا ابْنَ الإِنْسانِ كُنْتُ فِي قِدَمِ ذاتِي وَأَزَلِيَّةِ كَيْنُونَتِي؛ عَرَفْتُ حُبّي فِيكَ خَلَقْتُكَ، وَأَلْقَيْتُ عَلَيْكَ مِثالِي وَأَظْهَرْتُ لَكَ جَمَالي.")
+        self.assertIn('Translation: "O SON OF MAN! Veiled in My immemorial being and in the ancient eternity of My essence, I knew My love for thee; therefore I created thee, have engraved on thee Mine image, and revealed to thee My beauty."', stage.REGISTER)
+        self.assertIn("A calibration never licenses omitting additional source content.", stage.REGISTER)
+        self.assertNotIn('"Cradle of my existence" is literal but misses the meaning.', stage.REGISTER)
+        variant = "يا ابن الإنسان في مهد كينونتي عرفت حبي فيك"
+        context = prepared(document(variant))
+        self.assertIn(variant, stage.prompt("draft", context))
+
     def test_mandates_calibration_and_priority_reach_stages(self):
         context = prepared(document())
         draft_prompt = stage.prompt("draft", context)
         self.assertIn(stage.REGISTER, draft_prompt)
         self.assertIn("TOO ORNATE", draft_prompt)
         context = draft(context)
-        context = stage.accept("back-one", context, {"units": [{"id": context["units"][0]["id"], "text": ARABIC}]})
-        for role in stage.ROLES:
-            prompt = stage.review_prompt("one", role, context)
-            self.assertIn(stage.MANDATES[role], prompt)
-            self.assertIn(stage.PRIORITY, prompt)
-        context = stage.accept_reviews("one", context, review_body(context))
-        self.assertIn(stage.PRIORITY, stage.prompt("synthesis-one", context))
+        for round_name in ("one", "two"):
+            context = stage.accept("back-" + round_name, context, {"units": [{"id": context["units"][0]["id"], "text": ARABIC}]})
+            for role in stage.ROLES:
+                prompt = stage.review_prompt(round_name, role, context)
+                self.assertIn(stage.MANDATES[role], prompt)
+                self.assertIn(stage.REGISTER, prompt)
+                self.assertIn(stage.PRIORITY, prompt)
+            context = stage.accept_reviews(round_name, context, review_body(context))
+            synthesis_prompt = stage.prompt("synthesis-" + round_name, context)
+            self.assertIn(stage.REGISTER, synthesis_prompt)
+            self.assertIn(stage.PRIORITY, synthesis_prompt)
+            context = synthesize(context, round_name)
 
     def test_all_consultations_stay_inside_the_native_stage(self):
         doc = document()

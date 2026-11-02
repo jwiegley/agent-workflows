@@ -471,6 +471,42 @@ Third build: all three agentic suites passed and all four libraries installed. W
 ]
 #+end_src
 
+* DOING [#B] Ground sacred-text review in original meaning, not candidate/back consensus
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-jue
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-11-02 Mon 15:27]
+:MODIFIED: [2026-11-02 Mon 15:27]
+:CREATED_BY: johnw
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/Products/translate-tool-routing-20261023/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+Native70871 completed all19 consultations and mechanical checks, yet independent official-source comparison rejects its Persian output: vocalized source imagery and vessel/ocean meaning were misread. Both fidelity rounds endorsed the errors; round2 justified candidate-added wording by the back-translation itself. Preserve the rejected native artifacts. Clarify generic source reading and source authority in existing shared drafting/review/synthesis prompts; re-audit all source content in round2. No fixture vocabulary, golden translations, model/timeout changes, extra calls, schema weakening or live-answer repair.
+
+** Acceptance Criteria
+
+Red-before-green prompt/data-flow regressions; unchanged normal19 graph, strict schemas and source-hidden backs; owning source/workflow/cookbook/package gates; owner-led installed correction and fresh serial full native file/pasted runs with actual source/imagery/artifact inspection. Deterministic checks and scores are not linguistic proof.
+
+** Dependencies
+
+#+begin_src json
+[
+  {
+    "issue_id": "awork-jue",
+    "depends_on_id": "awork-dmq",
+    "type": "discovered-from",
+    "created_at": "2026-11-02T23:27:12.430164Z",
+    "created_by": "johnw",
+    "metadata": "{}",
+    "thread_id": ""
+  }
+]
+#+end_src
+
 * DONE [#C] Gate compact bare workflow usage
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

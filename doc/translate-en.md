@@ -97,6 +97,14 @@ Every normal source section receives the following native operations:
 6. Perform final synthesis and one constrained mechanical verification pass.
 7. Assemble validated sections in source order and publish the final artifacts.
 
+The original source is the authority for meaning. Drafting, both review rounds
+and both syntheses are instructed to read vocalization, homographs and word
+division from syntax and context before accepting an English reading. A candidate
+and its reverse translation may share the same error; their agreement is not
+source evidence. Round two re-audits every unit, including previously missed
+errors, rather than merely confirming earlier decisions. These are model
+instructions, not a deterministic proof of semantic accuracy.
+
 Meaning takes priority over terminology, then grammar, oral/spiritual quality,
 register, clarity, and aesthetic preference. A satisfactory phrase is not rewritten
 merely because another wording is possible. Synthesis may change only units with

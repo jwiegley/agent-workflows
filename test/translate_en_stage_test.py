@@ -218,6 +218,7 @@ class TranslationStages(unittest.TestCase):
             prompt = stage.prompt("back-" + round_name, context)
             self.assertNotIn(ARABIC, prompt)
             self.assertNotIn(stage.REGISTER, prompt)
+            self.assertNotIn("original source is the authority for meaning", prompt)
             self.assertNotIn("fullGlossary", prompt)
             self.assertNotIn("termCandidates", prompt)
             self.assertIn(ENGLISH, prompt)
@@ -232,6 +233,7 @@ class TranslationStages(unittest.TestCase):
         prompt = stage.review_prompt("two", "diction-grammar", context)
         self.assertIn('"previousReview"', prompt)
         self.assertIn('"previousDecisions"', prompt)
+        self.assertIn("re-audit every source unit", prompt)
         context = stage.accept_reviews("two", context, review_body(context))
         self.assertEqual(set(context["history"]["reviews-two"]), set(stage.ROLES))
 
@@ -373,6 +375,11 @@ class TranslationStages(unittest.TestCase):
         context = prepared(document())
         draft_prompt = stage.prompt("draft", context)
         self.assertIn(stage.REGISTER, draft_prompt)
+        grounding = "original source is the authority for meaning"
+        self.assertIn(grounding, draft_prompt)
+        self.assertLess(draft_prompt.index(grounding), draft_prompt.index(stage.REGISTER))
+        for instruction in ("vocalization", "homographs", "back-translation can repeat the same mistake"):
+            self.assertIn(instruction, draft_prompt)
         self.assertIn("TOO ORNATE", draft_prompt)
         context = draft(context)
         for round_name in ("one", "two"):
@@ -382,11 +389,17 @@ class TranslationStages(unittest.TestCase):
                 self.assertIn(stage.MANDATES[role], prompt)
                 self.assertIn(stage.REGISTER, prompt)
                 self.assertIn(stage.PRIORITY, prompt)
+                self.assertLess(prompt.index(grounding), prompt.index(stage.REGISTER))
+                for instruction in ("vocalization", "homographs", "back-translation can repeat the same mistake"):
+                    self.assertIn(instruction, prompt)
             context = stage.accept_reviews(round_name, context, review_body(context))
             synthesis_prompt = stage.prompt("synthesis-" + round_name, context)
             self.assertIn(stage.REGISTER, synthesis_prompt)
             self.assertIn(stage.PRIORITY, synthesis_prompt)
+            self.assertLess(synthesis_prompt.index(grounding), synthesis_prompt.index(stage.REGISTER))
+            self.assertIn("actual source usage, not scores or prior acceptance", synthesis_prompt)
             context = synthesize(context, round_name)
+        self.assertNotIn(grounding, stage.prompt("verify", context))
 
     def test_all_consultations_stay_inside_the_native_stage(self):
         doc = document()

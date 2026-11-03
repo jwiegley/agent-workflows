@@ -3,17 +3,17 @@
     "agent-cat": {
       "flake": false,
       "locked": {
-        "lastModified": 1793391726,
-        "narHash": "sha256-mcRIJh6E23WCRc0Ry1NiK1b+WWsflnPOuYcdU/vml1A=",
+        "lastModified": 1793732452,
+        "narHash": "sha256-qd336GP1v7QSdsSi6wOKMVMIfn72Db4jH2TLilAjJEM=",
         "owner": "jwiegley",
         "repo": "agent-cat",
-        "rev": "5f0f7ca48e8c8711b9ef3f4cb34dc2550c8f0ba4",
+        "rev": "0c4319007af6e219f7abd30da1ae03624eda4d5f",
         "type": "github"
       },
       "original": {
         "owner": "jwiegley",
         "repo": "agent-cat",
-        "rev": "5f0f7ca48e8c8711b9ef3f4cb34dc2550c8f0ba4",
+        "rev": "0c4319007af6e219f7abd30da1ae03624eda4d5f",
         "type": "github"
       }
     },

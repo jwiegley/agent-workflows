@@ -50,7 +50,7 @@ following `wf` entry into the existing trusted runner configuration rather than
 discarding other runners:
 
 ```json
-{"id":"wf","executable":"/absolute/path/to/wf","workflowPersonas":{"translate-en":"sacred-text"}}
+{"id":"wf","executable":"/absolute/path/to/wf","workflowPersonas":{"translate-en":"sacred-text"},"workflowTimeoutMs":{"translate-en":7200000}}
 ```
 
 `AGENT_CAT_RUNNERS` contains the JSON array of runner entries. Configure it or
@@ -59,6 +59,12 @@ configured persona; it does not create profiles or select a model by itself.
 Workflows without a matching `workflowPersonas` entry retain the current Agent
 Deck launch behavior.
 
+`workflowTimeoutMs` gives each translation model consultation a 7200-second
+budget through the native runner's `--timeout` option. It does not extend an
+outer Pi wait or change other workflows' defaults. The native approval displays
+`"timeoutMs":7200000` in its prepared policy. Existing runs and lineage retain
+their frozen policies, so a changed default requires a fresh launch.
+
 `/wf` holds the native preparation while displaying its exact policy, invocation,
 and captured input hashes for approval. Declining sends no model prompt. Invalid
 or unavailable routes fail rather than falling back to the source conversation.
@@ -66,7 +72,7 @@ or unavailable routes fail rather than falling back to the source conversation.
 A direct runner invocation can read a text file into the literal input:
 
 ```sh
-wf run translate-en --engine acp --adapter claude --scratch "$PWD" \
+wf run translate-en --engine acp --adapter claude --scratch "$PWD" --timeout 7200000 \
   --require-pinned --input-arg file= --input-file text=source.txt
 ```
 
@@ -74,7 +80,7 @@ For DOCX, pass a path rather than asking the generic runner to decode ZIP bytes
 as UTF-8:
 
 ```sh
-wf run translate-en --engine acp --adapter claude --scratch "$PWD" \
+wf run translate-en --engine acp --adapter claude --scratch "$PWD" --timeout 7200000 \
   --require-pinned --input-arg file="$PWD/source.docx" --input-arg text=
 ```
 

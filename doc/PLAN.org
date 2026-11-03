@@ -38,6 +38,22 @@ After agent-cat publishes, move the agent-cat input to that release. Run ci/work
 ]
 #+end_src
 
+* DOING [#C] Pin scoped consultation timeouts and document7200s translation budget
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       awork-2ck
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-11-03 Tue 11:02]
+:MODIFIED: [2026-11-03 Tue 11:04]
+:CREATED_BY: johnw
+:SOURCE_REPO: agent-workflows
+:SOURCE_REPO_PATH: /Users/johnw/Products/translate-tool-routing-20261023/agent-workflows
+:ORIGINAL_SIZE: 0
+:END:
+
+Operator goal tweak authorizes7200s per translation consultation only. Pin signed runtime0c4319007af6e219f7abd30da1ae03624eda4d5f, document workflowTimeoutMs translate-en mapping and equivalent --timeout7200000 CLI invocation. Preserve all19 consultations, prompts/assets, source-hidden backs, models/guards and unrelated defaults. Run owning native/source/catalogue/cookbook and normal package gates. Actual owner-installed7200s policy and fresh file/pasted quality acceptance remain parent goal requirements.
+
 * DONE [#C] Pin wf to the act-ordered, act-scoped reuse release
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

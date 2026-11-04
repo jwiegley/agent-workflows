@@ -102,7 +102,8 @@ fixtureReply request =
           ]
    in case qAddressee (reqQuestion request) of
         AddrModel "translate-en-brief" -> object
-          [ "languages" .= map language units,
+          [ "sourceReadings" .= [object ["id" .= field "id" unit, "meaning" .= ("Source-only fixture diagnostic." :: Text)] | unit <- units],
+            "languages" .= map language units,
             "terminology" .= map term (values (field "termCandidates" value)),
             "sentenceFragment" .= (map (textValue . field "source") units == [fragment]),
             "fragmentReason" .= ("A vocative phrase." :: Text)

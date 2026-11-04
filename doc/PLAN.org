@@ -494,7 +494,7 @@ Third build: all three agentic suites passed and all four libraries installed. W
 :LABELS:   []
 :ISSUE_TYPE: bug
 :CREATED:  [2026-11-02 Mon 15:27]
-:MODIFIED: [2026-11-02 Mon 15:27]
+:MODIFIED: [2026-11-04 Wed 15:05]
 :CREATED_BY: johnw
 :SOURCE_REPO: agent-workflows
 :SOURCE_REPO_PATH: /Users/johnw/Products/translate-tool-routing-20261023/agent-workflows
@@ -506,6 +506,10 @@ Native70871 completed all19 consultations and mechanical checks, yet independent
 ** Acceptance Criteria
 
 Red-before-green prompt/data-flow regressions; unchanged normal19 graph, strict schemas and source-hidden backs; owning source/workflow/cookbook/package gates; owner-led installed correction and fresh serial full native file/pasted runs with actual source/imagery/artifact inspection. Deterministic checks and scores are not linguistic proof.
+
+** Notes
+
+2026-11-04: Native26274 on installed0c/1c completed19 fresh SDK sessions/19 HTTP requests but independent source audit rejects hearts/idle-worship, clay/remoteness/hereafter and vessel/ocean/lightning losses. All15 source-bearing prompts retain original source/diacritics and generic grounding. Preserve byte-exact artifacts plus REJECTED-QUALITY.md (../.pi/routing-evidence/native26274-rejected-quality-v1.json). Remedy adds ordered source-only meaning readings to existing brief call, complete strict id/nonempty validation, no candidate/style calibration in that request, fallible diagnostic forwarding and no blind-back leakage. No fixture answers, extra consultations, model/effort/timeout/client/backend changes. Two new contract/flow tests failed before implementation; all44 helper tests pass. Haskell fixture/procedure docs updated; owning gates, supported package/owner install and fresh serial full19 Arabic/Persian semantic acceptance still required. Prior accepted Arabic35517 belongs to1c only, not new behavior. Issue remains in progress.
 
 ** Dependencies
 

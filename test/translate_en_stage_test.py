@@ -34,6 +34,7 @@ def document(source=ARABIC):
 def prepared(doc, fragment=False):
     context = stage.section(doc)
     return stage.accept("brief", context, {
+        "sourceReadings": [{"id": u["id"], "meaning": "Source-only fixture diagnostic."} for u in context["units"]],
         "languages": [{"id": u["id"], "language": "Persian" if "ای دوست" in u["source"] else "Arabic"} for u in context["units"]],
         "terminology": [{"term": term["term"], "applications": [{"unitId": unit_id, "applies": True, "reason": "The term is applicable in this source."} for unit_id in term["unitIds"]]} for term in context["termCandidates"]],
         "sentenceFragment": fragment, "fragmentReason": "A vocative phrase, not a complete sentence." if fragment else "",
@@ -164,7 +165,8 @@ class TranslationStages(unittest.TestCase):
     def test_conditional_glossary_and_alternatives(self):
         doc = document("باب")
         context = stage.section(doc)
-        brief = {"languages": [{"id": context["units"][0]["id"], "language": "Arabic"}],
+        brief = {"sourceReadings": [{"id": context["units"][0]["id"], "meaning": "A door."}],
+                 "languages": [{"id": context["units"][0]["id"], "language": "Arabic"}],
                  "terminology": [{"term": context["termCandidates"][0]["term"], "applications": [{"unitId": context["units"][0]["id"], "applies": False, "reason": "A door, not the person."}]}],
                  "sentenceFragment": True, "fragmentReason": "A noun."}
         context = draft(stage.accept("brief", context, brief), "A door")
@@ -211,6 +213,64 @@ class TranslationStages(unittest.TestCase):
             decision["term"] = term["source"]
         with self.assertRaisesRegex(stage.Invalid, "classify every detected glossary entry"):
             stage.accept("brief", context, words)
+
+    def test_source_only_reading_brief_flow(self):
+        doc = document(ARABIC + "\n\n" + PERSIAN)
+        context = stage.section(doc)
+        readings = [{"id": u["id"], "meaning": f"Source-only diagnostic {i}."}
+                    for i, u in enumerate(context["units"])]
+        brief = copy.deepcopy(prepared(doc)["brief"])
+        brief["sourceReadings"] = readings
+        request = stage.prompt("brief", context)
+        self.assertIn("sourceReadings", request)
+        self.assertIn("before any English candidate", request)
+        self.assertIn(stage.SOURCE_GROUNDING, request)
+        self.assertNotIn(stage.REGISTER, request)
+        self.assertEqual(set(json.loads(request.splitlines()[-1])),
+                         {"units", "termCandidates", "fullGlossary"})
+        context = stage.accept("brief", context, brief)
+        self.assertEqual(json.loads(stage.prompt("draft", context).splitlines()[-1])
+                         ["brief"]["sourceReadings"], readings)
+        context = draft(context)
+        for round_name in ("one", "two"):
+            back = stage.prompt("back-" + round_name, context)
+            self.assertEqual(set(json.loads(back.splitlines()[-1])), {"languages", "english"})
+            self.assertNotIn("sourceReadings", back)
+            self.assertNotIn("Source-only diagnostic", back)
+            context = stage.accept("back-" + round_name, context,
+                                   {"units": [{"id": u["id"], "text": u["source"]}
+                                              for u in context["units"]]})
+            for role in stage.ROLES:
+                payload = json.loads(stage.review_prompt(round_name, role, context).splitlines()[-1])
+                self.assertEqual(payload["source"], stage.section(doc)["units"])
+                self.assertEqual(payload["brief"]["sourceReadings"], readings)
+            context = stage.accept_reviews(round_name, context, review_body(context))
+            payload = json.loads(stage.prompt("synthesis-" + round_name, context).splitlines()[-1])
+            self.assertEqual(payload["brief"]["sourceReadings"], readings)
+            context = synthesize(context, round_name)
+        self.assertEqual(context["brief"]["sourceReadings"], readings)
+
+    def test_source_reading_contract(self):
+        doc = document(ARABIC + "\n\n" + PERSIAN)
+        context = stage.section(doc)
+        readings = [{"id": u["id"], "meaning": "Source-only diagnostic."}
+                    for u in context["units"]]
+        brief = copy.deepcopy(prepared(doc)["brief"])
+        brief["sourceReadings"] = readings
+        missing = copy.deepcopy(brief)
+        del missing["sourceReadings"]
+        with self.assertRaisesRegex(stage.Invalid, "preparation brief"):
+            stage.accept("brief", copy.deepcopy(context), missing)
+        invalid = [None, "not a list", [], readings[:1], [readings[0], readings[0]],
+                   list(reversed(readings)), [None, readings[1]],
+                   [{**readings[0], "id": "unknown"}, readings[1]],
+                   [{**readings[0], "extra": "not allowed"}, readings[1]]]
+        invalid += [[{**readings[0], "meaning": value}, readings[1]]
+                    for value in ("", "  ", None, False, 3, [])]
+        for value in invalid:
+            reply = {**copy.deepcopy(brief), "sourceReadings": value}
+            with self.subTest(value=value), self.assertRaisesRegex(stage.Invalid, "source reading"):
+                stage.accept("brief", copy.deepcopy(context), reply)
 
     def test_back_translation_prompt_has_no_source_or_glossary(self):
         context = draft(prepared(document()))

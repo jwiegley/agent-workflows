@@ -92,7 +92,9 @@ The final result identifies an absolute artifact path in either case.
 
 Every normal source section receives the following native operations:
 
-1. Prepare language identifications and a source-unit-specific terminology brief.
+1. Read each source unit for meaning before any English candidate exists, then
+   prepare language identifications and source-unit-specific terminology in the
+   same preparation brief.
 2. Produce a calibrated initial draft, preserving source-unit order.
 3. Back-translate independently, then run all six specialist reviews as a named
    text panel: diction/grammar, beauty/eloquence, clarity/accessibility,
@@ -102,6 +104,13 @@ Every normal source section receives the following native operations:
    of earlier findings and their disposition.
 6. Perform final synthesis and one constrained mechanical verification pass.
 7. Assemble validated sections in source order and publish the final artifacts.
+
+Preparation returns ordered `sourceReadings` entries, each with a source-unit
+`id` and plain-English `meaning`, without a candidate or style calibration in its
+request. These readings reach drafting, reviews and synthesis as fallible
+source-only diagnostics, never as an authoritative reference. Validation requires
+complete unit alignment and nonempty readings; it cannot prove their meaning is
+correct. Both blind backs exclude the readings as well as the original source.
 
 The original source is the authority for meaning. Drafting, both review rounds
 and both syntheses are instructed to read vocalization, homographs and word

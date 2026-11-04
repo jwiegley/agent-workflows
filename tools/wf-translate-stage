@@ -56,7 +56,8 @@ SOURCE_GROUNDING = (
     "Neither calibration examples, prior reviews nor high scores establish what this source says. "
     "Check each image, contrast, action and relation against actual source usage before judging style or confirming earlier choices. "
     "Preserve meaning rather than forcing word-for-word English: retain faithful interpretive renderings, "
-    "but familiarity or elegance cannot justify a shifted or missing concept.\n"
+    "but familiarity or elegance cannot justify a shifted or missing concept. "
+    "The brief's sourceReadings are fallible diagnostics, not a reference translation; check them as well as the candidate against the original source.\n"
 )
 GLOSSARY = list(csv.DictReader((ASSETS / "glossary.csv").open(encoding="utf-8")))
 REGISTER = (ASSETS / "register.md").read_text(encoding="utf-8")
@@ -278,8 +279,13 @@ def candidate_units(value, context, *, english=True):
 
 def check_brief(value, context):
     require_phase(context, "source")
-    exact_keys(value, ("languages", "terminology", "sentenceFragment", "fragmentReason"), "preparation brief")
+    exact_keys(value, ("sourceReadings", "languages", "terminology", "sentenceFragment", "fragmentReason"), "preparation brief")
     expected = [u["id"] for u in context["units"]]
+    readings = value["sourceReadings"]
+    require(isinstance(readings, list) and [u.get("id") for u in readings if isinstance(u, dict)] == expected, "source reading lost source unit alignment")
+    for unit in readings:
+        exact_keys(unit, ("id", "meaning"), "source reading")
+        nonempty(unit["meaning"], "source reading meaning")
     require(isinstance(value["languages"], list) and [u.get("id") for u in value["languages"] if isinstance(u, dict)] == expected, "language brief lost source unit alignment")
     for unit in value["languages"]:
         exact_keys(unit, ("id", "language"), "language entry")
@@ -381,13 +387,17 @@ def prompt(stage, context):
     prefix = f"TRANSLATE_EN_MODEL {stage}\n" + CONSULTATION
     if stage == "brief":
         require_phase(context, "source")
-        return prefix + (
+        return prefix + SOURCE_GROUNDING + (
+            "Read every source unit independently before any English candidate is shown. "
+            "Return sourceReadings in source-unit order: each id and a plain-English meaning covering its participants, images, contrasts, actions and relations. "
+            "Explain consequential ambiguous readings from the supplied vocalization, syntax and word division. "
+            "This is source analysis, not a literary draft or a match to remembered published wording. "
             'Identify source language per unit; use language exactly "Arabic", "Persian" or "mixed". Classify every detected glossary entry, in order, using its notes. '
             "Only conditional terms may be inapplicable. The complete glossary also guards against missed morphological forms. "
-            "Determine whether this is genuinely less than one sentence, not merely short or missing punctuation. A complete sentence is not a fragment. "
+            "Classify sentenceFragment for the entire supplied section, not individual units: true only when the whole input is genuinely less than one complete sentence. A vocative does not turn other complete sentences into fragments. "
             "Classify applicability separately in every matching source unit: a title in one paragraph does not make the same word a title elsewhere. "
             "Copy each integer termCandidates[].term unchanged into terminology[].term, never a source or translated word. "
-            "Return languages [{id,language}], terminology [{term:integer,applications:[{unitId,applies:boolean,reason}]}], sentenceFragment:boolean, fragmentReason:string.\n"
+            "Return sourceReadings [{id,meaning}], languages [{id,language}], terminology [{term:integer,applications:[{unitId,applies:boolean,reason}]}], sentenceFragment:boolean, fragmentReason:string.\n"
         ) + dump(source)
     if stage == "draft":
         require_phase(context, "brief")

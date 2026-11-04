@@ -9,7 +9,7 @@
     # source makes `nix build` reproducible; `cabal.project` keeps local
     # iteration fast.
     agent-cat = {
-      url = "github:jwiegley/agent-cat/0c4319007af6e219f7abd30da1ae03624eda4d5f";
+      url = "github:jwiegley/agent-cat/5ead6b89498e59a75fa595a7b341eb0ae413f678";
       flake = false;
     };
   };
